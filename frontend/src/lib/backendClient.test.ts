@@ -8,6 +8,8 @@ import {
   chancellorDraft,
   chancellorConsult,
   downloadReportArtifact,
+  fetchReportArtifactWorkProduct,
+  submitReportArtifactConfirmation,
   fetchHealth,
   getShiguanStatistics,
   listShiguanArchives,
@@ -16,6 +18,170 @@ import {
   type JinyiweiReadOptions,
   updateShiguanReview,
 } from "./backendClient.ts";
+
+const VALID_WORK_PRODUCT_BODY = {
+  work_product_id: "wp-1",
+  version: 1,
+  run_id: "run-1",
+  reply_id: "reply-1",
+  capability_id: "accounting_management_report",
+  work_status: "READY_FOR_HUMAN_CONFIRMATION",
+  confirmation_status: "PENDING",
+  artifact_state: "PUBLISHED",
+  decision: "ready",
+  facts: [{ total: "100.00" }],
+  assumptions: [],
+  recommendations: ["复核现金流"],
+  evidence_used: ["source-1"],
+  missing_evidence: [],
+  conflicts: [],
+  risk_register: ["汇率风险"],
+  artifact_manifest: [
+    {
+      kind: "management_report_xlsx",
+      ref: "artifact:report-1",
+      content_digest: "a".repeat(64),
+      traceable: true,
+    },
+  ],
+  artifact_gate: {
+    status: "PASSED",
+    reason_codes: [],
+    missing_kinds: [],
+    unexpected_kinds: [],
+  },
+  content_digest: "b".repeat(64),
+  created_at: "2026-08-05T08:00:00Z",
+  artifact_id: "report 甲+v1",
+  confirmation_receipts: [],
+} as const;
+
+const VALID_CONFIRMATION_RECEIPT = {
+  work_product_id: "wp-1",
+  version: 1,
+  sequence: 1,
+  decision: "CONFIRMED",
+  actor_ref: "user:current-session-owner",
+  structured_reason: "已核对来源与勾稽关系",
+  created_at: "2026-08-05T08:05:00Z",
+} as const;
+
+test("fetchReportArtifactWorkProduct strictly parses separate work and confirmation axes", async () => {
+  let url = "";
+  let authorization = "";
+  const result = await fetchReportArtifactWorkProduct("report 甲+v1", {
+    baseUrl: "http://backend.test/",
+    sessionId: "opaque-session",
+    fetchImpl: async (input, init) => {
+      url = String(input);
+      authorization = (init?.headers as Record<string, string>).authorization;
+      return Response.json(VALID_WORK_PRODUCT_BODY);
+    },
+  });
+  assert.equal(
+    url,
+    "http://backend.test/api/v1/report-artifacts/report%20%E7%94%B2%2Bv1/work-product",
+  );
+  assert.equal(authorization, "Bearer opaque-session");
+  assert.equal(result.ok, true);
+  if (result.ok) {
+    assert.equal(result.data.workStatus, "READY_FOR_HUMAN_CONFIRMATION");
+    assert.equal(result.data.confirmationStatus, "PENDING");
+    assert.equal(result.data.artifactState, "PUBLISHED");
+  }
+});
+
+test("fetchReportArtifactWorkProduct accepts a complete legal confirmation receipt", async () => {
+  const result = await fetchReportArtifactWorkProduct("artifact-1", {
+    sessionId: "session",
+    fetchImpl: async () =>
+      Response.json({
+        ...VALID_WORK_PRODUCT_BODY,
+        confirmation_status: "CONFIRMED",
+        confirmation_receipts: [VALID_CONFIRMATION_RECEIPT],
+      }),
+  });
+  assert.equal(result.ok, true);
+  if (result.ok) {
+    assert.deepEqual(result.data.confirmationReceipts, [
+      {
+        workProductId: "wp-1",
+        version: 1,
+        sequence: 1,
+        decision: "CONFIRMED",
+        actorRef: "user:current-session-owner",
+        structuredReason: "已核对来源与勾稽关系",
+        createdAt: "2026-08-05T08:05:00Z",
+      },
+    ]);
+  }
+});
+
+for (const decision of [["CONFIRMED"], { value: "CONFIRMED" }, 1]) {
+  test(`fetchReportArtifactWorkProduct rejects non-string receipt decision ${JSON.stringify(decision)}`, async () => {
+    const result = await fetchReportArtifactWorkProduct("artifact-1", {
+      sessionId: "session",
+      fetchImpl: async () =>
+        Response.json({
+          ...VALID_WORK_PRODUCT_BODY,
+          confirmation_status: "CONFIRMED",
+          confirmation_receipts: [{ ...VALID_CONFIRMATION_RECEIPT, decision }],
+        }),
+    });
+    assert.deepEqual(result, { ok: false, kind: "contract" });
+  });
+}
+
+for (const [name, body] of [
+  ["missing work_status", { ...VALID_WORK_PRODUCT_BODY, work_status: undefined }],
+  [
+    "missing confirmation_status",
+    { ...VALID_WORK_PRODUCT_BODY, confirmation_status: undefined },
+  ],
+  [
+    "published without statuses",
+    {
+      ...VALID_WORK_PRODUCT_BODY,
+      work_status: undefined,
+      confirmation_status: undefined,
+    },
+  ],
+  ["owner identity", { ...VALID_WORK_PRODUCT_BODY, owner_user_id: "private-owner" }],
+  ["Shiguan review status", { ...VALID_WORK_PRODUCT_BODY, review_status: "ACHIEVED" }],
+] as const) {
+  test(`fetchReportArtifactWorkProduct rejects contract response: ${name}`, async () => {
+    const result = await fetchReportArtifactWorkProduct("artifact-1", {
+      sessionId: "session",
+      fetchImpl: async () => Response.json(body),
+    });
+    assert.deepEqual(result, { ok: false, kind: "contract" });
+  });
+}
+
+test("submitReportArtifactConfirmation sends only decision and structured_reason", async () => {
+  let observedBody: unknown;
+  const result = await submitReportArtifactConfirmation(
+    "artifact/opaque",
+    { decision: "CONFIRMED", structuredReason: "已核对来源与勾稽关系" },
+    {
+      sessionId: "session",
+      fetchImpl: async (_input, init) => {
+        observedBody = JSON.parse(String(init?.body));
+        return Response.json({
+          ...VALID_WORK_PRODUCT_BODY,
+          artifact_id: "artifact/opaque",
+          confirmation_status: "CONFIRMED",
+        });
+      },
+    },
+  );
+  assert.deepEqual(observedBody, {
+    decision: "CONFIRMED",
+    structured_reason: "已核对来源与勾稽关系",
+  });
+  assert.equal(result.ok, true);
+  if (result.ok) assert.equal(result.data.confirmationStatus, "CONFIRMED");
+});
 
 test("chancellor draft uses 570 second default timeout", async () => {
   let scheduledDelay: number | undefined;
@@ -407,6 +573,9 @@ const SINGLE_ROUTE_BODY = {
   council_verdict: null,
   final_verdict: "丞相汇总：预算可控，可分期拨付。",
   recommendations: ["核定预算", "分期拨付", "设置审计节点"],
+  delivery_kind: "none",
+  delivery_period: null,
+  artifacts: [],
 };
 
 test("submitDecree maps HTTP 409 to draft_not_current", async () => {
@@ -449,14 +618,19 @@ const MULTI_ROUTE_BODY = {
   council_verdict: "军机处会审：分期拨付并按里程碑验收。",
   final_verdict: "丞相汇总：准予分阶段兴修水利。",
   recommendations: ["先完成勘察", "分期拨付预算", "按里程碑验收"],
+  delivery_kind: "none",
+  delivery_period: null,
+  artifacts: [],
 };
 
 test("submitDecree：成功路径（single 路由）- 后端返回符合契约的响应时映射为 ok: true", async () => {
   const result = await submitDecree("请核查国库存银", memoryRequestOptions(SINGLE_ROUTE_BODY));
   assert.equal(result.ok, true);
   if (result.ok) {
-      const { artifacts, ...data } = result.data;
+      const { artifacts, deliveryKind, deliveryPeriod, ...data } = result.data;
       assert.deepEqual(artifacts, []);
+      assert.equal(deliveryKind, "none");
+      assert.equal(deliveryPeriod, null);
       assert.deepEqual(data, {
         status: "ok",
         chancellor: "丞相",
@@ -807,6 +981,7 @@ const SHIGUAN_ARCHIVE_BODY = {
     reviewed_at: "2026-07-17T00:20:00+00:00",
     note: "仍需观察河工进度。",
   },
+  decision_status: null,
   evidence_references: [],
 };
 
@@ -841,6 +1016,7 @@ Object.assign(JINYIWEI_EVIDENCE, {
 function jinyiweiReadOptions(body: unknown): JinyiweiReadOptions {
   return {
     baseUrl: "https://unused.invalid",
+    sessionId: "jinyiwei-test-session",
     fetchImpl: async (_input, init) => {
       assert.equal(init?.method, "GET");
       return new Response(typeof body === "string" ? body : JSON.stringify(body), {
@@ -920,6 +1096,31 @@ test("Jinyiwei client rejects missing fact category", async () => {
   assert.equal(result.ok, false);
 });
 
+test("Jinyiwei client rejects a non-market required fact missing the schema market_metric key", async () => {
+  const fixture = JSON.parse(readFileSync(JINYIWEI_MODEL_DUMP_PATH, "utf-8")) as {
+    investigation_detail: { request: { required_facts: Array<Record<string, unknown>> } };
+  };
+  const body = structuredClone(fixture.investigation_detail);
+  body.request.required_facts[0].category = "PUBLIC_STATISTIC";
+  body.request.required_facts[0].market_metric = null;
+  delete (body.request.required_facts[0] as { market_metric?: unknown }).market_metric;
+  const { getJinyiweiInvestigation } = await import("./backendClient.ts");
+  const result = await getJinyiweiInvestigation("inv-missing-market-metric-key", jinyiweiReadOptions(body));
+  assert.equal(result.ok, false);
+});
+
+test("Jinyiwei client rejects a market quote required fact missing market_metric", async () => {
+  const fixture = JSON.parse(readFileSync(JINYIWEI_MODEL_DUMP_PATH, "utf-8")) as {
+    investigation_detail: { request: { required_facts: Array<Record<string, unknown>> } };
+  };
+  const body = structuredClone(fixture.investigation_detail);
+  body.request.required_facts[0].category = "MARKET_QUOTE";
+  delete (body.request.required_facts[0] as { market_metric?: unknown }).market_metric;
+  const { getJinyiweiInvestigation } = await import("./backendClient.ts");
+  const result = await getJinyiweiInvestigation("inv-market-quote-missing-metric", jinyiweiReadOptions(body));
+  assert.equal(result.ok, false);
+});
+
 test("锦衣卫纯契约拒绝可注入内存 fetch 与确定性 timer", async () => {
   let fetchCalls = 0;
   let scheduled = 0;
@@ -928,6 +1129,7 @@ test("锦衣卫纯契约拒绝可注入内存 fetch 与确定性 timer", async (
 
   const result = await getJinyiweiInvestigation("inv", {
     baseUrl: "unsupported://unused",
+    sessionId: "jinyiwei-test-session",
     fetchImpl: async (_input, init) => {
       fetchCalls += 1;
       assert.equal(init?.method, "GET");
@@ -957,6 +1159,7 @@ test("锦衣卫客户端严格映射 summary/list/detail，并编码详情 ID", 
   const seen: string[] = [];
   const options: JinyiweiReadOptions = {
     baseUrl: "https://backend.invalid",
+    sessionId: "jinyiwei-test-session",
     fetchImpl: async (input, init) => {
       const url = new URL(String(input));
       seen.push(url.pathname + url.search);
@@ -1033,6 +1236,78 @@ test("锦衣卫客户端严格映射 summary/list/detail，并编码详情 ID", 
       "/api/v1/jinyiwei/investigations?status=RESOLVED&limit=10&offset=0",
     ),
   );
+});
+
+test("Jinyiwei read clients send the exact Bearer session on all three GETs", async () => {
+  const {
+    getJinyiweiSummary,
+    listJinyiweiInvestigations,
+    getJinyiweiInvestigation,
+  } = await import("./backendClient.ts");
+  const authorizations: string[] = [];
+  const options: JinyiweiReadOptions = {
+    baseUrl: "https://backend.invalid",
+    sessionId: "opaque-jinyiwei-session",
+    fetchImpl: async (input, init) => {
+      authorizations.push(new Headers(init?.headers).get("authorization") ?? "");
+      const url = new URL(String(input));
+      const body = url.pathname.endsWith("/summary")
+        ? {
+            total_investigations: 0, resolved_count: 0, partial_count: 0,
+            blocked_count: 0, unavailable_count: 0, distinct_evidence_count: 0,
+            pending_adoption_count: 0, confirmed_adoption_count: 0,
+          }
+        : url.pathname.endsWith("/investigations")
+          ? { items: [], total: 0, limit: 20, offset: 0 }
+          : JINYIWEI_DETAIL;
+      return new Response(JSON.stringify(body), { status: 200 });
+    },
+    scheduleTimeout: () => "jinyiwei-auth-timeout",
+    cancelTimeout: (handle) => assert.equal(handle, "jinyiwei-auth-timeout"),
+  };
+
+  assert.equal((await getJinyiweiSummary(options)).ok, true);
+  assert.equal((await listJinyiweiInvestigations(options)).ok, true);
+  assert.equal((await getJinyiweiInvestigation("inv-1", options)).ok, true);
+  assert.deepEqual(authorizations, [
+    "Bearer opaque-jinyiwei-session",
+    "Bearer opaque-jinyiwei-session",
+    "Bearer opaque-jinyiwei-session",
+  ]);
+});
+
+test("Jinyiwei read clients reject blank sessions before fetch", async () => {
+  const {
+    getJinyiweiSummary,
+    listJinyiweiInvestigations,
+    getJinyiweiInvestigation,
+  } = await import("./backendClient.ts");
+  let fetchCalls = 0;
+  const results = [];
+
+  for (const sessionId of ["", " \t "]) {
+    const options: JinyiweiReadOptions = {
+      baseUrl: "https://backend.invalid",
+      sessionId,
+      fetchImpl: async () => {
+        fetchCalls += 1;
+        return new Response("{}", { status: 200 });
+      },
+      scheduleTimeout: () => "blank-session-timeout",
+      cancelTimeout: () => undefined,
+    };
+    results.push(
+      await getJinyiweiSummary(options),
+      await listJinyiweiInvestigations(options),
+      await getJinyiweiInvestigation("inv-1", options),
+    );
+  }
+
+  assert.equal(fetchCalls, 0);
+  for (const result of results) {
+    assert.equal(result.ok, false);
+    if (!result.ok) assert.equal(result.kind, "validation");
+  }
 });
 
 test("锦衣卫客户端嵌套契约额外字段与证据分组不匹配时整包拒绝", async () => {
@@ -1480,20 +1755,68 @@ test("authenticated backend calls send Bearer sessions and preserve a backend 40
   });
 });
 
-test("submitDecree maps missing artifacts to an empty compatibility list", async () => {
-  const result = await submitDecree("report", memoryRequestOptions(SINGLE_ROUTE_BODY));
-  assert.equal(result.ok, true);
-  if (result.ok) assert.deepEqual(result.data.artifacts, []);
+test("submitDecree rejects a response with a missing artifacts field", async () => {
+  const bodyWithoutArtifacts = { ...SINGLE_ROUTE_BODY } as Record<string, unknown>;
+  delete bodyWithoutArtifacts.artifacts;
+  const result = await submitDecree("report", memoryRequestOptions(bodyWithoutArtifacts));
+  assert.equal(result.ok, false);
+  if (!result.ok) assert.equal(result.kind, "unknown");
 });
 
+test("submitDecree maps source_not_current 409 independently", async () => {
+  const result = await submitDecree(
+    "stale accounting source",
+    memoryRequestOptions({ status: "error", reason: "source_not_current", message: "private upstream text" }, 409),
+  );
+  assert.deepEqual(result, { ok: false, kind: "source_not_current", error: "accounting source changed" });
+});
+
+test("submitDecree rejects a success response with missing delivery_kind", async () => {
+  const body = { ...SINGLE_ROUTE_BODY } as Record<string, unknown>;
+  delete body.delivery_kind;
+  const result = await submitDecree("ordinary", memoryRequestOptions(body));
+  assert.equal(result.ok, false);
+  if (!result.ok) assert.equal(result.kind, "unknown");
+});
+
+for (const [deliveryKind, artifacts, expectedOk] of [
+  ["none", [], true],
+  ["none", [VALID_REPORT_ARTIFACT_TASK_8], false],
+  ["accounting_report", [], false],
+  ["accounting_analysis", [], false],
+  ["accounting_analysis", [VALID_REPORT_ARTIFACT_TASK_8], true],
+  ["accounting_analysis", [VALID_REPORT_ARTIFACT_TASK_8, { ...VALID_REPORT_ARTIFACT_TASK_8, artifact_id: "second" }], false],
+] as const) {
+  test(`submitDecree enforces delivery/artifact cardinality: ${deliveryKind}/${artifacts.length}`, async () => {
+    const result = await submitDecree("delivery", memoryRequestOptions({
+      ...SINGLE_ROUTE_BODY,
+      delivery_kind: deliveryKind,
+      delivery_period: deliveryKind === "none" ? null : { start_year: 2024, end_year: 2025 },
+      artifacts,
+    }));
+    assert.equal(result.ok, expectedOk);
+  });
+}
+
 test("submitDecree strictly maps a valid report artifact", async () => {
-  const result = await submitDecree("report", memoryRequestOptions({ ...SINGLE_ROUTE_BODY, artifacts: [VALID_REPORT_ARTIFACT_TASK_8] }));
+  const result = await submitDecree("report", memoryRequestOptions({ ...SINGLE_ROUTE_BODY, delivery_kind: "accounting_report", delivery_period: { start_year: 2024, end_year: 2025 }, artifacts: [VALID_REPORT_ARTIFACT_TASK_8] }));
   assert.equal(result.ok, true);
   if (result.ok) assert.deepEqual(result.data.artifacts, [{
     artifactId: "artifact-2025", kind: "ACCOUNTING_MANAGEMENT_REPORT_XLSX",
     displayName: "management-report.xlsx", periodStart: 2024, periodEnd: 2025,
     generatedAt: "2026-07-29T08:00:00Z",
   }]);
+});
+
+test("submitDecree rejects an artifact outside the authoritative delivery period", async () => {
+  const result = await submitDecree("report", memoryRequestOptions({
+    ...SINGLE_ROUTE_BODY,
+    delivery_kind: "accounting_analysis",
+    delivery_period: { start_year: 2025, end_year: 2025 },
+    artifacts: [VALID_REPORT_ARTIFACT_TASK_8],
+  }));
+  assert.equal(result.ok, false);
+  if (!result.ok) assert.equal(result.kind, "unknown");
 });
 
 for (const [name, artifacts] of [

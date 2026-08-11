@@ -87,3 +87,25 @@ test("shiguan visual is a local interaction layer with honest states", async () 
   assert.match(css, /@media \(max-width: 700px\)/);
   assert.match(css, /:focus-visible/);
 });
+
+test("document decisions render as the final scroll-body section with honest interaction states", async () => {
+  const [workspace, detail, css] = await Promise.all([
+    readFile(new URL("./ShiguanWorkspace.tsx", import.meta.url), "utf8"),
+    readFile(new URL("./ShiguanArchiveDetail.tsx", import.meta.url), "utf8"),
+    readFile(new URL("./ShiguanWorkspace.module.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(workspace, /decisionState=\{props\.decisionState\}/);
+  assert.match(workspace, /onDecision=\{props\.onDecision\}/);
+  assert.match(detail, /decisionActionsForArchive\(archive\.type\)/);
+  assert.match(detail, /aria-label="文书处置"/);
+  assert.match(detail, /role=\{decisionState\.status === "error" \? "alert" : "status"\}/);
+  assert.match(detail, /decisionState\.status === "loading"/);
+  assert.match(detail, /archive\.decisionStatus/);
+  assert.match(detail, /<time dateTime=\{archive\.decisionStatus\.decidedAt\}/);
+  assert.match(detail, /<section className=\{styles\.decisionPanel\}[\s\S]*<\/section>\s*<\/article>/);
+  assert.match(css, /\.decisionButton[\s\S]*min-height:\s*44px/);
+  assert.match(css, /\.decisionButton:focus-visible/);
+  assert.match(css, /@media \(max-width: 420px\)[\s\S]*\.decisionButtons[\s\S]*grid-template-columns:\s*1fr/);
+  assert.match(css, /overflow-wrap:\s*anywhere/);
+});

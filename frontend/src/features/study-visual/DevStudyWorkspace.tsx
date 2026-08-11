@@ -11,10 +11,12 @@ import { ImmersiveCourtShell } from "../court-visuals/ImmersiveCourtShell";
 import styles from "./DevStudyWorkspace.module.css";
 import { StudySideDrawers } from "./StudySideDrawers";
 import { StudyArtifactLinks } from "./StudyArtifactLinks";
+import { StudyArtifactConfirmation } from "./StudyArtifactConfirmation";
 import { getStudyDepartmentCountLabel, projectStudyArtifacts } from "./studyWorkspaceState";
 import type { ConsultMessage } from "../../app/study/chancellorConsultStatus";
 import {
   draftDepartmentDisplayRows,
+  projectDraftConfirmation,
   type ChancellorDraftResult,
 } from "../../app/study/chancellorDraft";
 import { projectQintianDecisionRadar } from "../../app/study/qintianDecisionRadar";
@@ -22,6 +24,11 @@ import { createQintianContext } from "../../app/study/qintianWorkspaceState";
 import type { StudyRecentRepliesState } from "../../app/study/studyRecentReplies";
 import type { ShiguanArchive } from "../../lib/backendClient";
 import { formatBusinessTime } from "../../lib/formatBusinessTime";
+import {
+  canConfirmDailyMemorial,
+  dailyMemorialPhaseLabel,
+  type DailyMemorialUiState,
+} from "../../app/study/dailyMemorialDraft";
 
 const ONBOARDED_KEY = "courtos.onboarded";
 const RULER_STYLE_KEY = "courtos.ruler.style";
@@ -85,6 +92,9 @@ export interface DevStudyWorkspaceProps {
   consultPending: boolean;
   consultError: string | null;
   onConsultSend(content: string): Promise<boolean>;
+  dailyMemorialState: DailyMemorialUiState;
+  onConfirmDailyMemorial(): void;
+  onRetryDailyMemorial(): void;
 }
 
 function FirstCourtRitual({
@@ -208,6 +218,9 @@ export function DevStudyWorkspace(props: DevStudyWorkspaceProps) {
   const showScroll = expanded || archivedReply !== null || props.uiState.phase !== "idle" || props.draftPending || props.draftError !== null || props.draftResult !== null;
   const hasReplyContent = archivedReply !== null || props.uiState.phase === "success" || props.draftPending || props.draftError !== null || props.draftResult !== null;
   const artifactView = projectStudyArtifacts(props.uiState);
+  const draftConfirmation = props.draftResult
+    ? projectDraftConfirmation(props.draftResult)
+    : null;
   const qintianRadar = projectQintianDecisionRadar({
     decreeText: props.decreeText,
     draftResult: props.draftResult,
@@ -314,6 +327,61 @@ export function DevStudyWorkspace(props: DevStudyWorkspaceProps) {
       scene="study"
     >
       <div className={styles.stage}>
+        <section
+          className={styles.dailyMemorialCard}
+          aria-labelledby="daily-memorial-title"
+          data-phase={props.dailyMemorialState.phase}
+        >
+          <header className={styles.dailyMemorialHeader}>
+            <div>
+              <p className={styles.dailyMemorialEyebrow}>39司 → 6部 → 丞相</p>
+              <h2 id="daily-memorial-title">每日奏折</h2>
+            </div>
+            <span className={styles.dailyMemorialSeal}>
+              {dailyMemorialPhaseLabel(props.dailyMemorialState.phase)}
+            </span>
+          </header>
+          <p className={styles.dailyMemorialStatus} aria-live="polite">
+            {props.dailyMemorialState.message}
+          </p>
+          {(props.dailyMemorialState.phase === "ready" ||
+            props.dailyMemorialState.phase === "confirming" ||
+            props.dailyMemorialState.phase === "confirmed") &&
+            props.dailyMemorialState.draft && (
+            <div className={styles.dailyMemorialBody}>
+              <dl className={styles.dailyMemorialMeta}>
+                <div><dt>报告日期</dt><dd>{props.dailyMemorialState.draft.reportDate}</dd></div>
+                <div><dt>事实截止</dt><dd>{formatBusinessTime(props.dailyMemorialState.draft.sourceWindowEnd)}</dd></div>
+              </dl>
+              <p className={styles.dailyMemorialProgress}>
+                <span>39/39 司</span><i aria-hidden="true">→</i><span>6/6 部</span><i aria-hidden="true">→</i><span>丞相汇总</span>
+              </p>
+              <div className={styles.dailyMemorialContent}>
+                {props.dailyMemorialState.draft.content}
+              </div>
+              <p className={styles.dailyMemorialFacts}>
+                事实引用 {props.dailyMemorialState.draft.factRefs.length} 条
+              </p>
+              <button
+                type="button"
+                className={styles.dailyMemorialConfirm}
+                onClick={props.onConfirmDailyMemorial}
+                disabled={!canConfirmDailyMemorial(props.dailyMemorialState)}
+              >
+                确认上奏并归档为奏折
+              </button>
+            </div>
+          )}
+          {props.dailyMemorialState.phase === "no_facts" && (
+            <p className={styles.dailyMemorialNotice}>报告期内没有可用的受控事实，因此没有生成待审草稿。</p>
+          )}
+          {(props.dailyMemorialState.phase === "failed" ||
+            props.dailyMemorialState.phase === "error") && (
+            <button type="button" className={styles.dailyMemorialRetry} onClick={props.onRetryDailyMemorial}>
+              重新读取状态
+            </button>
+          )}
+        </section>
         <button
           className={styles.scrollToggle}
           type="button"
@@ -389,7 +457,7 @@ export function DevStudyWorkspace(props: DevStudyWorkspaceProps) {
                     </section>
                   )}
                   <h2>即将下旨的草案</h2>
-                  <p data-testid="chancellor-issue-draft">{props.draftResult.expert_example}</p>
+                  <p data-testid="chancellor-issue-draft">{draftConfirmation?.visibleCanonicalText}</p>
                   <p><strong>当前状态：</strong>{props.draftResult.status}</p>
                   <p>
                     <strong>下旨：</strong>
@@ -397,15 +465,17 @@ export function DevStudyWorkspace(props: DevStudyWorkspaceProps) {
                       ? "草案完整，可以直接下旨"
                       : props.draftResult.revision_prompt}
                   </p>
-                  <button
-                    type="button"
-                    className={styles.submit}
-                    data-testid="submit-decree-button"
-                    disabled={!props.canSubmit}
-                    onClick={props.onSubmit}
-                  >
-                    {props.uiState.phase === "submitting" ? "办理中" : "下旨"}
-                  </button>
+                  {draftConfirmation?.showIssueAction && (
+                    <button
+                      type="button"
+                      className={styles.submit}
+                      data-testid="submit-decree-button"
+                      disabled={!props.canSubmit}
+                      onClick={props.onSubmit}
+                    >
+                      {["enqueueing", "queued", "running"].includes(props.uiState.phase) ? "办理中" : "下旨"}
+                    </button>
+                  )}
                 </div>
               </section>
             </EdictStage>
@@ -478,6 +548,9 @@ export function DevStudyWorkspace(props: DevStudyWorkspaceProps) {
                     {props.uiState.recommendations.map((recommendation) => <li key={recommendation}>{recommendation}</li>)}
                   </ol>
                   <StudyArtifactLinks artifacts={artifactView} className={styles.artifact} />
+                  {artifactView.map((artifact) => (
+                    <StudyArtifactConfirmation key={artifact.artifactId} artifactId={artifact.artifactId} />
+                  ))}
                 </div>
               </section>
             </EdictStage>
@@ -489,7 +562,9 @@ export function DevStudyWorkspace(props: DevStudyWorkspaceProps) {
               aria-live="polite"
             >
               {props.uiState.phase === "idle" && <p>暂无奏折，陛下可下达新旨。</p>}
-              {props.uiState.phase === "submitting" && <p>圣旨已递，正在等候丞相与百官回奏……</p>}
+              {props.uiState.phase === "enqueueing" && <p>圣旨正在入队……</p>}
+              {props.uiState.phase === "queued" && <p>圣旨已入队，正在等候办理……</p>}
+              {props.uiState.phase === "running" && <p>丞相与百官正在办理圣旨……</p>}
             </section>
           )}
         </section>

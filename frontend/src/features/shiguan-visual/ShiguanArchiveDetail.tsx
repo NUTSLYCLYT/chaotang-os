@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import type {
+  ArchiveDecisionValue,
   ReviewStatusValue,
   ShiguanArchive,
 } from "../../lib/backendClient.ts";
@@ -15,7 +16,14 @@ import {
   resolveReviewDraft,
   REVIEW_STATUS_LABELS,
 } from "../../app/shiguan/archiveStatus.ts";
-import type { ShiguanReviewViewState } from "./ShiguanWorkspace";
+import {
+  decisionActionsForArchive,
+  formatArchiveDecision,
+} from "../../app/shiguan/shiguanDecision.ts";
+import type {
+  ShiguanDecisionViewState,
+  ShiguanReviewViewState,
+} from "./ShiguanWorkspace";
 import styles from "./ShiguanWorkspace.module.css";
 
 const REVIEW_STATUSES: ReviewStatusValue[] = [
@@ -27,8 +35,12 @@ const REVIEW_STATUSES: ReviewStatusValue[] = [
 
 export function ShiguanArchiveDetail({
   archive,
+  decisionState,
+  onDecision,
 }: {
   archive: ShiguanArchive | null;
+  decisionState: ShiguanDecisionViewState;
+  onDecision(id: string, decision: ArchiveDecisionValue): void;
 }) {
   if (archive === null) {
     return (
@@ -51,7 +63,7 @@ export function ShiguanArchiveDetail({
           <h2>{archive.title}</h2>
         </div>
         <span className={styles.statusBadge}>
-          {formatReviewStatus(archive.reviewStatus?.status ?? null)}
+          {formatArchiveDecision(archive.decisionStatus?.decision ?? null)}
         </span>
       </header>
 
@@ -193,6 +205,51 @@ export function ShiguanArchiveDetail({
               );
             })}
           </ol>
+        )}
+      </section>
+
+      <section className={styles.decisionPanel} aria-label="文书处置">
+        <div className={styles.decisionHeading}>
+          <div>
+            <p className={styles.scrollKicker}>FINAL DISPOSITION</p>
+            <h3>文书处置</h3>
+          </div>
+          <strong>{formatArchiveDecision(archive.decisionStatus?.decision ?? null)}</strong>
+        </div>
+        {archive.decisionStatus ? (
+          <p className={styles.decisionResult} role="status">
+            {formatArchiveDecision(archive.decisionStatus.decision)} ·{" "}
+            <time dateTime={archive.decisionStatus.decidedAt}>
+              {formatBusinessTime(archive.decisionStatus.decidedAt)}
+            </time>
+          </p>
+        ) : (
+          <p className={styles.decisionHint}>处置一经归档不可更改，请确认后提交。</p>
+        )}
+        <div className={styles.decisionButtons}>
+          {decisionActionsForArchive(archive.type).map((action) => {
+            const isLoading = decisionState.archiveId === archive.id &&
+              decisionState.status === "loading";
+            return (
+              <button
+                className={styles.decisionButton}
+                disabled={archive.decisionStatus !== null || decisionState.status === "loading"}
+                key={action.decision}
+                onClick={() => onDecision(archive.id, action.decision)}
+                type="button"
+              >
+                {isLoading ? "处理中…" : action.label}
+              </button>
+            );
+          })}
+        </div>
+        {decisionState.archiveId === archive.id && (
+          <p
+            className={decisionState.status === "error" ? styles.decisionError : styles.decisionMessage}
+            role={decisionState.status === "error" ? "alert" : "status"}
+          >
+            {decisionState.message}
+          </p>
         )}
       </section>
     </article>

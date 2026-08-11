@@ -83,15 +83,21 @@ test("拟旨完成后提示核对草案假设而不是声称正式预测", () =>
   assert.doesNotMatch(JSON.stringify(view), /成功率|正式预测已完成/);
 });
 
-test("提交中只说明等待真实回奏", () => {
-  const view = projectQintianDecisionRadar({
-    ...IDLE,
-    decreeText: "评估扩建工厂",
-    uiState: { phase: "submitting" },
-  });
+test("入队和执行中只说明等待真实回奏", () => {
+  for (const uiState of [
+    { phase: "enqueueing" } as const,
+    { phase: "queued", jobId: "a".repeat(32) } as const,
+    { phase: "running", jobId: "a".repeat(32) } as const,
+  ]) {
+    const view = projectQintianDecisionRadar({
+      ...IDLE,
+      decreeText: "评估扩建工厂",
+      uiState,
+    });
 
-  assert.equal(view.mode, "IN_REVIEW");
-  assert.match(view.summary, /等待真实回奏/);
+    assert.equal(view.mode, "IN_REVIEW");
+    assert.match(view.summary, /等待真实回奏/);
+  }
 });
 
 test("成功回奏后进入正式回奏复核并引用真实部门", () => {
@@ -109,6 +115,7 @@ test("成功回奏后进入正式回奏复核并引用真实部门", () => {
       councilVerdict: "建议分阶段验证",
       finalVerdict: "先验证订单再扩建",
       recommendations: ["核实订单", "测算现金流", "设置退出条件"],
+      deliveryKind: "none",
       artifacts: [],
     },
   });

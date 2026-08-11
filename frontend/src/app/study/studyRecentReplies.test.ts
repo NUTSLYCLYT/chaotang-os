@@ -32,6 +32,7 @@ function reply(id: string): ShiguanArchive {
     replyTime: "2026-07-28T09:00:00Z",
     respondent: "Chancellor",
     reviewStatus: null,
+    decisionStatus: null,
     evidenceReferences: [],
   };
 }

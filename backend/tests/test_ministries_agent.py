@@ -246,7 +246,7 @@ def test_accounting_report_extra_bureau_is_corrected_to_exact_required_route(
 ):
     invoked: list[str] = []
     bureau_sessions: list[object | None] = []
-    evidence_session = AgentEvidenceSession(coordinator=object())
+    evidence_session = AgentEvidenceSession(owner_user_id="test-owner", coordinator=object())
 
     def fake_bureau(_department, bureau, *_args, **kwargs):
         invoked.append(bureau)
@@ -1245,7 +1245,7 @@ def test_selector_invalid_response_does_not_record_degradation(
     monkeypatch,
 ) -> None:
     department = "\u540f\u90e8"
-    session = AgentEvidenceSession(coordinator=object())
+    session = AgentEvidenceSession(owner_user_id="test-owner", coordinator=object())
     monkeypatch.setattr(
         "app.agents.ministries.agent.invoke_bureau_agent",
         lambda *_args, **_kwargs: "READY-BUREAU",

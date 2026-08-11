@@ -11,6 +11,37 @@
   font-family: var(--font-serif, "Noto Serif SC", Georgia, serif);
 }
 
+.dailyMemorialCard {
+  position: relative;
+  z-index: 4;
+  width: min(560px, 100%);
+  min-width: 0;
+  box-sizing: border-box;
+  margin: 8px auto 0;
+  padding: 16px 18px;
+  border: 1px solid rgba(167, 124, 53, .42);
+  border-radius: 10px;
+  background: rgba(11, 13, 18, .94);
+  box-shadow: 0 16px 34px rgba(0, 0, 0, .28);
+  color: #f5e9c9;
+}
+.dailyMemorialHeader { display: flex; align-items: start; justify-content: space-between; gap: 16px; }
+.dailyMemorialEyebrow { margin: 0 0 4px; color: #a77c35; font: 700 10px/1.4 system-ui, sans-serif; letter-spacing: .16em; }
+.dailyMemorialHeader h2 { margin: 0; font: 700 20px/1.25 var(--font-serif, "Noto Serif SC", serif); letter-spacing: .08em; }
+.dailyMemorialSeal { flex: 0 0 auto; padding: 4px 7px; border: 1px solid rgba(167, 124, 53, .55); color: #d2ad6b; font-size: 10px; letter-spacing: .12em; }
+.dailyMemorialStatus, .dailyMemorialNotice { margin: 11px 0 0; color: #c7bea8; font: 12px/1.65 system-ui, sans-serif; }
+.dailyMemorialMeta { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 13px 0 0; }
+.dailyMemorialMeta div { min-width: 0; padding-top: 8px; border-top: 1px solid rgba(167, 124, 53, .2); }
+.dailyMemorialMeta dt { color: #8f8878; font: 10px/1.4 system-ui, sans-serif; }
+.dailyMemorialMeta dd { margin: 3px 0 0; overflow-wrap: anywhere; color: #f5e9c9; font-size: 12px; }
+.dailyMemorialProgress { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin: 12px 0 0; color: #d2ad6b; font: 700 11px/1.4 system-ui, sans-serif; }
+.dailyMemorialProgress i { color: #73654b; font-style: normal; }
+.dailyMemorialContent { max-height: 160px; margin-top: 12px; padding: 11px 12px; overflow: auto; overflow-wrap: anywhere; border-left: 2px solid #a77c35; background: rgba(245, 233, 201, .045); color: #eee1c3; font-size: 13px; line-height: 1.75; white-space: pre-wrap; }
+.dailyMemorialFacts { margin: 8px 0 0; color: #968c76; font: 11px/1.5 system-ui, sans-serif; }
+.dailyMemorialConfirm, .dailyMemorialRetry { min-height: 36px; margin-top: 12px; padding: 0 14px; border: 1px solid #a77c35; border-radius: 7px; background: transparent; color: #d2ad6b; cursor: pointer; font: 700 12px/1 var(--font-serif, serif); }
+.dailyMemorialConfirm:disabled { cursor: not-allowed; opacity: .45; }
+.dailyMemorialConfirm:focus-visible, .dailyMemorialRetry:focus-visible { outline: 2px solid #f5e9c9; outline-offset: 3px; }
+
 .scrollToggle {
   position: absolute;
   z-index: 5;
@@ -254,6 +285,8 @@
 
 @media (max-width: 700px) {
   .stage { min-height: calc(100dvh - 64px); padding: 8px 8px 148px; }
+  .dailyMemorialCard { width: 100%; padding: 14px; }
+  .dailyMemorialMeta { grid-template-columns: 1fr; }
   .scrollToggle { top: 58px; right: 12px; }
   .edictSlot { max-width: 100%; padding-inline: 0; }
   .collapsedSlot { margin-top: 377px; }

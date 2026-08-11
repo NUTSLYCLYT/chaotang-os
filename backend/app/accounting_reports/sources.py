@@ -41,8 +41,7 @@ class AccountingSourceError(ValueError):
         if code not in _ERROR_CODES:
             raise ValueError("unsupported accounting source error code")
         self.code = code
-        message = code if file_name is None else f"{code}: {Path(file_name).name}"
-        super().__init__(message)
+        super().__init__(code)
 
 
 def _safe_resolve(path: Path, root: Path) -> Path:
@@ -252,3 +251,9 @@ def load_ledger_rows(
     )
     _validate_period_coverage(rows, period)
     return rows
+
+
+def preflight_accounting_sources(source_dir: Path, period: ReportPeriod):
+    from .source_adapters import preflight_accounting_sources as preflight
+
+    return preflight(source_dir, period)

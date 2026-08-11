@@ -52,27 +52,31 @@ test("right drawer renders the qintian decision radar with provenance", async ()
 });
 
 test("side drawers preserve the dev responsive width tiers", async () => {
-  const css = await readFile(
+  const shellCss = await readFile(
     new URL("./AdvisorDrawerShell.module.css", import.meta.url),
     "utf8",
   );
-
-  assert.match(
-    css,
-    /:global\(:root\)\s*\{[^}]*--advisor-drawer-width:\s*44vw;/,
+  const triggerCss = await readFile(
+    new URL("./StudySideDrawers.module.css", import.meta.url),
+    "utf8",
   );
+
+  assert.match(shellCss, /\.shell\s*\{[^}]*--advisor-drawer-width:\s*44vw;/);
+  assert.match(triggerCss, /\.trigger\s*\{[^}]*--advisor-drawer-width:\s*44vw;/);
   assert.match(
-    css,
+    shellCss,
     /\.shell\s*\{[\s\S]*?width:\s*var\(--advisor-drawer-width\);[\s\S]*?max-width:\s*100vw;/,
   );
-  assert.match(
-    css,
-    /@media \(min-width:\s*640px\)[^{]*\{[\s\S]*?--advisor-drawer-width:\s*260px;/,
-  );
-  assert.match(
-    css,
-    /@media \(min-width:\s*1024px\)[^{]*\{[\s\S]*?--advisor-drawer-width:\s*300px;/,
-  );
+  for (const css of [shellCss, triggerCss]) {
+    assert.match(
+      css,
+      /@media \(min-width:\s*640px\)[^{]*\{[\s\S]*?--advisor-drawer-width:\s*260px;/,
+    );
+    assert.match(
+      css,
+      /@media \(min-width:\s*1024px\)[^{]*\{[\s\S]*?--advisor-drawer-width:\s*300px;/,
+    );
+  }
 });
 
 test("left drawer renders at most three archived replies", async () => {

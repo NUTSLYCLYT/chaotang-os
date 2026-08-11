@@ -1,14 +1,26 @@
 from __future__ import annotations
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.api import jinyiwei as api_module
+from app.auth import configure_auth_db, create_session, create_user
 from app.jinyiwei import storage
 from app.jinyiwei.models import EvidencePackStatus
 from app.jinyiwei.read_models import InvestigationDetail, InvestigationPage, InvestigationSummary
 from app.main import app
 
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def _authenticate_client(tmp_path):
+    configure_auth_db(tmp_path / "auth.sqlite3")
+    user = create_user("jinyiwei-user", "jinyiwei@example.com", "six-or-more")
+    client.headers["Authorization"] = f"Bearer {create_session(user.id)}"
+    yield user
+    client.headers.pop("Authorization", None)
+    configure_auth_db(None)
 
 
 def _detail_with_public_source_metadata() -> InvestigationDetail:
@@ -89,12 +101,16 @@ def _detail_with_public_source_metadata() -> InvestigationDetail:
 
 
 def test_investigation_detail_exposes_categorized_facts_and_public_source_limits(
-    monkeypatch,
+    monkeypatch, _authenticate_client,
 ) -> None:
+    seen = {}
     monkeypatch.setattr(
         api_module.storage,
         "get_investigation_detail",
-        lambda _id: _detail_with_public_source_metadata(),
+        lambda investigation_id, **kwargs: (
+            seen.update(investigation_id=investigation_id, **kwargs)
+            or _detail_with_public_source_metadata()
+        ),
     )
     body = client.get("/api/v1/jinyiwei/investigations/inv-1").json()
     assert body["request"]["required_facts"][0]["category"] == "MARKET_QUOTE"
@@ -107,13 +123,22 @@ def test_investigation_detail_exposes_categorized_facts_and_public_source_limits
     assert evidence["license_note"] == "Free public quotation feed."
     assert body["do_not_infer"] == ["fact_stale:quote"]
     assert "metadata" not in evidence
+    assert seen == {
+        "investigation_id": "inv-1",
+        "owner_user_id": _authenticate_client.id,
+    }
 
 
-def test_summary_and_list_forward_validated_read_parameters(monkeypatch) -> None:
+def test_summary_and_list_forward_validated_read_parameters(
+    monkeypatch, _authenticate_client,
+) -> None:
+    summary_seen = {}
     monkeypatch.setattr(
         api_module.storage,
         "get_investigation_summary",
-        lambda: InvestigationSummary(
+        lambda **kwargs: (
+            summary_seen.update(kwargs)
+            or InvestigationSummary(
             total_investigations=0,
             resolved_count=0,
             partial_count=0,
@@ -122,6 +147,7 @@ def test_summary_and_list_forward_validated_read_parameters(monkeypatch) -> None
             distinct_evidence_count=0,
             pending_adoption_count=0,
             confirmed_adoption_count=0,
+            )
         ),
     )
     seen = {}
@@ -137,7 +163,13 @@ def test_summary_and_list_forward_validated_read_parameters(monkeypatch) -> None
     assert client.get("/api/v1/jinyiwei/summary").status_code == 200
     response = client.get("/api/v1/jinyiwei/investigations?status=PARTIAL&limit=10&offset=2")
     assert response.status_code == 200
-    assert seen == {"status": EvidencePackStatus.PARTIAL, "limit": 10, "offset": 2}
+    assert summary_seen == {"owner_user_id": _authenticate_client.id}
+    assert seen == {
+        "owner_user_id": _authenticate_client.id,
+        "status": EvidencePackStatus.PARTIAL,
+        "limit": 10,
+        "offset": 2,
+    }
     assert response.json() == {"items": [], "total": 0, "limit": 10, "offset": 2}
 
 
@@ -147,7 +179,9 @@ def test_query_and_id_validation_happen_before_storage(monkeypatch) -> None:
         api_module.storage, "list_investigations", lambda **_kwargs: called.append(1)
     )
     monkeypatch.setattr(
-        api_module.storage, "get_investigation_detail", lambda _id: called.append(1)
+        api_module.storage,
+        "get_investigation_detail",
+        lambda _id, **_kwargs: called.append(1),
     )
 
     for url in (
@@ -165,7 +199,9 @@ def test_not_found_and_storage_failures_are_sanitized(monkeypatch) -> None:
     monkeypatch.setattr(
         api_module.storage,
         "get_investigation_detail",
-        lambda _id: (_ for _ in ()).throw(storage.InvestigationNotFoundError("secret path")),
+        lambda _id, **_kwargs: (_ for _ in ()).throw(
+            storage.InvestigationNotFoundError("secret path")
+        ),
     )
     missing = client.get("/api/v1/jinyiwei/investigations/missing")
     assert missing.status_code == 404
@@ -178,7 +214,7 @@ def test_not_found_and_storage_failures_are_sanitized(monkeypatch) -> None:
     monkeypatch.setattr(
         api_module.storage,
         "get_investigation_summary",
-        lambda: (_ for _ in ()).throw(
+        lambda **_kwargs: (_ for _ in ()).throw(
             storage.JinyiweiStorageError("SELECT secret FROM C:\\private")
         ),
     )
@@ -202,7 +238,7 @@ def test_list_and_detail_relationship_corruption_use_fixed_503(monkeypatch) -> N
     monkeypatch.setattr(
         api_module.storage,
         "get_investigation_detail",
-        lambda _id: (_ for _ in ()).throw(error),
+        lambda _id, **_kwargs: (_ for _ in ()).throw(error),
     )
 
     for url in (
@@ -231,3 +267,35 @@ def test_only_get_methods_exist_and_health_is_unchanged() -> None:
     health = client.get("/health")
     assert health.status_code == 200
     assert health.json()["status"] == "ok"
+
+
+def test_all_jinyiwei_reads_reject_anonymous_requests_before_storage(
+    monkeypatch,
+) -> None:
+    called = []
+    monkeypatch.setattr(
+        api_module.storage,
+        "get_investigation_summary",
+        lambda **_kwargs: called.append("summary"),
+    )
+    monkeypatch.setattr(
+        api_module.storage,
+        "list_investigations",
+        lambda **_kwargs: called.append("list"),
+    )
+    monkeypatch.setattr(
+        api_module.storage,
+        "get_investigation_detail",
+        lambda _id, **_kwargs: called.append("detail"),
+    )
+    client.headers.pop("Authorization")
+
+    for url in (
+        "/api/v1/jinyiwei/summary",
+        "/api/v1/jinyiwei/investigations",
+        "/api/v1/jinyiwei/investigations/inv-other-owner",
+    ):
+        response = client.get(url)
+        assert response.status_code == 401
+        assert response.json() == {"message": "invalid credentials"}
+    assert called == []

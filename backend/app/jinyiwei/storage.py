@@ -123,6 +123,12 @@ def _parse_time(value: str) -> datetime:
     return parsed
 
 
+def _require_owner(owner_user_id: str) -> str:
+    if not isinstance(owner_user_id, str) or not owner_user_id.strip():
+        raise ValueError("owner_user_id must be nonempty")
+    return owner_user_id
+
+
 def _assert_stored_request(
     connection: sqlite3.Connection,
     request_row: sqlite3.Row,
@@ -172,7 +178,12 @@ def _assert_stored_request(
         raise ValueError("fact slots mismatch")
 
 
-def _store_request(connection: sqlite3.Connection, request: DataGapRequest) -> None:
+def _store_request(
+    connection: sqlite3.Connection,
+    request: DataGapRequest,
+    *,
+    owner_user_id: str,
+) -> None:
     canonical = _canonical(request)
     existing = connection.execute(
         "SELECT * FROM data_gap_requests WHERE request_id = ?",
@@ -181,18 +192,21 @@ def _store_request(connection: sqlite3.Connection, request: DataGapRequest) -> N
     if existing is not None:
         if existing["canonical_json"] != canonical:
             raise RequestContentConflictError("request ID already has different content")
+        if existing["owner_user_id"] != owner_user_id:
+            raise RequestContentConflictError("request ID already belongs to another owner")
         _assert_stored_request(connection, existing, request)
         return
     connection.execute(
         """
         INSERT INTO data_gap_requests (
-            request_id, fingerprint, requesting_agent, question, decision_context,
+            request_id, owner_user_id, fingerprint, requesting_agent, question, decision_context,
             freshness_json, existing_evidence_ids_json, timeout_seconds,
             source_scope_json, canonical_json
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             request.request_id,
+            owner_user_id,
             request.request_fingerprint,
             request.requesting_agent,
             request.question,
@@ -227,11 +241,17 @@ def _store_request(connection: sqlite3.Connection, request: DataGapRequest) -> N
         )
 
 
-def store_data_gap_request(request: DataGapRequest, *, db_path: Path | None = None) -> None:
+def store_data_gap_request(
+    request: DataGapRequest,
+    *,
+    owner_user_id: str,
+    db_path: Path | None = None,
+) -> None:
+    owner_user_id = _require_owner(owner_user_id)
     connection = db.get_connection(db_path)
     try:
         connection.execute("BEGIN IMMEDIATE")
-        _store_request(connection, request)
+        _store_request(connection, request, owner_user_id=owner_user_id)
         connection.commit()
     except JinyiweiStorageError:
         connection.rollback()
@@ -266,23 +286,35 @@ def get_data_gap_request(request_id: str, *, db_path: Path | None = None) -> Dat
         connection.close()
 
 
-def store_evidence_pack(pack: EvidencePack, *, db_path: Path | None = None) -> None:
+def store_evidence_pack(
+    pack: EvidencePack,
+    *,
+    owner_user_id: str,
+    db_path: Path | None = None,
+) -> None:
+    owner_user_id = _require_owner(owner_user_id)
     canonical = _canonical(pack)
     content_hash = hashlib.sha256(canonical.encode()).hexdigest()
     connection = db.get_connection(db_path)
     try:
         connection.execute("BEGIN IMMEDIATE")
         existing = connection.execute(
-            "SELECT canonical_json, content_hash FROM evidence_packs WHERE pack_id = ?",
+            "SELECT ep.canonical_json, ep.content_hash, r.owner_user_id "
+            "FROM evidence_packs AS ep "
+            "JOIN investigations AS i ON i.investigation_id = ep.investigation_id "
+            "JOIN data_gap_requests AS r ON r.request_id = i.request_id "
+            "WHERE ep.pack_id = ?",
             (pack.pack_id,),
         ).fetchone()
         if existing is not None:
             if existing["content_hash"] != content_hash or existing["canonical_json"] != canonical:
                 raise ImmutablePackConflictError("pack ID already has different immutable content")
+            if existing["owner_user_id"] != owner_user_id:
+                raise ImmutablePackConflictError("pack ID already belongs to another owner")
             connection.commit()
             return
 
-        _store_request(connection, pack.request)
+        _store_request(connection, pack.request, owner_user_id=owner_user_id)
         connection.execute(
             """
             INSERT INTO investigations (
@@ -418,10 +450,12 @@ def put_cache_entry(
     fingerprint: str,
     pack_id: str,
     *,
+    owner_user_id: str,
     cached_at: datetime,
     expires_at: datetime,
     db_path: Path | None = None,
 ) -> None:
+    owner_user_id = _require_owner(owner_user_id)
     cached = _iso(cached_at)
     expires = _iso(expires_at)
     if expires_at <= cached_at:
@@ -429,18 +463,34 @@ def put_cache_entry(
     connection = db.get_connection(db_path)
     try:
         connection.execute("BEGIN IMMEDIATE")
+        pack_owner = connection.execute(
+            """
+            SELECT 1
+            FROM evidence_packs AS p
+            JOIN investigations AS i ON i.investigation_id = p.investigation_id
+            JOIN data_gap_requests AS r ON r.request_id = i.request_id
+            WHERE p.pack_id = ? AND r.owner_user_id = ?
+            """,
+            (pack_id, owner_user_id),
+        ).fetchone()
+        if pack_owner is None:
+            raise JinyiweiStorageError("failed to store cache entry")
         connection.execute(
             """
             INSERT INTO cache_entries (
-                fingerprint, pack_id, cached_at, expires_at, hit_count, last_hit_at
-            ) VALUES (?, ?, ?, ?, 0, NULL)
-            ON CONFLICT(fingerprint) DO UPDATE SET
+                owner_user_id, fingerprint, pack_id, cached_at, expires_at,
+                hit_count, last_hit_at
+            ) VALUES (?, ?, ?, ?, ?, 0, NULL)
+            ON CONFLICT(owner_user_id, fingerprint) DO UPDATE SET
                 pack_id=excluded.pack_id, cached_at=excluded.cached_at,
                 expires_at=excluded.expires_at, hit_count=0, last_hit_at=NULL
             """,
-            (fingerprint, pack_id, cached, expires),
+            (owner_user_id, fingerprint, pack_id, cached, expires),
         )
         connection.commit()
+    except JinyiweiStorageError:
+        connection.rollback()
+        raise
     except sqlite3.Error as exc:
         connection.rollback()
         raise JinyiweiStorageError("failed to store cache entry") from exc
@@ -449,22 +499,32 @@ def put_cache_entry(
 
 
 def lookup_cached_pack(
-    fingerprint: str, *, now: datetime, db_path: Path | None = None
+    fingerprint: str,
+    *,
+    owner_user_id: str,
+    now: datetime,
+    db_path: Path | None = None,
 ) -> EvidencePack | None:
+    owner_user_id = _require_owner(owner_user_id)
     now_iso = _iso(now)
     connection = db.get_connection(db_path)
     try:
         row = connection.execute(
             """
-            SELECT c.cached_at, c.expires_at, p.canonical_json, p.content_hash
+            SELECT c.cached_at, c.expires_at, p.canonical_json, p.content_hash,
+                   r.owner_user_id AS pack_owner_user_id
             FROM cache_entries AS c
-            JOIN evidence_packs AS p ON p.pack_id = c.pack_id
-            WHERE c.fingerprint = ?
+            LEFT JOIN evidence_packs AS p ON p.pack_id = c.pack_id
+            LEFT JOIN investigations AS i ON i.investigation_id = p.investigation_id
+            LEFT JOIN data_gap_requests AS r ON r.request_id = i.request_id
+            WHERE c.owner_user_id = ? AND c.fingerprint = ?
             """,
-            (fingerprint,),
+            (owner_user_id, fingerprint),
         ).fetchone()
         if row is None:
             return None
+        if row["pack_owner_user_id"] != owner_user_id:
+            raise JinyiweiStorageError("failed to read cache")
         try:
             cached_at = _parse_time(row["cached_at"])
             expires_at = _parse_time(row["expires_at"])
@@ -485,11 +545,14 @@ def lookup_cached_pack(
         connection.execute("BEGIN IMMEDIATE")
         connection.execute(
             "UPDATE cache_entries SET hit_count = hit_count + 1, last_hit_at = ? "
-            "WHERE fingerprint = ?",
-            (now_iso, fingerprint),
+            "WHERE owner_user_id = ? AND fingerprint = ?",
+            (now_iso, owner_user_id, fingerprint),
         )
         connection.commit()
         return pack.model_copy(update={"cache": cache})
+    except JinyiweiStorageError:
+        connection.rollback()
+        raise
     except sqlite3.Error as exc:
         connection.rollback()
         raise JinyiweiStorageError("failed to read cache") from exc
@@ -513,18 +576,21 @@ def upsert_evidence_adoption(
     reply_id: str,
     status: Literal["PENDING", "CONFIRMED"],
     *,
+    owner_user_id: str,
     at: datetime,
     db_path: Path | None = None,
 ) -> EvidenceAdoption:
     if status not in ("PENDING", "CONFIRMED"):
         raise ValueError("invalid adoption status")
     pending = _write_adoption_batch(
-        (evidence_id,), reply_id, "PENDING", at=at, db_path=db_path
+        (evidence_id,), reply_id, "PENDING",
+        owner_user_id=owner_user_id, at=at, db_path=db_path
     )
     if status == "PENDING":
         return pending[0]
     return _write_adoption_batch(
-        (evidence_id,), reply_id, "CONFIRMED", at=at, db_path=db_path
+        (evidence_id,), reply_id, "CONFIRMED",
+        owner_user_id=owner_user_id, at=at, db_path=db_path
     )[0]
 
 
@@ -533,10 +599,12 @@ def _write_adoption_batch(
     reply_id: str,
     status: Literal["PENDING", "CONFIRMED"],
     *,
+    owner_user_id: str,
     at: datetime,
     db_path: Path | None,
     batch_fingerprint: str | None = None,
 ) -> list[EvidenceAdoption]:
+    owner_user_id = _require_owner(owner_user_id)
     if not evidence_ids or len(evidence_ids) != len(set(evidence_ids)):
         raise ValueError("evidence IDs must be a non-empty unique tuple")
     if not reply_id:
@@ -547,9 +615,13 @@ def _write_adoption_batch(
         connection.execute("BEGIN IMMEDIATE")
         placeholders = ",".join("?" for _ in evidence_ids)
         rows = connection.execute(
-            f"SELECT evidence_id, model_json FROM evidence_items "
-            f"WHERE evidence_id IN ({placeholders})",
-            evidence_ids,
+            f"SELECT DISTINCT e.evidence_id, e.model_json FROM evidence_items AS e "
+            f"JOIN pack_items AS pi ON pi.evidence_id = e.evidence_id "
+            f"JOIN evidence_packs AS ep ON ep.pack_id = pi.pack_id "
+            f"JOIN investigations AS i ON i.investigation_id = ep.investigation_id "
+            f"JOIN data_gap_requests AS r ON r.request_id = i.request_id "
+            f"WHERE e.evidence_id IN ({placeholders}) AND r.owner_user_id = ?",
+            (*evidence_ids, owner_user_id),
         ).fetchall()
         if {row["evidence_id"] for row in rows} != set(evidence_ids):
             raise JinyiweiStorageError("adoption evidence does not exist")
@@ -567,17 +639,18 @@ def _write_adoption_batch(
         evidence_ids_json = _json(list(evidence_ids))
         batch_row = connection.execute(
             "SELECT evidence_ids_json, batch_fingerprint "
-            "FROM adoption_batches WHERE reply_id = ?",
-            (reply_id,),
+            "FROM adoption_batches WHERE owner_user_id = ? AND reply_id = ?",
+            (owner_user_id, reply_id),
         ).fetchone()
         if batch_row is None:
             if status == "CONFIRMED":
                 raise JinyiweiStorageError("pending adoption batch does not exist")
             connection.execute(
                 "INSERT INTO adoption_batches "
-                "(reply_id, evidence_ids_json, batch_fingerprint, created_at, updated_at) "
-                "VALUES (?, ?, ?, ?, ?)",
+                "(owner_user_id, reply_id, evidence_ids_json, batch_fingerprint, "
+                "created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
                 (
+                    owner_user_id,
                     reply_id,
                     evidence_ids_json,
                     actual_fingerprint,
@@ -591,8 +664,9 @@ def _write_adoption_batch(
         ):
             raise JinyiweiStorageError("adoption batch immutable conflict")
         adoption_rows = connection.execute(
-            "SELECT evidence_id FROM evidence_adoptions WHERE reply_id = ?",
-            (reply_id,),
+            "SELECT evidence_id FROM evidence_adoptions "
+            "WHERE owner_user_id = ? AND reply_id = ?",
+            (owner_user_id, reply_id),
         ).fetchall()
         existing_ids = {row["evidence_id"] for row in adoption_rows}
         if existing_ids and existing_ids != set(evidence_ids):
@@ -604,9 +678,10 @@ def _write_adoption_batch(
             connection.execute(
                 """
                 INSERT INTO evidence_adoptions (
-                    evidence_id, reply_id, status, created_at, updated_at, confirmed_at
-                ) VALUES (?, ?, ?, ?, ?, ?)
-                ON CONFLICT(evidence_id, reply_id) DO UPDATE SET
+                    owner_user_id, evidence_id, reply_id, status,
+                    created_at, updated_at, confirmed_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(owner_user_id, evidence_id, reply_id) DO UPDATE SET
                     status = CASE
                         WHEN evidence_adoptions.status = 'CONFIRMED' THEN 'CONFIRMED'
                         ELSE excluded.status
@@ -624,6 +699,7 @@ def _write_adoption_batch(
                     END
                 """,
                 (
+                    owner_user_id,
                     evidence_id,
                     reply_id,
                     status,
@@ -635,8 +711,9 @@ def _write_adoption_batch(
         result = []
         for evidence_id in evidence_ids:
             row = connection.execute(
-                "SELECT * FROM evidence_adoptions WHERE evidence_id = ? AND reply_id = ?",
-                (evidence_id, reply_id),
+                "SELECT * FROM evidence_adoptions "
+                "WHERE owner_user_id = ? AND evidence_id = ? AND reply_id = ?",
+                (owner_user_id, evidence_id, reply_id),
             ).fetchone()
             result.append(_adoption(row))
         connection.commit()
@@ -655,6 +732,7 @@ def write_pending_adoptions(
     evidence_ids: tuple[str, ...],
     reply_id: str,
     *,
+    owner_user_id: str,
     at: datetime,
     db_path: Path | None = None,
     batch_fingerprint: str | None = None,
@@ -665,6 +743,7 @@ def write_pending_adoptions(
         evidence_ids,
         reply_id,
         "PENDING",
+        owner_user_id=owner_user_id,
         at=at,
         db_path=db_path,
         batch_fingerprint=batch_fingerprint,
@@ -675,6 +754,7 @@ def confirm_adoptions(
     evidence_ids: tuple[str, ...],
     reply_id: str,
     *,
+    owner_user_id: str,
     at: datetime,
     db_path: Path | None = None,
     batch_fingerprint: str | None = None,
@@ -685,6 +765,7 @@ def confirm_adoptions(
         evidence_ids,
         reply_id,
         "CONFIRMED",
+        owner_user_id=owner_user_id,
         at=at,
         db_path=db_path,
         batch_fingerprint=batch_fingerprint,
@@ -695,6 +776,7 @@ def cancel_pending_adoptions(
     evidence_ids: tuple[str, ...],
     reply_id: str,
     *,
+    owner_user_id: str,
     db_path: Path | None = None,
     batch_fingerprint: str | None = None,
 ) -> None:
@@ -705,6 +787,7 @@ def cancel_pending_adoptions(
     adoption state.
     """
 
+    owner_user_id = _require_owner(owner_user_id)
     if not evidence_ids or len(evidence_ids) != len(set(evidence_ids)):
         raise ValueError("evidence IDs must be a non-empty unique tuple")
     if not reply_id:
@@ -714,13 +797,13 @@ def cancel_pending_adoptions(
         connection.execute("BEGIN IMMEDIATE")
         batch_row = connection.execute(
             "SELECT evidence_ids_json, batch_fingerprint FROM adoption_batches "
-            "WHERE reply_id = ?",
-            (reply_id,),
+            "WHERE owner_user_id = ? AND reply_id = ?",
+            (owner_user_id, reply_id),
         ).fetchone()
         rows = connection.execute(
             "SELECT evidence_id, status FROM evidence_adoptions "
-            "WHERE reply_id = ? ORDER BY evidence_id ASC",
-            (reply_id,),
+            "WHERE owner_user_id = ? AND reply_id = ? ORDER BY evidence_id ASC",
+            (owner_user_id, reply_id),
         ).fetchall()
         if batch_row is None and not rows:
             connection.commit()
@@ -746,13 +829,14 @@ def cancel_pending_adoptions(
             )
         cursor = connection.execute(
             "DELETE FROM evidence_adoptions "
-            "WHERE reply_id = ? AND status = 'PENDING'",
-            (reply_id,),
+            "WHERE owner_user_id = ? AND reply_id = ? AND status = 'PENDING'",
+            (owner_user_id, reply_id),
         )
         if cursor.rowcount != len(evidence_ids):
             raise JinyiweiStorageError("pending adoption cancellation was incomplete")
         connection.execute(
-            "DELETE FROM adoption_batches WHERE reply_id = ?", (reply_id,)
+            "DELETE FROM adoption_batches WHERE owner_user_id = ? AND reply_id = ?",
+            (owner_user_id, reply_id),
         )
         connection.commit()
     except JinyiweiStorageError:
@@ -768,23 +852,33 @@ def cancel_pending_adoptions(
 
 
 def list_adoptions_by_reply(
-    reply_id: str, *, db_path: Path | None = None
+    reply_id: str, *, owner_user_id: str, db_path: Path | None = None
 ) -> list[EvidenceAdoption]:
-    return _list_adoptions("a.reply_id = ?", (reply_id,), "a.evidence_id ASC", db_path=db_path)
+    owner_user_id = _require_owner(owner_user_id)
+    return _list_adoptions(
+        "a.owner_user_id = ? AND a.reply_id = ?",
+        (owner_user_id, reply_id),
+        "a.evidence_id ASC",
+        db_path=db_path,
+    )
 
 
 def list_adoptions_by_investigation(
-    investigation_id: str, *, db_path: Path | None = None
+    investigation_id: str, *, owner_user_id: str, db_path: Path | None = None
 ) -> list[EvidenceAdoption]:
+    owner_user_id = _require_owner(owner_user_id)
     connection = db.get_connection(db_path)
     try:
         rows = connection.execute(
             "SELECT a.* FROM evidence_adoptions AS a "
             "JOIN pack_items AS pi ON pi.evidence_id = a.evidence_id "
             "JOIN evidence_packs AS ep ON ep.pack_id = pi.pack_id "
-            "WHERE ep.investigation_id = ? "
+            "JOIN investigations AS i ON i.investigation_id = ep.investigation_id "
+            "JOIN data_gap_requests AS r ON r.request_id = i.request_id "
+            "WHERE ep.investigation_id = ? AND a.owner_user_id = ? "
+            "AND r.owner_user_id = ? "
             "ORDER BY a.reply_id ASC, a.evidence_id ASC",
-            (investigation_id,),
+            (investigation_id, owner_user_id, owner_user_id),
         ).fetchall()
         return [_adoption(row) for row in rows]
     except sqlite3.Error as exc:
@@ -815,27 +909,48 @@ def _list_adoptions(
         connection.close()
 
 
-def get_investigation_summary(*, db_path: Path | None = None) -> InvestigationSummary:
+def get_investigation_summary(
+    *, owner_user_id: str, db_path: Path | None = None
+) -> InvestigationSummary:
     """Return independent audit counters without multiplicative joins."""
 
+    owner_user_id = _require_owner(owner_user_id)
     connection: sqlite3.Connection | None = None
     try:
         connection = db.get_connection(db_path)
         row = connection.execute(
             """
+            WITH owned AS (
+              SELECT i.investigation_id, i.status
+              FROM investigations AS i
+              JOIN data_gap_requests AS r ON r.request_id = i.request_id
+              WHERE r.owner_user_id = ?
+            ), owned_evidence AS (
+              SELECT DISTINCT pi.evidence_id
+              FROM owned AS o
+              JOIN evidence_packs AS ep ON ep.investigation_id = o.investigation_id
+              JOIN pack_items AS pi ON pi.pack_id = ep.pack_id
+            )
             SELECT
-              (SELECT COUNT(*) FROM investigations) AS total_investigations,
-              (SELECT COUNT(*) FROM investigations WHERE status = 'RESOLVED') AS resolved_count,
-              (SELECT COUNT(*) FROM investigations WHERE status = 'PARTIAL') AS partial_count,
-              (SELECT COUNT(*) FROM investigations WHERE status = 'BLOCKED') AS blocked_count,
-              (SELECT COUNT(*) FROM investigations WHERE status = 'UNAVAILABLE')
+              (SELECT COUNT(*) FROM owned) AS total_investigations,
+              (SELECT COUNT(*) FROM owned WHERE status = 'RESOLVED') AS resolved_count,
+              (SELECT COUNT(*) FROM owned WHERE status = 'PARTIAL') AS partial_count,
+              (SELECT COUNT(*) FROM owned WHERE status = 'BLOCKED') AS blocked_count,
+              (SELECT COUNT(*) FROM owned WHERE status = 'UNAVAILABLE')
                 AS unavailable_count,
-              (SELECT COUNT(DISTINCT evidence_id) FROM evidence_items) AS distinct_evidence_count,
-              (SELECT COUNT(*) FROM evidence_adoptions WHERE status = 'PENDING')
+              (SELECT COUNT(*) FROM owned_evidence) AS distinct_evidence_count,
+              (SELECT COUNT(*) FROM evidence_adoptions AS ea
+               WHERE ea.status = 'PENDING'
+                 AND ea.owner_user_id = ?
+                 AND ea.evidence_id IN (SELECT evidence_id FROM owned_evidence))
                 AS pending_adoption_count,
-              (SELECT COUNT(*) FROM evidence_adoptions WHERE status = 'CONFIRMED')
+              (SELECT COUNT(*) FROM evidence_adoptions AS ea
+               WHERE ea.status = 'CONFIRMED'
+                 AND ea.owner_user_id = ?
+                 AND ea.evidence_id IN (SELECT evidence_id FROM owned_evidence))
                 AS confirmed_adoption_count
-            """
+            """,
+            (owner_user_id, owner_user_id, owner_user_id),
         ).fetchone()
         return InvestigationSummary.model_validate(dict(row))
     except (sqlite3.Error, ValidationError, ValueError, TypeError) as exc:
@@ -847,6 +962,7 @@ def get_investigation_summary(*, db_path: Path | None = None) -> InvestigationSu
 
 def list_investigations(
     *,
+    owner_user_id: str,
     status: EvidencePackStatus | str | None = None,
     limit: int = 20,
     offset: int = 0,
@@ -854,6 +970,7 @@ def list_investigations(
 ) -> InvestigationPage:
     """List safe investigation audit fields in deterministic order."""
 
+    owner_user_id = _require_owner(owner_user_id)
     if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 100:
         raise ValueError("limit must be between 1 and 100")
     if isinstance(offset, bool) or not isinstance(offset, int) or offset < 0:
@@ -862,26 +979,26 @@ def list_investigations(
         normalized_status = None if status is None else EvidencePackStatus(status)
     except ValueError as exc:
         raise ValueError("invalid investigation status") from exc
-    where = "" if normalized_status is None else "WHERE i.status = ?"
-    parameters: tuple[object, ...] = () if normalized_status is None else (normalized_status.value,)
+    where = "WHERE r.owner_user_id = ?"
+    parameters: tuple[object, ...] = (owner_user_id,)
+    if normalized_status is not None:
+        where += " AND i.status = ?"
+        parameters += (normalized_status.value,)
     connection: sqlite3.Connection | None = None
     try:
         connection = db.get_connection(db_path)
-        relationship_where = (
-            "WHERE r.request_id IS NULL"
-            if normalized_status is None
-            else "WHERE i.status = ? AND r.request_id IS NULL"
-        )
         orphan_count = connection.execute(
             "SELECT COUNT(*) AS total FROM investigations AS i "
             "LEFT JOIN data_gap_requests AS r ON r.request_id = i.request_id "
-            f"{relationship_where}",
-            parameters,
+            "WHERE r.request_id IS NULL",
         ).fetchone()["total"]
         if orphan_count:
             raise ValueError("investigation request relationship is corrupt")
         total = connection.execute(
-            f"SELECT COUNT(*) AS total FROM investigations AS i {where}", parameters
+            "SELECT COUNT(*) AS total FROM investigations AS i "
+            "JOIN data_gap_requests AS r ON r.request_id = i.request_id "
+            f"{where}",
+            parameters,
         ).fetchone()["total"]
         rows = connection.execute(
             f"""
@@ -896,7 +1013,8 @@ def list_investigations(
                     FROM evidence_packs AS ep
                     JOIN pack_items AS pi ON pi.pack_id = ep.pack_id
                     JOIN evidence_adoptions AS ea ON ea.evidence_id = pi.evidence_id
-                    WHERE ep.investigation_id = i.investigation_id) AS linked_reply_count
+                    WHERE ep.investigation_id = i.investigation_id
+                      AND ea.owner_user_id = r.owner_user_id) AS linked_reply_count
             FROM investigations AS i
             LEFT JOIN data_gap_requests AS r ON r.request_id = i.request_id
             {where}
@@ -1027,16 +1145,22 @@ def _assert_pack_relations(connection: sqlite3.Connection, pack: EvidencePack) -
 
 
 def get_investigation_detail(
-    investigation_id: str, *, db_path: Path | None = None
+    investigation_id: str,
+    *,
+    owner_user_id: str,
+    db_path: Path | None = None,
 ) -> InvestigationDetail:
     """Load and cross-check one canonical evidence pack and all audit relations."""
 
+    owner_user_id = _require_owner(owner_user_id)
     connection: sqlite3.Connection | None = None
     try:
         connection = db.get_connection(db_path)
         investigation = connection.execute(
-            "SELECT investigation_id FROM investigations WHERE investigation_id = ?",
-            (investigation_id,),
+            "SELECT i.investigation_id FROM investigations AS i "
+            "JOIN data_gap_requests AS r ON r.request_id = i.request_id "
+            "WHERE i.investigation_id = ? AND r.owner_user_id = ?",
+            (investigation_id, owner_user_id),
         ).fetchone()
         if investigation is None:
             raise InvestigationNotFoundError("investigation not found")
@@ -1062,9 +1186,12 @@ def get_investigation_detail(
         if evidence_ids:
             placeholders = ",".join("?" for _ in evidence_ids)
             adoption_rows = connection.execute(
-                f"SELECT * FROM evidence_adoptions WHERE evidence_id IN ({placeholders}) "
+                "SELECT evidence_id, reply_id, status, created_at, updated_at, "
+                "confirmed_at FROM evidence_adoptions "
+                f"WHERE evidence_id IN ({placeholders}) "
+                "AND owner_user_id = ? "
                 "ORDER BY reply_id ASC, evidence_id ASC",
-                evidence_ids,
+                (*evidence_ids, owner_user_id),
             ).fetchall()
         adoptions = tuple(EvidenceAdoptionRead.model_validate(dict(item)) for item in adoption_rows)
         return InvestigationDetail(

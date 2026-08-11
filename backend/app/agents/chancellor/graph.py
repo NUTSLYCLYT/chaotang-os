@@ -104,6 +104,7 @@ from app.agents.synthesis_failures import SynthesisStage, is_locally_degradable
 from app.jinyiwei.models import FactCategory, MarketMetric
 from app.langgraph_runtime.deepseek_client import DeepSeekChatModel, build_deepseek_chat_model
 from app.langgraph_runtime.deepseek_config import load_deepseek_provider_config
+from app.langgraph_runtime.provider_budget import get_provider_attempt_budget
 from app.shiguan.recall import RecallContext, safe_recall_context_for_department
 
 if TYPE_CHECKING:
@@ -297,6 +298,12 @@ class ChancellorGraphInvocationError(Exception):
     third-party SDK error message or a malformed model response.
     """
 
+    request_id: str | None
+
+    def __init__(self, message: str, *, request_id: str | None = None) -> None:
+        super().__init__(message)
+        self.request_id = request_id
+
 
 def _trusted_failure_stage(exc: BaseException, *, default: SynthesisStage) -> SynthesisStage:
     if isinstance(
@@ -338,9 +345,11 @@ def build_chancellor_graph(
     chat_model: DeepSeekChatModel | None = None,
     dotenv_path: Path | None = None,
     *,
+    owner_user_id: str,
     evidence_session_factory: Callable[[], AgentEvidenceSession] | None = None,
     report_session: AccountingReportSession | None = None,
     lifecycle_observer: CaseLifecycleObserver | None = None,
+    execution_boundary: Callable[[], None] | None = None,
 ) -> CompiledStateGraph:
     """Build and compile the layered Chancellor memorial graph.
 
@@ -370,6 +379,9 @@ def build_chancellor_graph(
             propagated from configuration loading/key resolution when
             ``chat_model`` is not supplied.
     """
+    if not isinstance(owner_user_id, str) or not owner_user_id.strip():
+        raise ValueError("owner_user_id must be nonempty")
+
     resolved_chat_model: DeepSeekChatModel
     if chat_model is not None:
         resolved_chat_model = chat_model
@@ -379,6 +391,7 @@ def build_chancellor_graph(
             config,
             dotenv_path,
             json_output=True,
+            attempt_budget=get_provider_attempt_budget(),
         )
 
     def _decide_route(state: ChancellorGraphState) -> dict:
@@ -401,8 +414,21 @@ def build_chancellor_graph(
             evidence_session = (
                 evidence_session_factory()
                 if evidence_session_factory is not None
-                else build_default_evidence_session(resolved_chat_model)
+                else build_default_evidence_session(
+                    resolved_chat_model,
+                    owner_user_id=owner_user_id,
+                )
             )
+            evidence_owner_user_id = getattr(evidence_session, "owner_user_id", None)
+            if (
+                not isinstance(evidence_owner_user_id, str)
+                or not evidence_owner_user_id.strip()
+            ):
+                raise ValueError("evidence session owner_user_id must be nonempty")
+            if evidence_owner_user_id != owner_user_id:
+                raise ValueError(
+                    "evidence session owner_user_id must match graph owner_user_id"
+                )
         except Exception as exc:  # noqa: BLE001 - sanitized graph boundary
             raise ChancellorGraphInvocationError(
                 "Chancellor graph failed to initialize its evidence session; "
@@ -431,6 +457,8 @@ def build_chancellor_graph(
         return state["route_type"]
 
     def _handle_single_ministry(state: ChancellorGraphState) -> dict:
+        if execution_boundary is not None:
+            execution_boundary()
         department = state["departments"][0]
         recall_context = safe_recall_context_for_department(department)
         try:
@@ -497,6 +525,8 @@ def build_chancellor_graph(
             if lifecycle_observer is not None:
                 council_kwargs["lifecycle_observer"] = lifecycle_observer
                 council_kwargs["processing_path"] = state["processing_path"]
+            if execution_boundary is not None:
+                council_kwargs["execution_boundary"] = execution_boundary
             if run_junjichu_council is not _DEFAULT_LEGACY_COUNCIL_RUNNER:
                 ministry_opinions, verdict = run_junjichu_council(
                     state["decree_text"],
@@ -562,6 +592,8 @@ def build_chancellor_graph(
         }
 
     def _finalize_chancellor(state: ChancellorGraphState) -> dict:
+        if execution_boundary is not None:
+            execution_boundary()
         if state["route_type"] == "multi" and lifecycle_observer is not None:
             lifecycle_observer.record_checkpoint(
                 status="CHANCELLOR_FINALIZING",

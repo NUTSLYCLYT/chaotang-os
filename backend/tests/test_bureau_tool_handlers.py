@@ -285,7 +285,7 @@ def test_material_adapter_receives_only_call_selected_input_refs() -> None:
 def test_evidence_session_is_not_itself_accepted_as_requester() -> None:
     class Coordinator:
         pass
-    session = AgentEvidenceSession(coordinator=Coordinator())  # type: ignore[arg-type]
+    session = AgentEvidenceSession(owner_user_id="test-owner", coordinator=Coordinator())  # type: ignore[arg-type]
     with pytest.raises(ValueError, match="evidence_adapter_invalid"):
         build_bureau_tool_handlers(
             material_reader=None, data_reader=None,
@@ -301,7 +301,7 @@ def test_full_slot_evidence_adapter_clone_is_rejected_before_effect() -> None:
             self.hits += 1
             raise AssertionError("must not execute")
     coordinator = Coordinator()
-    original = build_bureau_evidence_tool_adapter(session=AgentEvidenceSession(coordinator=coordinator), node_id="bureau:x", department="吏部", matter_type="MEMORIAL", case_id=CASE, decree_id=DECREE)  # type: ignore[arg-type]
+    original = build_bureau_evidence_tool_adapter(session=AgentEvidenceSession(owner_user_id="test-owner", coordinator=coordinator), node_id="bureau:x", department="吏部", matter_type="MEMORIAL", case_id=CASE, decree_id=DECREE)  # type: ignore[arg-type]
     clone = object.__new__(type(original))
     for slot in type(original).__slots__:
         object.__setattr__(clone, slot, getattr(original, slot))

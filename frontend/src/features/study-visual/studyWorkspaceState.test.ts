@@ -10,7 +10,9 @@ import type { DecreeUiState } from "../../app/study/decreeStatus.ts";
 test("study route summary stays pending before a successful real routing result", () => {
   const states: DecreeUiState[] = [
     { phase: "idle" },
-    { phase: "submitting" },
+    { phase: "enqueueing" },
+    { phase: "queued", jobId: "a".repeat(32) },
+    { phase: "running", jobId: "a".repeat(32) },
     { phase: "error", message: "请求失败" },
   ];
 
@@ -42,6 +44,7 @@ test("study route summary counts departments only from a successful decoded resu
     councilVerdict: "准予会审办理。",
     finalVerdict: "准行。",
     recommendations: ["分期", "验收", "归档"],
+    deliveryKind: "none",
     artifacts: [],
   };
 
@@ -62,6 +65,7 @@ test("study workspace projects exact report artifact metadata from success state
     phase: "success", chancellor: "丞相", routeType: "single", rationale: "户部办理",
     processingPath: ["丞相", "户部"], departments: ["户部"], ministryOpinions: [],
     councilVerdict: null, finalVerdict: "准行", recommendations: ["一", "二", "三"],
+    deliveryKind: "accounting_report",
     artifacts,
   };
   assert.deepEqual(projectStudyArtifacts(state), artifacts);

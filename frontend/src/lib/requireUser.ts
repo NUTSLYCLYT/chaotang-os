@@ -5,6 +5,7 @@ import { getCurrentUser, type BackendAuthResult, type PublicUser } from "./backe
 import { SESSION_COOKIE_NAME } from "./session.ts";
 
 type ProtectedPath =
+  | "/jinyiwei"
   | "/study"
   | "/shiguan"
   | "/dadian"

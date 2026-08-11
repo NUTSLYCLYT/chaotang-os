@@ -15,13 +15,21 @@ recall's matching/ranking logic itself is covered end-to-end in
 
 from __future__ import annotations
 
+import sqlite3
+
 import pytest
 from fastapi.testclient import TestClient
 
 import app.api.shiguan as shiguan_api
 from app.auth import configure_auth_db, create_session, create_user
 from app.main import app
-from app.shiguan.errors import ArchiveNotFoundError, ArchiveValidationError, ShiguanStorageError
+from app.shiguan import db as shiguan_db
+from app.shiguan.errors import (
+    ArchiveDecisionConflictError,
+    ArchiveNotFoundError,
+    ArchiveValidationError,
+    ShiguanStorageError,
+)
 
 client = TestClient(app)
 
@@ -300,6 +308,154 @@ class TestUpdateReviewStatus:
         assert response.status_code == 422
 
 
+class TestArchiveDecision:
+    @pytest.mark.parametrize(
+        ("payload_factory", "decision"),
+        [
+            (_memorial_payload, "APPROVED"),
+            (_memorial_payload, "REJECTED"),
+            (_reply_payload, "ADOPTED"),
+            (_reply_payload, "RETURNED_FOR_RECONSIDERATION"),
+        ],
+    )
+    def test_all_four_document_specific_decisions_return_200(
+        self, payload_factory, decision
+    ):
+        created = client.post(ARCHIVES_URL, json=payload_factory()).json()
+        response = client.put(
+            f"{ARCHIVES_URL}/{created['id']}/decision", json={"decision": decision}
+        )
+        assert response.status_code == 200
+        assert response.json()["decision"] == decision
+        assert response.json()["decided_at"]
+
+    @pytest.mark.parametrize(
+        "body",
+        [{}, {"decision": "PENDING"}, {"decision": "APPROVED", "owner_user_id": "attacker"}],
+    )
+    def test_decision_request_body_is_strict(self, body):
+        created = client.post(ARCHIVES_URL, json=_memorial_payload()).json()
+        response = client.put(f"{ARCHIVES_URL}/{created['id']}/decision", json=body)
+        assert response.status_code == 422
+
+    @pytest.mark.parametrize(
+        ("payload_factory", "decision"),
+        [
+            (_memorial_payload, "ADOPTED"),
+            (_memorial_payload, "RETURNED_FOR_RECONSIDERATION"),
+            (_reply_payload, "APPROVED"),
+            (_reply_payload, "REJECTED"),
+        ],
+    )
+    def test_wrong_document_decision_returns_422(self, payload_factory, decision):
+        created = client.post(ARCHIVES_URL, json=payload_factory()).json()
+        response = client.put(
+            f"{ARCHIVES_URL}/{created['id']}/decision", json={"decision": decision}
+        )
+        assert response.status_code == 422
+        assert response.json()["reason"] == "validation_failed"
+
+    def test_same_decision_is_idempotent_and_different_decision_conflicts(self):
+        created = client.post(ARCHIVES_URL, json=_memorial_payload()).json()
+        url = f"{ARCHIVES_URL}/{created['id']}/decision"
+        first = client.put(url, json={"decision": "APPROVED"})
+        retry = client.put(url, json={"decision": "APPROVED"})
+        conflict = client.put(url, json={"decision": "REJECTED"})
+        assert first.status_code == retry.status_code == 200
+        assert retry.json() == first.json()
+        assert conflict.status_code == 409
+        assert conflict.json()["reason"] == "decision_conflict"
+        assert client.get(f"{ARCHIVES_URL}/{created['id']}").json()[
+            "decision_status"
+        ] == first.json()
+
+    def test_missing_and_cross_owner_are_both_404(self):
+        created = client.post(ARCHIVES_URL, json=_memorial_payload()).json()
+        other_headers = _second_user_headers()
+        missing = client.put(
+            f"{ARCHIVES_URL}/does-not-exist/decision", json={"decision": "APPROVED"}
+        )
+        cross_owner = client.put(
+            f"{ARCHIVES_URL}/{created['id']}/decision",
+            json={"decision": "APPROVED"},
+            headers=other_headers,
+        )
+        assert missing.status_code == cross_owner.status_code == 404
+        assert missing.json()["reason"] == cross_owner.json()["reason"] == "archive_not_found"
+
+    def test_storage_failure_returns_sanitized_503(self, monkeypatch):
+        created = client.post(ARCHIVES_URL, json=_memorial_payload()).json()
+
+        def _boom(*args, **kwargs):
+            raise ShiguanStorageError("史馆决定写入失败，请稍后再试")
+
+        monkeypatch.setattr(shiguan_api.storage, "set_archive_decision", _boom)
+        response = client.put(
+            f"{ARCHIVES_URL}/{created['id']}/decision", json={"decision": "APPROVED"}
+        )
+        assert response.status_code == 503
+        assert response.json()["reason"] == "storage_unavailable"
+
+    def test_list_and_get_include_decision_status(self):
+        created = client.post(ARCHIVES_URL, json=_reply_payload()).json()
+        undecided = client.get(f"{ARCHIVES_URL}/{created['id']}").json()
+        assert undecided["decision_status"] is None
+        decided = client.put(
+            f"{ARCHIVES_URL}/{created['id']}/decision", json={"decision": "ADOPTED"}
+        ).json()
+        assert client.get(f"{ARCHIVES_URL}/{created['id']}").json()[
+            "decision_status"
+        ] == decided
+        listed = {archive["id"]: archive for archive in client.get(ARCHIVES_URL).json()}
+        assert listed[created["id"]]["decision_status"] == decided
+
+    def test_malformed_v5_decision_schema_returns_sanitized_503_and_closes_connection(
+        self, monkeypatch
+    ):
+        assert client.get(ARCHIVES_URL).status_code == 200
+        path = shiguan_db._DEFAULT_DB_PATH
+        connection = sqlite3.connect(path)
+        try:
+            connection.execute("DROP TABLE archive_decisions")
+            connection.execute("CREATE TABLE archive_decisions (archive_id TEXT PRIMARY KEY)")
+            connection.commit()
+        finally:
+            connection.close()
+
+        opened_connections = []
+        original_connect = sqlite3.connect
+
+        class TrackingConnection(sqlite3.Connection):
+            was_closed = False
+
+            def close(self):
+                self.was_closed = True
+                return super().close()
+
+        def tracking_connect(*args, **kwargs):
+            kwargs["factory"] = TrackingConnection
+            tracked = original_connect(*args, **kwargs)
+            opened_connections.append(tracked)
+            return tracked
+
+        monkeypatch.setattr(shiguan_db.sqlite3, "connect", tracking_connect)
+        response = client.get(ARCHIVES_URL)
+        assert response.status_code == 503
+        assert response.json() == {
+            "status": "error",
+            "reason": "storage_unavailable",
+            "message": "史馆存储暂时不可用，请稍后再试",
+        }
+        assert opened_connections
+        assert all(connection.was_closed for connection in opened_connections)
+        lock_probe = original_connect(path, timeout=0)
+        try:
+            lock_probe.execute("BEGIN EXCLUSIVE")
+            lock_probe.rollback()
+        finally:
+            lock_probe.close()
+
+
 class TestStatistics:
     def test_empty_database_returns_null_success_rate(self):
         response = client.get(STATISTICS_URL)
@@ -372,4 +528,5 @@ def test_exception_handlers_registered_for_every_shiguan_error_type():
     handlers = app.exception_handlers
     assert ArchiveNotFoundError in handlers
     assert ArchiveValidationError in handlers
+    assert ArchiveDecisionConflictError in handlers
     assert ShiguanStorageError in handlers

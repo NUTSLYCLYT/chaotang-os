@@ -5,12 +5,12 @@ import { requireUser } from "./requireUser.ts";
 
 test("requireUser redirects an absent session to the safe login next URL", async () => {
   await assert.rejects(
-    () => requireUser("/shiguan", {
+    () => requireUser("/jinyiwei", {
       getSessionId: async () => null,
       getCurrentUser: async () => ({ ok: false, kind: "unauthenticated" }),
       redirect: (location) => { throw new Error(location); },
     }),
-    /\/login\?next=%2Fshiguan/,
+    /\/login\?next=%2Fjinyiwei/,
   );
 });
 
@@ -40,6 +40,7 @@ test("requireUser returns only the public user after server-side validation", as
 
 test("requireUser accepts every first-batch protected court route", async () => {
   const protectedPaths = [
+    "/jinyiwei",
     "/dadian",
     "/junjichu",
     "/command-center",

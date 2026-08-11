@@ -1,4 +1,11 @@
-import { submitDecree, type ReportArtifact } from "../../../../lib/backendClient.ts";
+import {
+  enqueueDecree,
+  type DeliveryKind,
+  type EnqueueDecreeOptions,
+  type EnqueueDecreeResult,
+  type ReportArtifact,
+  type SubmitDecreeResult,
+} from "../../../../lib/backendClient.ts";
 import { readSessionId } from "../../../../lib/session.ts";
 import { MAX_DECREE_TEXT_LENGTH } from "../../../study/chancellorDraft.ts";
 
@@ -23,6 +30,7 @@ interface ChancellorRequestBody {
   decreeText?: unknown;
   draftVersion?: unknown;
   draftFingerprint?: unknown;
+  idempotencyKey?: unknown;
 }
 
 interface ChancellorBureauOpinion {
@@ -53,11 +61,13 @@ interface ChancellorSuccessResponseBody {
   councilVerdict: string | null;
   finalVerdict: string;
   recommendations: string[];
+  deliveryKind: DeliveryKind;
+  deliveryPeriod: { startYear: number; endYear: number } | null;
   artifacts: ReportArtifact[];
 }
 
 /** 与 `submitDecree` 的 `kind` 保持一致的稳定错误分类，供浏览器区分场景展示。 */
-type ChancellorErrorReason = "validation" | "draft_not_current" | "config" | "model" | "timeout" | "network" | "unauthenticated" | "unknown";
+type ChancellorErrorReason = "validation" | "draft_not_current" | "source_not_current" | "idempotency_conflict" | "config" | "model" | "timeout" | "network" | "unauthenticated" | "unknown";
 
 /** 失败时返回给浏览器的脱敏响应体：不包含 key、路径、traceback 或异常原文。 */
 interface ChancellorErrorResponseBody {
@@ -70,6 +80,8 @@ interface ChancellorErrorResponseBody {
 const HTTP_STATUS_BY_KIND: Record<ChancellorErrorReason, number> = {
   validation: 422,
   draft_not_current: 409,
+  source_not_current: 409,
+  idempotency_conflict: 409,
   config: 503,
   model: 502,
   timeout: 504,
@@ -83,6 +95,8 @@ const HTTP_STATUS_BY_KIND: Record<ChancellorErrorReason, number> = {
 const FRIENDLY_MESSAGE_BY_KIND: Record<ChancellorErrorReason, string> = {
   validation: "旨意校验未通过：请确认内容非空且不超过 2000 字后重试。",
   draft_not_current: "拟旨草案已失效，请重新拟旨后再下旨。",
+  source_not_current: "会计数据源已变化，请重新拟旨后再下旨。",
+  idempotency_conflict: "同一提交标识已用于不同旨意，请重新发起下旨。",
   config: "朝堂后端配置暂不可用，请稍后重试或联系管理员。",
   model: "丞相暂时无法给出回奏，请稍后重试。",
   timeout: "下旨处理超时，请稍后重试。",
@@ -98,13 +112,18 @@ function jsonResponse(body: unknown, status: number): Response {
   });
 }
 
+type SubmitBoundary = (
+  decreeText: string,
+  options: EnqueueDecreeOptions,
+) => Promise<EnqueueDecreeResult | SubmitDecreeResult>;
+
 function malformedRequestResponse(message: string): Response {
   const body: ChancellorErrorResponseBody = { status: "error", reason: "validation", message };
   return jsonResponse(body, 400);
 }
 
 export function createPostHandler(
-  submit: typeof submitDecree = submitDecree,
+  submit: SubmitBoundary = enqueueDecree,
   readSession: typeof readSessionId = readSessionId,
 ): (request: Request) => Promise<Response> {
   return async function handlePost(request: Request): Promise<Response> {
@@ -126,10 +145,14 @@ export function createPostHandler(
   const decreeText = (payload as ChancellorRequestBody).decreeText;
   const draftVersion = (payload as ChancellorRequestBody).draftVersion;
   const draftFingerprint = (payload as ChancellorRequestBody).draftFingerprint;
+  const idempotencyKey = (payload as ChancellorRequestBody).idempotencyKey;
   if (
     typeof decreeText !== "string" ||
     typeof draftVersion !== "number" ||
-    typeof draftFingerprint !== "string"
+    typeof draftFingerprint !== "string" ||
+    typeof idempotencyKey !== "string" ||
+    idempotencyKey.length < 1 ||
+    idempotencyKey.length > 128
   ) {
     return malformedRequestResponse("请求体缺少字符串类型的 decreeText 字段。");
   }
@@ -144,12 +167,13 @@ export function createPostHandler(
     );
   }
 
-  let result: Awaited<ReturnType<typeof submitDecree>>;
+  let result: Awaited<ReturnType<SubmitBoundary>>;
   try {
     result = await submit(decreeText, {
       sessionId,
       draftVersion,
       draftFingerprint,
+      idempotencyKey,
     });
   } catch {
     const body: ChancellorErrorResponseBody = {
@@ -161,6 +185,23 @@ export function createPostHandler(
   }
 
   if (result.ok) {
+    if ("location" in result) {
+      const statusUrl = `/api/decree-jobs/${result.data.jobId}`;
+      const cancelUrl = `${statusUrl}/cancel`;
+      return new Response(JSON.stringify({
+        ...result.data,
+        statusUrl,
+        cancelUrl,
+      }), {
+        status: 202,
+        headers: {
+          "content-type": "application/json",
+          "cache-control": "private, no-store",
+          location: statusUrl,
+          "retry-after": String(result.retryAfterSeconds),
+        },
+      });
+    }
     const body: ChancellorSuccessResponseBody = {
       status: result.data.status,
       chancellor: result.data.chancellor,
@@ -172,17 +213,22 @@ export function createPostHandler(
       councilVerdict: result.data.councilVerdict,
       finalVerdict: result.data.finalVerdict,
       recommendations: result.data.recommendations,
+      deliveryKind: result.data.deliveryKind,
+      deliveryPeriod: result.data.deliveryPeriod,
       artifacts: result.data.artifacts,
     };
     return jsonResponse(body, 200);
   }
 
+  const mappedKind: ChancellorErrorReason =
+    result.kind === "conflict" ? "idempotency_conflict" :
+    result.kind === "unavailable" ? "unknown" : result.kind;
   const body: ChancellorErrorResponseBody = {
     status: "error",
-    reason: result.kind,
-    message: FRIENDLY_MESSAGE_BY_KIND[result.kind],
+    reason: mappedKind,
+    message: FRIENDLY_MESSAGE_BY_KIND[mappedKind],
   };
-    return jsonResponse(body, HTTP_STATUS_BY_KIND[result.kind]);
+    return jsonResponse(body, HTTP_STATUS_BY_KIND[mappedKind]);
   };
 }
 

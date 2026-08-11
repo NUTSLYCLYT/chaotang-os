@@ -1,4 +1,6 @@
 import type {
+  ArchiveDecision,
+  ArchiveDecisionValue,
   ReviewStatusValue,
   ShiguanArchive,
   ShiguanRecallMatch,
@@ -6,10 +8,12 @@ import type {
   ShiguanStatistics,
 } from "../../lib/backendClient.ts";
 import type { CourtDataState } from "../../features/court-visuals/types";
+import { decisionActionsForArchive, formatArchiveDecision } from "./shiguanDecision.ts";
 
 export type ShiguanErrorKind =
   | "validation"
   | "not_found"
+  | "conflict"
   | "storage"
   | "network"
   | "unauthenticated"
@@ -26,6 +30,10 @@ export interface ShiguanReviewState extends ShiguanRequestState {
   archiveId: string | null;
 }
 
+export interface ShiguanDecisionState extends ShiguanRequestState {
+  archiveId: string | null;
+}
+
 export interface ShiguanControllerState {
   archives: ShiguanArchive[];
   selectedArchiveId: string | null;
@@ -35,6 +43,7 @@ export interface ShiguanControllerState {
   statisticsState: ShiguanRequestState;
   recallState: ShiguanRequestState;
   reviewState: ShiguanReviewState;
+  decisionState: ShiguanDecisionState;
 }
 
 export interface ShiguanFilterInput {
@@ -68,6 +77,11 @@ export interface ShiguanTransport {
     input: ShiguanReviewInput,
     signal: AbortSignal,
   ): Promise<ShiguanReviewStatus>;
+  decide(
+    archiveId: string,
+    decision: ArchiveDecisionValue,
+    signal: AbortSignal,
+  ): Promise<ArchiveDecision>;
 }
 
 export class ShiguanUiError extends Error {
@@ -150,6 +164,10 @@ export class ShiguanController {
       ...requestState("ready", "选择档案后可更新复盘。"),
       archiveId: null,
     },
+    decisionState: {
+      ...requestState("ready", "选择文书后可在卷尾处置。"),
+      archiveId: null,
+    },
   };
 
   private readonly listeners = new Set<Listener>();
@@ -158,9 +176,11 @@ export class ShiguanController {
     statistics: 0,
     recall: 0,
     review: 0,
+    decision: 0,
   };
   private readonly aborters: Partial<Record<keyof typeof this.generations, AbortController>> = {};
   private readonly confirmedReviews = new Map<string, ShiguanReviewStatus>();
+  private readonly confirmedDecisions = new Map<string, ArchiveDecision>();
   private lastFilter: ShiguanFilterInput = INITIAL_FILTER;
   private lastRecall: ShiguanRecallInput = { matterType: "", department: "" };
   private lifecycleVersion = 0;
@@ -299,6 +319,22 @@ export class ShiguanController {
     return true;
   }
 
+  decideArchive(archiveId: string, decision: ArchiveDecisionValue): boolean {
+    if (!this.active || this.disposed || this.currentState.decisionState.status === "loading") {
+      return false;
+    }
+    const archive = this.currentState.archives.find((item) => item.id === archiveId);
+    if (
+      !archive ||
+      archive.decisionStatus !== null ||
+      !decisionActionsForArchive(archive.type).some((action) => action.decision === decision)
+    ) {
+      return false;
+    }
+    this.loadDecision(archiveId, decision);
+    return true;
+  }
+
   private update(patch: Partial<ShiguanControllerState>): void {
     if (!this.active || this.disposed) {
       return;
@@ -339,7 +375,7 @@ export class ShiguanController {
     ) {
       this.unauthorizedHandled = true;
       const requestChannels = Object.keys(this.generations) as Array<
-        "archives" | "statistics" | "recall" | "review"
+        "archives" | "statistics" | "recall" | "review" | "decision"
       >;
       for (const requestChannel of requestChannels) {
         this.generations[requestChannel] += 1;
@@ -347,6 +383,7 @@ export class ShiguanController {
         delete this.aborters[requestChannel];
       }
       this.confirmedReviews.clear();
+      this.confirmedDecisions.clear();
       const expiredState = requestState(
         "error",
         normalized.message,
@@ -361,6 +398,10 @@ export class ShiguanController {
         statisticsState: expiredState,
         recallState: expiredState,
         reviewState: {
+          ...expiredState,
+          archiveId: null,
+        },
+        decisionState: {
           ...expiredState,
           archiveId: null,
         },
@@ -390,14 +431,31 @@ export class ShiguanController {
         }
         const archives = response.map((archive) => {
           const confirmed = this.confirmedReviews.get(archive.id);
-          if (!confirmed) {
-            return archive;
+          let reconciled = archive;
+          if (confirmed) {
+            if (isOlderReview(archive.reviewStatus, confirmed)) {
+              reconciled = { ...reconciled, reviewStatus: confirmed };
+            } else {
+              this.confirmedReviews.delete(archive.id);
+            }
           }
-          if (isOlderReview(archive.reviewStatus, confirmed)) {
-            return { ...archive, reviewStatus: confirmed };
+          const confirmedDecision = this.confirmedDecisions.get(archive.id);
+          if (confirmedDecision) {
+            const candidateTime = archive.decisionStatus
+              ? Date.parse(archive.decisionStatus.decidedAt)
+              : Number.NaN;
+            const confirmedTime = Date.parse(confirmedDecision.decidedAt);
+            if (
+              archive.decisionStatus === null ||
+              Number.isNaN(candidateTime) ||
+              (!Number.isNaN(confirmedTime) && candidateTime < confirmedTime)
+            ) {
+              reconciled = { ...reconciled, decisionStatus: confirmedDecision };
+            } else {
+              this.confirmedDecisions.delete(archive.id);
+            }
           }
-          this.confirmedReviews.delete(archive.id);
-          return archive;
+          return reconciled;
         });
         const selectedArchiveId = archives.some(
           (archive) => archive.id === this.currentState.selectedArchiveId,
@@ -548,6 +606,42 @@ export class ShiguanController {
     })();
   }
 
+  private loadDecision(archiveId: string, decision: ArchiveDecisionValue): void {
+    const { generation, signal } = this.begin("decision");
+    this.update({
+      decisionState: {
+        ...requestState("loading", "正在归档处置…"),
+        archiveId,
+      },
+    });
+
+    void (async () => {
+      try {
+        const decisionStatus = await this.transport.decide(archiveId, decision, signal);
+        if (!this.isCurrent("decision", generation)) return;
+        this.confirmedDecisions.set(archiveId, decisionStatus);
+        this.update({
+          archives: this.currentState.archives.map((archive) => (
+            archive.id === archiveId ? { ...archive, decisionStatus } : archive
+          )),
+          decisionState: {
+            ...requestState("ready", `${formatArchiveDecision(decisionStatus.decision)}，处置结果已归档。`),
+            archiveId,
+          },
+        });
+      } catch (error) {
+        const normalized = this.handleError("decision", generation, error);
+        if (!normalized) return;
+        this.update({
+          decisionState: {
+            ...requestState("error", normalized.message, { errorKind: normalized.kind }),
+            archiveId,
+          },
+        });
+      }
+    })();
+  }
+
   private dispose(): void {
     if (this.disposed) {
       return;
@@ -561,6 +655,7 @@ export class ShiguanController {
       delete this.aborters[channel];
     }
     this.confirmedReviews.clear();
+    this.confirmedDecisions.clear();
     this.listeners.clear();
   }
 }

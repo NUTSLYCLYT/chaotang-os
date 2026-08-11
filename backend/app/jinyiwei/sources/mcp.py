@@ -11,6 +11,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from threading import Lock
+from time import monotonic
 from typing import Protocol
 
 from app.jinyiwei.freshness import is_evidence_fresh
@@ -130,13 +131,40 @@ _CLIENT_ERROR_CODES = {
 }
 
 
+class McpRateLimitState:
+    """Thread-safe, process-local reservations keyed by server and tool."""
+
+    def __init__(self, *, clock: Callable[[], float] = monotonic) -> None:
+        self._clock = clock
+        self._lock = Lock()
+        self._windows: dict[tuple[str, str], deque[float]] = {}
+
+    def reserve(
+        self,
+        *,
+        server_id: str,
+        tool_name: str,
+        rate_limit_per_minute: int,
+    ) -> None:
+        """Atomically prune, enforce, and reserve one call before I/O."""
+
+        with self._lock:
+            now = self._clock()
+            window = self._windows.setdefault((server_id, tool_name), deque())
+            cutoff = now - 60.0
+            while window and window[0] <= cutoff:
+                window.popleft()
+            if len(window) >= rate_limit_per_minute:
+                raise McpClientError("source_rate_limited")
+            window.append(now)
+
+
 class McpSource:
     """Route unresolved facts through approved tools.
 
-    Rate windows and call-result caches are deliberately process-local. Deployments
-    with multiple worker processes therefore enforce an independent configured
-    budget per worker; a shared distributed limit requires a separate product
-    decision and storage boundary.
+    Injected rate-limit state can be shared across sources in one process. Call-result
+    caches remain source-local. A plain source gets fresh rate-limit state so custom
+    sources remain isolated.
     """
 
     def __init__(
@@ -146,13 +174,14 @@ class McpSource:
         client: _McpClient,
         mapper: DeterministicMcpMapper,
         now: Callable[[], datetime] = lambda: datetime.now(UTC),
+        rate_limit_state: McpRateLimitState | None = None,
     ) -> None:
         self._registry = registry
         self._client = client
         self._mapper = mapper
         self._now = now
-        self._state_lock = Lock()
-        self._rate_windows: dict[tuple[str, str], deque[datetime]] = {}
+        self._rate_limit_state = rate_limit_state or McpRateLimitState()
+        self._cache_lock = Lock()
         self._call_cache: dict[str, _CachedCall] = {}
 
     def source_configuration_fingerprint(self) -> str:
@@ -687,7 +716,7 @@ class McpSource:
     ) -> tuple[McpToolResult, McpCallAudit]:
         arguments_hash, cache_key = _call_identity(server, approval, arguments)
         now = self._aware_now()
-        with self._state_lock:
+        with self._cache_lock:
             cached = self._call_cache.get(cache_key)
             if cached is not None and cached.expires_at > now:
                 return cached.result, McpCallAudit(
@@ -703,15 +732,12 @@ class McpSource:
                 )
             if cached is not None:
                 self._call_cache.pop(cache_key, None)
-            window_key = (server.server_id, approval.tool_name)
-            window = self._rate_windows.setdefault(window_key, deque())
-            cutoff = now - timedelta(minutes=1)
-            while window and window[0] <= cutoff:
-                window.popleft()
-            if len(window) >= server.rate_limit_per_minute:
-                raise McpClientError("source_rate_limited")
-            # Reservation happens before I/O and is intentionally retained on failure.
-            window.append(now)
+        # Reservation happens before I/O and is intentionally retained on failure.
+        self._rate_limit_state.reserve(
+            server_id=server.server_id,
+            tool_name=approval.tool_name,
+            rate_limit_per_minute=server.rate_limit_per_minute,
+        )
 
         started = now
         try:
@@ -745,7 +771,7 @@ class McpSource:
         if fact_freshness_seconds is not None:
             ttl = min(ttl, fact_freshness_seconds)
         if ttl > 0:
-            with self._state_lock:
+            with self._cache_lock:
                 self._call_cache[cache_key] = _CachedCall(
                     result=result,
                     expires_at=completed + timedelta(seconds=ttl),

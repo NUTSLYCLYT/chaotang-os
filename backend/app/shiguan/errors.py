@@ -27,6 +27,10 @@ class ArchiveValidationError(ShiguanError):
     """
 
 
+class ArchiveDecisionConflictError(ShiguanError):
+    """Raised when an archive already has a different terminal decision."""
+
+
 class ShiguanStorageError(ShiguanError):
     """Raised when the sqlite storage layer itself fails (I/O, disk, etc.).
 

@@ -1,10 +1,8 @@
-:global(:root) {
+.shell {
   --advisor-drawer-width: 44vw;
   --advisor-drawer-open-duration: 720ms;
   --advisor-drawer-close-duration: 420ms;
   --advisor-drawer-easing: cubic-bezier(0.16, 1, 0.3, 1);
-}
-.shell {
   position: fixed;
   z-index: 220;
   top: 64px;
@@ -94,8 +92,8 @@
   color: #f0c66a;
 }
 .composerButton:disabled { color: #6f6755; cursor: default; }
-@media (min-width: 640px) { :global(:root) { --advisor-drawer-width: 260px; } }
-@media (min-width: 1024px) { :global(:root) { --advisor-drawer-width: 300px; } }
+@media (min-width: 640px) { .shell { --advisor-drawer-width: 260px; } }
+@media (min-width: 1024px) { .shell { --advisor-drawer-width: 300px; } }
 @media (min-width: 1280px) {
   .header strong { font-size: 21px; }
 }

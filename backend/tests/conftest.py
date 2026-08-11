@@ -11,6 +11,10 @@ from __future__ import annotations
 
 import pytest
 
+from app.accounting_reports import storage as accounting_storage
+from app.api import decrees as decrees_api
+from app.api import report_artifacts as report_artifacts_api
+from app.junjichu_cases import storage as junjichu_storage
 from app.langgraph_runtime import deepseek_env
 from app.shiguan import db as shiguan_db
 
@@ -45,3 +49,24 @@ def isolate_shiguan_default_db_path(tmp_path, monkeypatch):
     """
     isolated_db_path = tmp_path / "shiguan-default" / "shiguan.sqlite3"
     monkeypatch.setattr(shiguan_db, "_DEFAULT_DB_PATH", isolated_db_path)
+
+
+@pytest.fixture(autouse=True)
+def isolate_writable_runtime_defaults(tmp_path, monkeypatch):
+    """Keep default writable stores inside the current test's temp directory."""
+    isolated_root = tmp_path / "runtime-defaults"
+    artifact_db = isolated_root / "report_artifacts.sqlite3"
+    artifact_dir = isolated_root / "report_artifacts"
+
+    monkeypatch.setattr(
+        junjichu_storage,
+        "_DEFAULT_DB_PATH",
+        isolated_root / "junjichu_cases.sqlite3",
+    )
+    monkeypatch.setattr(accounting_storage, "DEFAULT_DB_PATH", artifact_db)
+    monkeypatch.setattr(accounting_storage, "DEFAULT_ARTIFACT_DIR", artifact_dir)
+    monkeypatch.setattr(decrees_api, "DEFAULT_DB_PATH", artifact_db)
+    monkeypatch.setattr(decrees_api, "DEFAULT_ARTIFACT_DIR", artifact_dir)
+    monkeypatch.setattr(report_artifacts_api, "DEFAULT_DB_PATH", artifact_db)
+    monkeypatch.setattr(report_artifacts_api, "DEFAULT_ARTIFACT_DIR", artifact_dir)
+    monkeypatch.setattr(report_artifacts_api, "_configured_db_path", artifact_db)

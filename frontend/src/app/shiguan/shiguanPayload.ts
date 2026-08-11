@@ -1,4 +1,6 @@
 import type {
+  ArchiveDecision,
+  ArchiveDecisionValue,
   JinyiweiDataScope,
   JinyiweiEvidenceQuality,
   JinyiweiEvidenceStance,
@@ -15,6 +17,13 @@ import type {
   ShiguanReviewStatus,
   ShiguanStatistics,
 } from "../../lib/backendClient.ts";
+
+const ARCHIVE_DECISIONS = new Set<ArchiveDecisionValue>([
+  "APPROVED",
+  "REJECTED",
+  "ADOPTED",
+  "RETURNED_FOR_RECONSIDERATION",
+]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -336,6 +345,26 @@ function parseNullableReviewStatus(
   return parseReviewStatus(value) ?? undefined;
 }
 
+function parseArchiveDecision(value: unknown): ArchiveDecision | null {
+  if (
+    !isRecord(value) ||
+    !hasExactKeys(value, ["decision", "decidedAt"]) ||
+    !ARCHIVE_DECISIONS.has(value.decision as ArchiveDecisionValue) ||
+    !isIsoDateTime(value.decidedAt)
+  ) {
+    return null;
+  }
+  return {
+    decision: value.decision as ArchiveDecisionValue,
+    decidedAt: value.decidedAt,
+  };
+}
+
+function parseNullableArchiveDecision(value: unknown): ArchiveDecision | null | undefined {
+  if (value === null) return null;
+  return parseArchiveDecision(value) ?? undefined;
+}
+
 function parseArchive(value: unknown): ShiguanArchive | null {
   if (
     !isRecord(value) ||
@@ -359,6 +388,7 @@ function parseArchive(value: unknown): ShiguanArchive | null {
       "replyTime",
       "respondent",
       "reviewStatus",
+      "decisionStatus",
       "evidenceReferences",
     ]) ||
     (value.type !== "MEMORIAL" && value.type !== "REPLY") ||
@@ -377,11 +407,20 @@ function parseArchive(value: unknown): ShiguanArchive | null {
   const evidence = parseEvidence(value.evidence);
   const evidenceReferences = parseEvidenceReferences(value.evidenceReferences);
   const reviewStatus = parseNullableReviewStatus(value.reviewStatus);
+  const decisionStatus = parseNullableArchiveDecision(value.decisionStatus);
+  const decisionMatchesArchiveType = decisionStatus === null ||
+    (value.type === "MEMORIAL" &&
+      (decisionStatus?.decision === "APPROVED" || decisionStatus?.decision === "REJECTED")) ||
+    (value.type === "REPLY" &&
+      (decisionStatus?.decision === "ADOPTED" ||
+        decisionStatus?.decision === "RETURNED_FOR_RECONSIDERATION"));
   if (
     relatedArchiveIds === null ||
     evidence === null ||
     evidenceReferences === null ||
-    reviewStatus === undefined
+    reviewStatus === undefined ||
+    decisionStatus === undefined ||
+    !decisionMatchesArchiveType
   ) {
     return null;
   }
@@ -449,6 +488,7 @@ function parseArchive(value: unknown): ShiguanArchive | null {
     replyTime,
     respondent,
     reviewStatus,
+    decisionStatus,
     evidenceReferences,
   };
 }
@@ -602,5 +642,15 @@ export function parseReviewPayload(value: unknown): ShiguanReviewStatus | null {
     value.status === "ok"
   )
     ? parseReviewStatus(value.reviewStatus)
+    : null;
+}
+
+export function parseDecisionPayload(value: unknown): ArchiveDecision | null {
+  return (
+    isRecord(value) &&
+    hasExactKeys(value, ["status", "decisionStatus"]) &&
+    value.status === "ok"
+  )
+    ? parseArchiveDecision(value.decisionStatus)
     : null;
 }

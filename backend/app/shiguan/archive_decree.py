@@ -188,6 +188,7 @@ def _write_pending_evidence(
     reply_id: str,
     evidence_ids: tuple[str, ...],
     *,
+    owner_user_id: str,
     jinyiwei_db_path: Path | None,
     batch_fingerprint: str,
 ) -> None:
@@ -198,6 +199,7 @@ def _write_pending_evidence(
     jinyiwei_storage.write_pending_adoptions(
         evidence_ids,
         reply_id,
+        owner_user_id=owner_user_id,
         at=datetime.now(UTC),
         db_path=jinyiwei_db_path,
         batch_fingerprint=batch_fingerprint,
@@ -208,6 +210,7 @@ def _confirm_reply_evidence(
     reply_id: str,
     evidence_ids: tuple[str, ...],
     *,
+    owner_user_id: str,
     jinyiwei_db_path: Path | None,
     batch_fingerprint: str,
 ) -> None:
@@ -218,6 +221,7 @@ def _confirm_reply_evidence(
     jinyiwei_storage.confirm_adoptions(
         evidence_ids,
         reply_id,
+        owner_user_id=owner_user_id,
         at=datetime.now(UTC),
         db_path=jinyiwei_db_path,
         batch_fingerprint=batch_fingerprint,
@@ -228,18 +232,21 @@ def _link_reply_evidence(
     reply_id: str,
     evidence_ids: tuple[str, ...],
     *,
+    owner_user_id: str,
     jinyiwei_db_path: Path | None,
     batch_fingerprint: str,
 ) -> None:
     _write_pending_evidence(
         reply_id,
         evidence_ids,
+        owner_user_id=owner_user_id,
         jinyiwei_db_path=jinyiwei_db_path,
         batch_fingerprint=batch_fingerprint,
     )
     _confirm_reply_evidence(
         reply_id,
         evidence_ids,
+        owner_user_id=owner_user_id,
         jinyiwei_db_path=jinyiwei_db_path,
         batch_fingerprint=batch_fingerprint,
     )
@@ -280,6 +287,7 @@ def reconcile_reply_evidence(
     _link_reply_evidence(
         reply_id,
         evidence_ids,
+        owner_user_id=owner_user_id,
         jinyiwei_db_path=jinyiwei_db_path,
         batch_fingerprint=batch_fingerprint,
     )
@@ -410,6 +418,7 @@ def archive_chancellor_decree(
                 _link_reply_evidence(
                     reply.id,
                     evidence_ids,
+                    owner_user_id=owner_user_id,
                     jinyiwei_db_path=jinyiwei_db_path,
                     batch_fingerprint=batch_fingerprint,
                 )
@@ -419,6 +428,7 @@ def archive_chancellor_decree(
         _write_pending_evidence(
             generated_reply_id,
             evidence_ids,
+            owner_user_id=owner_user_id,
             jinyiwei_db_path=jinyiwei_db_path,
             batch_fingerprint=batch_fingerprint,
         )
@@ -435,6 +445,7 @@ def archive_chancellor_decree(
                 jinyiwei_storage.cancel_pending_adoptions(
                     evidence_ids,
                     generated_reply_id,
+                    owner_user_id=owner_user_id,
                     db_path=jinyiwei_db_path,
                     batch_fingerprint=batch_fingerprint,
                 )
@@ -451,6 +462,7 @@ def archive_chancellor_decree(
             _confirm_reply_evidence(
                 reply.id,
                 evidence_ids,
+                owner_user_id=owner_user_id,
                 jinyiwei_db_path=jinyiwei_db_path,
                 batch_fingerprint=batch_fingerprint,
             )

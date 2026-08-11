@@ -1,4 +1,8 @@
 .trigger {
+  --advisor-drawer-width: 44vw;
+  --advisor-drawer-open-duration: 720ms;
+  --advisor-drawer-close-duration: 420ms;
+  --advisor-drawer-easing: cubic-bezier(0.16, 1, 0.3, 1);
   position: fixed;
   z-index: 225;
   top: 50%;
@@ -85,6 +89,8 @@
 @keyframes toggleToLeft { from { left: var(--advisor-drawer-width); } to { left: 0; } }
 @keyframes toggleFromRight { from { right: 0; } to { right: var(--advisor-drawer-width); } }
 @keyframes toggleToRight { from { right: var(--advisor-drawer-width); } to { right: 0; } }
+@media (min-width: 640px) { .trigger { --advisor-drawer-width: 260px; } }
+@media (min-width: 1024px) { .trigger { --advisor-drawer-width: 300px; } }
 @media (prefers-reduced-motion: reduce) { .trigger { animation-duration: .01ms !important; } }
 .backdrop { position: fixed; z-index: 219; inset: 0; border: 0; background: rgba(0,0,0,.48); }
 

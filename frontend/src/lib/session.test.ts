@@ -18,6 +18,20 @@ test("reads the opaque session only from the named request cookie", () => {
   assert.equal(readSessionId(new Request("http://localhost")), null);
 });
 
+test("rejects decoded whitespace-only sessions without rewriting nonblank opaque sessions", () => {
+  for (const encodedWhitespace of ["%20", "%09", "%20%09%20"]) {
+    const request = new Request("http://localhost", {
+      headers: { cookie: `courtos_session=${encodedWhitespace}` },
+    });
+    assert.equal(readSessionId(request), null, encodedWhitespace);
+  }
+
+  const opaque = new Request("http://localhost", {
+    headers: { cookie: "courtos_session=%20opaque%20" },
+  });
+  assert.equal(readSessionId(opaque), " opaque ");
+});
+
 test("sets an HttpOnly same-site session cookie", () => {
   const response = new Response(null);
   setSessionCookie(response, "test-session");

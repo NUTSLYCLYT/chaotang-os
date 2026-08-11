@@ -2,10 +2,66 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  EMPTY_CHANCELLOR_DRAFT_COMPOSER_STATE,
   canIssueChancellorDraft,
   draftDepartmentDisplayRows,
+  projectDraftConfirmation,
   requestChancellorDraft,
+  resolveOwnerScopedChancellorDraftComposerState,
+  type OwnerScopedChancellorDraftComposerState,
 } from "./chancellorDraft.ts";
+
+test("owner-scoped composer hides A draft synchronously and disables B issue action", () => {
+  const aDraft = {
+    status: "DRAFT_READY" as const,
+    version: 3,
+    fingerprint: "a".repeat(64),
+    understanding: "A 理解",
+    expert_example: "A 拟旨",
+    recommendation_reason: "A 理由",
+    assumptions: [],
+    revision_prompt: "A 修改提示",
+    draft: {
+      objective: "A 事项",
+      scope: ["A 范围"],
+      exclusions: [],
+      input_materials: ["A 材料"],
+      material_gaps: [],
+      key_questions: ["A 问题"],
+      departments: [{
+        department: "户部",
+        bureaus: ["会计司"],
+        role: "主办",
+        reason: "A 原因",
+        responsibility: "A 职责",
+        expected_output: "A 产出",
+      }],
+      execution_steps: ["A 步骤"],
+      deliverables: ["A 交付"],
+      completion_criteria: ["A 标准"],
+      permissions_and_limits: ["A 限制"],
+      current_status: "DRAFT_READY" as const,
+    },
+    decree_text: "owner A private decree",
+  };
+  const envelope: OwnerScopedChancellorDraftComposerState = {
+    ownerId: "owner-a",
+    value: {
+      decreeText: "owner A private source",
+      draftResult: aDraft,
+      draftPending: false,
+      draftError: null,
+    },
+  };
+
+  assert.equal(
+    resolveOwnerScopedChancellorDraftComposerState(envelope, "owner-a").draftResult,
+    aDraft,
+  );
+  const bState = resolveOwnerScopedChancellorDraftComposerState(envelope, "owner-b");
+  assert.deepEqual(bState, EMPTY_CHANCELLOR_DRAFT_COMPOSER_STATE);
+  assert.equal(canIssueChancellorDraft(bState.draftResult), false);
+});
 
 test("拟旨请求只调用同源 BFF，并透传版本", async () => {
   const requests: Array<{ input: string; body: string }> = [];
@@ -132,6 +188,126 @@ test("只有完整的 DRAFT_READY 草案允许下旨", () => {
     draft: completeDraft,
     decree_text: "正式草案",
   }), true);
+});
+
+test("无年份财务草案只接受系统补全为 2025 的可下旨响应", async () => {
+  const completeDraft = {
+    objective: "生成 2025 年财务报表",
+    scope: ["2025 年财务数据"],
+    exclusions: [],
+    input_materials: ["系统内现有财务数据"],
+    material_gaps: [],
+    key_questions: [],
+    departments: [{
+      department: "户部",
+      bureaus: ["会计司"],
+      role: "主审",
+      reason: "负责财务报表",
+      responsibility: "生成并校验报表",
+      expected_output: "2025 年财务报表",
+    }],
+    execution_steps: ["生成 2025 年报表"],
+    deliverables: ["2025 年财务报表"],
+    completion_criteria: ["2025 年报表可下载"],
+    permissions_and_limits: ["只读系统内数据"],
+    current_status: "DRAFT_READY" as const,
+  };
+  const canonical = "读取系统内既有财务数据并生成可下载的 2025 年财务报表";
+  const ready = await requestChancellorDraft("读取系统内既有财务数据并生成可下载财务报表", 1, async () =>
+    Response.json({
+      status: "DRAFT_READY",
+      version: 1,
+      fingerprint: "b".repeat(64),
+      understanding: "生成财务报表",
+      expert_example: canonical,
+      recommendation_reason: "采用上一完整年度",
+      assumptions: ["参考日期为 2026-08-05，上一完整年度为 2025 年"],
+      revision_prompt: "",
+      draft: completeDraft,
+      decree_text: canonical,
+    }));
+
+  assert.equal(ready.ok, true);
+  if (!ready.ok) return;
+  assert.match(ready.draft.expert_example, /2025/);
+  assert.match(ready.draft.decree_text ?? "", /2025/);
+  assert.equal(ready.draft.decree_text, ready.draft.expert_example);
+  assert.equal(canIssueChancellorDraft(ready.draft), true);
+});
+
+test("DRAFT_READY canonical text must equal the executable decree text", async () => {
+  const result = await requestChancellorDraft("generate the 2025 report", 1, async () =>
+    Response.json({
+      status: "DRAFT_READY",
+      version: 1,
+      fingerprint: "d".repeat(64),
+      understanding: "generate the 2025 report",
+      expert_example: "generate the 2025 report",
+      recommendation_reason: "explicit period",
+      assumptions: [],
+      revision_prompt: "",
+      draft: {
+        objective: "generate the 2025 report",
+        scope: ["2025"],
+        exclusions: [],
+        input_materials: [],
+        material_gaps: [],
+        key_questions: [],
+        departments: [],
+        execution_steps: [],
+        deliverables: ["XLSX"],
+        completion_criteria: ["downloadable"],
+        permissions_and_limits: ["read only"],
+        current_status: "DRAFT_READY",
+      },
+      decree_text: "generate the 2024 report",
+    }),
+  );
+
+  assert.deepEqual(result, { ok: false });
+});
+
+test("NEEDS_INPUT presents deterministic guidance without an issue action", async () => {
+  const result = await requestChancellorDraft("generate a report", 1, async () =>
+    Response.json({
+      status: "NEEDS_INPUT",
+      version: 1,
+      fingerprint: "e".repeat(64),
+      understanding: "period is ambiguous",
+      expert_example: "Please provide a valid accounting period.",
+      recommendation_reason: "INVALID_PERIOD",
+      assumptions: [],
+      revision_prompt: "Please provide a valid year.",
+      draft: null,
+      decree_text: null,
+    }),
+  );
+
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  assert.deepEqual(projectDraftConfirmation(result.draft), {
+    visibleCanonicalText: "Please provide a valid accounting period.",
+    showIssueAction: false,
+  });
+  assert.equal(canIssueChancellorDraft(result.draft), false);
+});
+
+test("NEEDS_INPUT 响应不得夹带可执行 decree_text", async () => {
+  const result = await requestChancellorDraft("生成财务报表", 1, async () =>
+    Response.json({
+      status: "NEEDS_INPUT",
+      version: 1,
+      fingerprint: "c".repeat(64),
+      understanding: "缺少可用期间",
+      expert_example: "",
+      recommendation_reason: "需要补充",
+      assumptions: [],
+      revision_prompt: "请补充年份",
+      draft: null,
+      decree_text: "不得执行的替换文本",
+    }));
+
+  assert.deepEqual(result, { ok: false });
 });
 
 test("部门展示投影保留部门和多司批准顺序，并完整绑定六项字段", () => {

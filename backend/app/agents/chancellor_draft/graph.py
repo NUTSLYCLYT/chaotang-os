@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
+from collections.abc import Callable
+from datetime import date
 from pathlib import Path
 from typing import TypedDict
 
@@ -11,7 +14,19 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from pydantic import ValidationError
 
-from app.accounting_reports.intent import detect_accounting_report_intent
+from app.accounting_reports import (
+    APPROVED_ACCOUNTING_SOURCE_DIR,
+    AccountingPeriodResolution,
+    AccountingSourceError,
+    PeriodResolutionStatus,
+    ReportIntentKind,
+    ReportPeriod,
+    detect_accounting_report_intent,
+    preflight_accounting_sources,
+    resolve_accounting_report_period,
+    resolve_accounting_source_dir,
+)
+from app.accounting_reports.period_policy import LedgerLoader
 from app.agents.bureaus.profiles import BUREAU_PROFILES
 from app.agents.chancellor_draft.instructions_loader import (
     load_chancellor_draft_instructions,
@@ -20,12 +35,15 @@ from app.agents.chancellor_draft.models import ChancellorDraftResponse
 from app.agents.chancellor_draft.routing import build_route_snapshot
 from app.langgraph_runtime.deepseek_client import DeepSeekChatModel, build_deepseek_chat_model
 from app.langgraph_runtime.deepseek_config import load_deepseek_provider_config
+from app.langgraph_runtime.provider_budget import get_provider_attempt_budget
 
 
 class ChancellorDraftGraphState(TypedDict, total=False):
     messages: list[dict[str, str]]
     version: int
     response: dict
+    accounting_context: dict
+    preserve_authority: bool
 
 
 class ChancellorDraftGraphInvocationError(Exception):
@@ -72,11 +90,53 @@ _BUREAU_ROUTE_CATALOG = "; ".join(
     for department in ("吏部", "户部", "礼部", "兵部", "刑部", "工部")
 )
 
-_BUREAU_FALLBACK_RULES = "；".join(
-    f'{department}不确定时必须使用 bureaus: ["'
-    f"{next(profile.bureau for profile in BUREAU_PROFILES if profile.department == department)}"
-    '"]'
-    for department in ("吏部", "户部", "礼部", "兵部", "刑部", "工部")
+_MINISTRIES = tuple(
+    dict.fromkeys(profile.department for profile in BUREAU_PROFILES)
+)
+_BUREAUS_BY_DEPARTMENT = {
+    department: frozenset(
+        profile.bureau
+        for profile in BUREAU_PROFILES
+        if profile.department == department
+    )
+    for department in _MINISTRIES
+}
+_EXPLICIT_BUREAU_FOLLOWING_MARKERS = (
+    "制定",
+    "编制",
+    "生成",
+    "制作",
+    "形成",
+    "负责",
+    "处理",
+    "办理",
+    "开展",
+    "提供",
+    "审查",
+    "核查",
+    "评估",
+    "检查",
+    "统筹",
+    "更新",
+    "协调",
+    "确认",
+    "提交",
+    "输出",
+    "交付",
+    "调查",
+    "分析",
+    "优化",
+    "管理",
+    "执行",
+    "落实",
+    "推进",
+)
+_EXPLICIT_BUREAU_PATTERN = re.compile(
+    rf"(?P<department>{'|'.join(map(re.escape, _MINISTRIES))})"
+    r"[\s的:：/、-]*"
+    r"(?P<bureau>[\u4e00-\u9fff]+?司)"
+    rf"(?=$|[\s,，。；;：:/、（）()]+|"
+    rf"{'|'.join(map(re.escape, _EXPLICIT_BUREAU_FOLLOWING_MARKERS))})"
 )
 
 _ARRAY_OF_STRINGS_PATHS = {
@@ -235,7 +295,8 @@ def _structure_correction(error: Exception | None) -> str:
         "吏部、户部、礼部、兵部、刑部、工部. bureaus must list one or more "
         "real bureaus belonging to that department, without duplicates. "
         f"Use only this department-to-bureau catalog: {_BUREAU_ROUTE_CATALOG}. "
-        f"If uncertain, obey these exact safe fallbacks: {_BUREAU_FALLBACK_RULES}. "
+        "If the request does not support a defensible legal bureau, return "
+        "NEEDS_INPUT with draft null; never select the first bureau as a fallback. "
         "For accounting or financial-report work use department 户部 and "
         'bureaus ["会计司"], never department 户部会计司. '
         f"Use this complete typed JSON skeleton:\n{_TYPED_JSON_SKELETON}"
@@ -265,7 +326,8 @@ def _system_prompt(instructions: str) -> str:
         "六部固定为吏部、户部、礼部、兵部、刑部、工部；department 只能是六部名称。"
         "bureaus 必须是非空、无重复且仅包含本部真实司的数组。"
         f"司级路由只能从以下对应表选择：{_BUREAU_ROUTE_CATALOG}。"
-        f"无法确定本部具体司时，严格使用以下固定回退，不得创造司名：{_BUREAU_FALLBACK_RULES}。"
+        "无法依据用户要求与冻结职责确定合法司时，返回 NEEDS_INPUT 且 draft 为 null；"
+        "不得以本部首司作为固定回退，也不得创造或映射司名。"
         "财务报表任务必须使用 department: \"户部\" 与 bureaus: [\"会计司\"]，"
         "不得把户部会计司写成 department。"
         "revision_prompt 必须是非空字符串。"
@@ -279,6 +341,105 @@ def _system_prompt(instructions: str) -> str:
         "不要输出 version、fingerprint 或 decree_text，它们由系统生成。"
         f"{_READY_CONSISTENCY_RULES}"
         f"严格遵循这个完整类型 JSON 骨架：\n{_TYPED_JSON_SKELETON}"
+    )
+
+
+def _default_period_assumption(reference_date: date, period: ReportPeriod) -> str:
+    return (
+        "按上一完整年度规则，基于"
+        f" {reference_date.isoformat()}，报表期间固定为 {period.start_year} 年。"
+    )
+
+
+def _resolved_period_constraint(period: ReportPeriod) -> str:
+    period_label = (
+        f"{period.start_year} 年"
+        if period.start_year == period.end_year
+        else f"{period.start_year}-{period.end_year} 年"
+    )
+    return (
+        "\n\n系统已确定本次财务报表期间。"
+        "expert_example 必须包含且只能包含一个受支持的 EXPLICIT_PERIOD，"
+        f"该期间必须精确等于 {period_label}；不得省略、改写、扩展或替换年份。"
+        "draft.departments 必须且只能是 department 户部、bureaus [\"会计司\"]。"
+    )
+
+
+def _deterministic_needs_input_response(
+    *,
+    version: int,
+    resolution: AccountingPeriodResolution,
+) -> ChancellorDraftResponse:
+    if resolution.reason == "subject_identity_unresolved":
+        guidance = (
+            "当前财务数据未提供唯一且可信的主体身份，无法安全确定报表归属。"
+            "请由管理员在受控数据源中明确唯一主体身份后重试；"
+            "不得根据文件名、目录名或用户提示推断主体。"
+        )
+        assumptions = []
+        recommendation_reason = (
+            "主体身份缺失、空白、未规范化或存在冲突，不能形成可执行拟旨。"
+        )
+    elif resolution.reason == "previous_complete_year_unavailable":
+        if resolution.period is None:
+            raise ValueError("defaulted unavailable period must be retained")
+        year = resolution.period.start_year
+        guidance = (
+            f"上一完整年度（{year}年）的财务数据当前不可用。"
+            f"请提供{year}年财务数据，或明确一个可用的报表年份。"
+        )
+        assumptions = [f"上一完整年度固定为{year}年。"]
+        recommendation_reason = (
+            "缺少可用的上一完整年度数据，不能形成可执行拟旨。"
+        )
+    elif resolution.reason == "requested_period_unavailable":
+        if resolution.period is None:
+            raise ValueError("requested unavailable period must be retained")
+        period_label = (
+            str(resolution.period.start_year)
+            if resolution.period.start_year == resolution.period.end_year
+            else f"{resolution.period.start_year}-{resolution.period.end_year}"
+        )
+        guidance = (
+            f"请求的{period_label}年财务数据当前无法安全解析。"
+            "请提供结构明确且可校验的对应期间数据。"
+        )
+        assumptions = []
+        recommendation_reason = "请求期间的数据不可安全解析，不能形成可执行拟旨。"
+    else:
+        guidance = (
+            "报表期间无效或存在歧义。请明确一个可用的四位数报表年份。"
+        )
+        assumptions = []
+        recommendation_reason = "期间未能确定，不能形成可执行拟旨。"
+
+    normalized_payload = {
+        "status": "NEEDS_INPUT",
+        "understanding": guidance,
+        "expert_example": guidance,
+        "recommendation_reason": recommendation_reason,
+        "assumptions": assumptions,
+        "revision_prompt": guidance,
+        "draft": None,
+    }
+    canonical = json.dumps(
+        _canonical_payload(
+            version=version,
+            normalized_payload=normalized_payload,
+            decree_text=None,
+            route_snapshot=None,
+        ),
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return ChancellorDraftResponse.model_validate(
+        {
+            **normalized_payload,
+            "version": version,
+            "fingerprint": hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
+            "decree_text": None,
+        }
     )
 
 
@@ -307,6 +468,97 @@ def _validate_ready_route_semantics(
         )
 
 
+def _latest_user_text(messages: list[dict[str, str]]) -> str:
+    for message in reversed(messages):
+        content = message.get("content")
+        if message.get("role") == "user" and isinstance(content, str):
+            return content
+    return ""
+
+
+def _invalid_explicit_bureau_departments(
+    messages: list[dict[str, str]],
+) -> tuple[str, ...]:
+    invalid_departments: list[str] = []
+    for match in _EXPLICIT_BUREAU_PATTERN.finditer(_latest_user_text(messages)):
+        department = match.group("department")
+        bureau = match.group("bureau")
+        if bureau.endswith("公司"):
+            continue
+        if bureau not in _BUREAUS_BY_DEPARTMENT[department]:
+            invalid_departments.append(department)
+    return tuple(dict.fromkeys(invalid_departments))
+
+
+def _explicit_bureau_needs_input_response(
+    *,
+    messages: list[dict[str, str]],
+    version: int,
+) -> ChancellorDraftResponse | None:
+    departments = _invalid_explicit_bureau_departments(messages)
+    if not departments:
+        return None
+
+    allowed = "；".join(
+        f"{department}："
+        + "、".join(
+            profile.bureau
+            for profile in BUREAU_PROFILES
+            if profile.department == department
+        )
+        for department in departments
+    )
+    normalized_payload = {
+        "status": "NEEDS_INPUT",
+        "understanding": "你指定了已登记部门，但承办司不在该部门的冻结名录内。",
+        "expert_example": "请从该部门已登记的承办司中选择，或仅指定部门并允许按冻结职责选择。",
+        "recommendation_reason": "未知司和跨部司不能形成可下旨的授权路由，也不得静默映射为其他司。",
+        "assumptions": [],
+        "revision_prompt": f"请改用以下冻结名录中的承办司，或删除司名：{allowed}",
+        "draft": None,
+    }
+    canonical = json.dumps(
+        _canonical_payload(
+            version=version,
+            normalized_payload=normalized_payload,
+            decree_text=None,
+            route_snapshot=None,
+        ),
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return ChancellorDraftResponse.model_validate(
+        {
+            **normalized_payload,
+            "version": version,
+            "fingerprint": hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
+            "decree_text": None,
+        }
+    )
+
+
+def _validate_resolved_period_semantics(
+    response: ChancellorDraftResponse,
+    resolution: AccountingPeriodResolution,
+) -> None:
+    if (
+        resolution.status is not PeriodResolutionStatus.RESOLVED
+        or response.status.value != "DRAFT_READY"
+    ):
+        return
+    if resolution.period is None:
+        raise ValueError("resolved accounting period must be retained")
+    canonical_intent = detect_accounting_report_intent(response.expert_example)
+    if (
+        canonical_intent.kind is not ReportIntentKind.EXPLICIT_PERIOD
+        or canonical_intent.period != resolution.period
+    ):
+        raise ValueError(
+            "accounting report decree must use the exact resolved period"
+        )
+
+
 def _canonical_payload(
     *,
     version: int,
@@ -325,25 +577,113 @@ def _canonical_payload(
 def build_chancellor_draft_graph(
     chat_model: DeepSeekChatModel | None = None,
     dotenv_path: Path | None = None,
+    *,
+    today_provider: Callable[[], date] = date.today,
+    accounting_source_dir: Path | None = None,
+    accounting_source_dir_resolver: Callable[[], Path] | None = None,
+    accounting_source_loader: LedgerLoader = preflight_accounting_sources,
 ) -> CompiledStateGraph:
     """Build the isolated draft graph without importing the decree workflow."""
 
     instructions = load_chancellor_draft_instructions()
-    if chat_model is None:
-        config = load_deepseek_provider_config()
-        resolved_chat_model = build_deepseek_chat_model(
-            config,
-            dotenv_path,
-            json_output=True,
-        )
-    else:
-        resolved_chat_model = chat_model
+    resolved_chat_model = chat_model
+
+    def _get_chat_model() -> DeepSeekChatModel:
+        nonlocal resolved_chat_model
+        if resolved_chat_model is None:
+            config = load_deepseek_provider_config()
+            resolved_chat_model = build_deepseek_chat_model(
+                config,
+                dotenv_path,
+                json_output=True,
+                attempt_budget=get_provider_attempt_budget(),
+            )
+        return resolved_chat_model
 
     def _draft(state: ChancellorDraftGraphState) -> dict:
+        deterministic_response = _explicit_bureau_needs_input_response(
+            messages=state["messages"],
+            version=state["version"],
+        )
+        if deterministic_response is not None:
+            return {"response": deterministic_response.model_dump(mode="json")}
+
+        user_text = "\n".join(
+            message["content"]
+            for message in state["messages"]
+            if message.get("role") == "user"
+            and isinstance(message.get("content"), str)
+        )
+        reference_date = today_provider()
+        accounting_intent = detect_accounting_report_intent(user_text)
+        resolved_source_dir = accounting_source_dir
+        source_loader = accounting_source_loader
+        if (
+            accounting_intent.kind
+            in {ReportIntentKind.EXPLICIT_PERIOD, ReportIntentKind.MISSING_PERIOD}
+            and resolved_source_dir is None
+            and (
+                accounting_source_dir_resolver is not None
+                or accounting_source_loader is preflight_accounting_sources
+            )
+        ):
+            try:
+                source_resolver = (
+                    accounting_source_dir_resolver or resolve_accounting_source_dir
+                )
+                resolved_source_dir = source_resolver()
+            except AccountingSourceError:
+                resolved_source_dir = APPROVED_ACCOUNTING_SOURCE_DIR
+
+                def _unavailable_source(_source_dir: Path, _period: ReportPeriod):
+                    raise AccountingSourceError("source_path_invalid")
+
+                source_loader = _unavailable_source
+        resolution = resolve_accounting_report_period(
+            accounting_intent,
+            reference_date=reference_date,
+            source_dir=resolved_source_dir or APPROVED_ACCOUNTING_SOURCE_DIR,
+            loader=source_loader,
+        )
+        if (
+            resolution.status is PeriodResolutionStatus.RESOLVED
+            and accounting_intent.requested
+            and not (
+                isinstance(resolution.source_fingerprint, str)
+                and re.fullmatch(
+                    r"[0-9a-f]{64}", resolution.source_fingerprint
+                )
+            )
+        ):
+            resolution = AccountingPeriodResolution(
+                status=PeriodResolutionStatus.NEEDS_INPUT,
+                period=resolution.period,
+                used_default=resolution.used_default,
+                reason=(
+                    "previous_complete_year_unavailable"
+                    if resolution.used_default
+                    else "requested_period_unavailable"
+                ),
+            )
+        if resolution.status is PeriodResolutionStatus.NEEDS_INPUT:
+            response = _deterministic_needs_input_response(
+                version=state["version"],
+                resolution=resolution,
+            )
+            return {
+                "response": response.model_dump(mode="json"),
+                "preserve_authority": accounting_intent.requested,
+            }
+
+        system_prompt = _system_prompt(instructions.instructions)
+        if resolution.status is PeriodResolutionStatus.RESOLVED:
+            if resolution.period is None:
+                raise ValueError("resolved accounting period must be retained")
+            system_prompt += _resolved_period_constraint(resolution.period)
         messages = [
             {
                 "role": "system",
-                "content": _system_prompt(instructions.instructions),
+                "content": system_prompt,
             },
             *state["messages"],
         ]
@@ -365,7 +705,7 @@ def build_chancellor_draft_graph(
                 ]
             )
             try:
-                raw = resolved_chat_model(attempt_messages)
+                raw = _get_chat_model()(attempt_messages)
             except Exception as exc:  # noqa: BLE001
                 raise ChancellorDraftGraphInvocationError(
                     "Chancellor draft graph failed to obtain a model response."
@@ -385,6 +725,18 @@ def build_chancellor_draft_graph(
                     **payload,
                     "expert_example": expert_example.strip(),
                 }
+                if resolution.used_default and isinstance(
+                    normalized_payload.get("assumptions"), list
+                ):
+                    assumption = _default_period_assumption(
+                        reference_date,
+                        resolution.period,
+                    )
+                    if assumption not in normalized_payload["assumptions"]:
+                        normalized_payload["assumptions"] = [
+                            *normalized_payload["assumptions"],
+                            assumption,
+                        ]
                 decree_text = (
                     normalized_payload["expert_example"]
                     if normalized_payload.get("status") == "DRAFT_READY"
@@ -399,6 +751,7 @@ def build_chancellor_draft_graph(
                     }
                 )
                 _validate_ready_route_semantics(state["messages"], validated)
+                _validate_resolved_period_semantics(validated, resolution)
                 route_snapshot = (
                     build_route_snapshot(validated.draft).model_dump(mode="json")
                     if validated.draft is not None
@@ -444,7 +797,24 @@ def build_chancellor_draft_graph(
             raise ChancellorDraftGraphInvocationError(
                 "Chancellor draft graph attempted an execution-only state."
             )
-        return {"response": response.model_dump(mode="json")}
+        result = {"response": response.model_dump(mode="json")}
+        if (
+            response.status.value == "DRAFT_READY"
+            and accounting_intent.requested
+            and resolution.period is not None
+            and isinstance(resolution.source_fingerprint, str)
+        ):
+            result["accounting_context"] = {
+                "request_kind": accounting_intent.request_kind.value,
+                "period_start": resolution.period.start_year,
+                "period_end": resolution.period.end_year,
+                "source_fingerprint": resolution.source_fingerprint,
+            }
+        elif response.status.value == "DRAFT_READY" and accounting_intent.requested:
+            raise ChancellorDraftGraphInvocationError(
+                "Accounting work requires a bound source fingerprint."
+            )
+        return result
 
     builder = StateGraph(ChancellorDraftGraphState)
     builder.add_node("draft", _draft)

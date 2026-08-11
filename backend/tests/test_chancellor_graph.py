@@ -6,6 +6,7 @@ import hashlib
 import json
 from datetime import UTC, datetime
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 import yaml
@@ -61,6 +62,8 @@ from app.jinyiwei.models import (
 from app.jinyiwei.sources.base import SourceQuery, SourceResult
 from app.jinyiwei.sources.mcp import McpSource
 from app.langgraph_runtime.deepseek_config import DeepSeekApiKeyError
+
+OWNER_A = "owner-a"
 
 
 def _single_route_response(department: str) -> str:
@@ -172,12 +175,81 @@ def _approved_input(
 
 
 def test_build_chancellor_graph_with_injected_model_returns_compiled_graph():
-    graph = build_chancellor_graph(chat_model=lambda _messages: _single_route_response("户部"))
+    graph = build_chancellor_graph(
+        owner_user_id=OWNER_A,
+        chat_model=lambda _messages: _single_route_response("户部"),
+    )
     assert isinstance(graph, CompiledStateGraph)
 
 
+def test_build_chancellor_graph_rejects_blank_owner_before_returning_graph():
+    with pytest.raises(ValueError, match="owner_user_id must be nonempty"):
+        build_chancellor_graph(
+            owner_user_id=" \t",
+            chat_model=lambda _messages: pytest.fail("model must not run"),
+        )
+
+
+def test_graph_checks_execution_boundary_before_department_and_finalizer(monkeypatch):
+    boundaries: list[str] = []
+    monkeypatch.setattr(
+        "app.agents.chancellor.graph.invoke_ministry_agent",
+        lambda department, *_args, **_kwargs: _expected_ministry(
+            department, "bureau opinion", "ministry opinion"
+        ),
+    )
+    graph = build_chancellor_graph(
+        owner_user_id=OWNER_A,
+        chat_model=lambda _messages: _final_response(),
+        execution_boundary=lambda: boundaries.append("checked"),
+    )
+
+    graph.invoke(_approved_input("decree", MINISTRIES[0]))
+
+    assert boundaries == ["checked", "checked"]
+
+
+@pytest.mark.parametrize(
+    ("session", "message"),
+    [
+        (object(), "evidence session owner_user_id must be nonempty"),
+        (
+            SimpleNamespace(owner_user_id=" \t"),
+            "evidence session owner_user_id must be nonempty",
+        ),
+        (
+            SimpleNamespace(owner_user_id="owner-b"),
+            "evidence session owner_user_id must match graph owner_user_id",
+        ),
+    ],
+)
+def test_graph_rejects_injected_evidence_session_without_matching_owner(
+    monkeypatch,
+    session,
+    message,
+):
+    monkeypatch.setattr(
+        "app.agents.chancellor.graph.invoke_ministry_agent",
+        lambda *_args, **_kwargs: pytest.fail("ministry must not run"),
+    )
+    graph = build_chancellor_graph(
+        owner_user_id=OWNER_A,
+        chat_model=lambda _messages: pytest.fail("model must not run"),
+        evidence_session_factory=lambda: session,
+    )
+
+    with pytest.raises(ChancellorGraphInvocationError) as exc_info:
+        graph.invoke(_approved_input("decree", MINISTRIES[0]))
+
+    assert isinstance(exc_info.value.__cause__, ValueError)
+    assert str(exc_info.value.__cause__) == message
+
+
 def test_runtime_skill_integration_preserves_exact_chancellor_business_nodes():
-    graph = build_chancellor_graph(chat_model=lambda _messages: _single_route_response("户部"))
+    graph = build_chancellor_graph(
+        owner_user_id=OWNER_A,
+        chat_model=lambda _messages: _single_route_response("户部"),
+    )
     nodes = set(graph.get_graph().nodes) - {"__start__", "__end__"}
     assert nodes == {
         "decide_route",
@@ -205,7 +277,7 @@ def test_approved_single_route_bypasses_route_model_and_forwards_required_bureau
     approved_route = ApprovedRouteSnapshot(
         departments=(ApprovedDepartmentRoute(department="户部", required_bureaus=("会计司",)),)
     )
-    result = build_chancellor_graph(chat_model=model).invoke(
+    result = build_chancellor_graph(owner_user_id=OWNER_A, chat_model=model).invoke(
         {"decree_text": "生成财务报表", "approved_route": approved_route}
     )
 
@@ -252,7 +324,7 @@ def test_market_quote_decree_overrides_valid_but_wrong_model_route(
             raise AssertionError("supported market route must bypass Chancellor routing")
         return _final_response("行情回奏")
 
-    result = build_chancellor_graph(chat_model=model).invoke(
+    result = build_chancellor_graph(owner_user_id=OWNER_A, chat_model=model).invoke(
         _approved_input(
             "帮我看看比亚迪的股票价格",
             "户部",
@@ -286,7 +358,7 @@ def test_market_quote_capability_keeps_single_department_layered_flow(
 
     monkeypatch.setattr("app.agents.chancellor.graph.invoke_ministry_agent", fake_ministry)
 
-    result = build_chancellor_graph(
+    result = build_chancellor_graph(owner_user_id=OWNER_A,
         chat_model=lambda _messages: _final_response("行情回奏")
     ).invoke(
         _approved_input(
@@ -375,7 +447,7 @@ def test_supported_market_graph_degrades_each_model_layer_with_adopted_evidence(
             return _resolved_market_pack(request)
 
     coordinator = FakeCoordinator()
-    session = AgentEvidenceSession(coordinator=coordinator)
+    session = AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=coordinator)
     authoritative = _authoritative_graph_quote()
     invalid_payloads = {
         "bureau": "{malformed-json",
@@ -417,7 +489,7 @@ def test_supported_market_graph_degrades_each_model_layer_with_adopted_evidence(
             return invalid_payloads[failed_stage]
         return _quote_ready_response()
 
-    result = build_chancellor_graph(
+    result = build_chancellor_graph(owner_user_id=OWNER_A,
         chat_model=model,
         evidence_session_factory=lambda: session,
     ).invoke(
@@ -474,7 +546,7 @@ def test_supported_market_graph_unavailable_investigation_never_becomes_price_su
                 }
             )
 
-    session = AgentEvidenceSession(coordinator=UnavailableCoordinator())
+    session = AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=UnavailableCoordinator())
 
     def model(messages):
         system = messages[0]["content"]
@@ -485,7 +557,7 @@ def test_supported_market_graph_unavailable_investigation_never_becomes_price_su
         return _final_response("伪造价格 300 CNY")
 
     with pytest.raises(ChancellorGraphInvocationError):
-        build_chancellor_graph(
+        build_chancellor_graph(owner_user_id=OWNER_A,
             chat_model=model,
             evidence_session_factory=lambda: session,
         ).invoke(
@@ -512,7 +584,7 @@ def test_supported_market_graph_extracts_ambiguous_entity_before_one_investigati
             return _resolved_market_pack(request)
 
     coordinator = FakeCoordinator()
-    session = AgentEvidenceSession(coordinator=coordinator)
+    session = AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=coordinator)
     entity_calls = 0
 
     def model(messages):
@@ -534,7 +606,7 @@ def test_supported_market_graph_extracts_ambiguous_entity_before_one_investigati
         events.append("expression")
         raise RuntimeError("exercise deterministic renderer")
 
-    result = build_chancellor_graph(
+    result = build_chancellor_graph(owner_user_id=OWNER_A,
         chat_model=model,
         evidence_session_factory=lambda: session,
     ).invoke(
@@ -552,7 +624,7 @@ def test_supported_market_graph_extracts_ambiguous_entity_before_one_investigati
 
 
 def test_finalizer_fallback_rejects_unrelated_prefilled_adoption(monkeypatch):
-    session = AgentEvidenceSession(
+    session = AgentEvidenceSession(owner_user_id=OWNER_A,
         coordinator=lambda *_args, **_kwargs: pytest.fail("investigation must not run")
     )
     session.record_selection(
@@ -575,7 +647,7 @@ def test_finalizer_fallback_rejects_unrelated_prefilled_adoption(monkeypatch):
         raise AssertionError("supported route must bypass other model calls")
 
     with pytest.raises(ChancellorGraphInvocationError):
-        build_chancellor_graph(
+        build_chancellor_graph(owner_user_id=OWNER_A,
             chat_model=model,
             evidence_session_factory=lambda: session,
         ).invoke(
@@ -592,7 +664,7 @@ def test_canonical_finalizer_rejects_valid_but_altered_source_and_recommendation
         def investigate(self, request, **_kwargs):
             return _resolved_market_pack(request)
 
-    session = AgentEvidenceSession(coordinator=FakeCoordinator())
+    session = AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=FakeCoordinator())
     authoritative = _authoritative_graph_quote()
 
     def model(messages):
@@ -613,7 +685,7 @@ def test_canonical_finalizer_rejects_valid_but_altered_source_and_recommendation
             )
         return _quote_ready_response()
 
-    result = build_chancellor_graph(
+    result = build_chancellor_graph(owner_user_id=OWNER_A,
         chat_model=model,
         evidence_session_factory=lambda: session,
     ).invoke(
@@ -668,9 +740,10 @@ def test_non_market_route_remains_multi_and_keeps_selected_departments(
         ]
     )
 
-    result = build_chancellor_graph(chat_model=lambda _messages: next(responses)).invoke(
-        _approved_input("请协调官员任用与河道修缮", "吏部", "工部")
-    )
+    result = build_chancellor_graph(
+        owner_user_id=OWNER_A,
+        chat_model=lambda _messages: next(responses),
+    ).invoke(_approved_input("请协调官员任用与河道修缮", "吏部", "工部"))
 
     assert result["route_type"] == "multi"
     assert result["departments"] == departments
@@ -690,7 +763,7 @@ def test_single_route_runs_ministry_then_common_finalizer_without_junjichu():
         captured_messages.append(messages)
         return next(responses)
 
-    result = build_chancellor_graph(chat_model=_chat_model).invoke(
+    result = build_chancellor_graph(owner_user_id=OWNER_A, chat_model=_chat_model).invoke(
         _approved_input("评估年度预算与融资安排", "户部")
     )
 
@@ -727,9 +800,10 @@ def test_single_route_works_for_every_ministry():
             *_ministry_turns(department, "司级意见", "部级补充"),
             _final_response(f"{department}最终总结"),
         ]
-        result = build_chancellor_graph(chat_model=_sequenced_chat_model(responses)).invoke(
-            _approved_input("旨意", department)
-        )
+        result = build_chancellor_graph(
+            owner_user_id=OWNER_A,
+            chat_model=_sequenced_chat_model(responses),
+        ).invoke(_approved_input("旨意", department))
         assert result["departments"] == [department]
         assert result["final_verdict"] == f"{department}最终总结"
         assert result["processing_path"][-1] == "丞相（最终汇总）"
@@ -751,7 +825,7 @@ def test_multi_route_runs_all_layered_ministries_then_council_then_finalizer():
         captured_messages.append(messages)
         return next(responses)
 
-    result = build_chancellor_graph(chat_model=_chat_model).invoke(
+    result = build_chancellor_graph(owner_user_id=OWNER_A, chat_model=_chat_model).invoke(
         _approved_input("联合旨意", *departments)
     )
 
@@ -792,7 +866,7 @@ def test_cross_department_capability_intention_keeps_existing_council_path_and_i
         captured_messages.append(messages)
         return next(responses)
 
-    result = build_chancellor_graph(chat_model=model).invoke(
+    result = build_chancellor_graph(owner_user_id=OWNER_A, chat_model=model).invoke(
         _approved_input("为跨部门治河能力协调工部与兵部", *departments)
     )
 
@@ -839,7 +913,7 @@ def test_cross_department_bureau_failure_stops_later_ministries_council_and_fina
         return next(responses)
 
     with pytest.raises(ChancellorGraphInvocationError) as exc_info:
-        build_chancellor_graph(chat_model=model).invoke(
+        build_chancellor_graph(owner_user_id=OWNER_A, chat_model=model).invoke(
             _approved_input("跨部门能力旨意", "工部", "兵部")
         )
 
@@ -856,9 +930,10 @@ def test_multi_route_all_six_ministries_remains_serial_and_feasible():
     for department in departments:
         responses.extend(_ministry_turns(department, f"{department}司见", f"{department}部见"))
     responses.extend(['{"verdict":"六部会审"}', _final_response("六部最终总结")])
-    result = build_chancellor_graph(chat_model=_sequenced_chat_model(responses)).invoke(
-        _approved_input("六部旨意", *departments)
-    )
+    result = build_chancellor_graph(
+        owner_user_id=OWNER_A,
+        chat_model=_sequenced_chat_model(responses),
+    ).invoke(_approved_input("六部旨意", *departments))
     assert result["departments"] == departments
     assert [item["department"] for item in result["ministry_opinions"]] == departments
     assert result["council_verdict"] == "六部会审"
@@ -919,7 +994,7 @@ def test_deterministic_route_ignores_negated_recruiting_people(decree_text):
     ],
 )
 def test_invalid_chancellor_final_response_uses_safe_fallback(final_response):
-    graph = build_chancellor_graph(
+    graph = build_chancellor_graph(owner_user_id=OWNER_A,
         chat_model=_sequenced_chat_model(
             [
                 *_ministry_turns("户部", "司见", "部见"),
@@ -936,7 +1011,7 @@ def test_invalid_chancellor_final_response_uses_safe_fallback(final_response):
 
 
 def test_finalizer_schema_drift_returns_three_safe_recommendations():
-    result = build_chancellor_graph(
+    result = build_chancellor_graph(owner_user_id=OWNER_A,
         chat_model=_sequenced_chat_model(
             [
                 *_ministry_turns("户部", "司见", "部见"),
@@ -963,7 +1038,7 @@ def test_finalizer_schema_drift_returns_three_safe_recommendations():
 
 
 def test_finalizer_corrects_two_invalid_structured_responses() -> None:
-    result = build_chancellor_graph(
+    result = build_chancellor_graph(owner_user_id=OWNER_A,
         chat_model=_sequenced_chat_model(
             [
                 *_ministry_turns("工部", "bureau opinion", "ministry opinion"),
@@ -998,7 +1073,7 @@ def test_multi_council_invalid_schema_falls_back_before_chancellor_finalizer():
         calls["value"] += 1
         return next(responses)
 
-    result = build_chancellor_graph(chat_model=_chat_model).invoke(
+    result = build_chancellor_graph(owner_user_id=OWNER_A, chat_model=_chat_model).invoke(
         _approved_input("旨意", "户部", "工部")
     )
     assert result["council_verdict"]
@@ -1018,7 +1093,9 @@ def test_ministry_failure_is_wrapped_and_short_circuits():
         raise RuntimeError("simulated ministry failure")
 
     with pytest.raises(ChancellorGraphInvocationError) as exc_info:
-        build_chancellor_graph(chat_model=_chat_model).invoke(_approved_input("旨意", "兵部"))
+        build_chancellor_graph(
+            owner_user_id=OWNER_A, chat_model=_chat_model
+        ).invoke(_approved_input("旨意", "兵部"))
     assert isinstance(exc_info.value.__cause__, MinistryAgentInvocationError)
     assert isinstance(exc_info.value.__cause__.__cause__, RuntimeError)
 
@@ -1036,9 +1113,10 @@ def test_untyped_ministry_exception_cannot_forge_graph_failure_stage(monkeypatch
     )
 
     with pytest.raises(ChancellorGraphInvocationError) as exc_info:
-        build_chancellor_graph(chat_model=lambda _messages: _single_route_response("兵部")).invoke(
-            _approved_input("旨意", "兵部")
-        )
+        build_chancellor_graph(
+            owner_user_id=OWNER_A,
+            chat_model=lambda _messages: _single_route_response("兵部"),
+        ).invoke(_approved_input("旨意", "兵部"))
 
     assert exc_info.value.failure_stage == "ministry"
 
@@ -1057,7 +1135,9 @@ def test_finalizer_failure_is_sanitized_and_preserves_cause():
         return next(responses)
 
     with pytest.raises(ChancellorGraphInvocationError) as exc_info:
-        build_chancellor_graph(chat_model=_chat_model).invoke(_approved_input("旨意", "户部"))
+        build_chancellor_graph(
+            owner_user_id=OWNER_A, chat_model=_chat_model
+        ).invoke(_approved_input("旨意", "户部"))
     assert marker in str(exc_info.value.__cause__)
     assert marker not in str(exc_info.value)
 
@@ -1069,7 +1149,10 @@ def test_same_graph_has_no_state_leak_across_invocations():
         *_ministry_turns("礼部", "司见二", "部见二"),
         _final_response("总结二"),
     ]
-    graph = build_chancellor_graph(chat_model=_sequenced_chat_model(responses))
+    graph = build_chancellor_graph(
+        owner_user_id=OWNER_A,
+        chat_model=_sequenced_chat_model(responses),
+    )
     first = graph.invoke(_approved_input("旨意一", "户部"))
     second = graph.invoke(_approved_input("旨意二", "礼部"))
     assert first["departments"] == ["户部"]
@@ -1082,19 +1165,24 @@ def test_same_graph_has_no_state_leak_across_invocations():
 def test_missing_api_key_fails_fast_before_graph_is_returned(monkeypatch):
     monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
     with pytest.raises(DeepSeekApiKeyError):
-        build_chancellor_graph()
+        build_chancellor_graph(owner_user_id=OWNER_A)
 
 
 def test_production_chancellor_graph_opts_in_to_json_output(monkeypatch):
     calls = []
     fake_config = object()
+    fake_attempt_budget = object()
     monkeypatch.setattr(
         "app.agents.chancellor.graph.load_deepseek_provider_config",
         lambda: fake_config,
     )
+    monkeypatch.setattr(
+        "app.agents.chancellor.graph.get_provider_attempt_budget",
+        lambda: fake_attempt_budget,
+    )
 
-    def fake_builder(config, dotenv_path, *, json_output=False):
-        calls.append((config, dotenv_path, json_output))
+    def fake_builder(config, dotenv_path, *, json_output=False, attempt_budget=None):
+        calls.append((config, dotenv_path, json_output, attempt_budget))
         return lambda _messages: "{}"
 
     monkeypatch.setattr(
@@ -1102,9 +1190,9 @@ def test_production_chancellor_graph_opts_in_to_json_output(monkeypatch):
         fake_builder,
     )
 
-    build_chancellor_graph(dotenv_path=Path("offline.env"))
+    build_chancellor_graph(owner_user_id=OWNER_A, dotenv_path=Path("offline.env"))
 
-    assert calls == [(fake_config, Path("offline.env"), True)]
+    assert calls == [(fake_config, Path("offline.env"), True, fake_attempt_budget)]
 
 
 class _RecordingEvidenceSession:
@@ -1112,9 +1200,11 @@ class _RecordingEvidenceSession:
         self,
         *,
         used: bool,
+        owner_user_id: str = OWNER_A,
         adopted: tuple[str, ...] = (),
         investigating: tuple[str, ...] = (),
     ) -> None:
+        self.owner_user_id = owner_user_id
         self.used = used
         self.adopted = adopted
         self.investigating = investigating
@@ -1166,6 +1256,34 @@ class _AdoptingEvidenceSession(_RecordingEvidenceSession):
         )
 
 
+def test_graph_passes_owner_to_default_evidence_session(monkeypatch):
+    department = MINISTRIES[0]
+    seen: list[str] = []
+
+    def build_session(_model, *, owner_user_id):
+        seen.append(owner_user_id)
+        return _RecordingEvidenceSession(used=False)
+
+    monkeypatch.setattr(
+        "app.agents.chancellor.graph.build_default_evidence_session",
+        build_session,
+    )
+    monkeypatch.setattr(
+        "app.agents.chancellor.graph.invoke_ministry_agent",
+        lambda *_args, **_kwargs: _expected_ministry(
+            department, "bureau opinion", "ministry opinion"
+        ),
+    )
+    responses = [_final_response()]
+
+    build_chancellor_graph(
+        owner_user_id=OWNER_A,
+        chat_model=_sequenced_chat_model(responses),
+    ).invoke(_approved_input("旨意", department))
+
+    assert seen == [OWNER_A]
+
+
 def test_graph_creates_one_fresh_session_per_invoke_and_only_marks_used_path(monkeypatch):
     created: list[_RecordingEvidenceSession] = []
     passed_to_ministry: list[object] = []
@@ -1209,7 +1327,7 @@ def test_graph_creates_one_fresh_session_per_invoke_and_only_marks_used_path(mon
         captured.append(messages)
         return next(responses)
 
-    graph = build_chancellor_graph(
+    graph = build_chancellor_graph(owner_user_id=OWNER_A,
         chat_model=model,
         evidence_session_factory=factory,
     )
@@ -1275,7 +1393,7 @@ def test_multi_graph_passes_same_session_to_council_without_upper_protocol(monke
     monkeypatch.setattr("app.agents.chancellor.graph.run_junjichu_council", fake_council)
     model = _sequenced_chat_model([_final_response("final")])
 
-    result = build_chancellor_graph(
+    result = build_chancellor_graph(owner_user_id=OWNER_A,
         chat_model=model,
         evidence_session_factory=factory,
     ).invoke(_approved_input("multi decree", "吏部", "户部"))
@@ -1354,7 +1472,7 @@ def test_graph_returns_ordered_union_selected_by_real_bureau_adapter():
         captured.append(messages)
         return next(responses)
 
-    result = build_chancellor_graph(
+    result = build_chancellor_graph(owner_user_id=OWNER_A,
         chat_model=model,
         evidence_session_factory=lambda: session,
     ).invoke(_approved_input("decree", "吏部"))
@@ -1434,15 +1552,17 @@ def test_market_quote_graph_uses_precompiled_plan_and_adopts_latest_available_ev
             department: str,
             matter_type: str,
             extraction_budget: object,
+            owner_user_id: str,
         ):
             assert department == "户部"
             assert matter_type == "MEMORIAL"
             assert extraction_budget is session
+            assert owner_user_id == OWNER_A
             self.requests.append(request)
             return _resolved_market_pack(request)
 
     coordinator = FakeCoordinator()
-    session = AgentEvidenceSession(
+    session = AgentEvidenceSession(owner_user_id=OWNER_A,
         coordinator=coordinator,
         id_factory=lambda: "request-market-graph",
     )
@@ -1461,7 +1581,7 @@ def test_market_quote_graph_uses_precompiled_plan_and_adopts_latest_available_ev
             return _final_response("丞相确认行情证据")
         return _quote_ready_response()
 
-    result = build_chancellor_graph(
+    result = build_chancellor_graph(owner_user_id=OWNER_A,
         chat_model=model,
         evidence_session_factory=lambda: session,
     ).invoke(
@@ -1565,7 +1685,7 @@ def test_real_graph_byd_price_gap_runs_jinyiwei_and_resolves_fresh_quote(
         id_factory=iter(("investigation-graph-byd", "pack-graph-byd")).__next__,
         db_path=tmp_path / "jinyiwei.sqlite3",
     )
-    session = AgentEvidenceSession(coordinator=coordinator)
+    session = AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=coordinator)
     captured: list[list[dict[str, str]]] = []
 
     def model(messages: list[dict[str, str]]) -> str:
@@ -1582,7 +1702,7 @@ def test_real_graph_byd_price_gap_runs_jinyiwei_and_resolves_fresh_quote(
             return _final_response("丞相确认已取得满足时效要求的比亚迪行情")
         raise RuntimeError("exercise deterministic evidence renderer")
 
-    result = build_chancellor_graph(
+    result = build_chancellor_graph(owner_user_id=OWNER_A,
         chat_model=model,
         evidence_session_factory=lambda: session,
     ).invoke(
@@ -1620,7 +1740,7 @@ def test_graph_sanitizes_report_failure_stage(monkeypatch):
 
     monkeypatch.setattr("app.agents.chancellor.graph.invoke_ministry_agent", fail_ministry)
     with pytest.raises(ChancellorGraphInvocationError) as caught:
-        build_chancellor_graph(
+        build_chancellor_graph(owner_user_id=OWNER_A,
             chat_model=lambda _messages: pytest.fail("model must not run"),
             report_session=object(),
         ).invoke(_approved_input("生成2020年至2025年财务报表", "户部"))
@@ -1653,7 +1773,11 @@ def test_real_single_graph_report_session_preserves_model_call_sequence():
             captured.append(messages)
             return next(response_iter)
 
-        result = build_chancellor_graph(chat_model=model, report_session=report_session).invoke(
+        result = build_chancellor_graph(
+            owner_user_id=OWNER_A,
+            chat_model=model,
+            report_session=report_session,
+        ).invoke(
             _approved_input(
                 decree,
                 "户部",
@@ -1713,7 +1837,11 @@ def test_real_multi_graph_report_session_generates_once_and_preserves_order():
             captured.append(messages)
             return next(response_iter)
 
-        result = build_chancellor_graph(chat_model=model, report_session=report_session).invoke(
+        result = build_chancellor_graph(
+            owner_user_id=OWNER_A,
+            chat_model=model,
+            report_session=report_session,
+        ).invoke(
             _approved_input(
                 decree,
                 "户部",

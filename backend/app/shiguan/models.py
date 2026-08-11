@@ -38,6 +38,12 @@ ArchiveType = Literal["MEMORIAL", "REPLY"]
 ReplySourceKind = Literal["DECREE", "MEMORIAL"]
 RealityLabel = Literal["LIVE", "MIXED", "FALLBACK"]
 ReviewStatusValue = Literal["ACHIEVED", "NOT_ACHIEVED", "PARTIAL", "OBSERVING"]
+ArchiveDecisionValue = Literal[
+    "APPROVED",
+    "REJECTED",
+    "ADOPTED",
+    "RETURNED_FOR_RECONSIDERATION",
+]
 ArchiveFactCategory = Literal[
     "MARKET_QUOTE",
     "REGULATORY_FILING",
@@ -124,6 +130,20 @@ class ReviewStatus(BaseModel):
             return None
         stripped = value.strip()
         return stripped or None
+
+
+class ArchiveDecision(BaseModel):
+    """An immutable terminal decision recorded for one archive."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    decision: ArchiveDecisionValue
+    decided_at: str
+
+    @field_validator("decided_at")
+    @classmethod
+    def _validate_decided_at(cls, value: str) -> str:
+        return _validate_iso8601_string(value, "decided_at")
 
 
 class _FrozenJsonMapping(Mapping[str, Any]):
@@ -489,6 +509,7 @@ class Archive(ArchiveCreate):
     id: str
     created_at: str
     review_status: ReviewStatus | None = None
+    decision_status: ArchiveDecision | None = None
     evidence_references: list[ArchiveEvidenceReference] = Field(default_factory=list)
 
     @field_validator("id")

@@ -67,6 +67,48 @@ export interface ChancellorDraftResult {
   decree_text: string | null;
 }
 
+export interface ChancellorDraftComposerState {
+  decreeText: string;
+  draftResult: ChancellorDraftResult | null;
+  draftPending: boolean;
+  draftError: string | null;
+}
+
+export interface OwnerScopedChancellorDraftComposerState {
+  ownerId: string;
+  value: ChancellorDraftComposerState;
+}
+
+export const EMPTY_CHANCELLOR_DRAFT_COMPOSER_STATE: ChancellorDraftComposerState = {
+  decreeText: "",
+  draftResult: null,
+  draftPending: false,
+  draftError: null,
+};
+
+export function resolveOwnerScopedChancellorDraftComposerState(
+  envelope: OwnerScopedChancellorDraftComposerState,
+  currentOwnerId: string,
+): ChancellorDraftComposerState {
+  return envelope.ownerId === currentOwnerId
+    ? envelope.value
+    : EMPTY_CHANCELLOR_DRAFT_COMPOSER_STATE;
+}
+
+export interface DraftConfirmationProjection {
+  visibleCanonicalText: string;
+  showIssueAction: boolean;
+}
+
+export function projectDraftConfirmation(
+  draft: ChancellorDraftResult,
+): DraftConfirmationProjection {
+  return {
+    visibleCanonicalText: draft.expert_example,
+    showIssueAction: draft.status === "DRAFT_READY",
+  };
+}
+
 export const MAX_DECREE_TEXT_LENGTH = 2000;
 
 export async function requestChancellorDraft(
@@ -93,7 +135,12 @@ export async function requestChancellorDraft(
       typeof body.understanding !== "string" ||
       typeof body.expert_example !== "string" ||
       typeof body.fingerprint !== "string" ||
-      typeof body.version !== "number"
+      typeof body.version !== "number" ||
+      (body.status === "DRAFT_READY"
+        ? typeof body.decree_text !== "string" ||
+          body.draft === null ||
+          body.decree_text !== body.expert_example
+        : body.decree_text !== undefined && body.decree_text !== null)
     ) {
       return { ok: false };
     }

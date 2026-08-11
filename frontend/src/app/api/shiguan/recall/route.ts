@@ -4,6 +4,7 @@ import { readSessionId } from "../../../../lib/session.ts";
 const FRIENDLY_MESSAGE_BY_KIND = {
   validation: "旧案召回条件未通过校验，请至少填写事项类型或所属部门。",
   not_found: "未找到对应旧案。",
+  conflict: "史馆召回状态冲突，请刷新后重试。",
   storage: "史馆暂时不可用，请稍后重试。",
   network: "无法连接朝堂后端，请稍后重试。",
   unknown: "史馆服务暂时不可用，请稍后重试。",
@@ -72,6 +73,6 @@ export async function POST(request: Request): Promise<Response> {
       reason: result.kind,
       message: FRIENDLY_MESSAGE_BY_KIND[result.kind],
     },
-    result.kind === "unauthenticated" ? 401 : result.kind === "validation" ? 422 : 503,
+    result.kind === "unauthenticated" ? 401 : result.kind === "validation" ? 422 : result.kind === "conflict" ? 409 : 503,
   );
 }

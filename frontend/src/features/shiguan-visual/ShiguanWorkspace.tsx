@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import type {
+  ArchiveDecisionValue,
   ReviewStatusValue,
   ShiguanArchive,
   ShiguanRecallMatch,
@@ -36,6 +37,10 @@ export interface ShiguanReviewViewState extends ShiguanRequestViewState {
   archiveId: string | null;
 }
 
+export interface ShiguanDecisionViewState extends ShiguanRequestViewState {
+  archiveId: string | null;
+}
+
 export interface ShiguanWorkspaceProps {
   archives: ShiguanArchive[];
   selectedArchive: ShiguanArchive | null;
@@ -45,10 +50,12 @@ export interface ShiguanWorkspaceProps {
   statisticsState: ShiguanRequestViewState;
   recallState: ShiguanRequestViewState;
   reviewState: ShiguanReviewViewState;
+  decisionState: ShiguanDecisionViewState;
   onSelectArchive(id: string): void;
   onFilter(input: { type: string; matterType: string; department: string }): void;
   onRecall(input: { matterType: string; department: string }): void;
   onReview(id: string, input: { status: ReviewStatusValue; note: string }): void;
+  onDecision(id: string, decision: ArchiveDecisionValue): void;
   onRetryArchives(): void;
   onRetryStatistics(): void;
   onRetryRecall(): void;
@@ -105,6 +112,8 @@ export function ShiguanWorkspace(props: ShiguanWorkspaceProps) {
             <ShiguanArchiveDetail
               key={props.selectedArchive?.id ?? "empty"}
               archive={props.selectedArchive}
+              decisionState={props.decisionState}
+              onDecision={props.onDecision}
             />
           </EdictStage>
         </section>

@@ -3,7 +3,6 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const VIEW_PATHS = [
-  "../app/jinyiwei/page.tsx",
   "../features/junjichu-visual/JunjichuScene.tsx",
   "../features/ministries-visual/DepartmentScene.tsx",
   "../features/ministries-visual/OfficeScene.tsx",

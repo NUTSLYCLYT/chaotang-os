@@ -1,9 +1,14 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { StudyArtifactLinks } from "./StudyArtifactLinks.ts";
+import {
+  createStudyArtifactConfirmationController,
+  StudyArtifactLinks,
+  type StudyArtifactConfirmationSnapshot,
+} from "./StudyArtifactLinks.ts";
 import type { ReportArtifact } from "../../lib/backendClient.ts";
 
 const REPORT: ReportArtifact = {
@@ -14,6 +19,20 @@ const REPORT: ReportArtifact = {
   periodEnd: 2025,
   generatedAt: "2026-07-29T08:00:00Z",
 };
+
+const READY_SNAPSHOT: StudyArtifactConfirmationSnapshot = {
+  workStatus: "READY_FOR_HUMAN_CONFIRMATION",
+  confirmationStatus: "PENDING",
+  artifactState: "PENDING",
+};
+
+function deferredResponse() {
+  let resolve!: (response: Response) => void;
+  const promise = new Promise<Response>((complete) => {
+    resolve = complete;
+  });
+  return { promise, resolve };
+}
 
 function parseAnchors(html: string) {
   return [...html.matchAll(/<a\s+([^>]*)>([\s\S]*?)<\/a>/g)].map((match) => {
@@ -38,6 +57,7 @@ test("artifact links render zero anchors for an ordinary reply and perform zero 
   try {
     const html = renderToStaticMarkup(createElement(StudyArtifactLinks, { artifacts: [] }));
     assert.deepEqual(parseAnchors(html), []);
+    assert.doesNotMatch(html, /生成.*财务报表|财务报表.*已生成/);
     assert.equal(fetchCalls, 0);
   } finally {
     globalThis.fetch = originalFetch;
@@ -84,4 +104,94 @@ test("artifact links render exactly one accessible anchor per artifact without f
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test("study workspace minimally wires the controller-backed confirmation component", () => {
+  const workspaceSource = readFileSync(
+    new URL("./DevStudyWorkspace.tsx", import.meta.url),
+    "utf8",
+  );
+  const componentSource = readFileSync(
+    new URL("./StudyArtifactConfirmation.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(workspaceSource, /StudyArtifactConfirmation/);
+  assert.match(workspaceSource, /artifactId=\{artifact\.artifactId\}/);
+  assert.match(workspaceSource, /StudyArtifactLinks artifacts=\{artifactView\}/);
+  assert.match(componentSource, /createStudyArtifactConfirmationController/);
+  assert.doesNotMatch(componentSource, /\bfetch\s*\(/);
+  assert.doesNotMatch(
+    `${workspaceSource}\n${componentSource}`,
+    /review_status|owner_user_id/,
+  );
+});
+
+test("confirmation controller synchronously rejects a duplicate submit", async () => {
+  const pendingPost = deferredResponse();
+  let postCalls = 0;
+  const controller = createStudyArtifactConfirmationController({
+    artifactId: REPORT.artifactId,
+    fetchImpl: async (_input, init) => {
+      if (init?.method === "POST") {
+        postCalls += 1;
+        return pendingPost.promise;
+      }
+      return Response.json(READY_SNAPSHOT);
+    },
+  });
+  await controller.load();
+
+  const first = controller.submit("CONFIRMED", "first decision");
+  const duplicate = controller.submit("ESCALATED", "late duplicate");
+
+  assert.equal(postCalls, 1);
+  assert.equal((await duplicate).phase, "submitting");
+  pendingPost.resolve(
+    Response.json({
+      ...READY_SNAPSHOT,
+      confirmationStatus: "CONFIRMED",
+      artifactState: "PUBLISHED",
+    }),
+  );
+  assert.equal((await first).snapshot?.confirmationStatus, "CONFIRMED");
+});
+
+test("disposed controller cannot overwrite a newer artifact with an inverse response", async () => {
+  const oldPost = deferredResponse();
+  const newPost = deferredResponse();
+  const visibleStatuses: string[] = [];
+  const publishVisibleStatus = (state: {
+    snapshot: StudyArtifactConfirmationSnapshot | null;
+  }) => {
+    if (state.snapshot) visibleStatuses.push(state.snapshot.confirmationStatus);
+  };
+  const oldController = createStudyArtifactConfirmationController({
+    artifactId: "old-artifact",
+    fetchImpl: async (_input, init) =>
+      init?.method === "POST" ? oldPost.promise : Response.json(READY_SNAPSHOT),
+    onStateChange: publishVisibleStatus,
+  });
+  await oldController.load();
+  const oldSubmit = oldController.submit("CONFIRMED", "old decision");
+  oldController.dispose();
+
+  const newController = createStudyArtifactConfirmationController({
+    artifactId: "new-artifact",
+    fetchImpl: async (_input, init) =>
+      init?.method === "POST" ? newPost.promise : Response.json(READY_SNAPSHOT),
+    onStateChange: publishVisibleStatus,
+  });
+  await newController.load();
+  const newSubmit = newController.submit("ESCALATED", "new decision");
+  newPost.resolve(
+    Response.json({ ...READY_SNAPSHOT, confirmationStatus: "ESCALATED" }),
+  );
+  await newSubmit;
+  oldPost.resolve(
+    Response.json({ ...READY_SNAPSHOT, confirmationStatus: "CONFIRMED" }),
+  );
+  await oldSubmit;
+
+  assert.equal(visibleStatuses.at(-1), "ESCALATED");
+  assert.equal(visibleStatuses.includes("CONFIRMED"), false);
 });

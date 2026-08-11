@@ -12,6 +12,7 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
+from app.shiguan import models
 from app.shiguan.models import Archive, ArchiveCreate, Evidence, ReviewStatus
 
 
@@ -403,3 +404,37 @@ class TestArchiveOutputModel:
             review_status=ReviewStatus(status="OBSERVING", reviewed_at="2026-07-17T10:00:00+00:00"),
         )
         assert archive.review_status.status == "OBSERVING"
+
+
+class TestArchiveDecision:
+    @pytest.mark.parametrize(
+        "decision",
+        ["APPROVED", "REJECTED", "ADOPTED", "RETURNED_FOR_RECONSIDERATION"],
+    )
+    def test_exact_decision_values_are_accepted(self, decision):
+        value = models.ArchiveDecision(
+            decision=decision,
+            decided_at="2026-08-09T12:00:00+00:00",
+        )
+        assert value.decision == decision
+
+    @pytest.mark.parametrize("decision", ["PENDING", "ACHIEVED", "approved", ""])
+    def test_other_decision_values_are_rejected(self, decision):
+        with pytest.raises(ValidationError):
+            models.ArchiveDecision(
+                decision=decision,
+                decided_at="2026-08-09T12:00:00+00:00",
+            )
+
+    def test_undecided_archive_has_explicit_null_decision_status(self):
+        archive = Archive(
+            id="abc123",
+            type="MEMORIAL",
+            title="t",
+            content="c",
+            matter_type="m",
+            department="d",
+            created_at="2026-08-09T12:00:00+00:00",
+        )
+        assert archive.decision_status is None
+        assert archive.model_dump()["decision_status"] is None

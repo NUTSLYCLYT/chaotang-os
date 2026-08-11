@@ -22,6 +22,8 @@ route and module 2's 军机处 multi-department council route alike) -- see
 
 from __future__ import annotations
 
+import hashlib
+import re
 import tomllib
 from copy import deepcopy
 from datetime import UTC, datetime
@@ -29,13 +31,21 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 import app.api.decrees as decrees_module
+from app.accounting_reports.models import AccountingRequestKind, ReportPeriod
+from app.accounting_reports.sources import AccountingSourceError
+from app.accounting_reports.storage import ArtifactStorage
 from app.agents.chancellor import (
     CHANCELLOR_IDENTITY,
     ChancellorGraphInvocationError,
     build_chancellor_graph,
+)
+from app.agents.chancellor_draft.authority import (
+    AccountingAuthorityContext,
+    ConsumedDraftAuthority,
 )
 from app.agents.chancellor_draft.routing import (
     ApprovedDepartmentRoute,
@@ -50,15 +60,37 @@ from app.agents.chancellor_runtime import (
     ChancellorSkillRegistry,
     ChancellorSkillRegistryError,
 )
+from app.api.auth import CurrentUser
 from app.auth import configure_auth_db, create_session, create_user
-from app.langgraph_runtime.deepseek_client import DeepSeekModelNameError
+from app.langgraph_runtime.deepseek_client import (
+    DeepSeekModelInvocationError,
+    DeepSeekModelNameError,
+)
 from app.langgraph_runtime.deepseek_config import DeepSeekApiKeyError
-from app.main import app
+from app.main import app as main_app
 from app.shiguan import storage as shiguan_storage
 
-client = TestClient(app)
+OWNER_A = "owner-a"
+_REAL_BUILD_ACCOUNTING_REPORT_SESSION = decrees_module.build_accounting_report_session
 
 DECREE_URL = "/api/v1/decrees/chancellor"
+
+execution_app = FastAPI()
+decrees_module.register_chancellor_exception_handlers(execution_app)
+
+
+@execution_app.post(
+    DECREE_URL,
+    response_model=decrees_module.ChancellorDecreeResponse,
+)
+def _execute_decree_for_engine_tests(
+    payload: decrees_module.ChancellorDecreeRequest,
+    current_user: CurrentUser,
+):
+    return decrees_module.execute_decree_now(payload, current_user)
+
+
+client = TestClient(execution_app)
 ACCOUNTING_DECREE = (
     "请户部会计司根据现有财务数据，生成2024年至2025年管理层综合财务报表，"
     "并交付可下载的 Excel 文件。报告需包括管理摘要、核心财务报表、科目趋势、"
@@ -100,9 +132,25 @@ def _authenticate_client(isolate_shiguan_default_db_path, tmp_path, monkeypatch)
         lambda **_kwargs: _approved_route(("吏部", ("任免司",))),
     )
     monkeypatch.setattr(
+        decrees_module.draft_authority_registry,
+        "consume_with_context",
+        lambda **kwargs: ConsumedDraftAuthority(
+            decrees_module.draft_authority_registry.consume(**kwargs),
+            (
+                AccountingAuthorityContext(
+                    AccountingRequestKind.ACCOUNTING_REPORT,
+                    ReportPeriod(2024, 2025),
+                    "a" * 64,
+                )
+                if kwargs.get("decree_text") == ACCOUNTING_DECREE
+                else None
+            ),
+        ),
+    )
+    monkeypatch.setattr(
         decrees_module,
         "build_accounting_report_session",
-        lambda **_kwargs: _FakeReportSession(),
+        lambda **kwargs: _FakeReportSession(owner_user_id=kwargs["owner_user_id"]),
     )
     client.headers["Authorization"] = f"Bearer {create_session(user.id)}"
     yield
@@ -187,6 +235,25 @@ _ACCOUNTING_ROUTE_RESULT = {
 }
 
 
+def test_durable_decree_checkpoint_drops_live_evidence_session_only() -> None:
+    live_session = object()
+    frozen_snapshot = {"packs": [], "adopted_evidence_ids": []}
+    result = {
+        "chancellor_rationale": "交户部办理",
+        "evidence_session": live_session,
+        "evidence_snapshot": frozen_snapshot,
+        "adopted_evidence_ids": [],
+    }
+
+    durable = decrees_module._durable_internal_result(result)
+
+    assert "evidence_session" not in durable
+    assert durable["evidence_snapshot"] is frozen_snapshot
+    assert durable["adopted_evidence_ids"] == []
+    assert durable["chancellor_rationale"] == "交户部办理"
+    assert result["evidence_session"] is live_session
+
+
 class _FakeGraph:
     """A minimal stand-in for a compiled LangGraph graph.
 
@@ -246,20 +313,77 @@ def fake_provider(monkeypatch):
 
 
 class _FakeReportSession:
-    def __init__(self, *, pending=False, published=(), publish_error=None):
-        self.has_pending = pending
+    def __init__(
+        self,
+        *,
+        generations=(),
+        published=(),
+        publish_error=None,
+        storage=None,
+        owner_user_id="owner-a",
+        run_id="run-a",
+    ):
+        self.generations = tuple(generations)
         self.published = published
         self.publish_error = publish_error
+        self.storage = storage
+        self.owner_user_id = owner_user_id
+        self.run_id = run_id
         self.events: list[object] = []
+        self.publishable = True
+        self.preserve_published_reply_id = False
+
+    def is_publishable_generation(self, _generation):
+        return self.publishable
 
     def publish(self, reply_id):
         self.events.append(("publish", reply_id))
         if self.publish_error is not None:
             raise self.publish_error
+        for item in self.published:
+            if hasattr(item, "reply_id") and not self.preserve_published_reply_id:
+                item.reply_id = reply_id
         return self.published
 
     def abort(self):
         self.events.append("abort")
+        if self.storage is not None:
+            self.storage.abort_run(self.owner_user_id, self.run_id)
+
+
+def _pending_generation(
+    tmp_path: Path,
+    *,
+    owner_user_id: str,
+    run_id: str,
+    suffix: str,
+):
+    storage = ArtifactStorage(
+        artifact_dir=tmp_path / "report_artifacts",
+        db_path=tmp_path / "report_artifacts.sqlite3",
+    )
+    payload = f"synthetic-{suffix}".encode()
+    pending_path = storage.artifact_dir / f".{suffix.zfill(32)}.xlsx"
+    pending_path.write_bytes(payload)
+    pending = storage.create_pending(
+        owner_user_id=owner_user_id,
+        run_id=run_id,
+        report_type="management",
+        display_name="2024-2025会计管理报告.xlsx",
+        period=ReportPeriod(2024, 2025),
+        source_hashes=("a" * 64,),
+        file_sha256=hashlib.sha256(payload).hexdigest(),
+        pending_path=pending_path,
+    )
+    return storage, SimpleNamespace(
+        artifact_id=pending.artifact_id,
+        model_prompt="synthetic summary",
+        request_kind=AccountingRequestKind.ACCOUNTING_REPORT,
+        period=ReportPeriod(2024, 2025),
+        owner_user_id=owner_user_id,
+        run_id=run_id,
+        report_type="management",
+    )
 
 
 @pytest.fixture
@@ -269,6 +393,13 @@ def report_session(monkeypatch):
 
     def build(**kwargs):
         builds.append(kwargs)
+        session.owner_user_id = kwargs["owner_user_id"]
+        session.run_id = kwargs["run_id"]
+        for item in (*session.generations, *session.published):
+            if hasattr(item, "owner_user_id"):
+                item.owner_user_id = session.owner_user_id
+            if hasattr(item, "run_id"):
+                item.run_id = session.run_id
         return session
 
     monkeypatch.setattr(decrees_module, "build_accounting_report_session", build)
@@ -283,10 +414,270 @@ def test_normal_decree_returns_empty_artifacts(fake_provider, report_session):
 
     assert response.status_code == 200
     assert response.json()["artifacts"] == []
+    assert response.json()["delivery_kind"] == "none"
     assert provider.report_session is session
     assert len(builds) == 1
     assert builds[0]["owner_user_id"]
     assert len(builds[0]["run_id"]) == 32
+
+
+@pytest.mark.parametrize("preflight_outcome", ["fingerprint_drift", "parse_failure"])
+def test_execution_source_drift_is_409_after_authority_consumption_without_side_effects(
+    preflight_outcome, monkeypatch, fake_provider
+):
+    consumed = ConsumedDraftAuthority(
+        _approved_route(
+            (
+                _ACCOUNTING_ROUTE_RESULT["departments"][0],
+                (_ACCOUNTING_ROUTE_RESULT["ministry_opinions"][0]["bureau_opinions"][0]["bureau"],),
+            )
+        ),
+        AccountingAuthorityContext(
+            AccountingRequestKind.ACCOUNTING_ANALYSIS,
+            ReportPeriod(2025, 2025),
+            "a" * 64,
+        ),
+    )
+    consume_calls = []
+    available_authorities = [consumed]
+
+    def consume_once(**kwargs):
+        consume_calls.append(kwargs)
+        return available_authorities.pop(0) if available_authorities else None
+
+    monkeypatch.setattr(
+        decrees_module.draft_authority_registry, "consume_with_context", consume_once
+    )
+    monkeypatch.setattr(
+        decrees_module,
+        "resolve_accounting_source_dir",
+        lambda: Path("synthetic-source"),
+    )
+    monkeypatch.setattr(
+        decrees_module,
+        "build_accounting_report_session",
+        _REAL_BUILD_ACCOUNTING_REPORT_SESSION,
+    )
+    def changed_or_unreadable_source(*_args):
+        if preflight_outcome == "parse_failure":
+            raise AccountingSourceError("source_schema_invalid")
+        return SimpleNamespace(manifest=SimpleNamespace(fingerprint="b" * 64))
+
+    monkeypatch.setattr(
+        decrees_module,
+        "preflight_accounting_sources",
+        changed_or_unreadable_source,
+        raising=False,
+    )
+    provider = fake_provider(
+        _FakeProvider(graph=_FakeGraph(invoke_result=_ACCOUNTING_ROUTE_RESULT))
+    )
+    archive_calls = []
+    monkeypatch.setattr(
+        decrees_module,
+        "archive_chancellor_decree",
+        lambda *_args, **_kwargs: archive_calls.append(True),
+    )
+
+    response = client.post(
+        DECREE_URL,
+        json={
+            "decree_text": ACCOUNTING_DECREE,
+        },
+    )
+
+    assert response.status_code == 409, response.text
+    assert response.json()["status"] == "error"
+    assert response.json()["reason"] == "source_not_current"
+    assert response.json()["message"]
+    assert len(consume_calls) == 1
+    assert provider.call_count == 0
+    assert archive_calls == []
+
+    retry = client.post(DECREE_URL, json={"decree_text": ACCOUNTING_DECREE})
+
+    assert retry.status_code == 409, retry.text
+    assert retry.json()["reason"] == "draft_not_current"
+    assert len(consume_calls) == 2
+    assert provider.call_count == 0
+    assert archive_calls == []
+
+
+@pytest.mark.parametrize("generation_count", [0, 2])
+def test_accounting_report_requires_one_generated_identity_before_archive(
+    generation_count,
+    tmp_path,
+    fake_provider,
+    monkeypatch,
+):
+    owner_user_id = "owner-adversarial"
+    run_id = "run-adversarial"
+    storage = ArtifactStorage(
+        artifact_dir=tmp_path / "report_artifacts",
+        db_path=tmp_path / "report_artifacts.sqlite3",
+    )
+    generations = []
+    for index in range(generation_count):
+        storage, generation = _pending_generation(
+            tmp_path,
+            owner_user_id=owner_user_id,
+            run_id=run_id,
+            suffix=f"{index + 1:032x}",
+        )
+        generations.append(generation)
+    session = _FakeReportSession(
+        generations=generations,
+        storage=storage,
+        owner_user_id=owner_user_id,
+        run_id=run_id,
+    )
+    monkeypatch.setattr(
+        decrees_module,
+        "build_accounting_report_session",
+        lambda **_kwargs: session,
+    )
+    fake_provider(_FakeProvider(graph=_FakeGraph(invoke_result=_ACCOUNTING_ROUTE_RESULT)))
+    monkeypatch.setattr(
+        decrees_module.draft_authority_registry,
+        "consume",
+        lambda **_kwargs: _approved_route((
+            _ACCOUNTING_ROUTE_RESULT["departments"][0],
+            (_ACCOUNTING_ROUTE_RESULT["ministry_opinions"][0]["bureau_opinions"][0]["bureau"],),
+        )),
+    )
+    archive_calls = 0
+
+    def archive(*_args, **_kwargs):
+        nonlocal archive_calls
+        archive_calls += 1
+        pytest.fail("invalid generated identity count must fail before archive")
+
+    monkeypatch.setattr(decrees_module, "archive_chancellor_decree", archive)
+
+    response = client.post(DECREE_URL, json={"decree_text": ACCOUNTING_DECREE})
+
+    assert response.status_code == 502
+    assert response.json()["reason"] == "report_unavailable"
+    assert archive_calls == 0
+    assert session.events == ["abort"]
+    assert [storage.get_state(item.artifact_id) for item in generations] == [
+        "ABORTED"
+    ] * generation_count
+
+
+def test_accounting_report_requires_intact_persistent_pending_before_archive(
+    tmp_path, fake_provider, monkeypatch
+):
+    owner_user_id = "owner-missing-pending"
+    run_id = "run-missing-pending"
+    storage, generation = _pending_generation(
+        tmp_path, owner_user_id=owner_user_id, run_id=run_id, suffix="2" * 32
+    )
+    session = _FakeReportSession(
+        generations=(generation,), storage=storage,
+        owner_user_id=owner_user_id, run_id=run_id,
+    )
+    session.publishable = False
+    monkeypatch.setattr(
+        decrees_module.draft_authority_registry,
+        "consume",
+        lambda **_kwargs: _approved_route((
+            _ACCOUNTING_ROUTE_RESULT["departments"][0],
+            (_ACCOUNTING_ROUTE_RESULT["ministry_opinions"][0]["bureau_opinions"][0]["bureau"],),
+        )),
+    )
+    monkeypatch.setattr(
+        decrees_module, "build_accounting_report_session", lambda **_kwargs: session
+    )
+    fake_provider(_FakeProvider(graph=_FakeGraph(invoke_result=_ACCOUNTING_ROUTE_RESULT)))
+    monkeypatch.setattr(
+        decrees_module, "archive_chancellor_decree",
+        lambda *_args, **_kwargs: pytest.fail("missing pending must fail before archive"),
+    )
+
+    response = client.post(DECREE_URL, json={"decree_text": ACCOUNTING_DECREE})
+
+    assert response.status_code == 502
+    assert response.json()["reason"] == "report_unavailable"
+    assert session.events == ["abort"]
+
+
+@pytest.mark.parametrize(
+    "publication_shape",
+    ["zero", "two", "artifact", "owner", "run", "reply", "type", "period"],
+)
+def test_accounting_report_requires_published_identity_to_match_generation(
+    publication_shape,
+    tmp_path,
+    fake_provider,
+    monkeypatch,
+):
+    owner_user_id = "owner-publication"
+    run_id = "run-publication"
+    storage, generation = _pending_generation(
+        tmp_path,
+        owner_user_id=owner_user_id,
+        run_id=run_id,
+        suffix="1" * 32,
+    )
+    matching = SimpleNamespace(
+        artifact_id=generation.artifact_id,
+        report_type="management",
+        display_name="2025会计管理报告.xlsx",
+        period=ReportPeriod(2024, 2025),
+        generated_at=datetime(2026, 8, 5, tzinfo=UTC),
+        owner_user_id=owner_user_id,
+        run_id=run_id,
+        reply_id="reply-1",
+    )
+    mismatches = {
+        "artifact": SimpleNamespace(**{**matching.__dict__, "artifact_id": "mismatch-id"}),
+        "owner": SimpleNamespace(**{**matching.__dict__, "owner_user_id": "other-owner"}),
+        "run": SimpleNamespace(**{**matching.__dict__, "run_id": "other-run"}),
+        "reply": SimpleNamespace(**{**matching.__dict__, "reply_id": "other-reply"}),
+        "type": SimpleNamespace(**{**matching.__dict__, "report_type": "other-type"}),
+        "period": SimpleNamespace(**{**matching.__dict__, "period": ReportPeriod(2025, 2025)}),
+    }
+    published = {
+        "zero": (),
+        "two": (matching, mismatches["artifact"]),
+        **{name: (item,) for name, item in mismatches.items()},
+    }[publication_shape]
+    session = _FakeReportSession(
+        generations=(generation,),
+        published=published,
+        storage=storage,
+        owner_user_id=owner_user_id,
+        run_id=run_id,
+    )
+    session.preserve_published_reply_id = publication_shape == "reply"
+    monkeypatch.setattr(
+        decrees_module,
+        "build_accounting_report_session",
+        lambda **_kwargs: session,
+    )
+    fake_provider(_FakeProvider(graph=_FakeGraph(invoke_result=_ACCOUNTING_ROUTE_RESULT)))
+    monkeypatch.setattr(
+        decrees_module.draft_authority_registry,
+        "consume",
+        lambda **_kwargs: _approved_route(("户部", ("会计司",))),
+    )
+    archive_calls = 0
+
+    def archive(*_args, **_kwargs):
+        nonlocal archive_calls
+        archive_calls += 1
+        return SimpleNamespace(archived=True, reply_id="reply-1")
+
+    monkeypatch.setattr(decrees_module, "archive_chancellor_decree", archive)
+
+    response = client.post(DECREE_URL, json={"decree_text": ACCOUNTING_DECREE})
+
+    assert response.status_code == 502
+    assert response.json()["reason"] == "report_unavailable"
+    assert archive_calls == 1
+    assert session.events == [("publish", "reply-1"), "abort"]
+    assert storage.get_state(generation.artifact_id) == "ABORTED"
 
 
 def test_consumes_and_validates_route_before_creating_side_effects(
@@ -361,6 +752,7 @@ def test_lazy_execution_graph_receives_observer_context_and_report_session(
     assert len(graph_builds) == 1
     assert graph_builds[0]["report_session"] is session
     assert graph_builds[0]["lifecycle_observer"] is observer
+    assert graph_builds[0]["owner_user_id"] == session.owner_user_id
     assert decrees_module._lifecycle_observer_context.get() is None
     assert graph.invoke_calls == [
         {
@@ -532,7 +924,7 @@ def test_execute_api_preserves_generic_graph_exception_identity(monkeypatch):
     )
 
     with pytest.raises(RuntimeError) as raised:
-        decrees_module.submit_decree(
+        decrees_module.execute_decree_now(
             decrees_module.ChancellorDecreeRequest(decree_text="整顿吏治"),
             SimpleNamespace(id="user-1"),
         )
@@ -551,7 +943,7 @@ def test_execute_handler_failure_emits_authority_only_final_audit(monkeypatch):
     monkeypatch.setattr(decrees_module, "emit_chancellor_audit", audits.append)
 
     with pytest.raises(RuntimeError) as raised:
-        decrees_module.submit_decree(
+        decrees_module.execute_decree_now(
             decrees_module.ChancellorDecreeRequest(decree_text="整顿吏治"),
             SimpleNamespace(id="user-1"),
         )
@@ -584,7 +976,7 @@ def test_execute_handler_failure_after_case_open_emits_case_created(monkeypatch)
     monkeypatch.setattr(decrees_module, "emit_chancellor_audit", audits.append)
 
     with pytest.raises(RuntimeError) as raised:
-        decrees_module.submit_decree(
+        decrees_module.execute_decree_now(
             decrees_module.ChancellorDecreeRequest(decree_text="兴修水利"),
             SimpleNamespace(id="user-1"),
         )
@@ -691,7 +1083,7 @@ def test_execute_all_agent_failure_types_emit_uniform_final_audit(
 
     expected_error = ValueError if transparent else ChancellorGraphInvocationError
     with pytest.raises(expected_error):
-        decrees_module.submit_decree(
+        decrees_module.execute_decree_now(
             decrees_module.ChancellorDecreeRequest(decree_text="整顿吏治"),
             SimpleNamespace(id="user-1"),
         )
@@ -717,7 +1109,7 @@ def test_execute_api_preserves_typed_graph_error_nested_cause(monkeypatch):
     )
 
     with pytest.raises(ChancellorGraphInvocationError) as raised:
-        decrees_module.submit_decree(
+        decrees_module.execute_decree_now(
             decrees_module.ChancellorDecreeRequest(decree_text="整顿吏治"),
             SimpleNamespace(id="user-1"),
         )
@@ -781,14 +1173,27 @@ def test_report_artifact_publishes_once_only_after_successful_archive(
     fake_provider, monkeypatch, report_session
 ):
     session, _builds = report_session
-    session.has_pending = True
+    session.generations = (
+        SimpleNamespace(
+            artifact_id="opaque-id",
+            model_prompt="synthetic summary",
+            request_kind=AccountingRequestKind.ACCOUNTING_REPORT,
+            period=ReportPeriod(2024, 2025),
+            owner_user_id=session.owner_user_id,
+            run_id=session.run_id,
+            report_type="management",
+        ),
+    )
     session.published = (
         SimpleNamespace(
             artifact_id="opaque-id",
             report_type="management",
             display_name="2020-2025年管理层综合财务报告.xlsx",
-            period=SimpleNamespace(start_year=2020, end_year=2025),
+            period=ReportPeriod(2024, 2025),
             generated_at=datetime(2026, 7, 29, 8, 30, tzinfo=UTC),
+            owner_user_id=session.owner_user_id,
+            run_id=session.run_id,
+            reply_id="reply-1",
         ),
     )
     events = []
@@ -826,7 +1231,7 @@ def test_report_artifact_publishes_once_only_after_successful_archive(
             "artifact_id": "opaque-id",
             "kind": "ACCOUNTING_MANAGEMENT_REPORT_XLSX",
             "display_name": "2020-2025年管理层综合财务报告.xlsx",
-            "period_start": 2020,
+            "period_start": 2024,
             "period_end": 2025,
             "generated_at": "2026-07-29T08:30:00Z",
         }
@@ -837,7 +1242,17 @@ def test_archive_failure_aborts_pending_report_and_prevents_publication(
     fake_provider, monkeypatch, report_session
 ):
     session, _builds = report_session
-    session.has_pending = True
+    session.generations = (
+        SimpleNamespace(
+            artifact_id="opaque-id",
+            model_prompt="synthetic summary",
+            request_kind=AccountingRequestKind.ACCOUNTING_REPORT,
+            period=ReportPeriod(2024, 2025),
+            owner_user_id=session.owner_user_id,
+            run_id=session.run_id,
+            report_type="management",
+        ),
+    )
     fake_provider(_FakeProvider(graph=_FakeGraph(invoke_result=_ACCOUNTING_ROUTE_RESULT)))
     monkeypatch.setattr(
         decrees_module.draft_authority_registry,
@@ -861,7 +1276,17 @@ def test_publication_failure_is_sanitized_and_aborts(
     fake_provider, monkeypatch, report_session
 ):
     session, _builds = report_session
-    session.has_pending = True
+    session.generations = (
+        SimpleNamespace(
+            artifact_id="opaque-id",
+            model_prompt="synthetic summary",
+            request_kind=AccountingRequestKind.ACCOUNTING_REPORT,
+            period=ReportPeriod(2024, 2025),
+            owner_user_id=session.owner_user_id,
+            run_id=session.run_id,
+            report_type="management",
+        ),
+    )
     session.publish_error = RuntimeError("secret path C:/private/report.xlsx")
     fake_provider(_FakeProvider(graph=_FakeGraph(invoke_result=_ACCOUNTING_ROUTE_RESULT)))
     monkeypatch.setattr(
@@ -887,7 +1312,17 @@ def test_archive_exception_is_sanitized_as_report_failure_and_aborts(
     fake_provider, monkeypatch, report_session
 ):
     session, _builds = report_session
-    session.has_pending = True
+    session.generations = (
+        SimpleNamespace(
+            artifact_id="opaque-id",
+            model_prompt="synthetic summary",
+            request_kind=AccountingRequestKind.ACCOUNTING_REPORT,
+            period=ReportPeriod(2024, 2025),
+            owner_user_id=session.owner_user_id,
+            run_id=session.run_id,
+            report_type="management",
+        ),
+    )
     fake_provider(_FakeProvider(graph=_FakeGraph(invoke_result=_ACCOUNTING_ROUTE_RESULT)))
     monkeypatch.setattr(
         decrees_module.draft_authority_registry,
@@ -946,18 +1381,18 @@ def test_response_conversion_is_pure_and_uses_domain_generation_time():
 
 
 def test_real_graph_factory_receives_exact_report_session(monkeypatch):
-    session = object()
+    session = SimpleNamespace(owner_user_id="owner-a")
     seen = []
 
-    def builder(*, lifecycle_observer, report_session):
-        seen.append((lifecycle_observer, report_session))
+    def builder(*, lifecycle_observer, report_session, owner_user_id):
+        seen.append((lifecycle_observer, report_session, owner_user_id))
         return object()
 
     monkeypatch.setattr(decrees_module, "build_chancellor_graph", builder)
 
     decrees_module.get_chancellor_graph(report_session=session)
 
-    assert seen == [(None, session)]
+    assert seen == [(None, session, "owner-a")]
 
 
 def test_report_generation_failure_aborts_and_uses_sanitized_status(
@@ -1002,8 +1437,10 @@ def test_submit_decree_single_route_returns_full_contract(fake_provider, monkeyp
         "ministry_opinions",
         "council_verdict",
         "final_verdict",
-        "recommendations",
-        "artifacts",
+            "recommendations",
+            "delivery_kind",
+            "delivery_period",
+            "artifacts",
     }
     assert body["artifacts"] == []
     assert body["status"] == "ok"
@@ -1212,7 +1649,10 @@ def test_real_graph_single_route_keeps_api_contract_and_exposes_named_bureau_opi
             '"recommendations": ["统一对外口径", "校验视觉资产", "设置发布门禁"]}',
         ]
     )
-    graph = build_chancellor_graph(chat_model=lambda _messages: next(responses))
+    graph = build_chancellor_graph(
+        owner_user_id=OWNER_A,
+        chat_model=lambda _messages: next(responses),
+    )
     fake_provider(_FakeProvider(graph=graph))
 
     response = client.post(DECREE_URL, json={"decree_text": "统一品牌对外表达"})
@@ -1342,6 +1782,107 @@ def test_model_error_maps_to_sanitized_502(fake_provider):
     assert provider.call_count == 1
 
 
+def test_model_error_logs_only_allowlisted_metadata_with_actual_run_id(
+    fake_provider, report_session, monkeypatch, caplog
+):
+    run_id = "0123456789abcdef0123456789abcdef"
+    markers = (
+        "unsafe-provider-body-marker",
+        "unsafe-prompt-marker",
+        "sk-unsafe-key-marker",
+        "C:/unsafe/private/path",
+        "UnsafeProviderClass",
+    )
+    provider_error = DeepSeekModelInvocationError(
+        " ".join(markers),
+        failure_category="rate_limit",
+        provider_http_status=429,
+        retry_count=1,
+    )
+    invocation_error = ChancellorGraphInvocationError("sanitized graph failure")
+    invocation_error.__cause__ = provider_error
+    fake_provider(_FakeProvider(graph=_FakeGraph(invoke_error=invocation_error)))
+    monkeypatch.setattr(decrees_module.secrets, "token_hex", lambda _size: run_id)
+
+    response = client.post(DECREE_URL, json={"decree_text": markers[1]})
+
+    assert response.status_code == 502
+    assert response.json() == {
+        "status": "error",
+        "reason": "model_unavailable",
+        "message": "丞相暂时无法处理旨意，请稍后再试",
+    }
+    log_text = "\n".join(record.getMessage() for record in caplog.records)
+    for marker in markers:
+        assert marker not in log_text
+    matching = [
+        line for line in log_text.splitlines() if line.startswith("decree_model_failure ")
+    ]
+    assert matching == [
+        "decree_model_failure stage=provider_request category=rate_limit "
+        "provider_http_status=429 retry_count=1 "
+        f"request_id={run_id}"
+    ]
+    assert re.fullmatch(r"[0-9a-f]{32}", run_id)
+
+
+def test_model_error_revalidates_mutable_metadata_and_handles_cause_cycle(
+    fake_provider, report_session, monkeypatch, caplog
+):
+    run_id = "fedcba9876543210fedcba9876543210"
+    marker = "unsafe-mutable-metadata-marker"
+    provider_error = DeepSeekModelInvocationError(
+        "sanitized",
+        failure_category="rate_limit",
+        provider_http_status=429,
+        retry_count=1,
+    )
+    provider_error.failure_category = marker
+    provider_error.provider_http_status = marker
+    provider_error.retry_count = marker
+    provider_error.__cause__ = provider_error
+    invocation_error = ChancellorGraphInvocationError("sanitized")
+    invocation_error.__cause__ = provider_error
+    fake_provider(_FakeProvider(graph=_FakeGraph(invoke_error=invocation_error)))
+    monkeypatch.setattr(decrees_module.secrets, "token_hex", lambda _size: run_id)
+
+    response = client.post(DECREE_URL, json={"decree_text": "整顿吏治"})
+
+    assert response.status_code == 502
+    log_text = "\n".join(record.getMessage() for record in caplog.records)
+    assert marker not in log_text
+    assert (
+        "decree_model_failure stage=provider_request category=unexpected "
+        "provider_http_status=none retry_count=0 "
+        f"request_id={run_id}"
+    ) in log_text
+
+
+def test_budget_exhaustion_logs_typed_category_without_changing_502_contract(
+    fake_provider, report_session, monkeypatch, caplog
+):
+    run_id = "abcdef0123456789abcdef0123456789"
+    provider_error = DeepSeekModelInvocationError(
+        "Provider attempt budget exhausted.",
+        failure_category="budget_exhausted",
+        retry_count=0,
+    )
+    invocation_error = ChancellorGraphInvocationError("sanitized")
+    invocation_error.__cause__ = provider_error
+    fake_provider(_FakeProvider(graph=_FakeGraph(invoke_error=invocation_error)))
+    monkeypatch.setattr(decrees_module.secrets, "token_hex", lambda _size: run_id)
+
+    response = client.post(DECREE_URL, json={"decree_text": "synthetic decree"})
+
+    assert response.status_code == 502
+    assert response.json()["reason"] == "model_unavailable"
+    assert (
+        "decree_model_failure stage=provider_request category=budget_exhausted "
+        "provider_http_status=none retry_count=0 "
+        f"request_id={run_id}"
+    ) in "\n".join(record.getMessage() for record in caplog.records)
+
+
 @pytest.mark.parametrize("empty_opinion", ["", "   "])
 def test_empty_ministry_opinion_from_real_graph_maps_to_sanitized_502(
     fake_provider, empty_opinion
@@ -1354,7 +1895,10 @@ def test_empty_ministry_opinion_from_real_graph_maps_to_sanitized_502(
             f'{{"opinion": "{empty_opinion}"}}',
         ]
     )
-    graph = build_chancellor_graph(chat_model=lambda _messages: next(responses))
+    graph = build_chancellor_graph(
+        owner_user_id=OWNER_A,
+        chat_model=lambda _messages: next(responses),
+    )
     provider = fake_provider(_FakeProvider(graph=graph))
 
     response = client.post(DECREE_URL, json={"decree_text": "核查国库存银"})
@@ -1382,7 +1926,10 @@ def test_malformed_bureau_response_from_real_graph_maps_to_sanitized_502(
             f'not-json provider-output key={secret_marker}',
         ]
     )
-    graph = build_chancellor_graph(chat_model=lambda _messages: next(responses))
+    graph = build_chancellor_graph(
+        owner_user_id=OWNER_A,
+        chat_model=lambda _messages: next(responses),
+    )
     provider = fake_provider(_FakeProvider(graph=graph))
 
     response = client.post(DECREE_URL, json={"decree_text": "审查合同"})
@@ -1685,7 +2232,7 @@ def _expected_version() -> str:
 def test_health_endpoint_is_unaffected_by_the_new_decree_route():
     """Regression guard: registering the decree router/exception handlers
     must not change ``GET /health`` in any way."""
-    response = client.get("/health")
+    response = TestClient(main_app).get("/health")
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("application/json")
     assert response.json() == {

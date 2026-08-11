@@ -15,6 +15,7 @@ test("史馆保留现有 BFF 契约，同时采用太史馆三栏视觉外壳", 
   assert.match(source, /ShiguanWorkspace/);
   assert.match(source, /ShiguanController/);
   assert.match(source, /requestShiguanJson/);
+  assert.match(source, /parseDecisionPayload/);
   assert.doesNotMatch(source, /async function requestJson/);
   assert.match(source, /controller\.connect/);
   assert.match(source, /controller\.start/);
@@ -23,15 +24,18 @@ test("史馆保留现有 BFF 契约，同时采用太史馆三栏视觉外壳", 
   assert.match(source, /statisticsState=/);
   assert.match(source, /recallState=/);
   assert.match(source, /reviewState=/);
+  assert.match(source, /decisionState=/);
   assert.match(source, /onSelectArchive=/);
   assert.match(source, /onFilter=/);
   assert.match(source, /onRecall=/);
   assert.match(source, /onReview=/);
+  assert.match(source, /onDecision=/);
   for (const endpoint of [
     "/api/shiguan/archives",
     "/api/shiguan/statistics",
     "/api/shiguan/recall",
     "/api/shiguan/archives/${archiveId}/review",
+    "/api/shiguan/archives/${encodeURIComponent(archiveId)}/decision",
   ]) assert.match(source, new RegExp(endpoint.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.doesNotMatch(source, /@\/features\/shiguan-ui|useArchiveRecords|useArchiveStats|ima-knowledge|promo-archive|\/api\/scribe\/lessons|lucide|tailwind/);
   assert.match(css, /\.page/);

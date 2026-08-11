@@ -28,10 +28,12 @@ from app.jinyiwei.models import (
 )
 from app.jinyiwei.sources.base import SourceDocument, SourceQuery, SourceResult
 from app.jinyiwei.sources.mcp import McpSource
+from app.jinyiwei.storage import list_investigations
 
 BACKEND = Path(__file__).parents[1]
 FIXTURES = Path(__file__).parent / "fixtures" / "mcp"
 NOW = datetime(2026, 7, 23, 2, 0, 30, tzinfo=UTC)
+OWNER_USER_ID = "westock-test-owner"
 
 
 def _json_fixture(name: str) -> dict[str, object]:
@@ -691,6 +693,7 @@ def _coordinator_pack(
     shiguan=None,
     market_metric: str = "INTRADAY_SERIES",
 ):
+    db_path = tmp_path / "jinyiwei.sqlite3"
     registry = client.registry
     mcp = McpSource(
         registry=registry,
@@ -706,13 +709,17 @@ def _coordinator_pack(
         extractor=_HybridExtractor(),
         clock=lambda: NOW,
         id_factory=iter(("investigation-byd", "pack-byd")).__next__,
-        db_path=tmp_path / "jinyiwei.sqlite3",
+        db_path=db_path,
     )
-    return coordinator.investigate(
+    pack = coordinator.investigate(
         _request(market_metric=market_metric),
         department="户部",
         matter_type="股票查询",
+        owner_user_id=OWNER_USER_ID,
     )
+    assert list_investigations(owner_user_id=OWNER_USER_ID, db_path=db_path).total == 1
+    assert list_investigations(owner_user_id="other-owner", db_path=db_path).total == 0
+    return pack
 
 
 def test_archive_miss_reaches_fresh_westock_minute_quote(

@@ -59,19 +59,9 @@ test("list refresh immediately aborts and invalidates the current detail", () =>
   assert.equal(detail, null);
 });
 
-test("page source remains read-only and contains deliberate empty/error/unknown copy", async () => {
+test("legacy page remains a read-only authenticated redirect to the visual desk", async () => {
   const source = await readFile(new URL("./page.tsx", import.meta.url), "utf8");
   assert.doesNotMatch(source, /method\s*:\s*["'](?:POST|PATCH|PUT|DELETE)/);
-  assert.doesNotMatch(source, /<form|contentEditable|删除|编辑证据|重新采集/);
-  assert.match(source, /只有司级 Agent/);
-  assert.match(source, /未核验|不可推断|读取中断|尚无可展示证据/);
-  assert.match(source, /AbortController/);
-  assert.match(source, /generation|GenerationGuard|createGenerationGuard/i);
-  assert.match(source, /dataScope/);
-  assert.match(source, /historicalEvidenceByFact/);
-  assert.match(source, /accessUrl/);
-  assert.match(source, /accessMetadata/);
-  assert.match(source, /MCP/);
-  assert.match(source, /callAudits/);
-  assert.match(source, /responseBytes/);
+  assert.doesNotMatch(source, /<form|contentEditable|fetch\(|["']use client["']/);
+  assert.match(source, /redirectLegacyJinyiweiEntry\(requireUser, redirect\)/);
 });

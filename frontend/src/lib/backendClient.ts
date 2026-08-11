@@ -230,6 +230,8 @@ export interface ReportArtifact {
   generatedAt: string;
 }
 
+export type DeliveryKind = "none" | "accounting_report" | "accounting_analysis";
+
 /**
  * `POST /api/v1/decrees/chancellor` 成功响应体映射到前端后的形状。
  *
@@ -249,6 +251,8 @@ export interface SubmitDecreeData {
   councilVerdict: string | null;
   finalVerdict: string;
   recommendations: string[];
+  deliveryKind: DeliveryKind;
+  deliveryPeriod: { startYear: number; endYear: number } | null;
   artifacts: ReportArtifact[];
 }
 
@@ -260,7 +264,7 @@ export type SubmitDecreeResult =
   | { ok: true; data: SubmitDecreeData }
   | {
       ok: false;
-      kind: "validation" | "draft_not_current" | "config" | "model" | "network" | "timeout" | "unauthenticated" | "unknown";
+      kind: "validation" | "draft_not_current" | "source_not_current" | "config" | "model" | "network" | "timeout" | "unauthenticated" | "unknown";
       error: string;
     };
 
@@ -291,6 +295,140 @@ export interface SubmitDecreeOptions {
  * 不改变超时。数值依据见分层回奏任务与 ADR 0014。
  */
 const DECREE_TIMEOUT_MS = 900000;
+
+export interface AcceptedDecreeData {
+  jobId: string;
+  state: "QUEUED";
+  statusUrl: string;
+  cancelUrl: string;
+  acceptedAt: string;
+  replayed: boolean;
+}
+
+export type EnqueueDecreeResult =
+  | {
+      ok: true;
+      data: AcceptedDecreeData;
+      location: string;
+      retryAfterSeconds: number;
+    }
+  | {
+      ok: false;
+      kind:
+        | "validation"
+        | "draft_not_current"
+        | "source_not_current"
+        | "conflict"
+        | "unauthenticated"
+        | "unavailable"
+        | "network"
+        | "timeout"
+        | "unknown";
+    };
+
+export type EnqueueDecreeOptions = SubmitDecreeOptions & {
+  idempotencyKey: string;
+};
+
+function parseAcceptedDecree(value: unknown): AcceptedDecreeData | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
+  const item = value as Record<string, unknown>;
+  if (
+    Object.keys(item).length !== 6 ||
+    typeof item.job_id !== "string" || !/^[0-9a-f]{32}$/.test(item.job_id) ||
+    item.state !== "QUEUED" ||
+    item.status_url !== `/api/v1/decree-jobs/${item.job_id}` ||
+    item.cancel_url !== `/api/v1/decree-jobs/${item.job_id}/cancel` ||
+    typeof item.accepted_at !== "string" || !Number.isFinite(Date.parse(item.accepted_at)) ||
+    typeof item.replayed !== "boolean"
+  ) return null;
+  return {
+    jobId: item.job_id,
+    state: "QUEUED",
+    statusUrl: item.status_url,
+    cancelUrl: item.cancel_url,
+    acceptedAt: item.accepted_at,
+    replayed: item.replayed,
+  };
+}
+
+async function classifyEnqueueConflict(
+  response: Response,
+): Promise<"draft_not_current" | "source_not_current" | "conflict" | "unknown"> {
+  let body: unknown;
+  try {
+    body = await response.json();
+  } catch {
+    return "unknown";
+  }
+  if (typeof body !== "object" || body === null || Array.isArray(body)) return "unknown";
+  const reason = (body as Record<string, unknown>).reason;
+  if (reason === "draft_not_current" || reason === "source_not_current") return reason;
+  return reason === "idempotency_conflict" ? "conflict" : "unknown";
+}
+
+export async function enqueueDecree(
+  decreeText: string,
+  options: EnqueueDecreeOptions,
+): Promise<EnqueueDecreeResult> {
+  if (!options.sessionId) return { ok: false, kind: "unauthenticated" };
+  if (!options.idempotencyKey || options.idempotencyKey.length > 128) {
+    return { ok: false, kind: "validation" };
+  }
+  const controller = new AbortController();
+  let timedOut = false;
+  const timer = (options.scheduleTimeout ?? setTimeout)(() => {
+    timedOut = true;
+    controller.abort();
+  }, options.timeoutMs ?? 15000);
+  try {
+    const response = await (options.fetchImpl ?? fetch)(
+      `${(options.baseUrl ?? getBackendBaseUrl()).replace(/\/+$/, "")}/api/v1/decrees/chancellor`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${options.sessionId}`,
+          "idempotency-key": options.idempotencyKey,
+        },
+        body: JSON.stringify({
+          decree_text: decreeText,
+          draft_version: options.draftVersion,
+          draft_fingerprint: options.draftFingerprint,
+        }),
+        signal: controller.signal,
+        cache: "no-store",
+      },
+    );
+    if (response.status === 401) return { ok: false, kind: "unauthenticated" };
+    if (response.status === 409) {
+      return { ok: false, kind: await classifyEnqueueConflict(response) };
+    }
+    if (response.status === 422) return { ok: false, kind: "validation" };
+    if (response.status === 503) return { ok: false, kind: "unavailable" };
+    if (response.status !== 202) return { ok: false, kind: "unknown" };
+    let body: unknown;
+    try {
+      body = await response.json();
+    } catch {
+      return { ok: false, kind: "unknown" };
+    }
+    const data = parseAcceptedDecree(body);
+    const location = response.headers.get("location");
+    if (data === null || location !== data.statusUrl) return { ok: false, kind: "unknown" };
+    const parsedRetry = Number(response.headers.get("retry-after"));
+    return {
+      ok: true,
+      data,
+      location,
+      retryAfterSeconds: Number.isFinite(parsedRetry) && parsedRetry > 0 ? parsedRetry : 1,
+    };
+  } catch {
+    return { ok: false, kind: timedOut ? "timeout" : "network" };
+  } finally {
+    (options.cancelTimeout ?? clearTimeout)(timer as never);
+  }
+}
 
 /** 从错误响应体中提取脱敏的 `message` 字段；解析失败或字段缺失时回退到 `fallback`。 */
 async function extractErrorMessage(response: Response, fallback: string): Promise<string> {
@@ -386,7 +524,6 @@ function parseNonEmptyStringArray(value: unknown): string[] | null {
 }
 
 function parseReportArtifacts(value: unknown): ReportArtifact[] | null {
-  if (value === undefined) return [];
   if (!Array.isArray(value)) return null;
   const artifacts: ReportArtifact[] = [];
   const ids = new Set<string>();
@@ -497,7 +634,27 @@ function parseSubmitDecreeData(body: unknown): SubmitDecreeData | null {
     return null;
   }
   const artifacts = parseReportArtifacts(record.artifacts);
-  if (artifacts === null) return null;
+  const deliveryKind = record.delivery_kind;
+  const rawPeriod = record.delivery_period;
+  const deliveryPeriod =
+    typeof rawPeriod === "object" && rawPeriod !== null && !Array.isArray(rawPeriod) &&
+    Object.keys(rawPeriod).length === 2 &&
+    Number.isInteger((rawPeriod as Record<string, unknown>).start_year) &&
+    Number.isInteger((rawPeriod as Record<string, unknown>).end_year) &&
+    (rawPeriod as Record<string, number>).start_year <=
+      (rawPeriod as Record<string, number>).end_year
+      ? { startYear: (rawPeriod as Record<string, number>).start_year,
+          endYear: (rawPeriod as Record<string, number>).end_year }
+      : null;
+  if (
+    artifacts === null ||
+    (deliveryKind !== "none" && deliveryKind !== "accounting_report" && deliveryKind !== "accounting_analysis") ||
+    (deliveryKind === "none" ? artifacts.length !== 0 : artifacts.length !== 1) ||
+    (deliveryKind === "none" ? rawPeriod !== null : deliveryPeriod === null) ||
+    (deliveryKind !== "none" && deliveryPeriod !== null &&
+      (artifacts[0].periodStart !== deliveryPeriod.startYear ||
+       artifacts[0].periodEnd !== deliveryPeriod.endYear))
+  ) return null;
 
   return {
     status: record.status,
@@ -510,6 +667,8 @@ function parseSubmitDecreeData(body: unknown): SubmitDecreeData | null {
     councilVerdict,
     finalVerdict: record.final_verdict.trim(),
     recommendations: recommendations.map((item) => item.trim()),
+    deliveryKind,
+    deliveryPeriod,
     artifacts,
   };
 }
@@ -535,6 +694,241 @@ export async function downloadReportArtifact(
   } catch {
     return { ok: false, kind: "unavailable" };
   }
+}
+
+export type WorkProductStatus =
+  | "NEEDS_DATA"
+  | "NEEDS_REVIEW"
+  | "BLOCKED"
+  | "READY_FOR_HUMAN_CONFIRMATION"
+  | "REVISION_REQUIRED";
+export type ConfirmationStatus =
+  | "PENDING"
+  | "CONFIRMED"
+  | "REVISION_REQUIRED"
+  | "ESCALATED";
+export type ArtifactState = "PENDING" | "PUBLISHED" | "ABORTED";
+export type ConfirmationDecision = Exclude<ConfirmationStatus, "PENDING">;
+
+export interface ReportWorkProduct {
+  artifactId: string;
+  workProductId: string;
+  version: number;
+  runId: string;
+  replyId: string | null;
+  capabilityId: string;
+  workStatus: WorkProductStatus;
+  confirmationStatus: ConfirmationStatus;
+  artifactState: ArtifactState;
+  decision: string;
+  facts: Record<string, unknown>[];
+  assumptions: string[];
+  recommendations: string[];
+  evidenceUsed: string[];
+  missingEvidence: string[];
+  conflicts: string[];
+  riskRegister: string[];
+  artifactManifest: Array<{
+    kind: string;
+    ref: string;
+    contentDigest: string;
+    traceable: boolean;
+  }>;
+  artifactGate: {
+    status: "PASSED" | "FAILED";
+    reasonCodes: string[];
+    missingKinds: string[];
+    unexpectedKinds: string[];
+  };
+  contentDigest: string;
+  createdAt: string;
+  confirmationReceipts: Array<{
+    workProductId: string;
+    version: number;
+    sequence: number;
+    decision: ConfirmationDecision;
+    actorRef: string;
+    structuredReason: string;
+    createdAt: string;
+  }>;
+}
+
+export type ReportWorkProductResult =
+  | { ok: true; data: ReportWorkProduct }
+  | {
+      ok: false;
+      kind: "unauthenticated" | "not_found" | "invalid_transition" | "unavailable" | "contract";
+    };
+
+type ReportWorkProductRequestOptions = AuthenticatedRequestOptions & {
+  fetchImpl?: typeof fetch;
+};
+
+const WORK_PRODUCT_KEYS = [
+  "work_product_id", "version", "run_id", "reply_id", "capability_id",
+  "work_status", "confirmation_status", "artifact_state", "decision", "facts",
+  "assumptions", "recommendations", "evidence_used", "missing_evidence", "conflicts",
+  "risk_register", "artifact_manifest", "artifact_gate", "content_digest", "created_at",
+  "artifact_id", "confirmation_receipts",
+] as const;
+
+function isExactRecord(value: unknown, keys: readonly string[]): value is Record<string, unknown> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  const actual = Object.keys(value);
+  return actual.length === keys.length && keys.every((key) => key in value);
+}
+
+function parseStringList(value: unknown): string[] | null {
+  return Array.isArray(value) && value.every((item) => typeof item === "string")
+    ? [...value]
+    : null;
+}
+
+function isJsonValue(value: unknown): boolean {
+  if (value === null || typeof value === "string" || typeof value === "boolean") return true;
+  if (typeof value === "number") return Number.isFinite(value);
+  if (Array.isArray(value)) return value.every(isJsonValue);
+  return typeof value === "object" && Object.values(value as Record<string, unknown>).every(isJsonValue);
+}
+
+function parseReportWorkProduct(value: unknown): ReportWorkProduct | null {
+  if (!isExactRecord(value, WORK_PRODUCT_KEYS)) return null;
+  const workStatuses: readonly WorkProductStatus[] = [
+    "NEEDS_DATA", "NEEDS_REVIEW", "BLOCKED", "READY_FOR_HUMAN_CONFIRMATION", "REVISION_REQUIRED",
+  ];
+  const confirmationStatuses: readonly ConfirmationStatus[] = [
+    "PENDING", "CONFIRMED", "REVISION_REQUIRED", "ESCALATED",
+  ];
+  const artifactStates: readonly ArtifactState[] = ["PENDING", "PUBLISHED", "ABORTED"];
+  const strings = [
+    value.work_product_id, value.run_id, value.capability_id, value.decision,
+    value.content_digest, value.artifact_id,
+  ];
+  if (strings.some((item) => typeof item !== "string" || item.trim().length === 0) ||
+      !Number.isInteger(value.version) || (value.version as number) < 1 ||
+      (value.reply_id !== null && (typeof value.reply_id !== "string" || value.reply_id.trim().length === 0)) ||
+      !workStatuses.includes(value.work_status as WorkProductStatus) ||
+      !confirmationStatuses.includes(value.confirmation_status as ConfirmationStatus) ||
+      !artifactStates.includes(value.artifact_state as ArtifactState) ||
+      typeof value.created_at !== "string" || !isTimezoneAwareRfc3339(value.created_at) ||
+      !/^[0-9a-f]{64}$/.test(String(value.content_digest)) ||
+      !Array.isArray(value.facts) || !value.facts.every((fact) =>
+        typeof fact === "object" && fact !== null && !Array.isArray(fact) && isJsonValue(fact))) return null;
+
+  const assumptions = parseStringList(value.assumptions);
+  const recommendations = parseStringList(value.recommendations);
+  const evidenceUsed = parseStringList(value.evidence_used);
+  const missingEvidence = parseStringList(value.missing_evidence);
+  const conflicts = parseStringList(value.conflicts);
+  const riskRegister = parseStringList(value.risk_register);
+  if (!assumptions || !recommendations || !evidenceUsed || !missingEvidence || !conflicts || !riskRegister ||
+      !Array.isArray(value.artifact_manifest) || !Array.isArray(value.confirmation_receipts)) return null;
+
+  const artifactManifest = value.artifact_manifest.map((item) => {
+    if (!isExactRecord(item, ["kind", "ref", "content_digest", "traceable"]) ||
+        typeof item.kind !== "string" || item.kind.trim().length === 0 ||
+        typeof item.ref !== "string" || item.ref.trim().length === 0 ||
+        typeof item.content_digest !== "string" || !/^[0-9a-f]{64}$/.test(item.content_digest) ||
+        typeof item.traceable !== "boolean") return null;
+    return { kind: item.kind, ref: item.ref, contentDigest: item.content_digest, traceable: item.traceable };
+  });
+  if (artifactManifest.some((item) => item === null)) return null;
+
+  if (!isExactRecord(value.artifact_gate, ["status", "reason_codes", "missing_kinds", "unexpected_kinds"]) ||
+      (value.artifact_gate.status !== "PASSED" && value.artifact_gate.status !== "FAILED")) return null;
+  const reasonCodes = parseStringList(value.artifact_gate.reason_codes);
+  const missingKinds = parseStringList(value.artifact_gate.missing_kinds);
+  const unexpectedKinds = parseStringList(value.artifact_gate.unexpected_kinds);
+  if (!reasonCodes || !missingKinds || !unexpectedKinds) return null;
+
+  const confirmationReceipts = value.confirmation_receipts.map((item) => {
+    if (!isExactRecord(item, ["work_product_id", "version", "sequence", "decision", "actor_ref", "structured_reason", "created_at"]) ||
+        typeof item.work_product_id !== "string" || item.work_product_id.trim().length === 0 ||
+        !Number.isInteger(item.version) || (item.version as number) < 1 ||
+        !Number.isInteger(item.sequence) || (item.sequence as number) < 1 ||
+        typeof item.decision !== "string" ||
+        !["CONFIRMED", "REVISION_REQUIRED", "ESCALATED"].includes(item.decision) ||
+        typeof item.actor_ref !== "string" || item.actor_ref.trim().length === 0 ||
+        typeof item.structured_reason !== "string" || item.structured_reason.trim().length === 0 ||
+        typeof item.created_at !== "string" || !isTimezoneAwareRfc3339(item.created_at)) return null;
+    return {
+      workProductId: item.work_product_id,
+      version: item.version,
+      sequence: item.sequence,
+      decision: item.decision,
+      actorRef: item.actor_ref,
+      structuredReason: item.structured_reason,
+      createdAt: item.created_at,
+    } as ReportWorkProduct["confirmationReceipts"][number];
+  });
+  if (confirmationReceipts.some((item) => item === null)) return null;
+
+  return {
+    artifactId: value.artifact_id as string,
+    workProductId: value.work_product_id as string,
+    version: value.version as number,
+    runId: value.run_id as string,
+    replyId: value.reply_id as string | null,
+    capabilityId: value.capability_id as string,
+    workStatus: value.work_status as WorkProductStatus,
+    confirmationStatus: value.confirmation_status as ConfirmationStatus,
+    artifactState: value.artifact_state as ArtifactState,
+    decision: value.decision as string,
+    facts: value.facts as Record<string, unknown>[],
+    assumptions, recommendations, evidenceUsed, missingEvidence, conflicts, riskRegister,
+    artifactManifest: artifactManifest as ReportWorkProduct["artifactManifest"],
+    artifactGate: { status: value.artifact_gate.status, reasonCodes, missingKinds, unexpectedKinds },
+    contentDigest: value.content_digest as string,
+    createdAt: value.created_at,
+    confirmationReceipts: confirmationReceipts as ReportWorkProduct["confirmationReceipts"],
+  };
+}
+
+async function requestReportWorkProduct(
+  artifactId: string,
+  init: RequestInit,
+  options: ReportWorkProductRequestOptions,
+): Promise<ReportWorkProductResult> {
+  if (!options.sessionId) return { ok: false, kind: "unauthenticated" };
+  try {
+    const response = await (options.fetchImpl ?? fetch)(
+      `${(options.baseUrl ?? getBackendBaseUrl()).replace(/\/+$/, "")}/api/v1/report-artifacts/${encodeURIComponent(artifactId)}${init.method === "POST" ? "/confirmation" : "/work-product"}`,
+      {
+        ...init,
+        headers: { ...init.headers, authorization: `Bearer ${options.sessionId}` },
+        cache: "no-store",
+      },
+    );
+    if (!response.ok) {
+      if (response.status === 401) return { ok: false, kind: "unauthenticated" };
+      if (response.status === 404) return { ok: false, kind: "not_found" };
+      if (response.status === 409) return { ok: false, kind: "invalid_transition" };
+      return { ok: false, kind: "unavailable" };
+    }
+    const data = parseReportWorkProduct(await response.json());
+    return data ? { ok: true, data } : { ok: false, kind: "contract" };
+  } catch {
+    return { ok: false, kind: "unavailable" };
+  }
+}
+
+export function fetchReportArtifactWorkProduct(
+  artifactId: string,
+  options: ReportWorkProductRequestOptions,
+): Promise<ReportWorkProductResult> {
+  return requestReportWorkProduct(artifactId, { method: "GET" }, options);
+}
+
+export function submitReportArtifactConfirmation(
+  artifactId: string,
+  payload: { decision: ConfirmationDecision; structuredReason: string },
+  options: ReportWorkProductRequestOptions,
+): Promise<ReportWorkProductResult> {
+  return requestReportWorkProduct(artifactId, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ decision: payload.decision, structured_reason: payload.structuredReason }),
+  }, options);
 }
 
 /**
@@ -607,10 +1001,19 @@ export async function submitDecree(
       return { ok: false, kind: "unauthenticated", error: "authentication required" };
     }
     if (response.status === 409) {
+      let reason: unknown;
+      try {
+        reason = ((await response.json()) as { reason?: unknown }).reason;
+      } catch {
+        reason = undefined;
+      }
+      if (reason === "source_not_current") {
+        return { ok: false, kind: "source_not_current", error: "accounting source changed" };
+      }
       return {
         ok: false,
         kind: "draft_not_current",
-        error: await extractErrorMessage(response, "拟旨草案已失效"),
+        error: "draft authority is no longer current",
       };
     }
 
@@ -640,10 +1043,169 @@ export async function submitDecree(
   }
 }
 
+export type DecreeJobPublicState =
+  | "QUEUED"
+  | "RUNNING"
+  | "SUCCEEDED"
+  | "FAILED"
+  | "CANCELLED";
+
+export interface DecreeJobData {
+  jobId: string;
+  state: DecreeJobPublicState;
+  stage: string;
+  attemptCount: number;
+  providerRequestCount: number;
+  cancelRequested: boolean;
+  result: SubmitDecreeData | null;
+  error: DecreeJobErrorData | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DecreeJobErrorData {
+  code: string;
+  stage: "queue" | "execution" | "side_effect";
+  category: "cancelled" | "deadline" | "budget" | "provider" | "retry" | "internal";
+}
+
+export type DecreeJobRequestResult =
+  | { ok: true; data: DecreeJobData }
+  | {
+      ok: false;
+      kind: "unauthenticated" | "not_found" | "unavailable" | "network" | "unknown";
+    };
+
+type DecreeJobRequestOptions = AuthenticatedRequestOptions & {
+  fetchImpl?: typeof fetch;
+};
+
+const PUBLIC_JOB_STAGES: Record<DecreeJobPublicState, ReadonlySet<string>> = {
+  QUEUED: new Set(["QUEUED", "RETRY_WAIT"]),
+  RUNNING: new Set(["RUNNING", "RESULT_READY", "ARCHIVING", "PUBLISHING"]),
+  SUCCEEDED: new Set(["SUCCEEDED"]),
+  FAILED: new Set(["FAILED"]),
+  CANCELLED: new Set(["CANCELLED"]),
+};
+
+function parseDecreeJob(value: unknown): DecreeJobData | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
+  const record = value as Record<string, unknown>;
+  if (Object.keys(record).length !== 10) return null;
+  if (
+    typeof record.job_id !== "string" || record.job_id.length === 0 ||
+    typeof record.state !== "string" || !(record.state in PUBLIC_JOB_STAGES) ||
+    typeof record.stage !== "string" ||
+    !Number.isInteger(record.attempt_count) || (record.attempt_count as number) < 0 ||
+    !Number.isInteger(record.provider_request_count) || (record.provider_request_count as number) < 0 ||
+    typeof record.cancel_requested !== "boolean" ||
+    typeof record.created_at !== "string" || !Number.isFinite(Date.parse(record.created_at)) ||
+    typeof record.updated_at !== "string" || !Number.isFinite(Date.parse(record.updated_at))
+  ) return null;
+  const state = record.state as DecreeJobPublicState;
+  if (!PUBLIC_JOB_STAGES[state].has(record.stage)) return null;
+  const isSucceeded = state === "SUCCEEDED";
+  const isError = state === "FAILED" || state === "CANCELLED";
+  const result = isSucceeded ? parseSubmitDecreeData(record.result) : null;
+  const errorRecord = isError && typeof record.error === "object" &&
+    record.error !== null && !Array.isArray(record.error)
+    ? record.error as Record<string, unknown>
+    : null;
+  const stages = ["queue", "execution", "side_effect"] as const;
+  const categories = [
+    "cancelled", "deadline", "budget", "provider", "retry", "internal",
+  ] as const;
+  const error = errorRecord !== null && Object.keys(errorRecord).length === 3 &&
+    typeof errorRecord.code === "string" && errorRecord.code.length > 0 &&
+    stages.includes(errorRecord.stage as typeof stages[number]) &&
+    categories.includes(errorRecord.category as typeof categories[number])
+    ? {
+        code: errorRecord.code,
+        stage: errorRecord.stage as DecreeJobErrorData["stage"],
+        category: errorRecord.category as DecreeJobErrorData["category"],
+      }
+    : null;
+  if (
+    (isSucceeded ? result === null : record.result !== null) ||
+    (isError ? error === null : record.error !== null)
+  ) return null;
+  return {
+    jobId: record.job_id,
+    state,
+    stage: record.stage,
+    attemptCount: record.attempt_count as number,
+    providerRequestCount: record.provider_request_count as number,
+    cancelRequested: record.cancel_requested,
+    result,
+    error,
+    createdAt: record.created_at,
+    updatedAt: record.updated_at,
+  };
+}
+
+async function requestDecreeJob(
+  jobId: string,
+  method: "GET" | "POST",
+  options: DecreeJobRequestOptions,
+): Promise<DecreeJobRequestResult> {
+  if (!options.sessionId) return { ok: false, kind: "unauthenticated" };
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), options.timeoutMs ?? 15000);
+  const suffix = method === "POST" ? "/cancel" : "";
+  try {
+    const response = await (options.fetchImpl ?? fetch)(
+      `${(options.baseUrl ?? getBackendBaseUrl()).replace(/\/+$/, "")}/api/v1/decree-jobs/${encodeURIComponent(jobId)}${suffix}`,
+      {
+        method,
+        headers: { authorization: `Bearer ${options.sessionId}` },
+        signal: controller.signal,
+        cache: "no-store",
+      },
+    );
+    if (response.status === 401) return { ok: false, kind: "unauthenticated" };
+    if (response.status === 404) return { ok: false, kind: "not_found" };
+    if (response.status === 503) return { ok: false, kind: "unavailable" };
+    if (!response.ok) return { ok: false, kind: "unknown" };
+    let body: unknown;
+    try { body = await response.json(); }
+    catch { return { ok: false, kind: "unknown" }; }
+    const data = parseDecreeJob(body);
+    return data === null ? { ok: false, kind: "unknown" } : { ok: true, data };
+  } catch {
+    return { ok: false, kind: "network" };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export function getDecreeJob(
+  jobId: string,
+  options: DecreeJobRequestOptions,
+): Promise<DecreeJobRequestResult> {
+  return requestDecreeJob(jobId, "GET", options);
+}
+
+export function cancelDecreeJob(
+  jobId: string,
+  options: DecreeJobRequestOptions,
+): Promise<DecreeJobRequestResult> {
+  return requestDecreeJob(jobId, "POST", options);
+}
+
 export type ArchiveType = "MEMORIAL" | "REPLY";
 export type ArchiveSourceKind = "DECREE" | "MEMORIAL";
 export type RealityLabel = "LIVE" | "MIXED" | "FALLBACK";
 export type ReviewStatusValue = "ACHIEVED" | "NOT_ACHIEVED" | "PARTIAL" | "OBSERVING";
+export type ArchiveDecisionValue =
+  | "APPROVED"
+  | "REJECTED"
+  | "ADOPTED"
+  | "RETURNED_FOR_RECONSIDERATION";
+
+export interface ArchiveDecision {
+  decision: ArchiveDecisionValue;
+  decidedAt: string;
+}
 
 export interface ShiguanEvidence {
   source: string;
@@ -715,6 +1277,7 @@ export interface ShiguanArchive {
   replyTime: string | null;
   respondent: string | null;
   reviewStatus: ShiguanReviewStatus | null;
+  decisionStatus: ArchiveDecision | null;
   evidenceReferences: ShiguanEvidenceReference[];
 }
 
@@ -765,7 +1328,7 @@ export type ShiguanResult<T> =
   | { ok: true; data: T }
   | {
       ok: false;
-      kind: "validation" | "not_found" | "storage" | "network" | "unauthenticated" | "unknown";
+      kind: "validation" | "not_found" | "conflict" | "storage" | "network" | "unauthenticated" | "unknown";
       error: string;
     };
 
@@ -923,6 +1486,7 @@ export interface RecallShiguanArchivesOptions extends ShiguanRequestOptions {
 }
 
 export type UpdateShiguanReviewOptions = ShiguanRequestOptions;
+export type UpdateShiguanDecisionOptions = ShiguanRequestOptions;
 
 const SHIGUAN_TIMEOUT_MS = 10000;
 const ARCHIVE_TYPES = new Set<ArchiveType>(["MEMORIAL", "REPLY"]);
@@ -956,6 +1520,10 @@ function isNullableString(value: unknown): boolean {
 
 function isIsoDateTime(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0 && !Number.isNaN(Date.parse(value));
+}
+
+function isTimezoneAwareIsoDateTime(value: unknown): value is string {
+  return isIsoDateTime(value) && /(?:Z|[+-]\d{2}:\d{2})$/u.test(value);
 }
 
 function parseStringArray(value: unknown): string[] | null {
@@ -1022,7 +1590,7 @@ function parseArchive(value: unknown): ShiguanArchive | null {
       "evidence", "lessons_learned", "pitfalls", "participating_departments",
       "source_kind", "source_text", "reply_process", "reply_conclusion", "reply_time",
       "respondent",
-      "id", "created_at", "review_status", "evidence_references",
+      "id", "created_at", "review_status", "decision_status", "evidence_references",
     ]) ||
     typeof record.id !== "string" ||
     record.id.trim().length === 0 ||
@@ -1042,6 +1610,15 @@ function parseArchive(value: unknown): ShiguanArchive | null {
   const relatedArchiveIds = parseStringArray(record.related_archive_ids);
   const evidence = parseEvidence(record.evidence);
   const reviewStatus = parseReviewStatus(record.review_status);
+  const decisionStatus = record.decision_status === null
+    ? null
+    : parseArchiveDecision(record.decision_status);
+  const decisionMatchesArchiveType = decisionStatus === null ||
+    (record.type === "MEMORIAL" &&
+      (decisionStatus.decision === "APPROVED" || decisionStatus.decision === "REJECTED")) ||
+    (record.type === "REPLY" &&
+      (decisionStatus.decision === "ADOPTED" ||
+        decisionStatus.decision === "RETURNED_FOR_RECONSIDERATION"));
   const evidenceReferences = parseShiguanEvidenceReferences(record.evidence_references);
   if (
     relatedArchiveIds === null ||
@@ -1049,6 +1626,9 @@ function parseArchive(value: unknown): ShiguanArchive | null {
     evidence === null ||
     !("review_status" in record) ||
     (record.review_status !== null && reviewStatus === null) ||
+    !("decision_status" in record) ||
+    (record.decision_status !== null && decisionStatus === null) ||
+    !decisionMatchesArchiveType ||
     evidenceReferences === null ||
     !isNullableString(record.lessons_learned) ||
     !isNullableString(record.pitfalls)
@@ -1116,6 +1696,7 @@ function parseArchive(value: unknown): ShiguanArchive | null {
     replyTime: parseNullableString(record.reply_time),
     respondent: parseNullableString(record.respondent),
     reviewStatus,
+    decisionStatus,
     evidenceReferences,
   };
 }
@@ -1234,6 +1815,9 @@ function mapShiguanErrorStatus(status: number): ShiguanErrorKind {
   }
   if (status === 404) {
     return "not_found";
+  }
+  if (status === 409) {
+    return "conflict";
   }
   if (status === 422) {
     return "validation";
@@ -1600,6 +2184,8 @@ export type JinyiweiReadResult<T> =
   | { ok: false; kind: "validation" | "not_found" | "storage" | "network" | "unknown"; error: string };
 
 export interface JinyiweiReadOptions {
+  /** Opaque session forwarded only by Next.js server code. */
+  sessionId: string;
   baseUrl?: string;
   timeoutMs?: number;
   /** 测试注入点；生产默认使用全局 `fetch`。 */
@@ -1715,7 +2301,7 @@ function parsePage(value:unknown):JinyiweiPage|null { const r=asRecord(value); i
 function parseRequest(value:unknown):JinyiweiRequest|null {
   const r=asRecord(value), keys=["requesting_agent","question","required_facts","decision_context","freshness","existing_evidence_ids","request_id","timeout_seconds","source_scope"];
   if(!r||!hasExactKeys(r,keys)||![r.requesting_agent,r.question,r.decision_context,r.request_id].every(textValue)||!Array.isArray(r.required_facts)||r.required_facts.length<1||r.required_facts.length>5||!Number.isInteger(r.timeout_seconds)||!(r.timeout_seconds as number>=1&&r.timeout_seconds as number<=120)) return null;
-  const facts:JinyiweiRequiredFact[]=[]; for(const f of r.required_facts){const x=asRecord(f),baseKeys=["key","description","category","data_scope","subject","jurisdiction","expected_unit","expected_shape"],hasMarketMetric="market_metric" in (x??{});if(!x||!(hasExactKeys(x,baseKeys)||(hasMarketMetric&&hasExactKeys(x,[...baseKeys,"market_metric"])))||!textValue(x.key)||!textValue(x.description)||!FACT_CATEGORIES.has(x.category as JinyiweiFactCategory)||!DATA_SCOPES.has(x.data_scope as JinyiweiDataScope)||!textValue(x.subject)||!nullableText(x.jurisdiction)||!nullableText(x.expected_unit)||!nullableText(x.expected_shape)||!(x.market_metric===undefined||x.market_metric===null||MARKET_METRICS.has(x.market_metric as JinyiweiMarketMetric))||(hasMarketMetric&&(x.category==="MARKET_QUOTE"?x.market_metric===null:x.market_metric!==null)))return null;facts.push({key:x.key,description:x.description,category:x.category as JinyiweiFactCategory,dataScope:x.data_scope as JinyiweiDataScope,subject:x.subject,jurisdiction:x.jurisdiction as string|null,expectedUnit:x.expected_unit as string|null,expectedShape:x.expected_shape as string|null,marketMetric:(x.market_metric??null) as JinyiweiMarketMetric|null});}
+  const facts:JinyiweiRequiredFact[]=[]; for(const f of r.required_facts){const x=asRecord(f),keys=["key","description","category","data_scope","subject","jurisdiction","expected_unit","expected_shape","market_metric"];if(!x||!hasExactKeys(x,keys)||!textValue(x.key)||!textValue(x.description)||!FACT_CATEGORIES.has(x.category as JinyiweiFactCategory)||!DATA_SCOPES.has(x.data_scope as JinyiweiDataScope)||!textValue(x.subject)||!nullableText(x.jurisdiction)||!nullableText(x.expected_unit)||!nullableText(x.expected_shape)||!(x.market_metric===null||MARKET_METRICS.has(x.market_metric as JinyiweiMarketMetric))||(x.category==="MARKET_QUOTE"?x.market_metric===null:x.market_metric!==null))return null;facts.push({key:x.key,description:x.description,category:x.category as JinyiweiFactCategory,dataScope:x.data_scope as JinyiweiDataScope,subject:x.subject,jurisdiction:x.jurisdiction as string|null,expectedUnit:x.expected_unit as string|null,expectedShape:x.expected_shape as string|null,marketMetric:x.market_metric as JinyiweiMarketMetric|null});}
   if(new Set(facts.map(f=>f.key)).size!==facts.length)return null;
   const fr=asRecord(r.freshness);if(!fr||!hasExactKeys(fr,["max_age_seconds","not_before"])||!(fr.max_age_seconds===null||(Number.isInteger(fr.max_age_seconds)&&fr.max_age_seconds as number>0&&fr.max_age_seconds as number<=31536000))||!optionalDate(fr.not_before)||(fr.max_age_seconds===null&&fr.not_before===null))return null;
   const ids=uniqueTextArray(r.existing_evidence_ids),sources=enumArray(r.source_scope,JINYIWEI_SOURCES); if(!ids||!sources||sources.length<1)return null;
@@ -1776,20 +2362,21 @@ function validDetailRelations(detail:JinyiweiDetail):boolean {
   return true;
 }
 
-async function fetchJinyiwei<T>(path:string,parse:(value:unknown)=>T|null,options:JinyiweiReadOptions={}):Promise<JinyiweiReadResult<T>> {
+async function fetchJinyiwei<T>(path:string,parse:(value:unknown)=>T|null,options:JinyiweiReadOptions):Promise<JinyiweiReadResult<T>> {
+  if(typeof options.sessionId!=="string"||options.sessionId.trim().length===0){return {ok:false,kind:"validation",error:"Jinyiwei session is required"};}
   const base=options.baseUrl??getBackendBaseUrl(), controller=new AbortController();
   const fetchImpl=options.fetchImpl??fetch;
   const scheduleTimeout=options.scheduleTimeout??((callback:()=>void,delayMs:number)=>setTimeout(callback,delayMs));
   const cancelTimeout=options.cancelTimeout??((handle:unknown)=>clearTimeout(handle as ReturnType<typeof setTimeout>));
   const timer=scheduleTimeout(()=>controller.abort(),options.timeoutMs??JINYIWEI_TIMEOUT_MS);
-  try { const response=await fetchImpl(`${base.replace(/\/+$/,"")}${path}`,{method:"GET",signal:controller.signal,cache:"no-store"});
+  try { const response=await fetchImpl(`${base.replace(/\/+$/,"")}${path}`,{method:"GET",headers:{authorization:`Bearer ${options.sessionId}`},signal:controller.signal,cache:"no-store"});
     if(!response.ok){const kind=response.status===404?"not_found":response.status===422?"validation":response.status===503?"storage":"unknown";return {ok:false,kind,error:"锦衣卫只读档案暂时不可用"};}
     let body:unknown;try{body=await response.json();}catch{return {ok:false,kind:"unknown",error:"锦衣卫后端响应不是合法 JSON"};}const data=parse(body);return data===null?{ok:false,kind:"unknown",error:"锦衣卫后端成功响应体不符合预期契约"}:{ok:true,data};
   }catch(error){return {ok:false,kind:"network",error:describeError(error)};}finally{cancelTimeout(timer);}
 }
-export function getJinyiweiSummary(options:JinyiweiReadOptions={}):Promise<JinyiweiReadResult<JinyiweiSummary>>{return fetchJinyiwei("/api/v1/jinyiwei/summary",parseSummary,options);}
-export function listJinyiweiInvestigations(options:ListJinyiweiOptions={}):Promise<JinyiweiReadResult<JinyiweiPage>>{const q=new URLSearchParams();if(options.status)q.set("status",options.status);q.set("limit",String(options.limit??20));q.set("offset",String(options.offset??0));return fetchJinyiwei(`/api/v1/jinyiwei/investigations?${q}`,parsePage,options);}
-export function getJinyiweiInvestigation(id:string,options:JinyiweiReadOptions={}):Promise<JinyiweiReadResult<JinyiweiDetail>>{return fetchJinyiwei(`/api/v1/jinyiwei/investigations/${encodeURIComponent(id)}`,parseDetail,options);}
+export function getJinyiweiSummary(options:JinyiweiReadOptions):Promise<JinyiweiReadResult<JinyiweiSummary>>{return fetchJinyiwei("/api/v1/jinyiwei/summary",parseSummary,options);}
+export function listJinyiweiInvestigations(options:ListJinyiweiOptions):Promise<JinyiweiReadResult<JinyiweiPage>>{const q=new URLSearchParams();if(options.status)q.set("status",options.status);q.set("limit",String(options.limit??20));q.set("offset",String(options.offset??0));return fetchJinyiwei(`/api/v1/jinyiwei/investigations?${q}`,parsePage,options);}
+export function getJinyiweiInvestigation(id:string,options:JinyiweiReadOptions):Promise<JinyiweiReadResult<JinyiweiDetail>>{return fetchJinyiwei(`/api/v1/jinyiwei/investigations/${encodeURIComponent(id)}`,parseDetail,options);}
 
 // ---- Qintianjian advisory contracts -------------------------------------
 
@@ -1958,4 +2545,318 @@ export function reviewQintianForecast(
       judgment_invalidated: input.judgmentInvalidated,
     },
   });
+}
+
+export async function updateShiguanDecision(
+  archiveId: string,
+  decision: ArchiveDecisionValue,
+  options: UpdateShiguanDecisionOptions = {},
+): Promise<ShiguanResult<ArchiveDecision>> {
+  return fetchShiguan(
+    `/api/v1/shiguan/archives/${encodeURIComponent(archiveId)}/decision`,
+    {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ decision }),
+    },
+    parseArchiveDecision,
+    options,
+  );
+}
+
+function parseArchiveDecision(value: unknown): ArchiveDecision | null {
+  const record = asRecord(value);
+  if (
+    record === null ||
+    !hasExactKeys(record, ["decision", "decided_at"]) ||
+    !ARCHIVE_DECISIONS.has(record.decision as ArchiveDecisionValue) ||
+    !isTimezoneAwareIsoDateTime(record.decided_at)
+  ) {
+    return null;
+  }
+  return {
+    decision: record.decision as ArchiveDecisionValue,
+    decidedAt: record.decided_at,
+  };
+}
+
+export type DailyMemorialStatus =
+  | "PENDING"
+  | "GENERATING"
+  | "READY_FOR_REVIEW"
+  | "SKIPPED_NO_FACTS"
+  | "FAILED"
+  | "CONFIRMED";
+
+export interface DailyMemorialDraft {
+  id: string;
+  reportDate: string;
+  sourceWindowStart: string;
+  sourceWindowEnd: string;
+  version: number;
+  fingerprint: string;
+  bureauResultCount: 39;
+  ministryResultCount: 6;
+  content: string;
+  factRefs: string[];
+}
+
+export interface DailyMemorialLatest {
+  status: DailyMemorialStatus;
+  draft: DailyMemorialDraft | null;
+  memorialId: string | null;
+  failureCode: string | null;
+}
+
+export interface DailyMemorialConfirmation {
+  status: "CONFIRMED";
+  draftId: string;
+  memorialId: string;
+}
+
+export interface DailyMemorialConfirmInput {
+  version: number;
+  fingerprint: string;
+}
+
+export type DailyMemorialError =
+  | "unauthenticated"
+  | "not_found"
+  | "conflict"
+  | "storage"
+  | "network"
+  | "unknown";
+
+export type DailyMemorialResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; kind: DailyMemorialError; error: string };
+
+export interface DailyMemorialRequestOptions extends AuthenticatedRequestOptions {
+  fetchImpl?: typeof fetch;
+  scheduleTimeout?: (callback: () => void, delayMs: number) => unknown;
+  cancelTimeout?: (handle: unknown) => void;
+}
+
+const DAILY_MEMORIAL_ERROR = "每日奏报暂时不可用";
+const DAILY_MEMORIAL_STATUSES = new Set<DailyMemorialStatus>([
+  "PENDING",
+  "GENERATING",
+  "READY_FOR_REVIEW",
+  "SKIPPED_NO_FACTS",
+  "FAILED",
+  "CONFIRMED",
+]);
+const ARCHIVE_DECISIONS = new Set<ArchiveDecisionValue>([
+  "APPROVED",
+  "REJECTED",
+  "ADOPTED",
+  "RETURNED_FOR_RECONSIDERATION",
+]);
+const DAILY_MEMORIAL_FINGERPRINT = /^[0-9a-f]{64}$/;
+const DAILY_MEMORIAL_OPAQUE_ID = /^[A-Za-z0-9](?:[A-Za-z0-9._:+-]{0,198}[A-Za-z0-9])?$/;
+const DAILY_MEMORIAL_FAILURE_CODE = /^[a-z][a-z0-9_]{0,127}$/;
+const DAILY_MEMORIAL_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
+const DAILY_MEMORIAL_RFC3339 =
+  /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(?:Z|([+-])(\d{2}):(\d{2}))$/;
+
+function isDailyMemorialCalendarDate(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  const match = DAILY_MEMORIAL_DATE.exec(value);
+  if (!match) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (month < 1 || month > 12 || day < 1) return false;
+  return day <= new Date(Date.UTC(year, month, 0)).getUTCDate();
+}
+
+function isDailyMemorialRfc3339(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  const match = DAILY_MEMORIAL_RFC3339.exec(value);
+  if (!match) return false;
+  const date = `${match[1]}-${match[2]}-${match[3]}`;
+  const hour = Number(match[4]);
+  const minute = Number(match[5]);
+  const second = Number(match[6]);
+  if (!isDailyMemorialCalendarDate(date) || hour > 23 || minute > 59 || second > 59) return false;
+  if (match[7]) {
+    const offsetHour = Number(match[8]);
+    const offsetMinute = Number(match[9]);
+    if (offsetHour > 14 || offsetMinute > 59 || (offsetHour === 14 && offsetMinute !== 0)) return false;
+  }
+  return !Number.isNaN(Date.parse(value));
+}
+
+function isDailyMemorialOpaqueId(value: unknown): value is string {
+  return typeof value === "string" && DAILY_MEMORIAL_OPAQUE_ID.test(value);
+}
+
+function parseDailyMemorialDraft(value: unknown): DailyMemorialDraft | null {
+  const record = asRecord(value);
+  if (
+    record === null ||
+    !hasExactKeys(record, [
+      "id",
+      "report_date",
+      "source_window_start",
+      "source_window_end",
+      "version",
+      "fingerprint",
+      "bureau_result_count",
+      "ministry_result_count",
+      "content",
+      "fact_refs",
+    ]) ||
+    !isDailyMemorialOpaqueId(record.id) ||
+    !isDailyMemorialCalendarDate(record.report_date) ||
+    !isDailyMemorialRfc3339(record.source_window_start) ||
+    !isDailyMemorialRfc3339(record.source_window_end) ||
+    Date.parse(record.source_window_end) <= Date.parse(record.source_window_start) ||
+    !Number.isSafeInteger(record.version) ||
+    (record.version as number) < 1 ||
+    typeof record.fingerprint !== "string" ||
+    !DAILY_MEMORIAL_FINGERPRINT.test(record.fingerprint) ||
+    record.bureau_result_count !== 39 ||
+    record.ministry_result_count !== 6 ||
+    typeof record.content !== "string" ||
+    record.content.trim().length === 0 ||
+    !Array.isArray(record.fact_refs) ||
+    record.fact_refs.length === 0
+  ) return null;
+
+  const factRefs: string[] = [];
+  const seen = new Set<string>();
+  for (const factRef of record.fact_refs) {
+    if (!isDailyMemorialOpaqueId(factRef) || factRef !== factRef.trim() || seen.has(factRef)) return null;
+    seen.add(factRef);
+    factRefs.push(factRef);
+  }
+  return {
+    id: record.id,
+    reportDate: record.report_date,
+    sourceWindowStart: record.source_window_start,
+    sourceWindowEnd: record.source_window_end,
+    version: record.version as number,
+    fingerprint: record.fingerprint,
+    bureauResultCount: 39,
+    ministryResultCount: 6,
+    content: record.content,
+    factRefs,
+  };
+}
+
+function parseDailyMemorialLatest(value: unknown): DailyMemorialLatest | null {
+  const record = asRecord(value);
+  if (
+    record === null ||
+    !hasExactKeys(record, ["status", "draft", "memorial_id", "failure_code"]) ||
+    !DAILY_MEMORIAL_STATUSES.has(record.status as DailyMemorialStatus)
+  ) return null;
+  const status = record.status as DailyMemorialStatus;
+  const draft = record.draft === null ? null : parseDailyMemorialDraft(record.draft);
+  if (record.draft !== null && draft === null) return null;
+  const memorialId = record.memorial_id === null && record.memorial_id !== undefined
+    ? null
+    : isDailyMemorialOpaqueId(record.memorial_id) ? record.memorial_id : undefined;
+  const failureCode = record.failure_code === null && record.failure_code !== undefined
+    ? null
+    : typeof record.failure_code === "string" && DAILY_MEMORIAL_FAILURE_CODE.test(record.failure_code)
+      ? record.failure_code
+      : undefined;
+  if (memorialId === undefined || failureCode === undefined) return null;
+
+  const reviewable = status === "READY_FOR_REVIEW" || status === "CONFIRMED";
+  if (reviewable !== (draft !== null)) return null;
+  if ((status === "CONFIRMED") !== (memorialId !== null)) return null;
+  if ((status === "FAILED") !== (failureCode !== null)) return null;
+  return { status, draft, memorialId, failureCode };
+}
+
+function parseDailyMemorialConfirmation(value: unknown): DailyMemorialConfirmation | null {
+  const record = asRecord(value);
+  if (
+    record === null ||
+    !hasExactKeys(record, ["status", "draft_id", "memorial_id"]) ||
+    record.status !== "CONFIRMED" ||
+    !isDailyMemorialOpaqueId(record.draft_id) ||
+    !isDailyMemorialOpaqueId(record.memorial_id)
+  ) return null;
+  return { status: "CONFIRMED", draftId: record.draft_id, memorialId: record.memorial_id };
+}
+
+function dailyMemorialErrorKind(status: number): DailyMemorialError {
+  if (status === 401) return "unauthenticated";
+  if (status === 404) return "not_found";
+  if (status === 409) return "conflict";
+  if (status === 503) return "storage";
+  return "unknown";
+}
+
+async function requestDailyMemorial<T>(
+  path: string,
+  parser: (value: unknown) => T | null,
+  options: DailyMemorialRequestOptions,
+  init: { method: "GET" | "POST"; body?: unknown; acceptNull?: boolean },
+): Promise<DailyMemorialResult<T>> {
+  const controller = new AbortController();
+  const schedule = options.scheduleTimeout ?? ((callback, delay) => setTimeout(callback, delay));
+  const cancel = options.cancelTimeout ?? ((handle) => clearTimeout(handle as ReturnType<typeof setTimeout>));
+  const timer = schedule(() => controller.abort(), options.timeoutMs ?? DEFAULT_TIMEOUT_MS);
+  try {
+    const response = await (options.fetchImpl ?? fetch)(
+      `${(options.baseUrl ?? getBackendBaseUrl()).replace(/\/+$/, "")}${path}`,
+      {
+        method: init.method,
+        headers: {
+          ...(init.body === undefined ? {} : { "content-type": "application/json" }),
+          ...(options.sessionId ? { authorization: `Bearer ${options.sessionId}` } : {}),
+        },
+        ...(init.body === undefined ? {} : { body: JSON.stringify(init.body) }),
+        signal: controller.signal,
+        cache: "no-store",
+      },
+    );
+    if (!response.ok) {
+      return { ok: false, kind: dailyMemorialErrorKind(response.status), error: DAILY_MEMORIAL_ERROR };
+    }
+    let body: unknown;
+    try {
+      body = await response.json();
+    } catch {
+      return { ok: false, kind: "unknown", error: DAILY_MEMORIAL_ERROR };
+    }
+    if (body === null && init.acceptNull) return { ok: true, data: null as T };
+    const data = parser(body);
+    return data === null
+      ? { ok: false, kind: "unknown", error: DAILY_MEMORIAL_ERROR }
+      : { ok: true, data };
+  } catch {
+    return { ok: false, kind: "network", error: DAILY_MEMORIAL_ERROR };
+  } finally {
+    cancel(timer);
+  }
+}
+
+export function getLatestDailyMemorialDraft(
+  options: DailyMemorialRequestOptions = {},
+): Promise<DailyMemorialResult<DailyMemorialLatest | null>> {
+  return requestDailyMemorial<DailyMemorialLatest | null>(
+    "/api/v1/daily-memorial-drafts/latest",
+    parseDailyMemorialLatest,
+    options,
+    { method: "GET", acceptNull: true },
+  );
+}
+
+export function confirmDailyMemorialDraft(
+  id: string,
+  input: DailyMemorialConfirmInput,
+  options: DailyMemorialRequestOptions = {},
+): Promise<DailyMemorialResult<DailyMemorialConfirmation>> {
+  return requestDailyMemorial(
+    `/api/v1/daily-memorial-drafts/${encodeURIComponent(id)}/confirm`,
+    parseDailyMemorialConfirmation,
+    options,
+    { method: "POST", body: input },
+  );
 }

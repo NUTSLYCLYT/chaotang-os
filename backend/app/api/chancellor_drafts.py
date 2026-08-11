@@ -9,13 +9,17 @@ from fastapi import APIRouter, FastAPI
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.accounting_reports.models import AccountingRequestKind, ReportPeriod
 from app.agents.chancellor_draft import (
     ChancellorDraftGraphInvocationError,
     ChancellorDraftInstructionsError,
     ChancellorDraftResponse,
     build_chancellor_draft_graph,
 )
-from app.agents.chancellor_draft.authority import draft_authority_registry
+from app.agents.chancellor_draft.authority import (
+    AccountingAuthorityContext,
+    draft_authority_registry,
+)
 from app.agents.chancellor_draft.routing import build_route_snapshot
 from app.agents.chancellor_runtime import (
     ChancellorAgent,
@@ -179,20 +183,48 @@ def submit_chancellor_draft(
             "Chancellor draft graph returned an invalid response."
         ) from exc
     try:
+        raw_accounting_context = (
+            graph_result.get("accounting_context")
+            if isinstance(graph_result, dict)
+            else None
+        )
         if (
             validated.status.value == "DRAFT_READY"
             and validated.draft is not None
             and validated.decree_text is not None
         ):
+            accounting_context = None
+            if raw_accounting_context is not None:
+                if not isinstance(raw_accounting_context, dict):
+                    raise ValueError("accounting_context must be an object")
+                accounting_context = AccountingAuthorityContext(
+                    request_kind=AccountingRequestKind(
+                        raw_accounting_context["request_kind"]
+                    ),
+                    period=ReportPeriod(
+                        raw_accounting_context["period_start"],
+                        raw_accounting_context["period_end"],
+                    ),
+                    source_fingerprint=raw_accounting_context[
+                        "source_fingerprint"
+                    ],
+                )
             draft_authority_registry.register(
                 owner_user_id=current_user.id,
                 version=validated.version,
                 fingerprint=validated.fingerprint,
                 decree_text=validated.decree_text,
                 route_snapshot=build_route_snapshot(validated.draft),
+                accounting_context=accounting_context,
             )
             side_effects = ("authority_registered",)
-        elif draft_authority_registry.revoke(owner_user_id=current_user.id):
+        elif (
+            not (
+                isinstance(graph_result, dict)
+                and graph_result.get("preserve_authority") is True
+            )
+            and draft_authority_registry.revoke(owner_user_id=current_user.id)
+        ):
             side_effects = ("authority_revoked",)
         return validated
     except Exception:

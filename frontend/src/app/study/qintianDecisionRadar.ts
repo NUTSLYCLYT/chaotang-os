@@ -80,7 +80,7 @@ export function projectQintianDecisionRadar(
     );
   }
 
-  if (input.uiState.phase === "submitting") {
+  if (["enqueueing", "queued", "running"].includes(input.uiState.phase)) {
     return currentDecisionView(
       "IN_REVIEW",
       "正式办理进行中；等待真实回奏，不推测中间结论。",

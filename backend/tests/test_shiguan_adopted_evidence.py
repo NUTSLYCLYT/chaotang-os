@@ -1,27 +1,27 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import sqlite3
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from types import SimpleNamespace
 
 import pytest
-from fastapi.testclient import TestClient
 
 import app.api.decrees as decrees_module
+from app.agents.chancellor_draft.authority import ConsumedDraftAuthority
 from app.agents.chancellor_draft.routing import (
     ApprovedDepartmentRoute,
     ApprovedRouteSnapshot,
 )
-from app.auth import create_session, create_user
+from app.auth import create_user
 from app.auth import storage as auth_storage
 from app.jinyiwei import db as jinyiwei_db
 from app.jinyiwei import storage as jinyiwei_storage
 from app.jinyiwei.models import (
     DataGapRequest,
     EvidenceItem,
+    EvidencePack,
     FreshnessRequirement,
     RequiredFact,
     SourceType,
@@ -36,6 +36,8 @@ from app.shiguan.errors import (
 from app.shiguan.models import ArchiveEvidenceReferenceCreate
 
 NOW = datetime(2026, 7, 20, 10, 0, tzinfo=UTC)
+OWNER_A = "owner-a"
+OWNER_B = "owner-b"
 
 
 def _reply_payload(*, conclusion: str = "准奏") -> dict[str, object]:
@@ -162,7 +164,7 @@ def _response() -> SimpleNamespace:
     )
 
 
-def test_fresh_database_is_v3_and_initialization_is_idempotent(tmp_path) -> None:
+def test_fresh_database_is_v5_and_initialization_is_idempotent(tmp_path) -> None:
     path = tmp_path / "fresh.sqlite3"
     for _ in range(2):
         connection = db.get_connection(path)
@@ -170,7 +172,7 @@ def test_fresh_database_is_v3_and_initialization_is_idempotent(tmp_path) -> None
 
     connection = sqlite3.connect(path)
     try:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 3
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 5
         columns = {
             row[1]
             for row in connection.execute(
@@ -190,7 +192,9 @@ def test_fresh_database_is_v3_and_initialization_is_idempotent(tmp_path) -> None
         connection.close()
 
 
-def test_explicit_v2_to_v3_migration_and_runtime_rejects_v2(tmp_path) -> None:
+def test_explicit_v2_to_v5_migration_and_runtime_rejects_each_old_version(
+    tmp_path,
+) -> None:
     path = tmp_path / "v2.sqlite3"
     connection = sqlite3.connect(path)
     connection.executescript(db._V2_SCHEMA_STATEMENTS)
@@ -200,9 +204,15 @@ def test_explicit_v2_to_v3_migration_and_runtime_rejects_v2(tmp_path) -> None:
         db.get_connection(path)
 
     db.migrate_v2_to_v3(path)
-    db.get_connection(path).close()
+    with pytest.raises(ShiguanStorageError, match="显式迁移"):
+        db.get_connection(path)
     with pytest.raises(ShiguanStorageError, match="无法迁移"):
         db.migrate_v2_to_v3(path)
+    db.migrate_v3_to_v4(path)
+    with pytest.raises(ShiguanStorageError):
+        db.get_connection(path)
+    db.migrate_v4_to_v5(path)
+    db.get_connection(path).close()
 
 
 def test_failed_v2_migration_rolls_back_table_and_version(tmp_path, monkeypatch) -> None:
@@ -654,36 +664,42 @@ def test_archive_retry_still_rejects_changed_business_content(tmp_path) -> None:
     assert storage.get_archive("reply-1", db_path=path).reply_conclusion == "准奏"
 
 
-def _seed_jinyiwei_evidence(path, *items: EvidenceItem) -> None:
-    from app.jinyiwei import db as jinyiwei_db
-
-    connection = jinyiwei_db.get_connection(path)
-    try:
-        for item in items:
-            dumped = item.model_dump(mode="json")
-            connection.execute(
-                "INSERT INTO evidence_items VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (
-                    item.evidence_id,
-                    item.fact_key,
-                    json.dumps(dumped["value"]),
-                    item.unit,
-                    item.as_of,
-                    item.retrieved_at,
-                    item.source_url,
-                    item.publisher,
-                    item.source_type.value,
-                    item.quality.value,
-                    item.stance.value,
-                    item.excerpt,
-                    item.content_hash,
-                    item.confidence,
-                    json.dumps(dumped),
-                ),
-            )
-        connection.commit()
-    finally:
-        connection.close()
+def _seed_jinyiwei_evidence(
+    path,
+    *items: EvidenceItem,
+    owner_user_id: str = OWNER_A,
+    request_id: str = "request-archive",
+    investigation_id: str = "investigation-1",
+    pack_id: str = "pack-1",
+) -> None:
+    request = _request_for(_fact()).model_copy(update={"request_id": request_id})
+    pack = EvidencePack.model_validate(
+        {
+            "pack_id": pack_id,
+            "investigation_id": investigation_id,
+            "status": "RESOLVED",
+            "request": request.model_dump(mode="json"),
+            "investigation_plan": {
+                "fact_keys": ["amount"],
+                "source_scope": [source.value for source in request.source_scope],
+            },
+            "evidence_by_fact": {
+                "amount": [item.model_dump(mode="json") for item in items]
+            },
+            "historical_evidence_by_fact": {"amount": []},
+            "resolved_facts": ["amount"],
+            "unresolved_facts": [],
+            "conflicts": [],
+            "source_attempts": [],
+            "investigation_started_at": "2026-07-20T08:00:00+00:00",
+            "investigation_completed_at": "2026-07-20T09:00:00+00:00",
+            "cache": {"hit": False},
+            "do_not_infer": [],
+        }
+    )
+    jinyiwei_storage.store_evidence_pack(
+        pack, owner_user_id=owner_user_id, db_path=path
+    )
 
 
 def test_batch_pending_is_atomic_and_confirmation_never_downgrades(tmp_path) -> None:
@@ -691,22 +707,52 @@ def test_batch_pending_is_atomic_and_confirmation_never_downgrades(tmp_path) -> 
     _seed_jinyiwei_evidence(path, _item("evidence-1"))
     with pytest.raises(jinyiwei_storage.JinyiweiStorageError):
         jinyiwei_storage.write_pending_adoptions(
-            ("evidence-1", "missing"), "reply-1", at=NOW, db_path=path
+            ("evidence-1", "missing"),
+            "reply-1",
+            owner_user_id=OWNER_A,
+            at=NOW,
+            db_path=path,
         )
-    assert jinyiwei_storage.list_adoptions_by_reply("reply-1", db_path=path) == []
+    assert jinyiwei_storage.list_adoptions_by_reply(
+        "reply-1", owner_user_id=OWNER_A, db_path=path
+    ) == []
 
     with pytest.raises(jinyiwei_storage.JinyiweiStorageError):
-        jinyiwei_storage.confirm_adoptions(("evidence-1",), "reply-1", at=NOW, db_path=path)
-    assert jinyiwei_storage.list_adoptions_by_reply("reply-1", db_path=path) == []
+        jinyiwei_storage.confirm_adoptions(
+            ("evidence-1",),
+            "reply-1",
+            owner_user_id=OWNER_A,
+            at=NOW,
+            db_path=path,
+        )
+    assert jinyiwei_storage.list_adoptions_by_reply(
+        "reply-1", owner_user_id=OWNER_A, db_path=path
+    ) == []
 
-    jinyiwei_storage.write_pending_adoptions(("evidence-1",), "reply-1", at=NOW, db_path=path)
+    jinyiwei_storage.write_pending_adoptions(
+        ("evidence-1",),
+        "reply-1",
+        owner_user_id=OWNER_A,
+        at=NOW,
+        db_path=path,
+    )
     confirmed = jinyiwei_storage.confirm_adoptions(
-        ("evidence-1",), "reply-1", at=NOW, db_path=path
+        ("evidence-1",),
+        "reply-1",
+        owner_user_id=OWNER_A,
+        at=NOW,
+        db_path=path,
     )[0]
     jinyiwei_storage.write_pending_adoptions(
-        ("evidence-1",), "reply-1", at=datetime(2026, 7, 21, tzinfo=UTC), db_path=path
+        ("evidence-1",),
+        "reply-1",
+        owner_user_id=OWNER_A,
+        at=datetime(2026, 7, 21, tzinfo=UTC),
+        db_path=path,
     )
-    after = jinyiwei_storage.list_adoptions_by_reply("reply-1", db_path=path)[0]
+    after = jinyiwei_storage.list_adoptions_by_reply(
+        "reply-1", owner_user_id=OWNER_A, db_path=path
+    )[0]
     assert after.status == "CONFIRMED"
     assert after.created_at == confirmed.created_at
     assert after.confirmed_at == confirmed.confirmed_at
@@ -716,17 +762,52 @@ def test_confirm_requires_the_complete_reply_adoption_set_atomically(tmp_path) -
     path = tmp_path / "jinyiwei.sqlite3"
     _seed_jinyiwei_evidence(path, _item("evidence-a"), _item("evidence-b"))
     jinyiwei_storage.write_pending_adoptions(
-        ("evidence-a", "evidence-b"), "reply-1", at=NOW, db_path=path
+        ("evidence-a", "evidence-b"),
+        "reply-1",
+        owner_user_id=OWNER_A,
+        at=NOW,
+        db_path=path,
     )
 
     with pytest.raises(jinyiwei_storage.JinyiweiStorageError):
-        jinyiwei_storage.confirm_adoptions(("evidence-a",), "reply-1", at=NOW, db_path=path)
+        jinyiwei_storage.confirm_adoptions(
+            ("evidence-a",),
+            "reply-1",
+            owner_user_id=OWNER_A,
+            at=NOW,
+            db_path=path,
+        )
 
-    adoptions = jinyiwei_storage.list_adoptions_by_reply("reply-1", db_path=path)
+    adoptions = jinyiwei_storage.list_adoptions_by_reply(
+        "reply-1", owner_user_id=OWNER_A, db_path=path
+    )
     assert [(item.evidence_id, item.status) for item in adoptions] == [
         ("evidence-a", "PENDING"),
         ("evidence-b", "PENDING"),
     ]
+
+
+def test_cross_owner_cannot_adopt_evidence_and_failure_is_atomic(tmp_path) -> None:
+    path = tmp_path / "jinyiwei.sqlite3"
+    _seed_jinyiwei_evidence(
+        path, _item("owner-a-evidence"), owner_user_id=OWNER_A
+    )
+
+    with pytest.raises(jinyiwei_storage.JinyiweiStorageError):
+        jinyiwei_storage.write_pending_adoptions(
+            ("owner-a-evidence",),
+            "owner-b-reply",
+            owner_user_id=OWNER_B,
+            at=NOW,
+            db_path=path,
+        )
+
+    assert jinyiwei_storage.list_adoptions_by_reply(
+        "owner-b-reply", owner_user_id=OWNER_B, db_path=path
+    ) == []
+    assert jinyiwei_storage.list_adoptions_by_reply(
+        "owner-b-reply", owner_user_id=OWNER_A, db_path=path
+    ) == []
 
 
 def test_pending_stage_requires_one_exact_ordered_immutable_batch_per_reply(
@@ -740,6 +821,7 @@ def test_pending_stage_requires_one_exact_ordered_immutable_batch_per_reply(
     jinyiwei_storage.write_pending_adoptions(
         ("evidence-a", "evidence-b"),
         "reply-exact",
+        owner_user_id=OWNER_A,
         at=NOW,
         db_path=path,
         batch_fingerprint=fingerprint,
@@ -747,6 +829,7 @@ def test_pending_stage_requires_one_exact_ordered_immutable_batch_per_reply(
     jinyiwei_storage.write_pending_adoptions(
         ("evidence-a", "evidence-b"),
         "reply-exact",
+        owner_user_id=OWNER_A,
         at=NOW,
         db_path=path,
         batch_fingerprint=fingerprint,
@@ -761,6 +844,7 @@ def test_pending_stage_requires_one_exact_ordered_immutable_batch_per_reply(
             jinyiwei_storage.write_pending_adoptions(
                 disguised,
                 "reply-exact",
+                owner_user_id=OWNER_A,
                 at=NOW,
                 db_path=path,
             )
@@ -768,7 +852,7 @@ def test_pending_stage_requires_one_exact_ordered_immutable_batch_per_reply(
     assert [
         item.evidence_id
         for item in jinyiwei_storage.list_adoptions_by_reply(
-            "reply-exact", db_path=path
+            "reply-exact", owner_user_id=OWNER_A, db_path=path
         )
     ] == ["evidence-a", "evidence-b"]
 
@@ -790,6 +874,7 @@ def test_pending_stage_rejects_same_id_with_different_snapshot_identity(
         jinyiwei_storage.write_pending_adoptions(
             ("same-id",),
             "reply-snapshot-conflict",
+            owner_user_id=OWNER_A,
             at=NOW,
             db_path=path,
             batch_fingerprint=jinyiwei_storage.adoption_batch_fingerprint(
@@ -797,7 +882,7 @@ def test_pending_stage_rejects_same_id_with_different_snapshot_identity(
             ),
         )
     assert jinyiwei_storage.list_adoptions_by_reply(
-        "reply-snapshot-conflict", db_path=path
+        "reply-snapshot-conflict", owner_user_id=OWNER_A, db_path=path
     ) == []
 
 
@@ -808,7 +893,11 @@ def test_concurrent_different_pending_batches_never_merge(tmp_path) -> None:
     def stage(evidence_id: str) -> str:
         try:
             jinyiwei_storage.write_pending_adoptions(
-                (evidence_id,), "reply-race", at=NOW, db_path=path
+                (evidence_id,),
+                "reply-race",
+                owner_user_id=OWNER_A,
+                at=NOW,
+                db_path=path,
             )
         except jinyiwei_storage.JinyiweiStorageError:
             return "rejected"
@@ -819,7 +908,7 @@ def test_concurrent_different_pending_batches_never_merge(tmp_path) -> None:
 
     assert sorted(outcomes) == ["accepted", "rejected"]
     stored = jinyiwei_storage.list_adoptions_by_reply(
-        "reply-race", db_path=path
+        "reply-race", owner_user_id=OWNER_A, db_path=path
     )
     assert len(stored) == 1
     assert stored[0].evidence_id in {"evidence-a", "evidence-b"}
@@ -856,6 +945,7 @@ def test_link_failure_keeps_reply_and_reconciliation_uses_only_reply_id(
         "请核定预算",
         _response(),
         internal,
+        owner_user_id=OWNER_A,
         shiguan_db_path=shiguan_path,
         jinyiwei_db_path=jinyiwei_path,
         reply_id="reply-1",
@@ -863,17 +953,26 @@ def test_link_failure_keeps_reply_and_reconciliation_uses_only_reply_id(
 
     assert outcome.archived is True
     assert outcome.reply_id == "reply-1"
-    assert storage.get_archive("reply-1", db_path=shiguan_path).evidence_references
+    assert storage.get_archive(
+        "reply-1", owner_user_id=OWNER_A, db_path=shiguan_path
+    ).evidence_references
     assert (
-        jinyiwei_storage.list_adoptions_by_reply("reply-1", db_path=jinyiwei_path)[0].status
+        jinyiwei_storage.list_adoptions_by_reply(
+            "reply-1", owner_user_id=OWNER_A, db_path=jinyiwei_path
+        )[0].status
         == "PENDING"
     )
     monkeypatch.setattr(jinyiwei_storage, "confirm_adoptions", original_confirm)
     archive_decree.reconcile_reply_evidence(
-        "reply-1", shiguan_db_path=shiguan_path, jinyiwei_db_path=jinyiwei_path
+        "reply-1",
+        owner_user_id=OWNER_A,
+        shiguan_db_path=shiguan_path,
+        jinyiwei_db_path=jinyiwei_path,
     )
     assert (
-        jinyiwei_storage.list_adoptions_by_reply("reply-1", db_path=jinyiwei_path)[0].status
+        jinyiwei_storage.list_adoptions_by_reply(
+            "reply-1", owner_user_id=OWNER_A, db_path=jinyiwei_path
+        )[0].status
         == "CONFIRMED"
     )
 
@@ -914,6 +1013,7 @@ def test_adoption_protocol_is_pending_then_archive_write_then_confirmed(
         "请核定预算",
         _response(),
         internal,
+        owner_user_id=OWNER_A,
         shiguan_db_path=shiguan_path,
         jinyiwei_db_path=jinyiwei_path,
         reply_id="reply-protocol",
@@ -923,7 +1023,7 @@ def test_adoption_protocol_is_pending_then_archive_write_then_confirmed(
     assert events == ["pending", "archive", "confirmed"]
     assert (
         jinyiwei_storage.list_adoptions_by_reply(
-            "reply-protocol", db_path=jinyiwei_path
+            "reply-protocol", owner_user_id=OWNER_A, db_path=jinyiwei_path
         )[0].status
         == "CONFIRMED"
     )
@@ -954,6 +1054,7 @@ def test_pending_creation_failure_prevents_archive_write(
         "请核定预算",
         _response(),
         internal,
+        owner_user_id=OWNER_A,
         shiguan_db_path=shiguan_path,
         jinyiwei_db_path=tmp_path / "jinyiwei.sqlite3",
         reply_id="reply-pending-failed",
@@ -986,6 +1087,7 @@ def test_shiguan_write_failure_atomically_removes_orphan_pending(
         "请核定预算",
         _response(),
         internal,
+        owner_user_id=OWNER_A,
         shiguan_db_path=shiguan_path,
         jinyiwei_db_path=jinyiwei_path,
         reply_id="reply-write-failed",
@@ -994,16 +1096,17 @@ def test_shiguan_write_failure_atomically_removes_orphan_pending(
     assert outcome.archived is False
     assert outcome.reply_id == "reply-write-failed"
     assert jinyiwei_storage.list_adoptions_by_reply(
-        "reply-write-failed", db_path=jinyiwei_path
+        "reply-write-failed", owner_user_id=OWNER_A, db_path=jinyiwei_path
     ) == []
     with pytest.raises(ArchiveNotFoundError):
         archive_decree.reconcile_reply_evidence(
             "reply-write-failed",
+            owner_user_id=OWNER_A,
             shiguan_db_path=shiguan_path,
             jinyiwei_db_path=jinyiwei_path,
         )
     assert jinyiwei_storage.list_adoptions_by_reply(
-        "reply-write-failed", db_path=jinyiwei_path
+        "reply-write-failed", owner_user_id=OWNER_A, db_path=jinyiwei_path
     ) == []
 
 
@@ -1029,6 +1132,7 @@ def test_ambiguous_commit_then_raise_preserves_reply_id_and_recoverable_pending(
         "请核定预算",
         _response(),
         internal,
+        owner_user_id=OWNER_A,
         shiguan_db_path=shiguan_path,
         jinyiwei_db_path=jinyiwei_path,
     )
@@ -1036,26 +1140,28 @@ def test_ambiguous_commit_then_raise_preserves_reply_id_and_recoverable_pending(
     assert outcome.archived is False
     assert outcome.reply_id is not None
     assert storage.get_archive(
-        outcome.reply_id, db_path=shiguan_path
+        outcome.reply_id, owner_user_id=OWNER_A, db_path=shiguan_path
     ).evidence_references[0].evidence_id == "evidence-1"
     assert jinyiwei_storage.list_adoptions_by_reply(
-        outcome.reply_id, db_path=jinyiwei_path
+        outcome.reply_id, owner_user_id=OWNER_A, db_path=jinyiwei_path
     )[0].status == "PENDING"
 
     monkeypatch.setattr(storage, "create_reply_with_evidence", original_create)
     archive_decree.reconcile_reply_evidence(
         outcome.reply_id,
+        owner_user_id=OWNER_A,
         shiguan_db_path=shiguan_path,
         jinyiwei_db_path=jinyiwei_path,
     )
     assert jinyiwei_storage.list_adoptions_by_reply(
-        outcome.reply_id, db_path=jinyiwei_path
+        outcome.reply_id, owner_user_id=OWNER_A, db_path=jinyiwei_path
     )[0].status == "CONFIRMED"
 
     retry = archive_decree.archive_chancellor_decree(
         "请核定预算",
         _response(),
         internal,
+        owner_user_id=OWNER_A,
         shiguan_db_path=shiguan_path,
         jinyiwei_db_path=jinyiwei_path,
         reply_id=outcome.reply_id,
@@ -1070,41 +1176,67 @@ def test_cancel_pending_batch_is_atomic_idempotent_and_never_deletes_confirmed(
     path = tmp_path / "jinyiwei.sqlite3"
     _seed_jinyiwei_evidence(path, _item("evidence-a"), _item("evidence-b"))
     jinyiwei_storage.write_pending_adoptions(
-        ("evidence-a", "evidence-b"), "reply-cancel", at=NOW, db_path=path
+        ("evidence-a", "evidence-b"),
+        "reply-cancel",
+        owner_user_id=OWNER_A,
+        at=NOW,
+        db_path=path,
     )
 
     with pytest.raises(jinyiwei_storage.JinyiweiStorageError):
         jinyiwei_storage.cancel_pending_adoptions(
-            ("evidence-a",), "reply-cancel", db_path=path
+            ("evidence-a",),
+            "reply-cancel",
+            owner_user_id=OWNER_A,
+            db_path=path,
         )
     assert len(
-        jinyiwei_storage.list_adoptions_by_reply("reply-cancel", db_path=path)
+        jinyiwei_storage.list_adoptions_by_reply(
+            "reply-cancel", owner_user_id=OWNER_A, db_path=path
+        )
     ) == 2
 
     jinyiwei_storage.cancel_pending_adoptions(
-        ("evidence-a", "evidence-b"), "reply-cancel", db_path=path
+        ("evidence-a", "evidence-b"),
+        "reply-cancel",
+        owner_user_id=OWNER_A,
+        db_path=path,
     )
     jinyiwei_storage.cancel_pending_adoptions(
-        ("evidence-a", "evidence-b"), "reply-cancel", db_path=path
+        ("evidence-a", "evidence-b"),
+        "reply-cancel",
+        owner_user_id=OWNER_A,
+        db_path=path,
     )
     assert jinyiwei_storage.list_adoptions_by_reply(
-        "reply-cancel", db_path=path
+        "reply-cancel", owner_user_id=OWNER_A, db_path=path
     ) == []
 
     jinyiwei_storage.write_pending_adoptions(
-        ("evidence-a", "evidence-b"), "reply-confirmed", at=NOW, db_path=path
+        ("evidence-a", "evidence-b"),
+        "reply-confirmed",
+        owner_user_id=OWNER_A,
+        at=NOW,
+        db_path=path,
     )
     jinyiwei_storage.confirm_adoptions(
-        ("evidence-a", "evidence-b"), "reply-confirmed", at=NOW, db_path=path
+        ("evidence-a", "evidence-b"),
+        "reply-confirmed",
+        owner_user_id=OWNER_A,
+        at=NOW,
+        db_path=path,
     )
     with pytest.raises(jinyiwei_storage.JinyiweiStorageError):
         jinyiwei_storage.cancel_pending_adoptions(
-            ("evidence-a", "evidence-b"), "reply-confirmed", db_path=path
+            ("evidence-a", "evidence-b"),
+            "reply-confirmed",
+            owner_user_id=OWNER_A,
+            db_path=path,
         )
     assert {
         adoption.status
         for adoption in jinyiwei_storage.list_adoptions_by_reply(
-            "reply-confirmed", db_path=path
+            "reply-confirmed", owner_user_id=OWNER_A, db_path=path
         )
     } == {"CONFIRMED"}
 
@@ -1122,12 +1254,14 @@ def test_concurrent_reply_reconciliation_is_idempotent(tmp_path) -> None:
         _reply_payload(),
         refs,
         reply_id="reply-concurrent",
+        owner_user_id=OWNER_A,
         db_path=shiguan_path,
     )
 
     def reconcile(_: int) -> None:
         archive_decree.reconcile_reply_evidence(
             "reply-concurrent",
+            owner_user_id=OWNER_A,
             shiguan_db_path=shiguan_path,
             jinyiwei_db_path=jinyiwei_path,
         )
@@ -1136,20 +1270,63 @@ def test_concurrent_reply_reconciliation_is_idempotent(tmp_path) -> None:
         list(executor.map(reconcile, range(8)))
 
     adoptions = jinyiwei_storage.list_adoptions_by_reply(
-        "reply-concurrent", db_path=jinyiwei_path
+        "reply-concurrent", owner_user_id=OWNER_A, db_path=jinyiwei_path
     )
     assert [(item.evidence_id, item.status) for item in adoptions] == [
         ("evidence-1", "CONFIRMED")
     ]
 
 
+def test_cross_owner_cannot_reconcile_or_change_pending_state(tmp_path) -> None:
+    shiguan_path = tmp_path / "shiguan.sqlite3"
+    jinyiwei_path = tmp_path / "jinyiwei.sqlite3"
+    item = _item()
+    _seed_jinyiwei_evidence(jinyiwei_path, item, owner_user_id=OWNER_A)
+    refs = archive_decree.resolve_adopted_evidence_references(
+        _snapshot_with(current=(item,)),
+        ("evidence-1",),
+    )
+    storage.create_reply_with_evidence(
+        _reply_payload(),
+        refs,
+        reply_id="owner-a-reply",
+        owner_user_id=OWNER_A,
+        db_path=shiguan_path,
+    )
+    fingerprint = jinyiwei_storage.adoption_batch_fingerprint((item,))
+    jinyiwei_storage.write_pending_adoptions(
+        ("evidence-1",),
+        "owner-a-reply",
+        owner_user_id=OWNER_A,
+        at=NOW,
+        db_path=jinyiwei_path,
+        batch_fingerprint=fingerprint,
+    )
+
+    with pytest.raises(ArchiveNotFoundError):
+        archive_decree.reconcile_reply_evidence(
+            "owner-a-reply",
+            owner_user_id=OWNER_B,
+            shiguan_db_path=shiguan_path,
+            jinyiwei_db_path=jinyiwei_path,
+        )
+
+    assert [
+        adoption.status
+        for adoption in jinyiwei_storage.list_adoptions_by_reply(
+            "owner-a-reply", owner_user_id=OWNER_A, db_path=jinyiwei_path
+        )
+    ] == ["PENDING"]
+    assert jinyiwei_storage.list_adoptions_by_reply(
+        "owner-a-reply", owner_user_id=OWNER_B, db_path=jinyiwei_path
+    ) == []
+
+
 def test_http_success_contract_survives_link_failure_with_one_reply(tmp_path, monkeypatch) -> None:
-    from app.main import app
 
     shiguan_path = tmp_path / "shiguan.sqlite3"
     jinyiwei_path = tmp_path / "jinyiwei.sqlite3"
     item = _item()
-    _seed_jinyiwei_evidence(jinyiwei_path, item)
     monkeypatch.setattr(db, "_DEFAULT_DB_PATH", shiguan_path)
     monkeypatch.setattr(jinyiwei_db, "DEFAULT_DB_PATH", jinyiwei_path)
     original_confirm = jinyiwei_storage.confirm_adoptions
@@ -1192,29 +1369,33 @@ def test_http_success_contract_survives_link_failure_with_one_reply(tmp_path, mo
 
     monkeypatch.setattr(auth_storage, "_configured_db_path", tmp_path / "auth.sqlite3")
     user = create_user("evidence-user", "evidence@example.com", "six-or-more")
+    _seed_jinyiwei_evidence(
+        jinyiwei_path, item, owner_user_id=user.id
+    )
     monkeypatch.setattr(
         decrees_module, "get_chancellor_graph", lambda *, report_session: _Graph()
     )
     monkeypatch.setattr(
         decrees_module.draft_authority_registry,
-        "consume",
-        lambda **_kwargs: ApprovedRouteSnapshot(
-            departments=(
-                ApprovedDepartmentRoute(
-                    department="户部", required_bureaus=("预算司",)
-                ),
-            )
+        "consume_with_context",
+        lambda **_kwargs: ConsumedDraftAuthority(
+            route_snapshot=ApprovedRouteSnapshot(
+                departments=(
+                    ApprovedDepartmentRoute(
+                        department="户部", required_bureaus=("预算司",)
+                    ),
+                )
+            ),
+            accounting_context=None,
         ),
     )
-    response = TestClient(
-        app,
-        headers={"Authorization": f"Bearer {create_session(user.id)}"},
-    ).post(
-        "/api/v1/decrees/chancellor", json={"decree_text": "请核定预算"}
+    response = decrees_module.execute_decree_now(
+        decrees_module.ChancellorDecreeRequest(decree_text="请核定预算"),
+        user,
     )
 
-    assert response.status_code == 200
-    assert set(response.json()) == {
+    body = response.model_dump(mode="json")
+    assert set(body) == {
         "status",
         "chancellor",
         "route_type",
@@ -1225,15 +1406,19 @@ def test_http_success_contract_survives_link_failure_with_one_reply(tmp_path, mo
         "council_verdict",
         "final_verdict",
         "recommendations",
+        "delivery_kind",
+        "delivery_period",
         "artifacts",
     }
-    assert response.json()["artifacts"] == []
+    assert body["delivery_kind"] == "none"
+    assert body["delivery_period"] is None
+    assert body["artifacts"] == []
     replies = storage.list_archives(owner_user_id=user.id, db_path=shiguan_path)
     assert len(replies) == 1
     assert replies[0].evidence_references[0].evidence_id == "evidence-1"
     reply_id = replies[0].id
     assert jinyiwei_storage.list_adoptions_by_reply(
-        reply_id, db_path=jinyiwei_path
+        reply_id, owner_user_id=user.id, db_path=jinyiwei_path
     )[0].status == "PENDING"
     monkeypatch.setattr(jinyiwei_storage, "confirm_adoptions", original_confirm)
     archive_decree.reconcile_reply_evidence(
@@ -1243,5 +1428,5 @@ def test_http_success_contract_survives_link_failure_with_one_reply(tmp_path, mo
         jinyiwei_db_path=jinyiwei_path,
     )
     assert jinyiwei_storage.list_adoptions_by_reply(
-        reply_id, db_path=jinyiwei_path
+        reply_id, owner_user_id=user.id, db_path=jinyiwei_path
     )[0].status == "CONFIRMED"

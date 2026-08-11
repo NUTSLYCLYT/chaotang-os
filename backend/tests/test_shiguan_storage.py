@@ -19,7 +19,7 @@ import uuid
 
 import pytest
 
-from app.shiguan import archive_decree, db, storage
+from app.shiguan import archive_decree, db, errors, storage
 from app.shiguan.errors import ArchiveNotFoundError, ArchiveValidationError, ShiguanStorageError
 
 
@@ -403,6 +403,121 @@ class TestUpsertReviewStatus:
             storage.upsert_review_status(
                 created.id, "DONE", "2026-07-17T11:00:00+00:00", db_path=db_path
             )
+
+
+class TestArchiveDecisionStorage:
+    @pytest.mark.parametrize("decision", ["APPROVED", "REJECTED"])
+    def test_memorial_accepts_only_memorial_decisions(self, tmp_path, decision):
+        db_path = tmp_path / "shiguan.sqlite3"
+        archive = storage.create_archive(_memorial_payload(), db_path=db_path)
+        result = storage.set_archive_decision(
+            archive.id, decision, owner_user_id="test-owner", db_path=db_path
+        )
+        assert result.decision == decision
+        assert storage.get_archive(archive.id, db_path=db_path).decision_status == result
+
+    @pytest.mark.parametrize("decision", ["ADOPTED", "RETURNED_FOR_RECONSIDERATION"])
+    def test_reply_accepts_only_reply_decisions(self, tmp_path, decision):
+        db_path = tmp_path / "shiguan.sqlite3"
+        archive = storage.create_archive(_reply_payload(), db_path=db_path)
+        result = storage.set_archive_decision(
+            archive.id, decision, owner_user_id="test-owner", db_path=db_path
+        )
+        assert result.decision == decision
+
+    @pytest.mark.parametrize(
+        ("payload", "decision"),
+        [
+            (_memorial_payload(), "ADOPTED"),
+            (_memorial_payload(), "RETURNED_FOR_RECONSIDERATION"),
+            (_reply_payload(), "APPROVED"),
+            (_reply_payload(), "REJECTED"),
+        ],
+    )
+    def test_document_decision_mismatch_is_rejected(self, tmp_path, payload, decision):
+        db_path = tmp_path / "shiguan.sqlite3"
+        archive = storage.create_archive(payload, db_path=db_path)
+        with pytest.raises(ArchiveValidationError):
+            storage.set_archive_decision(
+                archive.id, decision, owner_user_id="test-owner", db_path=db_path
+            )
+
+    def test_same_decision_is_idempotent_and_preserves_timestamp_and_single_row(self, tmp_path):
+        db_path = tmp_path / "shiguan.sqlite3"
+        archive = storage.create_archive(_memorial_payload(), db_path=db_path)
+        first = storage.set_archive_decision(
+            archive.id, "APPROVED", owner_user_id="test-owner", db_path=db_path
+        )
+        second = storage.set_archive_decision(
+            archive.id, "APPROVED", owner_user_id="test-owner", db_path=db_path
+        )
+        assert second == first
+        connection = db.get_connection(db_path)
+        try:
+            count = connection.execute(
+                "SELECT COUNT(*) FROM archive_decisions WHERE archive_id = ?",
+                (archive.id,),
+            ).fetchone()[0]
+        finally:
+            connection.close()
+        assert count == 1
+
+    def test_different_terminal_decision_conflicts_without_overwriting(self, tmp_path):
+        db_path = tmp_path / "shiguan.sqlite3"
+        archive = storage.create_archive(_memorial_payload(), db_path=db_path)
+        original = storage.set_archive_decision(
+            archive.id, "APPROVED", owner_user_id="test-owner", db_path=db_path
+        )
+        with pytest.raises(errors.ArchiveDecisionConflictError):
+            storage.set_archive_decision(
+                archive.id, "REJECTED", owner_user_id="test-owner", db_path=db_path
+            )
+        assert storage.get_archive(archive.id, db_path=db_path).decision_status == original
+
+    def test_cross_owner_is_indistinguishable_from_missing(self, tmp_path):
+        db_path = tmp_path / "shiguan.sqlite3"
+        archive = storage.create_archive(
+            _memorial_payload(), owner_user_id="owner-a", db_path=db_path
+        )
+        with pytest.raises(ArchiveNotFoundError):
+            storage.set_archive_decision(
+                archive.id, "APPROVED", owner_user_id="owner-b", db_path=db_path
+            )
+
+    def test_decision_persists_after_reopening_database(self, tmp_path):
+        db_path = tmp_path / "shiguan.sqlite3"
+        archive = storage.create_archive(_reply_payload(), db_path=db_path)
+        expected = storage.set_archive_decision(
+            archive.id, "ADOPTED", owner_user_id="test-owner", db_path=db_path
+        )
+        assert storage.get_archive(archive.id, db_path=db_path).decision_status == expected
+
+    def test_failed_insert_rolls_back_without_decision(self, tmp_path, monkeypatch):
+        db_path = tmp_path / "shiguan.sqlite3"
+        archive = storage.create_archive(_memorial_payload(), db_path=db_path)
+        real_get_connection = db.get_connection
+
+        class FailingConnection:
+            def __init__(self, connection):
+                self.connection = connection
+
+            def __getattr__(self, name):
+                return getattr(self.connection, name)
+
+            def commit(self):
+                raise sqlite3.OperationalError("forced commit failure")
+
+        monkeypatch.setattr(
+            db,
+            "get_connection",
+            lambda path=None: FailingConnection(real_get_connection(path)),
+        )
+        with pytest.raises(ShiguanStorageError):
+            storage.set_archive_decision(
+                archive.id, "APPROVED", owner_user_id="test-owner", db_path=db_path
+            )
+        monkeypatch.setattr(db, "get_connection", real_get_connection)
+        assert storage.get_archive(archive.id, db_path=db_path).decision_status is None
 
 
 class TestGetStatistics:

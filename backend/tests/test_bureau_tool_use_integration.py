@@ -424,7 +424,7 @@ def test_evidence_ready_still_enters_the_shared_bureau_tool_loop(monkeypatch) ->
 
     monkeypatch.setattr(loop_module, "run_bureau_tool_loop", tracked_loop)
     profile = BUREAU_PROFILES[0]
-    session = AgentEvidenceSession(coordinator=object())
+    session = AgentEvidenceSession(owner_user_id="test-owner", coordinator=object())
     ready = {
         "status": "READY",
         "result": {
@@ -486,7 +486,7 @@ def test_legacy_needs_data_uses_signed_request_evidence_and_explicit_adoption() 
             )
 
     coordinator = Coordinator()
-    session = AgentEvidenceSession(coordinator=coordinator)
+    session = AgentEvidenceSession(owner_user_id="test-owner", coordinator=coordinator)
     node = "bureau:吏部:制度司"
     turns = 0
 
@@ -568,7 +568,7 @@ def test_investment_fact_plan_uses_the_same_signed_tool_loop_without_model_call(
             )
 
     coordinator = QuoteCoordinator()
-    session = AgentEvidenceSession(coordinator=coordinator)
+    session = AgentEvidenceSession(owner_user_id="test-owner", coordinator=coordinator)
 
     result = invoke_bureau_agent_with_report(
         "户部", "投资司", "查询 000001.SZ 股票价格", "大陆股票最新价查询",
@@ -612,7 +612,7 @@ def test_rites_content_entity_plan_uses_signed_evidence_loop_without_model_call(
             )
 
     coordinator = EntityCoordinator()
-    session = AgentEvidenceSession(coordinator=coordinator)
+    session = AgentEvidenceSession(owner_user_id="test-owner", coordinator=coordinator)
 
     result = invoke_bureau_agent_with_report(
         "礼部", "内容司",

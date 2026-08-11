@@ -14,10 +14,10 @@
  * 已把 `SubmitDecreeResult` 映射为 JSON body + 状态码）重新构造出一个符合该结构的
  * 字面量再传入。
  */
-import type { ReportArtifact } from "../../lib/backendClient.ts";
+import type { DeliveryKind, ReportArtifact } from "../../lib/backendClient.ts";
 
 /** 与 `SubmitDecreeResult` 的 `kind` 保持一致的稳定错误分类。 */
-export type DecreeErrorKind = "validation" | "draft_not_current" | "config" | "model" | "timeout" | "network" | "unknown";
+export type DecreeErrorKind = "validation" | "draft_not_current" | "source_not_current" | "idempotency_conflict" | "config" | "model" | "timeout" | "network" | "unknown";
 
 export interface DecreeBureauOpinion {
   bureau: string;
@@ -42,6 +42,8 @@ export interface DecreeSuccessData {
   councilVerdict: string | null;
   finalVerdict: string;
   recommendations: string[];
+  deliveryKind: DeliveryKind;
+  deliveryPeriod: { startYear: number; endYear: number } | null;
   artifacts: ReportArtifact[];
 }
 
@@ -62,7 +64,8 @@ export type DecreeSubmitOutcome =
 /** `/study` 页面渲染下旨流程所需的全部 UI 状态。 */
 export type DecreeUiState =
   | { phase: "idle" }
-  | { phase: "submitting" }
+  | { phase: "enqueueing" }
+  | { phase: "queued" | "running"; jobId: string }
   | {
       phase: "success";
       chancellor: string;
@@ -74,9 +77,16 @@ export type DecreeUiState =
       councilVerdict: string | null;
       finalVerdict: string;
       recommendations: string[];
+      deliveryKind: DeliveryKind;
+      deliveryPeriod?: { startYear: number; endYear: number } | null;
       artifacts: ReportArtifact[];
     }
   | { phase: "error"; message: string };
+
+export interface OwnerScopedDecreeUiState {
+  ownerId: string;
+  value: DecreeUiState;
+}
 
 /**
  * 每种错误分类对应的、用户可读的中文固定文案。
@@ -90,6 +100,8 @@ export type DecreeUiState =
 const FRIENDLY_MESSAGE_BY_KIND: Record<DecreeErrorKind, string> = {
   validation: "旨意校验未通过：请确认内容非空且不超过 2000 字后重试。",
   draft_not_current: "拟旨草案已失效，请重新拟旨后再下旨。",
+  source_not_current: "会计数据源已变化，请重新拟旨后再下旨。",
+  idempotency_conflict: "本次下旨标识与既有请求冲突，请刷新页面后重试。",
   config: "朝堂后端配置暂不可用，请联系管理员检查后端配置后重试。",
   model: "丞相暂时无法给出回奏（模型调用失败），请稍后重试。",
   timeout: "下旨处理超时，请稍后重试。",
@@ -100,8 +112,15 @@ const FRIENDLY_MESSAGE_BY_KIND: Record<DecreeErrorKind, string> = {
 /** 用户尚未点击「下旨」之前的初始状态。 */
 export const IDLE_UI_STATE: DecreeUiState = { phase: "idle" };
 
+export function resolveOwnerScopedDecreeUiState(
+  envelope: OwnerScopedDecreeUiState,
+  currentOwnerId: string,
+): DecreeUiState {
+  return envelope.ownerId === currentOwnerId ? envelope.value : IDLE_UI_STATE;
+}
+
 /** 用户点击「下旨」后、收到响应前的处理中状态。 */
-export const SUBMITTING_UI_STATE: DecreeUiState = { phase: "submitting" };
+export const SUBMITTING_UI_STATE: DecreeUiState = { phase: "enqueueing" };
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
@@ -229,11 +248,28 @@ export function parseChancellorSuccessResponse(body: unknown): DecreeSuccessData
   }
   const recommendations = parseNonEmptyStrings(record.recommendations);
   const artifacts = parseReportArtifacts(record.artifacts);
+  const deliveryKind = record.deliveryKind;
+  const rawPeriod = record.deliveryPeriod;
+  const deliveryPeriod =
+    typeof rawPeriod === "object" && rawPeriod !== null && !Array.isArray(rawPeriod) &&
+    Object.keys(rawPeriod).length === 2 &&
+    Number.isInteger((rawPeriod as Record<string, unknown>).startYear) &&
+    Number.isInteger((rawPeriod as Record<string, unknown>).endYear) &&
+    (rawPeriod as Record<string, number>).startYear <=
+      (rawPeriod as Record<string, number>).endYear
+      ? rawPeriod as { startYear: number; endYear: number }
+      : null;
   if (
     recommendations === null ||
     recommendations.length !== 3 ||
     new Set(recommendations).size !== 3 ||
-    artifacts === null
+    artifacts === null ||
+    (deliveryKind !== "none" && deliveryKind !== "accounting_report" && deliveryKind !== "accounting_analysis") ||
+    (deliveryKind === "none" ? artifacts.length !== 0 : artifacts.length !== 1) ||
+    (deliveryKind === "none" ? rawPeriod !== null : deliveryPeriod === null) ||
+    (deliveryKind !== "none" && deliveryPeriod !== null &&
+      (artifacts[0].periodStart !== deliveryPeriod.startYear ||
+       artifacts[0].periodEnd !== deliveryPeriod.endYear))
   ) {
     return null;
   }
@@ -248,6 +284,8 @@ export function parseChancellorSuccessResponse(body: unknown): DecreeSuccessData
     councilVerdict,
     finalVerdict: record.finalVerdict.trim(),
     recommendations,
+    deliveryKind,
+    deliveryPeriod,
     artifacts,
   };
 }
@@ -262,7 +300,7 @@ export function getDecreeFormAvailability(
   decreeText: string,
   uiState: DecreeUiState,
 ): { canEdit: boolean; canSubmit: boolean } {
-  const isSubmitting = uiState.phase === "submitting";
+  const isSubmitting = ["enqueueing", "queued", "running"].includes(uiState.phase);
   const normalizedLength = decreeText.trim().length;
 
   return {
@@ -285,6 +323,8 @@ export function mapSubmitDecreeResultToUiState(result: DecreeSubmitOutcome): Dec
       councilVerdict: result.data.councilVerdict,
       finalVerdict: result.data.finalVerdict,
       recommendations: result.data.recommendations,
+      deliveryKind: result.data.deliveryKind,
+      deliveryPeriod: result.data.deliveryPeriod,
       artifacts: result.data.artifacts,
     };
   }

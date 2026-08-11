@@ -12,6 +12,7 @@ from app.agents.junjichu.prompts import JUNJICHU_IDENTITY, junjichu_system_promp
 from app.agents.ministries.agent import MinistryAgentInvocationError, MinistryOpinion
 from app.agents.ministries.prompts import NO_IRREVERSIBLE_ACTION_CONSTRAINT
 from app.agents.structured_output import StructuredOutputError
+from app.decree_jobs.worker import JobCancelled
 from app.shiguan.recall import RecallContext, RecallMatch
 
 
@@ -259,6 +260,50 @@ def test_run_junjichu_calls_layered_ministries_serially_then_council(monkeypatch
     for department in departments:
         assert f"{department}司见" in council_evidence
         assert f"{department}补充" in council_evidence
+
+
+@pytest.mark.parametrize("cancel_at_boundary", [1, 2, 3])
+def test_run_junjichu_cancellation_crosses_each_execution_boundary(
+    monkeypatch, cancel_at_boundary: int
+) -> None:
+    departments = ["户部", "工部"]
+    events: list[str] = []
+    boundary_count = 0
+
+    def execution_boundary() -> None:
+        nonlocal boundary_count
+        boundary_count += 1
+        events.append(f"boundary:{boundary_count}")
+        if boundary_count == cancel_at_boundary:
+            raise JobCancelled
+
+    def fake_ministry(department, *_args, **_kwargs):
+        events.append(f"ministry:{department}")
+        return _layered_opinion(department)
+
+    def fake_council(*_args, **_kwargs):
+        events.append("council")
+        return "must not complete"
+
+    monkeypatch.setattr("app.agents.junjichu.agent.invoke_ministry_agent", fake_ministry)
+    monkeypatch.setattr("app.agents.junjichu.agent.invoke_junjichu_council", fake_council)
+
+    with pytest.raises(JobCancelled):
+        run_junjichu_council(
+            "decree",
+            "route",
+            departments,
+            lambda _messages: "unused",
+            required_bureaus_by_department=_required_bureaus(*departments),
+            execution_boundary=execution_boundary,
+        )
+
+    expected: list[str] = []
+    for index in range(cancel_at_boundary):
+        expected.append(f"boundary:{index + 1}")
+        if index < cancel_at_boundary - 1:
+            expected.append(f"ministry:{departments[index]}")
+    assert events == expected
 
 
 def test_junjichu_forwards_required_bureaus_in_approved_department_order(

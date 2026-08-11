@@ -1,0 +1,100 @@
+{
+  "schema_version": 1,
+  "commands": [
+    {
+      "name": "direct-focused-backend",
+      "cwd": "backend",
+      "command": "{PYTHON} -u -m pytest -p no:cacheprovider -o faulthandler_timeout=30 tests/test_accounting_report_period_policy.py tests/test_chancellor_draft_graph.py tests/test_chancellor_drafts_api.py tests/test_accounting_real_adapters.py tests/test_synthetic_accounting_acceptance_app.py tests/test_accounting_report_cross_layer.py tests/test_accounting_report_session.py tests/test_accounting_report_sources.py tests/test_accounting_report_workbook.py tests/test_accounting_work_product_storage.py tests/test_artifact_gate.py tests/test_provider_attempt_budget.py tests/test_provider_budget_app_wiring.py tests/test_decree_job_executor.py tests/test_decree_job_storage.py tests/test_decree_job_worker.py tests/test_decree_jobs_api.py tests/test_decree_async_integration.py tests/test_readiness.py tests/test_runtime_storage_isolation.py tests/test_daily_memorial_api.py tests/test_daily_memorial_facts.py tests/test_daily_memorial_models.py tests/test_daily_memorial_scheduler.py tests/test_daily_memorial_storage.py tests/test_daily_memorial_workflow.py tests/test_jinyiwei_api.py tests/test_jinyiwei_coordinator.py tests/test_jinyiwei_mcp_source.py tests/test_jinyiwei_storage.py tests/test_jinyiwei_westock.py tests/test_shiguan_api.py tests/test_shiguan_archive_decree.py tests/test_shiguan_migrations.py tests/test_shiguan_models.py tests/test_shiguan_storage.py tests/test_agent_evidence_protocol.py tests/test_chancellor_graph.py tests/test_deepseek_client.py tests/test_junjichu_agent.py -q"
+    },
+    {
+      "name": "backend-ruff",
+      "cwd": "backend",
+      "command": "{PYTHON} -m ruff check --no-cache ."
+    },
+    {
+      "name": "backend-full",
+      "cwd": "backend",
+      "command": "{PYTHON} -u -m pytest -p no:cacheprovider -o faulthandler_timeout=30 -q"
+    },
+    {
+      "name": "direct-focused-frontend",
+      "cwd": "frontend",
+      "command": "node --test src/lib/backendClient.test.ts src/lib/backendClient.dailyMemorial.test.ts src/lib/backendClient.decreeJobs.test.ts src/lib/backendClient.enqueueDecree.test.ts src/lib/backendClient.shiguanDecision.test.ts src/app/study/StudyClient.test.ts src/app/study/chancellorDraft.test.ts src/app/study/dailyMemorialDraft.test.ts src/app/study/decreeJobPolling.test.ts src/app/study/studySubmission.test.ts src/features/study-visual/DevStudyWorkspace.test.ts src/features/study-visual/StudyArtifactLinks.test.ts src/features/study-visual/StudyArtifactConfirmation.test.ts src/app/shiguan/ShiguanClient.visual.test.ts src/app/shiguan/shiguanController.test.ts src/app/shiguan/shiguanDecision.test.ts src/app/shiguan/shiguanPayload.test.ts src/features/shiguan-visual/ShiguanWorkspace.test.ts src/app/jinyiwei/page.test.ts src/app/jinyiwei/jinyiweiStatus.test.ts src/app/api/jinyiwei/summary/route.test.ts src/app/api/jinyiwei/investigations/route.test.ts src/app/api/jinyiwei/investigations/[id]/route.test.ts src/components/chaotang/LogoutButton.test.ts src/components/chaotang/logoutAction.test.ts src/components/chaotang/ChaotangHeader.test.ts"
+    },
+    {
+      "name": "frontend-lint",
+      "cwd": "frontend",
+      "command": "npm run lint"
+    },
+    {
+      "name": "frontend-typegen",
+      "cwd": "frontend",
+      "command": "node_modules\\.bin\\next.cmd typegen"
+    },
+    {
+      "name": "frontend-typecheck",
+      "cwd": "frontend",
+      "command": "node_modules\\.bin\\tsc.cmd --noEmit --incremental false --pretty false"
+    },
+    {
+      "name": "frontend-full",
+      "cwd": "frontend",
+      "command": "npm test"
+    },
+    {
+      "name": "frontend-build",
+      "cwd": "frontend",
+      "command": "npm run build"
+    },
+    {
+      "name": "integration",
+      "cwd": ".",
+      "command": "node scripts/verify_integration.mjs"
+    },
+    {
+      "name": "integration-runner-tests",
+      "cwd": ".",
+      "command": "node --test scripts/verify_integration.test.mjs"
+    },
+    {
+      "name": "migration-test",
+      "cwd": ".",
+      "command": "node --test scripts/check_migration_completeness.test.mjs"
+    },
+    {
+      "name": "migration",
+      "cwd": ".",
+      "command": "node scripts/check_migration_completeness.mjs"
+    },
+    {
+      "name": "harness",
+      "cwd": ".",
+      "command": "node scripts/check_harness.mjs"
+    },
+    {
+      "name": "harness-self-test",
+      "cwd": ".",
+      "command": "node scripts/check_harness.mjs --self-test"
+    },
+    {
+      "name": "hook-self-test",
+      "cwd": ".",
+      "command": "node .agents/hooks/check-harness.mjs --self-test"
+    },
+    {
+      "name": "delivery-self-test",
+      "cwd": ".",
+      "command": "node .agents/skills/product-flow/scripts/run-claude-delivery.mjs --self-test"
+    },
+    {
+      "name": "tracked-diff-check",
+      "cwd": ".",
+      "command": "git diff --check --"
+    },
+    {
+      "name": "staged-diff-check",
+      "cwd": ".",
+      "command": "git diff --cached --check --"
+    }
+  ]
+}

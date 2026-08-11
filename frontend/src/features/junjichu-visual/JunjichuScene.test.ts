@@ -39,6 +39,8 @@ test("Grand Council keeps the left ledger, central path, and fixed six-ministry 
   assert.match(css, /@media \(max-width: 820px\)[\s\S]*?\.caseDeck,\s*\.intelligenceDeck,\s*\.edictScroll\s*\{\s*min-height:\s*auto;\s*\}/);
   assert.match(css, /overflow-wrap:\s*anywhere/);
   assert.match(css, /:focus-visible/);
+  assert.match(css, /\.scene button:focus-visible, \.scene select:focus-visible/);
+  assert.doesNotMatch(css, /(?:^|\n)button:focus-visible/);
 });
 
 test("Grand Council keeps the complete three-column stage when the successful ledger is empty", async () => {

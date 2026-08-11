@@ -139,10 +139,85 @@ CREATE TABLE archive_evidence_references (
 )
 """
 
-_SCHEMA_STATEMENTS = (
+_V3_SCHEMA_STATEMENTS = (
     _V2_SCHEMA_STATEMENTS.replace("PRAGMA user_version = 2;", "")
     + _EVIDENCE_REFERENCES_SCHEMA
     + ";\nPRAGMA user_version = 3;\n"
+)
+
+_DAILY_MEMORIAL_SCHEMA = """
+CREATE TABLE daily_memorial_runs (
+    id TEXT PRIMARY KEY,
+    owner_user_id TEXT NOT NULL,
+    report_date TEXT NOT NULL,
+    source_window_start TEXT NOT NULL,
+    source_window_end TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN (
+        'PENDING', 'GENERATING', 'READY_FOR_REVIEW',
+        'SKIPPED_NO_FACTS', 'FAILED', 'CONFIRMED'
+    )),
+    version INTEGER NOT NULL DEFAULT 0,
+    fingerprint TEXT,
+    content TEXT,
+    fact_refs_json TEXT NOT NULL DEFAULT '[]',
+    failure_code TEXT,
+    confirmed_memorial_id TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    confirmed_at TEXT,
+    UNIQUE (owner_user_id, report_date),
+    FOREIGN KEY (owner_user_id) REFERENCES users(id),
+    FOREIGN KEY (confirmed_memorial_id) REFERENCES archives(id)
+);
+
+CREATE TABLE daily_memorial_fact_snapshots (
+    id TEXT PRIMARY KEY,
+    run_id TEXT NOT NULL,
+    fact_id TEXT NOT NULL,
+    snapshot_json TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    UNIQUE (run_id, fact_id),
+    FOREIGN KEY (run_id) REFERENCES daily_memorial_runs(id)
+);
+
+CREATE TABLE daily_memorial_stage_results (
+    id TEXT PRIMARY KEY,
+    run_id TEXT NOT NULL,
+    stage TEXT NOT NULL CHECK (stage IN ('BUREAU', 'MINISTRY', 'CHANCELLOR')),
+    unit_key TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN (
+        'PENDING', 'RUNNING', 'READY', 'NO_MATERIAL', 'RETRY_WAIT', 'FAILED'
+    )),
+    input_fingerprint TEXT,
+    output_json TEXT NOT NULL DEFAULT 'null',
+    fact_refs_json TEXT NOT NULL DEFAULT '[]',
+    attempts INTEGER NOT NULL DEFAULT 0,
+    failure_code TEXT,
+    next_retry_at TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE (run_id, stage, unit_key),
+    FOREIGN KEY (run_id) REFERENCES daily_memorial_runs(id)
+);
+"""
+
+_SCHEMA_STATEMENTS = (
+    _V3_SCHEMA_STATEMENTS.replace("PRAGMA user_version = 3;", "")
+    + _DAILY_MEMORIAL_SCHEMA
+    + "\n"
+    + """
+CREATE TABLE archive_decisions (
+    archive_id TEXT PRIMARY KEY,
+    owner_user_id TEXT NOT NULL,
+    actor_user_id TEXT NOT NULL,
+    decision TEXT NOT NULL CHECK (decision IN (
+        'APPROVED', 'REJECTED', 'ADOPTED', 'RETURNED_FOR_RECONSIDERATION'
+    )),
+    decided_at TEXT NOT NULL,
+    FOREIGN KEY (archive_id) REFERENCES archives(id)
+);
+PRAGMA user_version = 5;
+"""
 )
 
 _LEGACY_MIGRATION_ERROR = "史馆旧库无法迁移；请核对已确认档案对后重试"
@@ -190,6 +265,7 @@ def get_connection(path: Path | None = None) -> sqlite3.Connection:
     """
 
     target = path if path is not None else _DEFAULT_DB_PATH
+    connection: sqlite3.Connection | None = None
     try:
         target.parent.mkdir(parents=True, exist_ok=True)
         connection = sqlite3.connect(target)
@@ -199,7 +275,7 @@ def get_connection(path: Path | None = None) -> sqlite3.Connection:
             "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'archives'"
         ).fetchone()
         version = connection.execute("PRAGMA user_version").fetchone()[0]
-        if has_schema and version != 3:
+        if has_schema and version != 5:
             connection.close()
             raise ShiguanStorageError("史馆旧库需要显式迁移后才能使用")
         if not has_schema:
@@ -208,8 +284,12 @@ def get_connection(path: Path | None = None) -> sqlite3.Connection:
             _add_missing_archive_columns(connection)
             connection.executescript(_AUTH_SCHEMA)
             _validate_v3_table(connection)
+            _validate_v4_tables(connection)
+            _validate_v5_table(connection)
         connection.commit()
-    except (OSError, sqlite3.Error) as exc:
+    except (OSError, sqlite3.Error, ValueError) as exc:
+        if connection is not None:
+            connection.close()
         raise ShiguanStorageError("史馆存储暂时不可用，请稍后再试") from exc
     return connection
 
@@ -232,6 +312,121 @@ def _validate_v3_table(connection: sqlite3.Connection) -> None:
     }
     if columns != expected:
         raise ValueError("invalid archive evidence reference schema")
+
+
+_V4_TABLE_COLUMNS = {
+    "daily_memorial_runs": {
+        "id", "owner_user_id", "report_date", "source_window_start",
+        "source_window_end", "status", "version", "fingerprint", "content",
+        "fact_refs_json", "failure_code", "confirmed_memorial_id", "created_at",
+        "updated_at", "confirmed_at",
+    },
+    "daily_memorial_fact_snapshots": {
+        "id", "run_id", "fact_id", "snapshot_json", "created_at",
+    },
+    "daily_memorial_stage_results": {
+        "id", "run_id", "stage", "unit_key", "status", "input_fingerprint",
+        "output_json", "fact_refs_json", "attempts", "failure_code",
+        "next_retry_at", "created_at", "updated_at",
+    },
+}
+
+
+def _validate_v4_tables(connection: sqlite3.Connection) -> None:
+    for table, expected in _V4_TABLE_COLUMNS.items():
+        columns = {
+            row[1] for row in connection.execute(f"PRAGMA table_info({table})").fetchall()
+        }
+        if columns != expected:
+            raise ValueError(f"invalid {table} schema")
+
+
+def _validate_v5_table(connection: sqlite3.Connection) -> None:
+    columns = {
+        row[1]
+        for row in connection.execute("PRAGMA table_info(archive_decisions)").fetchall()
+    }
+    if columns != {
+        "archive_id",
+        "owner_user_id",
+        "actor_user_id",
+        "decision",
+        "decided_at",
+    }:
+        raise ValueError("invalid archive_decisions schema")
+
+
+def migrate_v4_to_v5(path: Path) -> None:
+    """Atomically add immutable archive decisions to a schema-v4 database."""
+
+    connection: sqlite3.Connection | None = None
+    try:
+        connection = sqlite3.connect(path)
+        connection.execute("PRAGMA foreign_keys = ON")
+        connection.execute("BEGIN IMMEDIATE")
+        version = connection.execute("PRAGMA user_version").fetchone()[0]
+        has_schema = connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='archives'"
+        ).fetchone()
+        if version != 4 or has_schema is None:
+            raise ValueError("not a schema-v4 database")
+        _validate_v3_table(connection)
+        _validate_v4_tables(connection)
+        connection.execute(
+            """
+            CREATE TABLE archive_decisions (
+                archive_id TEXT PRIMARY KEY,
+                owner_user_id TEXT NOT NULL,
+                actor_user_id TEXT NOT NULL,
+                decision TEXT NOT NULL CHECK (decision IN (
+                    'APPROVED', 'REJECTED', 'ADOPTED',
+                    'RETURNED_FOR_RECONSIDERATION'
+                )),
+                decided_at TEXT NOT NULL,
+                FOREIGN KEY (archive_id) REFERENCES archives(id)
+            )
+            """
+        )
+        _validate_v5_table(connection)
+        connection.execute("PRAGMA user_version = 5")
+        connection.commit()
+    except (OSError, sqlite3.Error, ValueError) as exc:
+        if connection is not None:
+            connection.rollback()
+        raise ShiguanStorageError("史馆 v4 到 v5 无法迁移") from exc
+    finally:
+        if connection is not None:
+            connection.close()
+
+
+def migrate_v3_to_v4(path: Path) -> None:
+    """Atomically add daily memorial persistence to a schema-v3 database."""
+
+    connection: sqlite3.Connection | None = None
+    try:
+        connection = sqlite3.connect(path)
+        connection.execute("PRAGMA foreign_keys = ON")
+        connection.execute("BEGIN IMMEDIATE")
+        version = connection.execute("PRAGMA user_version").fetchone()[0]
+        has_schema = connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='archives'"
+        ).fetchone()
+        if version != 3 or has_schema is None:
+            raise ValueError("not a schema-v3 database")
+        _validate_v3_table(connection)
+        for statement in _DAILY_MEMORIAL_SCHEMA.split(";"):
+            if statement.strip():
+                connection.execute(statement)
+        _validate_v4_tables(connection)
+        connection.execute("PRAGMA user_version = 4")
+        connection.commit()
+    except (OSError, sqlite3.Error, ValueError) as exc:
+        if connection is not None:
+            connection.rollback()
+        raise ShiguanStorageError("史馆 v3 到 v4 无法迁移") from exc
+    finally:
+        if connection is not None:
+            connection.close()
 
 
 def migrate_v2_to_v3(path: Path) -> None:

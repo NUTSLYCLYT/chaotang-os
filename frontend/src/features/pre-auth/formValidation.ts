@@ -3,7 +3,7 @@ export type RegisterValues = LoginValues & { email: string; confirm: string };
 
 type AuthFetch = (url: string, init?: RequestInit) => Promise<Response>;
 
-type LoginDestination = "/dadian" | "/study" | "/shiguan";
+type LoginDestination = "/dadian" | "/study" | "/shiguan" | "/jinyiwei";
 type RegistrationDestination = "/login?registered=1";
 
 export type AuthSubmission =
@@ -11,7 +11,7 @@ export type AuthSubmission =
   | { ok: false; message: string; requestUrl: string };
 
 export function getSafeLoginDestination(next: string | null | undefined): LoginDestination {
-  return next === "/study" || next === "/shiguan" || next === "/dadian" ? next : "/dadian";
+  return next === "/study" || next === "/shiguan" || next === "/dadian" || next === "/jinyiwei" ? next : "/dadian";
 }
 
 function failureMessage(response: Response, action: "login" | "register"): string {

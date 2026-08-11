@@ -3,9 +3,14 @@ import test from "node:test";
 
 import {
   requestStudySubmission,
+  resumeStudySubmission,
   submitStudyDecree,
   type StudyFetch,
 } from "./studySubmission.ts";
+import {
+  loadActiveJob,
+  saveActiveJob,
+} from "./decreeJobPolling.ts";
 import {
   SUBMITTING_UI_STATE,
   mapSubmitDecreeResultToUiState,
@@ -31,6 +36,8 @@ const VALID_SUCCESS_BODY = {
   councilVerdict: null,
   finalVerdict: "准行。",
   recommendations: ["核定预算", "分期拨付", "设置审计节点"],
+  deliveryKind: "accounting_report",
+  deliveryPeriod: { startYear: 2025, endYear: 2025 },
   artifacts: [{
     artifactId: "report 甲/2025",
     kind: "ACCOUNTING_MANAGEMENT_REPORT_XLSX",
@@ -74,6 +81,7 @@ test("one submission sends exactly one same-origin POST with the decree body", a
     scheduleRedirect: () => assert.fail("success must not redirect"),
     draftVersion: 3,
     draftFingerprint: "c".repeat(64),
+    idempotencyKey: "submission-1",
   });
 
   assert.equal(requests.length, 1);
@@ -84,6 +92,7 @@ test("one submission sends exactly one same-origin POST with the decree body", a
     decreeText: "修筑河工",
     draftVersion: 3,
     draftFingerprint: "c".repeat(64),
+    idempotencyKey: "submission-1",
   }));
   assert.equal(state.phase, "success");
   if (state.phase === "success") {
@@ -182,6 +191,125 @@ test("invalid JSON, invalid success data, known errors, and network failures map
     assert.deepEqual(actual, expected, name);
     assert.deepEqual(redirects, [], `${name} must not redirect`);
   }
+});
+
+test("202 acceptance is polled sequentially through success", async () => {
+  const jobId = "a".repeat(32);
+  const requests: string[] = [];
+  const jobStates = [
+    { jobId, state: "QUEUED", stage: "QUEUED", attemptCount: 0, providerRequestCount: 0, cancelRequested: false, result: null, error: null, createdAt: "2026-08-07T00:00:00Z", updatedAt: "2026-08-07T00:00:00Z" },
+    { jobId, state: "RUNNING", stage: "RUNNING", attemptCount: 1, providerRequestCount: 1, cancelRequested: false, result: null, error: null, createdAt: "2026-08-07T00:00:00Z", updatedAt: "2026-08-07T00:00:01Z" },
+    { jobId, state: "SUCCEEDED", stage: "SUCCEEDED", attemptCount: 1, providerRequestCount: 1, cancelRequested: false, result: VALID_SUCCESS_BODY, error: null, createdAt: "2026-08-07T00:00:00Z", updatedAt: "2026-08-07T00:00:02Z" },
+  ];
+  const progress: string[] = [];
+  let active = 0;
+  let maxActive = 0;
+
+  const state = await requestStudySubmission("async decree", {
+    idempotencyKey: "submission-async",
+    fetchImpl: async (input) => {
+      active += 1;
+      maxActive = Math.max(maxActive, active);
+      requests.push(String(input));
+      const response = requests.length === 1
+        ? Response.json({ jobId, state: "QUEUED", statusUrl: `/api/decree-jobs/${jobId}`, cancelUrl: `/api/decree-jobs/${jobId}/cancel`, acceptedAt: "2026-08-07T00:00:00Z", replayed: false }, { status: 202 })
+        : Response.json(jobStates.shift());
+      active -= 1;
+      return response;
+    },
+    scheduleRedirect: () => assert.fail("must not redirect"),
+    wait: async () => {},
+    onProgress: (phase) => progress.push(phase),
+  });
+
+  assert.equal(maxActive, 1);
+  assert.deepEqual(progress, ["queued", "queued", "running"]);
+  assert.equal(state.phase, "success");
+  assert.equal(requests.length, 4);
+});
+
+test("polling retries bounded transient status failures and preserves sequencing", async () => {
+  const jobId = "e".repeat(32);
+  const waits: number[] = [];
+  let calls = 0;
+  const state = await requestStudySubmission("async decree", {
+    idempotencyKey: "submission-retry",
+    fetchImpl: async () => {
+      calls += 1;
+      if (calls === 1) {
+        return Response.json({ jobId, state: "QUEUED", statusUrl: `/api/decree-jobs/${jobId}`, cancelUrl: `/api/decree-jobs/${jobId}/cancel`, acceptedAt: "2026-08-07T00:00:00Z", replayed: false }, { status: 202 });
+      }
+      if (calls === 2) throw new Error("temporary disconnect");
+      if (calls === 3) return Response.json({ status: "error" }, { status: 503 });
+      return Response.json({ jobId, state: "SUCCEEDED", stage: "SUCCEEDED", attemptCount: 1, providerRequestCount: 1, cancelRequested: false, result: VALID_SUCCESS_BODY, error: null, createdAt: "2026-08-07T00:00:00Z", updatedAt: "2026-08-07T00:00:02Z" });
+    },
+    scheduleRedirect: () => assert.fail("must not redirect"),
+    wait: async (milliseconds) => void waits.push(milliseconds),
+  });
+
+  assert.equal(state.phase, "success");
+  assert.deepEqual(waits, [1000, 2000]);
+  assert.equal(calls, 4);
+});
+
+test("a lost 202 response reuses the owner-scoped pending idempotency key", async () => {
+  const values = new Map<string, string>();
+  const storage = {
+    getItem: (key: string) => values.get(key) ?? null,
+    setItem: (key: string, value: string) => void values.set(key, value),
+    removeItem: (key: string) => void values.delete(key),
+  } as Storage;
+  const bodies: Array<Record<string, unknown>> = [];
+  const dependencies = {
+    userId: "owner-a",
+    storage,
+    draftVersion: 3,
+    draftFingerprint: "d".repeat(64),
+    scheduleRedirect: () => assert.fail("must not redirect"),
+    fetchImpl: async (_input: RequestInfo | URL, init?: RequestInit) => {
+      bodies.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+      throw new Error("response lost after backend acceptance");
+    },
+  };
+
+  await requestStudySubmission("same decree", dependencies);
+  await requestStudySubmission("same decree", dependencies);
+
+  assert.equal(bodies.length, 2);
+  assert.equal(bodies[0].idempotencyKey, bodies[1].idempotencyKey);
+  assert.match(String(bodies[0].idempotencyKey), /^[0-9a-f-]{36}$/);
+});
+
+test("an owner switch stops an old resume loop without clearing that owner's job", async () => {
+  const jobId = "f".repeat(32);
+  const values = new Map<string, string>();
+  const storage = {
+    getItem: (key: string) => values.get(key) ?? null,
+    setItem: (key: string, value: string) => void values.set(key, value),
+    removeItem: (key: string) => void values.delete(key),
+  } as Storage;
+  saveActiveJob(storage, "owner-a", { jobId, idempotencyKey: "owner-a-key" });
+  let current = true;
+  let calls = 0;
+
+  const state = await resumeStudySubmission(jobId, {
+    userId: "owner-a",
+    storage,
+    fetchImpl: async () => {
+      calls += 1;
+      return Response.json({ jobId, state: "QUEUED", stage: "QUEUED", attemptCount: 0, providerRequestCount: 0, cancelRequested: false, result: null, error: null, createdAt: "2026-08-07T00:00:00Z", updatedAt: "2026-08-07T00:00:00Z" });
+    },
+    scheduleRedirect: () => assert.fail("stale owner must not redirect"),
+    wait: async () => { current = false; },
+    isCurrent: () => current,
+  });
+
+  assert.deepEqual(state, { phase: "idle" });
+  assert.equal(calls, 1);
+  assert.deepEqual(loadActiveJob(storage, "owner-a"), {
+    jobId,
+    idempotencyKey: "owner-a-key",
+  });
 });
 
 test("submission orchestration gates requests when canSubmit is false", async () => {

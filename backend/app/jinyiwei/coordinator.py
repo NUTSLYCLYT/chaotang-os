@@ -118,12 +118,15 @@ class InvestigationCoordinator:
         *,
         department: str,
         matter_type: str,
+        owner_user_id: str,
         extraction_budget: ExtractionBudget | None = None,
     ) -> EvidencePack:
         started = _utc(self._clock())
         cache_key = _cache_key(request, self._sources.get(SourceType.MCP))
         try:
-            store_data_gap_request(request, db_path=self._db_path)
+            store_data_gap_request(
+                request, owner_user_id=owner_user_id, db_path=self._db_path
+            )
         except Exception as exc:
             raise InvestigationUnavailableError(
                 "investigation_persistence_unavailable"
@@ -149,7 +152,7 @@ class InvestigationCoordinator:
         cache_checked = False
 
         if SourceType.SHIGUAN not in source_scope:
-            cached = self._lookup_cache(cache_key, started)
+            cached = self._lookup_cache(cache_key, started, owner_user_id)
             cache_checked = True
             if cached is not None:
                 return cached
@@ -233,7 +236,9 @@ class InvestigationCoordinator:
                 attempts.append(attempt)
                 verification = verify_evidence(request, accepted, now=after_source)
                 if source_type is SourceType.SHIGUAN and not cache_checked:
-                    cached = self._lookup_cache(cache_key, after_source)
+                    cached = self._lookup_cache(
+                        cache_key, after_source, owner_user_id
+                    )
                     cache_checked = True
                     if cached is not None:
                         return cached
@@ -242,7 +247,9 @@ class InvestigationCoordinator:
                 attempts.append(attempt)
                 verification = verify_evidence(request, accepted, now=after_source)
                 if source_type is SourceType.SHIGUAN and not cache_checked:
-                    cached = self._lookup_cache(cache_key, after_source)
+                    cached = self._lookup_cache(
+                        cache_key, after_source, owner_user_id
+                    )
                     cache_checked = True
                     if cached is not None:
                         return cached
@@ -385,7 +392,9 @@ class InvestigationCoordinator:
                 and verification.unresolved_facts
                 and not cache_checked
             ):
-                cached = self._lookup_cache(cache_key, after_extraction)
+                cached = self._lookup_cache(
+                    cache_key, after_extraction, owner_user_id
+                )
                 cache_checked = True
                 if cached is not None:
                     return cached
@@ -444,11 +453,14 @@ class InvestigationCoordinator:
             do_not_infer=_stable_limitations(verification, stale_facts),
         )
         try:
-            store_evidence_pack(pack, db_path=self._db_path)
+            store_evidence_pack(
+                pack, owner_user_id=owner_user_id, db_path=self._db_path
+            )
             if cacheable:
                 put_cache_entry(
                     cache_key,
                     pack.pack_id,
+                    owner_user_id=owner_user_id,
                     cached_at=completed,
                     expires_at=expires,
                     db_path=self._db_path,
@@ -460,11 +472,14 @@ class InvestigationCoordinator:
         return pack
 
     def _lookup_cache(
-        self, cache_key: str, now: datetime
+        self, cache_key: str, now: datetime, owner_user_id: str
     ) -> EvidencePack | None:
         try:
             return lookup_cached_pack(
-                cache_key, now=now, db_path=self._db_path
+                cache_key,
+                owner_user_id=owner_user_id,
+                now=now,
+                db_path=self._db_path,
             )
         except Exception as exc:
             raise InvestigationUnavailableError(

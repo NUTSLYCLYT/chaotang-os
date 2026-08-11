@@ -13,6 +13,7 @@ import httpx
 import openai
 import pytest
 
+from app.decree_jobs.worker import JobCancelled
 from app.langgraph_runtime.deepseek_client import (
     DeepSeekModelInvocationError,
     DeepSeekModelNameError,
@@ -20,6 +21,7 @@ from app.langgraph_runtime.deepseek_client import (
     normalize_deepseek_model_name,
 )
 from app.langgraph_runtime.deepseek_config import DeepSeekApiKeyError, DeepSeekProviderConfig
+from app.langgraph_runtime.provider_budget import ProviderAttemptBudget, ProviderBudgetExceeded
 
 _CONFIG = DeepSeekProviderConfig(
     base_url="https://api.deepseek.com/v1",
@@ -44,6 +46,15 @@ def _make_fake_openai_response(content: str) -> MagicMock:
     fake_response.choices = [MagicMock()]
     fake_response.choices[0].message.content = content
     return fake_response
+
+
+def _make_status_error(status_code: int) -> openai.APIStatusError:
+    request = httpx.Request("POST", "https://api.deepseek.invalid/v1/chat/completions")
+    return openai.APIStatusError(
+        "unsafe provider response body marker",
+        response=httpx.Response(status_code, request=request),
+        body={"unsafe": "provider response body"},
+    )
 
 
 @patch("app.langgraph_runtime.deepseek_client.openai.OpenAI")
@@ -125,7 +136,7 @@ def test_build_deepseek_chat_model_wraps_underlying_exceptions(mock_openai_class
 
 
 @patch("app.langgraph_runtime.deepseek_client.openai.OpenAI")
-def test_build_deepseek_chat_model_retries_two_transient_timeouts(
+def test_build_deepseek_chat_model_retries_one_transient_timeout(
     mock_openai_class, monkeypatch
 ):
     monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-fake-value-for-tests")
@@ -136,14 +147,156 @@ def test_build_deepseek_chat_model_retries_two_transient_timeouts(
     )
     mock_client_instance.chat.completions.create.side_effect = [
         timeout,
-        timeout,
         _make_fake_openai_response("recovered"),
     ]
 
     call_model = build_deepseek_chat_model(_CONFIG)
 
     assert call_model([{"role": "user", "content": "hi"}]) == "recovered"
-    assert mock_client_instance.chat.completions.create.call_count == 3
+    assert mock_client_instance.chat.completions.create.call_count == 2
+
+
+@pytest.mark.parametrize(
+    ("failure", "expected_category", "expected_status"),
+    [
+        pytest.param("timeout", "timeout", None, id="timeout"),
+        pytest.param("connection", "connection", None, id="connection"),
+        pytest.param(408, "provider_client", 408, id="http-408"),
+        pytest.param(409, "provider_client", 409, id="http-409"),
+        pytest.param(429, "rate_limit", 429, id="http-429"),
+        pytest.param(500, "provider_server", 500, id="http-500"),
+        pytest.param(503, "provider_server", 503, id="http-503"),
+    ],
+)
+@patch("app.langgraph_runtime.deepseek_client.openai.OpenAI")
+def test_transient_failures_retry_once_then_raise_typed_safe_error(
+    mock_openai_class, monkeypatch, failure, expected_category, expected_status
+):
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-fake-value-for-tests")
+    mock_client_instance = MagicMock()
+    mock_openai_class.return_value = mock_client_instance
+    request = httpx.Request("POST", "https://api.deepseek.invalid/v1/chat/completions")
+
+    def make_failure():
+        if failure == "timeout":
+            return openai.APITimeoutError(request=request)
+        if failure == "connection":
+            return openai.APIConnectionError(request=request)
+        return _make_status_error(failure)
+
+    first_error = make_failure()
+    final_error = make_failure()
+    mock_client_instance.chat.completions.create.side_effect = [first_error, final_error]
+    call_model = build_deepseek_chat_model(_CONFIG)
+
+    with pytest.raises(DeepSeekModelInvocationError) as exc_info:
+        call_model([{"role": "user", "content": "prompt-marker-must-not-leak"}])
+
+    assert exc_info.value.__cause__ is final_error
+    assert exc_info.value.failure_stage == "provider_request"
+    assert exc_info.value.failure_category == expected_category
+    assert exc_info.value.provider_http_status == expected_status
+    assert exc_info.value.retry_count == 1
+    assert "prompt-marker" not in str(exc_info.value)
+    assert "provider response body" not in str(exc_info.value)
+    assert mock_client_instance.chat.completions.create.call_count == 2
+
+
+@pytest.mark.parametrize(
+    ("failure", "expected_category", "expected_status"),
+    [
+        pytest.param(400, "provider_client", 400, id="http-400"),
+        pytest.param(401, "provider_client", 401, id="http-401"),
+        pytest.param(403, "provider_client", 403, id="http-403"),
+        pytest.param(404, "provider_client", 404, id="http-404"),
+        pytest.param("unexpected", "unexpected", None, id="unexpected"),
+    ],
+)
+@patch("app.langgraph_runtime.deepseek_client.openai.OpenAI")
+def test_non_transient_failures_do_not_retry(
+    mock_openai_class, monkeypatch, failure, expected_category, expected_status
+):
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-fake-value-for-tests")
+    mock_client_instance = MagicMock()
+    mock_openai_class.return_value = mock_client_instance
+    provider_error = (
+        RuntimeError("unsafe exception marker")
+        if failure == "unexpected"
+        else _make_status_error(failure)
+    )
+    mock_client_instance.chat.completions.create.side_effect = provider_error
+    call_model = build_deepseek_chat_model(_CONFIG)
+
+    with pytest.raises(DeepSeekModelInvocationError) as exc_info:
+        call_model([{"role": "user", "content": "prompt-marker-must-not-leak"}])
+
+    assert exc_info.value.failure_category == expected_category
+    assert exc_info.value.provider_http_status == expected_status
+    assert exc_info.value.retry_count == 0
+    assert mock_client_instance.chat.completions.create.call_count == 1
+
+
+@patch("app.langgraph_runtime.deepseek_client.openai.OpenAI")
+def test_shared_budget_caps_two_clients_before_ninth_network_call(
+    mock_openai_class, monkeypatch
+):
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-fake-value-for-tests")
+    draft_client = MagicMock()
+    decree_client = MagicMock()
+    draft_client.chat.completions.create.return_value = _make_fake_openai_response("ok")
+    decree_client.chat.completions.create.return_value = _make_fake_openai_response("ok")
+    mock_openai_class.side_effect = [draft_client, decree_client]
+    budget = ProviderAttemptBudget(max_attempts=8)
+    draft_model = build_deepseek_chat_model(_CONFIG, attempt_budget=budget)
+    decree_model = build_deepseek_chat_model(_CONFIG, attempt_budget=budget)
+
+    for index in range(8):
+        model = draft_model if index % 2 == 0 else decree_model
+        assert model([{"role": "user", "content": "synthetic"}]) == "ok"
+
+    with pytest.raises(DeepSeekModelInvocationError) as exc_info:
+        decree_model([{"role": "user", "content": "synthetic"}])
+
+    assert isinstance(exc_info.value.__cause__, ProviderBudgetExceeded)
+    assert exc_info.value.failure_category == "budget_exhausted"
+    assert draft_client.chat.completions.create.call_count == 4
+    assert decree_client.chat.completions.create.call_count == 4
+    assert budget.attempts_used == 8
+
+
+@patch("app.langgraph_runtime.deepseek_client.openai.OpenAI")
+def test_retry_reserves_both_provider_attempts(mock_openai_class, monkeypatch):
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-fake-value-for-tests")
+    mock_client_instance = MagicMock()
+    mock_openai_class.return_value = mock_client_instance
+    request = httpx.Request("POST", "https://api.deepseek.invalid/v1/chat/completions")
+    mock_client_instance.chat.completions.create.side_effect = [
+        openai.APITimeoutError(request=request),
+        _make_fake_openai_response("recovered"),
+    ]
+    budget = ProviderAttemptBudget(max_attempts=2)
+    model = build_deepseek_chat_model(_CONFIG, attempt_budget=budget)
+
+    assert model([{"role": "user", "content": "synthetic"}]) == "recovered"
+    assert budget.attempts_used == 2
+    assert mock_client_instance.chat.completions.create.call_count == 2
+
+
+@patch("app.langgraph_runtime.deepseek_client.openai.OpenAI")
+def test_cooperative_job_abort_crosses_provider_wrapper_unchanged(
+    mock_openai_class, monkeypatch
+):
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-fake-value-for-tests")
+
+    class CancelledBudget:
+        def reserve(self) -> None:
+            raise JobCancelled
+
+    model = build_deepseek_chat_model(_CONFIG, attempt_budget=CancelledBudget())
+
+    with pytest.raises(JobCancelled):
+        model([{"role": "user", "content": "synthetic"}])
+    mock_openai_class.return_value.chat.completions.create.assert_not_called()
 
 
 @patch("app.langgraph_runtime.deepseek_client.openai.OpenAI")

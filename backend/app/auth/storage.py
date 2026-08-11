@@ -207,3 +207,24 @@ def revoke_session(session_id: str) -> None:
             raise AuthenticationStorageError("authentication storage is unavailable") from exc
     finally:
         conn.close()
+
+
+def list_user_ids_for_scheduled_jobs(
+    *, db_path: Path | None = None
+) -> tuple[str, ...]:
+    """Return stable server-side scheduler targets without exposing an API."""
+
+    try:
+        conn = db.get_connection(db_path)
+    except ShiguanStorageError as exc:
+        raise AuthenticationStorageError("authentication storage is unavailable") from exc
+    try:
+        try:
+            rows = conn.execute("SELECT id FROM users ORDER BY id").fetchall()
+            return tuple(row["id"] for row in rows)
+        except sqlite3.Error as exc:
+            raise AuthenticationStorageError(
+                "authentication storage is unavailable"
+            ) from exc
+    finally:
+        conn.close()

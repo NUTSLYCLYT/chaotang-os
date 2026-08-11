@@ -8,7 +8,12 @@ assembles them onto one FastAPI application.
 
 from __future__ import annotations
 
+import os
+import uuid
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 
 from app.api.auth import register_auth_exception_handlers
 from app.api.auth import router as auth_router
@@ -16,6 +21,10 @@ from app.api.chancellor_consult import register_chancellor_consult_exception_han
 from app.api.chancellor_consult import router as chancellor_consult_router
 from app.api.chancellor_drafts import register_chancellor_draft_exception_handlers
 from app.api.chancellor_drafts import router as chancellor_drafts_router
+from app.api.daily_memorial_drafts import register_daily_memorial_exception_handlers
+from app.api.daily_memorial_drafts import router as daily_memorial_router
+from app.api.decree_jobs import get_decree_job_store
+from app.api.decree_jobs import router as decree_jobs_router
 from app.api.decrees import register_chancellor_exception_handlers
 from app.api.decrees import router as decrees_router
 from app.api.jinyiwei import register_jinyiwei_exception_handlers
@@ -26,11 +35,48 @@ from app.api.qintianjian import router as qintianjian_router
 from app.api.report_artifacts import router as report_artifacts_router
 from app.api.shiguan import register_shiguan_exception_handlers
 from app.api.shiguan import router as shiguan_router
+from app.decree_jobs import DecreeJobWorker
+from app.decree_jobs.executor import PersistentDecreeJobExecutor
 from app.health import HealthResponse, get_service_version
+from app.langgraph_runtime.provider_budget import (
+    configure_provider_attempt_budget_from_environment,
+)
+from app.readiness import run_readiness_preflight
 
 SERVICE_NAME = "chaotang-os-backend"
 
-app = FastAPI(title=SERVICE_NAME)
+
+configure_provider_attempt_budget_from_environment()
+
+
+def _worker_enabled() -> bool:
+    return os.environ.get("CHAOTANG_DECREE_JOB_WORKER_ENABLED", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    worker: DecreeJobWorker | None = None
+    if _worker_enabled():
+        worker = DecreeJobWorker(
+            get_decree_job_store(),
+            PersistentDecreeJobExecutor(),
+            worker_id=uuid.uuid4().hex,
+        )
+        app.state.decree_job_worker = worker
+        worker.start()
+    try:
+        yield
+    finally:
+        if worker is not None:
+            worker.stop()
+
+
+app = FastAPI(title=SERVICE_NAME, lifespan=lifespan)
 
 
 @app.get("/health", response_model=HealthResponse)
@@ -39,8 +85,21 @@ def health() -> HealthResponse:
     return HealthResponse(status="ok", service=SERVICE_NAME, version=get_service_version())
 
 
+@app.get("/readyz")
+def readiness() -> JSONResponse:
+    try:
+        result = run_readiness_preflight()
+    except Exception:
+        return JSONResponse(status_code=503, content={"codes": ["readiness_check_failed"]})
+    if result.ready:
+        return JSONResponse(status_code=200, content={"codes": ["ready"]})
+    return JSONResponse(status_code=503, content={"codes": list(result.codes)})
+
+
 app.include_router(decrees_router)
 register_chancellor_exception_handlers(app)
+
+app.include_router(decree_jobs_router)
 
 app.include_router(chancellor_consult_router)
 register_chancellor_consult_exception_handlers(app)
@@ -50,6 +109,9 @@ register_chancellor_draft_exception_handlers(app)
 
 app.include_router(shiguan_router)
 register_shiguan_exception_handlers(app)
+
+app.include_router(daily_memorial_router)
+register_daily_memorial_exception_handlers(app)
 
 app.include_router(jinyiwei_router)
 register_jinyiwei_exception_handlers(app)

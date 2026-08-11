@@ -1,16 +1,20 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import {
   IDLE_UI_STATE,
   getDecreeFormAvailability,
+  resolveOwnerScopedDecreeUiState,
   type DecreeUiState,
+  type OwnerScopedDecreeUiState,
 } from "./decreeStatus";
 import {
   requestStudySubmission,
+  resumeStudySubmission,
   submitStudyDecree,
 } from "./studySubmission";
+import { loadActiveJob } from "./decreeJobPolling";
 import { DevStudyWorkspace } from "../../features/study-visual/DevStudyWorkspace";
 import {
   EMPTY_CONSULT_STATE,
@@ -25,9 +29,13 @@ import {
   saveChancellorConsultMessages,
 } from "./chancellorConsultPersistence";
 import {
+  EMPTY_CHANCELLOR_DRAFT_COMPOSER_STATE,
   canIssueChancellorDraft,
   requestChancellorDraft,
+  resolveOwnerScopedChancellorDraftComposerState,
+  type ChancellorDraftComposerState,
   type ChancellorDraftResult,
+  type OwnerScopedChancellorDraftComposerState,
 } from "./chancellorDraft";
 import {
   EMPTY_STUDY_RECENT_REPLIES_STATE,
@@ -46,6 +54,15 @@ import {
   selectArchivedReply,
   type StudyReplyPresentation,
 } from "./studyReplyPresentation";
+import {
+  beginDailyMemorialLoad,
+  failDailyMemorial,
+  requestDailyMemorialConfirmation,
+  requestLatestDailyMemorial,
+  resolveDailyMemorialLoad,
+  runDailyMemorialConfirmation,
+  type DailyMemorialUiState,
+} from "./dailyMemorialDraft";
 
 function scheduleStudyLoginRedirect(path: string): void {
   window.setTimeout(() => window.location.assign(path), 0);
@@ -131,6 +148,7 @@ interface ChancellorDraftRequestRunnerOptions {
   sourceText: string;
   getLatestRequestId(): number;
   getCurrentSourceText(): string;
+  isCurrentOwner?(): boolean;
   request(sourceText: string): Promise<ChancellorDraftRequestResult>;
   setPending(pending: boolean): void;
   setError(error: string | null): void;
@@ -143,6 +161,7 @@ export async function runChancellorDraftRequest({
   sourceText,
   getLatestRequestId,
   getCurrentSourceText,
+  isCurrentOwner,
   request,
   setPending,
   setError,
@@ -152,6 +171,7 @@ export async function runChancellorDraftRequest({
   const normalizedSource = sourceText.trim();
   const result = await request(normalizedSource);
   if (
+    isCurrentOwner?.() === false ||
     requestId !== getLatestRequestId() ||
     getCurrentSourceText().trim() !== normalizedSource
   ) {
@@ -171,21 +191,105 @@ export async function runChancellorDraftRequest({
 }
 
 export function StudyClient({ userId }: { userId: string }) {
-  const [decreeText, setDecreeText] = useState("");
-  const [uiState, setUiState] = useState<DecreeUiState>(IDLE_UI_STATE);
+  const [ownerScopedDraftComposer, setOwnerScopedDraftComposer] =
+    useState<OwnerScopedChancellorDraftComposerState>(() => ({
+      ownerId: userId,
+      value: EMPTY_CHANCELLOR_DRAFT_COMPOSER_STATE,
+    }));
+  const {
+    decreeText,
+    draftResult,
+    draftPending,
+    draftError,
+  } = resolveOwnerScopedChancellorDraftComposerState(
+    ownerScopedDraftComposer,
+    userId,
+  );
+  const updateDraftComposer = (patch: Partial<ChancellorDraftComposerState>) => {
+    setOwnerScopedDraftComposer((current) => ({
+      ownerId: userId,
+      value: {
+        ...resolveOwnerScopedChancellorDraftComposerState(current, userId),
+        ...patch,
+      },
+    }));
+  };
+  const setDecreeText = (value: string) => updateDraftComposer({ decreeText: value });
+  const setDraftResult = (value: ChancellorDraftResult | null) =>
+    updateDraftComposer({ draftResult: value });
+  const setDraftPending = (value: boolean) => updateDraftComposer({ draftPending: value });
+  const setDraftError = (value: string | null) => updateDraftComposer({ draftError: value });
+  const [ownerScopedUiState, setOwnerScopedUiState] =
+    useState<OwnerScopedDecreeUiState>(() => ({
+      ownerId: userId,
+      value: IDLE_UI_STATE,
+    }));
+  const uiState = resolveOwnerScopedDecreeUiState(ownerScopedUiState, userId);
+  const setUiState = (state: DecreeUiState) => {
+    setOwnerScopedUiState({ ownerId: userId, value: state });
+  };
   const [consultState, setConsultState] = useState<ChancellorConsultState>(EMPTY_CONSULT_STATE);
-  const [draftResult, setDraftResult] = useState<ChancellorDraftResult | null>(null);
-  const [draftPending, setDraftPending] = useState(false);
-  const [draftError, setDraftError] = useState<string | null>(null);
   const [recentReplies, setRecentReplies] =
     useState<StudyRecentRepliesState>(EMPTY_STUDY_RECENT_REPLIES_STATE);
   const [replyPresentation, setReplyPresentation] =
     useState<StudyReplyPresentation>(CURRENT_REPLY_PRESENTATION);
+  const [dailyMemorialState, setDailyMemorialState] =
+    useState<DailyMemorialUiState>(() => beginDailyMemorialLoad());
   const recentRepliesRef = useRef<StudyRecentRepliesState>(
     EMPTY_STUDY_RECENT_REPLIES_STATE,
   );
   const decreeTextRef = useRef("");
   const draftRequestIdRef = useRef(0);
+  const resumedJobRef = useRef<string | null>(null);
+  const activeOwnerRef = useRef(userId);
+  const dailyMemorialRef = useRef<DailyMemorialUiState>(beginDailyMemorialLoad());
+
+  function commitDailyMemorial(state: DailyMemorialUiState) {
+    dailyMemorialRef.current = state;
+    setDailyMemorialState(state);
+  }
+
+  async function loadLatestDailyMemorial(message?: string) {
+    commitDailyMemorial(beginDailyMemorialLoad());
+    const result = await requestLatestDailyMemorial(window.fetch.bind(window));
+    if (!result.ok) {
+      if (result.kind === "unauthenticated") {
+        scheduleStudyLoginRedirect("/login?next=%2Fstudy");
+      }
+      commitDailyMemorial(failDailyMemorial(message));
+      return;
+    }
+    const state = resolveDailyMemorialLoad(result.data);
+    commitDailyMemorial(message ? { ...state, message } : state);
+  }
+
+  async function handleConfirmDailyMemorial() {
+    const current = dailyMemorialRef.current;
+    await runDailyMemorialConfirmation({
+      state: current,
+      getCurrentState: () => dailyMemorialRef.current,
+      commit: commitDailyMemorial,
+      request: (draft) => requestDailyMemorialConfirmation(draft, window.fetch.bind(window)),
+      refresh: loadLatestDailyMemorial,
+      scheduleRedirect: scheduleStudyLoginRedirect,
+    });
+  }
+
+  useEffect(() => {
+    let active = true;
+    void requestLatestDailyMemorial(window.fetch.bind(window)).then((result) => {
+      if (!active) return;
+      if (!result.ok) {
+        if (result.kind === "unauthenticated") {
+          scheduleStudyLoginRedirect("/login?next=%2Fstudy");
+        }
+        commitDailyMemorial(failDailyMemorial());
+        return;
+      }
+      commitDailyMemorial(resolveDailyMemorialLoad(result.data));
+    });
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => {
     const restoreTimer = window.setTimeout(() => {
@@ -197,6 +301,41 @@ export function StudyClient({ userId }: { userId: string }) {
     return () => window.clearTimeout(restoreTimer);
   }, [userId]);
 
+  useLayoutEffect(() => {
+    activeOwnerRef.current = userId;
+  }, [userId]);
+
+  useEffect(() => {
+    let currentOwner = true;
+    const active = loadActiveJob(window.sessionStorage, userId);
+    if (active === null) {
+      resumedJobRef.current = null;
+      return () => { currentOwner = false; };
+    }
+    const resumeKey = `${encodeURIComponent(userId)}:${active.jobId}`;
+    if (resumedJobRef.current === resumeKey) {
+      return () => { currentOwner = false; };
+    }
+    resumedJobRef.current = resumeKey;
+    void resumeStudySubmission(active.jobId, {
+      fetchImpl: window.fetch.bind(window),
+      scheduleRedirect: scheduleStudyLoginRedirect,
+      storage: window.sessionStorage,
+      userId,
+      isCurrent: () => currentOwner && activeOwnerRef.current === userId,
+      onProgress: (phase, jobId) => {
+        if (currentOwner && activeOwnerRef.current === userId) {
+          setOwnerScopedUiState({ ownerId: userId, value: { phase, jobId } });
+        }
+      },
+    }).then((state) => {
+      if (currentOwner && activeOwnerRef.current === userId) {
+        setOwnerScopedUiState({ ownerId: userId, value: state });
+      }
+    });
+    return () => { currentOwner = false; };
+  }, [userId]);
+
   function commitRecentReplies(
     update: (state: StudyRecentRepliesState) => StudyRecentRepliesState,
   ) {
@@ -206,11 +345,12 @@ export function StudyClient({ userId }: { userId: string }) {
   }
 
   const { canEdit } = getDecreeFormAvailability(decreeText, uiState);
-  const canIssue = uiState.phase !== "submitting" &&
+  const canIssue = !["enqueueing", "queued", "running"].includes(uiState.phase) &&
     canIssueChancellorDraft(draftResult);
   const selectedArchivedReply = resolveSelectedArchive(replyPresentation, recentReplies.archives);
 
   async function handleSubmitDecree() {
+    const submittingOwner = userId;
     await runStudyDecreeSubmission({
       canSubmit: canIssue,
       resetPresentation: () =>
@@ -218,13 +358,16 @@ export function StudyClient({ userId }: { userId: string }) {
       submit: () => submitStudyDecree({
         decreeText: draftResult?.decree_text ?? "",
         canSubmit: canIssue,
-        setUiState: (state) => commitStudyDecreeUiState({
-          state,
-          setUiState,
-          clearDraft: () => setDraftResult(null),
-          invalidateRecentReplies: () =>
-            commitRecentReplies(invalidateStudyRecentReplies),
-        }),
+        setUiState: (state) => {
+          if (activeOwnerRef.current !== submittingOwner) return;
+          commitStudyDecreeUiState({
+            state,
+            setUiState,
+            clearDraft: () => setDraftResult(null),
+            invalidateRecentReplies: () =>
+              commitRecentReplies(invalidateStudyRecentReplies),
+          });
+        },
         requestSubmission: (text) => requestStudySubmission(text, {
             draftVersion: draftResult?.version ?? 0,
             draftFingerprint: draftResult?.fingerprint ?? "",
@@ -233,6 +376,14 @@ export function StudyClient({ userId }: { userId: string }) {
             // dependency method.
             fetchImpl: window.fetch.bind(window),
             scheduleRedirect: scheduleStudyLoginRedirect,
+            storage: window.sessionStorage,
+            userId: submittingOwner,
+            isCurrent: () => activeOwnerRef.current === submittingOwner,
+            onProgress: (phase, jobId) => {
+              if (activeOwnerRef.current === submittingOwner) {
+                setUiState({ phase, jobId });
+              }
+            },
         }),
       }),
     });
@@ -240,6 +391,7 @@ export function StudyClient({ userId }: { userId: string }) {
 
   async function handleDraft() {
     if (!decreeText.trim() || draftPending) return;
+    const draftingOwner = userId;
     const requestId = draftRequestIdRef.current + 1;
     draftRequestIdRef.current = requestId;
     const sourceText = decreeText;
@@ -251,6 +403,7 @@ export function StudyClient({ userId }: { userId: string }) {
       sourceText,
       getLatestRequestId: () => draftRequestIdRef.current,
       getCurrentSourceText: () => decreeTextRef.current,
+      isCurrentOwner: () => activeOwnerRef.current === draftingOwner,
       request: (text) => requestChancellorDraft(
         text,
         (draftResult?.version ?? 0) + 1,
@@ -327,6 +480,9 @@ export function StudyClient({ userId }: { userId: string }) {
       consultPending={consultState.pending}
       consultError={consultState.error}
       onConsultSend={handleConsultSend}
+      dailyMemorialState={dailyMemorialState}
+      onConfirmDailyMemorial={() => void handleConfirmDailyMemorial()}
+      onRetryDailyMemorial={() => void loadLatestDailyMemorial()}
     />
   );
 }

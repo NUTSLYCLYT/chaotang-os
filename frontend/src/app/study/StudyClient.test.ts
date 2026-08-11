@@ -37,6 +37,7 @@ type DraftRequestRunner = (options: {
   sourceText: string;
   getLatestRequestId(): number;
   getCurrentSourceText(): string;
+  isCurrentOwner?(): boolean;
   request(sourceText: string): Promise<
     | { ok: true; draft: { status: "DRAFT_READY"; decree_text: string } }
     | { ok: false; unauthenticated: boolean }
@@ -142,6 +143,44 @@ test("StudyClient delegates presentation while preserving the real decree state 
   assert.match(source, /requestChancellorDraft/);
   assert.match(source, /onSubmit=\{\(\) => void handleSubmitDecree\(\)\}/);
   assert.doesNotMatch(source, /ChaotangHeader|EdictScrollShell|data-testid="decree-textarea"/);
+  assert.match(source, /dailyMemorialState=\{dailyMemorialState\}/);
+  assert.match(source, /onConfirmDailyMemorial=/);
+  assert.match(source, /onRetryDailyMemorial=/);
+});
+
+test("StudyClient resumes one owner-scoped async job and invalidates stale owner callbacks", async () => {
+  const source = await readFile(new URL("./StudyClient.tsx", import.meta.url), "utf8");
+
+  assert.match(source, /resumeStudySubmission/);
+  assert.match(source, /loadActiveJob\(window\.sessionStorage, userId\)/);
+  assert.match(source, /const resumeKey = `\$\{encodeURIComponent\(userId\)\}:\$\{active\.jobId\}`/);
+  assert.match(source, /resumedJobRef\.current = null/);
+  assert.match(source, /isCurrent: \(\) => currentOwner && activeOwnerRef\.current === userId/);
+  assert.match(source, /const submittingOwner = userId/);
+  assert.match(source, /activeOwnerRef\.current !== submittingOwner/);
+  assert.match(source, /userId: submittingOwner/);
+  assert.match(source, /isCurrent: \(\) => activeOwnerRef\.current === submittingOwner/);
+  assert.match(source, /useState<OwnerScopedDecreeUiState>/);
+  assert.match(source, /resolveOwnerScopedDecreeUiState\(ownerScopedUiState, userId\)/);
+  assert.match(source, /setOwnerScopedUiState\(\{ ownerId: userId, value: state \}\)/);
+  assert.match(source, /useLayoutEffect\(\(\) => \{\s*activeOwnerRef\.current = userId/);
+  assert.doesNotMatch(source, /setTimeout\([\s\S]{0,200}?setUiState\(IDLE_UI_STATE\)/);
+  assert.match(source, /useState<OwnerScopedChancellorDraftComposerState>/);
+  assert.match(
+    source,
+    /resolveOwnerScopedChancellorDraftComposerState\(\s*ownerScopedDraftComposer,\s*userId,\s*\)/,
+  );
+  assert.match(source, /const draftingOwner = userId/);
+  assert.match(source, /isCurrentOwner: \(\) => activeOwnerRef\.current === draftingOwner/);
+});
+
+test("daily memorial 401 redirects and 409 refreshes without retrying stale POST", async () => {
+  const source = await readFile(new URL("./StudyClient.tsx", import.meta.url), "utf8");
+
+  assert.match(source, /\/login\?next=%2Fstudy/);
+  assert.match(source, /runDailyMemorialConfirmation\(\{/);
+  assert.match(source, /refresh: loadLatestDailyMemorial/);
+  assert.doesNotMatch(source, /useEffect\([\s\S]{0,400}?requestDailyMemorialConfirmation/);
 });
 
 test("Study page scopes consult browser persistence to the authenticated user", async () => {
@@ -304,7 +343,7 @@ test("StudyClient gates issuing on the confirmed decree text, not the source inp
 
   assert.match(
     source,
-    /const canIssue = uiState\.phase !== "submitting" &&\s*canIssueChancellorDraft\(draftResult\)/,
+    /const canIssue = !\["enqueueing", "queued", "running"\]\.includes\(uiState\.phase\) &&\s*canIssueChancellorDraft\(draftResult\)/,
   );
   assert.doesNotMatch(
     source,
@@ -346,6 +385,42 @@ test("editing the source while a draft request is pending ignores the stale resp
   resolveDraft({
     ok: true,
     draft: { status: "DRAFT_READY", decree_text: "事项 A 的旧拟旨" },
+  });
+
+  assert.equal(await pending, false);
+  assert.deepEqual(installedDrafts, []);
+  assert.deepEqual(pendingStates, []);
+  assert.deepEqual(errors, []);
+});
+
+test("a pending A draft response cannot install after switching to owner B", async () => {
+  const runDraftRequest = await loadExecutableDraftRequestRunner();
+  let currentOwner = "owner-a";
+  let resolveDraft!: (result: {
+    ok: true;
+    draft: { status: "DRAFT_READY"; decree_text: string };
+  }) => void;
+  const installedDrafts: Array<{ status: "DRAFT_READY"; decree_text: string }> = [];
+  const pendingStates: boolean[] = [];
+  const errors: Array<string | null> = [];
+
+  const pending = runDraftRequest({
+    requestId: 1,
+    sourceText: "owner A source",
+    getLatestRequestId: () => 1,
+    getCurrentSourceText: () => "owner A source",
+    isCurrentOwner: () => currentOwner === "owner-a",
+    request: () => new Promise((resolve) => { resolveDraft = resolve; }),
+    setPending: (value) => pendingStates.push(value),
+    setError: (value) => errors.push(value),
+    setDraft: (draft) => installedDrafts.push(draft),
+    scheduleRedirect: () => assert.fail("stale owner response must not redirect"),
+  });
+
+  currentOwner = "owner-b";
+  resolveDraft({
+    ok: true,
+    draft: { status: "DRAFT_READY", decree_text: "owner A private decree" },
   });
 
   assert.equal(await pending, false);

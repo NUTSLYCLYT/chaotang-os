@@ -1,4 +1,5 @@
 import { getJinyiweiSummary } from "../../../../lib/backendClient.ts";
+import { readSessionId } from "../../../../lib/session.ts";
 
 const FRIENDLY = {
   validation: "查询条件未通过校验。", not_found: "调查案卷不存在。",
@@ -7,10 +8,12 @@ const FRIENDLY = {
 } as const;
 const reply=(body:unknown,status:number)=>new Response(JSON.stringify(body),{status,headers:{"content-type":"application/json"}});
 
-export function createSummaryHandler(readSummary:typeof getJinyiweiSummary=getJinyiweiSummary){
+export function createSummaryHandler(readSummary:typeof getJinyiweiSummary=getJinyiweiSummary,readSession:typeof readSessionId=readSessionId){
 return async function handleSummary(request:Request):Promise<Response>{
+  const sessionId=readSession(request);
+  if(!sessionId)return reply({status:"error",reason:"unauthenticated",message:"authentication required"},401);
   if ([...new URL(request.url).searchParams.keys()].length>0) return reply({status:"error",reason:"validation",message:FRIENDLY.validation},400);
-  const result=await readSummary();
+  const result=await readSummary({sessionId});
   if(result.ok)return reply({status:"ok",summary:result.data},200);
   const status=result.kind==="validation"?400:result.kind==="not_found"?404:503;
   return reply({status:"error",reason:result.kind,message:FRIENDLY[result.kind]},status);

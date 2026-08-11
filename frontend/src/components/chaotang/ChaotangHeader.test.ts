@@ -11,6 +11,8 @@ test("ChaotangHeader provides semantic navigation without client-side side effec
   assert.match(source, /上值朝 · AI 智能办公/);
   assert.match(source, /朝堂 OS/);
   assert.match(source, /aria-current=\{active \? "page" : undefined\}/);
+  assert.match(source, /import \{ LogoutButton \} from "\.\/LogoutButton"/);
+  assert.match(source, /<LogoutButton className=\{styles\.logoutButton\} \/>/);
   for (const href of ["/dadian", "/study", "/junjichu", "/liubu", "/zhuanshu", "/shiguan"]) {
     assert.match(source, new RegExp(`href: "${href}"`));
   }
@@ -25,4 +27,5 @@ test("ChaotangHeader provides semantic navigation without client-side side effec
   assert.match(css, /width: 74px/);
   assert.match(css, /\.navWide \{ width: 88px; \}/);
   assert.match(css, /linear-gradient\(180deg, rgba\(6, 9, 20, 0\.92\)/);
+  assert.match(css, /\.logoutButton\s*\{/);
 });

@@ -69,7 +69,10 @@ test("successful login defaults to dadian and preserves exact protected destinat
     ["/dadian", "/dadian"],
     ["/study", "/study"],
     ["/shiguan", "/shiguan"],
+    ["/jinyiwei", "/jinyiwei"],
     ["https://attacker.example", "/dadian"],
+    ["//attacker.example", "/dadian"],
+    ["/jinyiwei/extra", "/dadian"],
     ["/unknown", "/dadian"],
   ] as const) {
     const result = await submitLogin({ username: "court", password: "six-or-more" }, next, request);

@@ -70,6 +70,29 @@ def test_chancellor_archival_binds_reply_to_the_authenticated_owner(tmp_path, mo
     assert storage.list_archives(owner_user_id="owner-b", db_path=path) == []
 
 
+def test_job_id_makes_recovered_decree_archival_idempotent(tmp_path, monkeypatch):
+    path = tmp_path / "job-idempotent-decree.sqlite3"
+    monkeypatch.setattr(db, "_DEFAULT_DB_PATH", path)
+
+    first = archive_decree.archive_chancellor_decree(
+        "请核定年度预算",
+        _response(),
+        reply_id="decree-job-1",
+        owner_user_id="owner-a",
+    )
+    recovered = archive_decree.archive_chancellor_decree(
+        "请核定年度预算",
+        _response(),
+        reply_id="decree-job-1",
+        owner_user_id="owner-a",
+    )
+
+    assert first.archived is True
+    assert recovered.archived is True
+    assert recovered.reply_id == first.reply_id == "decree-job-1"
+    assert len(storage.list_archives(owner_user_id="owner-a", db_path=path)) == 1
+
+
 def test_archival_failure_is_degraded_without_partial_success(monkeypatch):
     def _fail(*_args, **_kwargs):
         raise ShiguanStorageError("史馆写入失败，请稍后再试")
@@ -110,7 +133,9 @@ def test_graph_fetches_one_context_and_reuses_unavailable_degradation(monkeypatc
         prompts.append(messages[-1]["content"])
         return next(responses)
 
-    result = build_chancellor_graph(chat_model=_model).invoke(
+    result = build_chancellor_graph(
+        owner_user_id="test-owner", chat_model=_model
+    ).invoke(
         {
             "decree_text": "请核定预算",
             "approved_route": ApprovedRouteSnapshot(

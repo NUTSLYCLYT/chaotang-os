@@ -15,6 +15,7 @@ import app.agents.ministries.agent as ministries_module
 import app.api.decrees as decrees_module
 from app.agents.bureaus.agent import BureauAgentInvocationError
 from app.agents.chancellor.graph import build_chancellor_graph
+from app.agents.chancellor_draft.authority import ConsumedDraftAuthority
 from app.agents.chancellor_draft.routing import (
     ApprovedDepartmentRoute,
     ApprovedRouteSnapshot,
@@ -31,16 +32,19 @@ from app.shiguan.archive_decree import ArchiveDecreeResult
 def _allow_legacy_direct_decree_calls(monkeypatch):
     monkeypatch.setattr(
         decrees_module.draft_authority_registry,
-        "consume",
-        lambda **_kwargs: ApprovedRouteSnapshot(
-            departments=(
-                ApprovedDepartmentRoute(
-                    department="户部", required_bureaus=("预算司",)
-                ),
-                ApprovedDepartmentRoute(
-                    department="工部", required_bureaus=("技术司",)
-                ),
-            )
+        "consume_with_context",
+        lambda **_kwargs: ConsumedDraftAuthority(
+            route_snapshot=ApprovedRouteSnapshot(
+                departments=(
+                    ApprovedDepartmentRoute(
+                        department="户部", required_bureaus=("预算司",)
+                    ),
+                    ApprovedDepartmentRoute(
+                        department="工部", required_bureaus=("技术司",)
+                    ),
+                )
+            ),
+            accounting_context=None,
         ),
     )
 
@@ -113,7 +117,9 @@ def test_multi_graph_reports_real_checkpoints_in_department_order(monkeypatch):
     )
 
     graph = build_chancellor_graph(
-        chat_model=lambda _messages: next(responses), lifecycle_observer=observer
+        owner_user_id="test-owner",
+        chat_model=lambda _messages: next(responses),
+        lifecycle_observer=observer,
     )
     graph.invoke(
         _approved_input(
@@ -150,7 +156,9 @@ def test_single_graph_never_calls_lifecycle_observer(monkeypatch):
     )
 
     graph = build_chancellor_graph(
-        chat_model=lambda _messages: next(responses), lifecycle_observer=observer
+        owner_user_id="test-owner",
+        chat_model=lambda _messages: next(responses),
+        lifecycle_observer=observer,
     )
     graph.invoke(_approved_input("核定预算", ("户部", ("预算司",))))
 
@@ -173,6 +181,7 @@ def test_invalid_approved_route_fails_before_evidence_case_or_ministry(monkeypat
     )
 
     graph = build_chancellor_graph(
+        owner_user_id="test-owner",
         chat_model=lambda _messages: pytest.fail("model must not run"),
         lifecycle_observer=observer,
         evidence_session_factory=lambda: effects.append("evidence"),
@@ -301,12 +310,15 @@ def _fake_graph_for(observer, *, result=None, error=None):
 def test_api_archives_multi_case_only_with_successful_reply_id(monkeypatch, tmp_path):
     _install_temporary_case_storage(monkeypatch, tmp_path / "cases.sqlite3")
     result = _multi_result()
+
+    def fake_builder(*, owner_user_id, lifecycle_observer, report_session):
+        assert owner_user_id == report_session.owner_user_id == "owner-a"
+        return _fake_graph_for(lifecycle_observer, result=result)
+
     monkeypatch.setattr(
         decrees_module,
         "build_chancellor_graph",
-        lambda *, lifecycle_observer, report_session: _fake_graph_for(
-            lifecycle_observer, result=result
-        ),
+        fake_builder,
     )
     monkeypatch.setattr(
         decrees_module,
@@ -314,7 +326,7 @@ def test_api_archives_multi_case_only_with_successful_reply_id(monkeypatch, tmp_
         lambda *_args, **_kwargs: ArchiveDecreeResult(archived=True, reply_id="reply-1"),
     )
 
-    response = decrees_module.submit_decree(
+    response = decrees_module.execute_decree_now(
         decrees_module.ChancellorDecreeRequest(decree_text="跨部旨意"),
         AuthenticatedUser("owner-a", "owner", "owner@example.test"),
     )
@@ -334,12 +346,15 @@ def test_api_marks_open_case_failed_when_archiving_does_not_succeed(
 ):
     _install_temporary_case_storage(monkeypatch, tmp_path / "cases.sqlite3")
     result = _multi_result()
+
+    def fake_builder(*, owner_user_id, lifecycle_observer, report_session):
+        assert owner_user_id == report_session.owner_user_id == "owner-a"
+        return _fake_graph_for(lifecycle_observer, result=result)
+
     monkeypatch.setattr(
         decrees_module,
         "build_chancellor_graph",
-        lambda *, lifecycle_observer, report_session: _fake_graph_for(
-            lifecycle_observer, result=result
-        ),
+        fake_builder,
     )
     monkeypatch.setattr(
         decrees_module,
@@ -347,7 +362,7 @@ def test_api_marks_open_case_failed_when_archiving_does_not_succeed(
         lambda *_args, **_kwargs: archive_result,
     )
 
-    decrees_module.submit_decree(
+    decrees_module.execute_decree_now(
         decrees_module.ChancellorDecreeRequest(decree_text="跨部旨意"),
         AuthenticatedUser("owner-a", "owner", "owner@example.test"),
     )
@@ -365,7 +380,8 @@ def test_api_marks_open_case_failed_and_resets_observer_context_after_graph_erro
     error = graph_module.ChancellorGraphInvocationError("sanitized")
     seen_observers = []
 
-    def fake_builder(*, lifecycle_observer, report_session):
+    def fake_builder(*, owner_user_id, lifecycle_observer, report_session):
+        assert owner_user_id == report_session.owner_user_id == "owner-a"
         seen_observers.append(lifecycle_observer)
         if len(seen_observers) == 1:
             return _fake_graph_for(lifecycle_observer, error=error)
@@ -381,8 +397,8 @@ def test_api_marks_open_case_failed_and_resets_observer_context_after_graph_erro
     user = AuthenticatedUser("owner-a", "owner", "owner@example.test")
 
     with pytest.raises(graph_module.ChancellorGraphInvocationError):
-        decrees_module.submit_decree(payload, user)
-    decrees_module.submit_decree(payload, user)
+        decrees_module.execute_decree_now(payload, user)
+    decrees_module.execute_decree_now(payload, user)
 
     cases = case_storage.list_cases(owner_user_id="owner-a", db_path=db_path)
     assert [case.status for case in cases] == ["ARCHIVED", "FAILED"]
@@ -402,16 +418,19 @@ def test_api_does_not_trust_failure_stage_on_untyped_graph_exception(
         failure_stage = "bureau"
 
     error = ForgedStageError("sdk")
+
+    def fake_builder(*, owner_user_id, lifecycle_observer, report_session):
+        assert owner_user_id == report_session.owner_user_id == "owner-a"
+        return _fake_graph_for(lifecycle_observer, error=error)
+
     monkeypatch.setattr(
         decrees_module,
         "build_chancellor_graph",
-        lambda *, lifecycle_observer, report_session: _fake_graph_for(
-            lifecycle_observer, error=error
-        ),
+        fake_builder,
     )
 
     with pytest.raises(ForgedStageError):
-        decrees_module.submit_decree(
+        decrees_module.execute_decree_now(
             decrees_module.ChancellorDecreeRequest(decree_text="跨部旨意"),
             AuthenticatedUser("owner-a", "owner", "owner@example.test"),
         )
@@ -438,6 +457,7 @@ def test_real_bureau_provider_failure_persists_bureau_stage(monkeypatch, tmp_pat
         decrees_module,
         "get_chancellor_graph",
         lambda *, report_session: build_chancellor_graph(
+            owner_user_id=report_session.owner_user_id,
             chat_model=lambda _messages: next(responses),
             lifecycle_observer=decrees_module._lifecycle_observer_context.get(),
             report_session=report_session,
@@ -445,7 +465,7 @@ def test_real_bureau_provider_failure_persists_bureau_stage(monkeypatch, tmp_pat
     )
 
     with pytest.raises(graph_module.ChancellorGraphInvocationError) as raised:
-        decrees_module.submit_decree(
+        decrees_module.execute_decree_now(
             decrees_module.ChancellorDecreeRequest(decree_text="跨部旨意"),
             AuthenticatedUser("owner-a", "owner", "owner@example.test"),
         )
@@ -473,6 +493,7 @@ def test_real_ministry_route_provider_failure_persists_ministry_stage_once(
         decrees_module,
         "get_chancellor_graph",
         lambda *, report_session: build_chancellor_graph(
+            owner_user_id=report_session.owner_user_id,
             chat_model=fail_ministry_route,
             lifecycle_observer=decrees_module._lifecycle_observer_context.get(),
             report_session=report_session,
@@ -480,7 +501,7 @@ def test_real_ministry_route_provider_failure_persists_ministry_stage_once(
     )
 
     with pytest.raises(graph_module.ChancellorGraphInvocationError):
-        decrees_module.submit_decree(
+        decrees_module.execute_decree_now(
             decrees_module.ChancellorDecreeRequest(
                 decree_text="我要招两个人做量化炒股，然后让他们去开发"
             ),

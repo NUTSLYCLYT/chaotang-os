@@ -368,8 +368,13 @@ def test_jinyiwei_v1_migration_rolls_back_all_rows_when_later_row_is_invalid(
 def test_jinyiwei_future_schema_version_is_rejected_without_rewrite(tmp_path):
     path = tmp_path / "jinyiwei-future.sqlite3"
     connection = sqlite3.connect(path)
-    connection.execute("PRAGMA user_version = 5")
+    connection.execute("CREATE TABLE future_marker (value TEXT NOT NULL)")
+    connection.execute("INSERT INTO future_marker VALUES ('preserve-me')")
+    connection.execute("PRAGMA user_version = 6")
     connection.commit()
+    schema_before = connection.execute(
+        "SELECT type, name, sql FROM sqlite_master ORDER BY type, name"
+    ).fetchall()
     connection.close()
 
     with pytest.raises(sqlite3.DatabaseError, match="unsupported Jinyiwei schema version"):
@@ -377,7 +382,16 @@ def test_jinyiwei_future_schema_version_is_rejected_without_rewrite(tmp_path):
 
     connection = sqlite3.connect(path)
     try:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 5
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 6
+        assert (
+            connection.execute(
+                "SELECT type, name, sql FROM sqlite_master ORDER BY type, name"
+            ).fetchall()
+            == schema_before
+        )
+        assert connection.execute("SELECT value FROM future_marker").fetchone() == (
+            "preserve-me",
+        )
     finally:
         connection.close()
 
@@ -406,7 +420,23 @@ def test_jinyiwei_schema_v3_normalizes_required_fact_identity(tmp_path):
     try:
         columns = {row[1] for row in connection.execute("PRAGMA table_info(requested_fact_slots)")}
         assert {"category", "data_scope", "subject", "jurisdiction"} <= columns
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 4
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 5
+        request_info = {
+            row[1]: row for row in connection.execute("PRAGMA table_info(data_gap_requests)")
+        }
+        cache_info = {
+            row[1]: row for row in connection.execute("PRAGMA table_info(cache_entries)")
+        }
+        assert request_info["owner_user_id"][3] == 0
+        assert cache_info["owner_user_id"][3] == 1
+        assert cache_info["owner_user_id"][5] == 1
+        assert cache_info["fingerprint"][5] == 2
+        assert tuple(
+            row[2]
+            for row in connection.execute(
+                "PRAGMA index_info(data_gap_requests_owner_idx)"
+            )
+        ) == ("owner_user_id",)
     finally:
         connection.close()
 
@@ -424,7 +454,10 @@ def test_jinyiwei_v1_migration_strictly_backfills_fact_identity(tmp_path):
             "SELECT category, data_scope, subject, jurisdiction FROM requested_fact_slots"
         ).fetchone()
         assert row == ("MARKET_QUOTE", "EXTERNAL_PUBLIC", "002594.SZ", "CN")
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 4
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 5
+        assert connection.execute(
+            "SELECT owner_user_id FROM data_gap_requests WHERE request_id = 'request-1'"
+        ).fetchone() == (None,)
     finally:
         connection.close()
 
@@ -445,11 +478,54 @@ def test_jinyiwei_v1_migration_rolls_back_invalid_legacy_fact_slot(tmp_path):
         connection.close()
 
 
-def test_new_database_is_created_directly_at_schema_v3(tmp_path):
+def test_jinyiwei_v1_to_v5_failure_rolls_back_entire_chain(tmp_path, monkeypatch):
+    path = tmp_path / "jinyiwei-v1-forced-failure.sqlite3"
+    _make_jinyiwei_v1(path)
+    connection = sqlite3.connect(path)
+    schema_before = connection.execute(
+        "SELECT type, name, sql FROM sqlite_master ORDER BY type, name"
+    ).fetchall()
+    rows_before = connection.execute(
+        "SELECT * FROM requested_fact_slots ORDER BY request_id, ordinal"
+    ).fetchall()
+    connection.close()
+
+    def fail_v5_assertion(_connection):
+        raise sqlite3.DatabaseError("forced v5 assertion failure")
+
+    monkeypatch.setattr(jinyiwei_db, "_assert_v5_schema", fail_v5_assertion)
+
+    with pytest.raises(sqlite3.DatabaseError, match="^forced v5 assertion failure$"):
+        jinyiwei_db.initialize_database(path)
+
+    connection = sqlite3.connect(path)
+    try:
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 1
+        assert (
+            connection.execute(
+                "SELECT type, name, sql FROM sqlite_master ORDER BY type, name"
+            ).fetchall()
+            == schema_before
+        )
+        assert (
+            connection.execute(
+                "SELECT * FROM requested_fact_slots ORDER BY request_id, ordinal"
+            ).fetchall()
+            == rows_before
+        )
+        assert connection.execute(
+            "SELECT name FROM sqlite_master "
+            "WHERE name LIKE '%_v5' OR name = 'data_gap_requests_owner_idx'"
+        ).fetchall() == []
+    finally:
+        connection.close()
+
+
+def test_new_database_is_created_directly_at_schema_v5(tmp_path):
     path = tmp_path / "new.sqlite3"
     conn = db.get_connection(path)
     try:
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 3
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 5
         columns = {row[1] for row in conn.execute("PRAGMA table_info(archives)")}
         reply_columns = {
             "source_kind",
@@ -461,8 +537,64 @@ def test_new_database_is_created_directly_at_schema_v3(tmp_path):
         }
         assert reply_columns <= columns
         assert "decision_process" not in columns
+        assert conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='archive_decisions'"
+        ).fetchone()[0] == "archive_decisions"
     finally:
         conn.close()
+
+
+def test_v4_to_v5_preserves_archives_and_adds_empty_decision_table(tmp_path):
+    path = tmp_path / "schema-v4.sqlite3"
+    connection = db.get_connection(path)
+    connection.execute(
+        "INSERT INTO archives "
+        "(id, type, title, content, matter_type, department, created_at, owner_user_id) "
+        "VALUES ('archive-1', 'MEMORIAL', 'title', 'content', 'matter', '户部', "
+        "'2026-08-09T00:00:00+00:00', 'owner-1')"
+    )
+    connection.commit()
+    connection.execute("DROP TABLE IF EXISTS archive_decisions")
+    connection.execute("PRAGMA user_version = 4")
+    connection.commit()
+    connection.close()
+
+    db.migrate_v4_to_v5(path)
+
+    connection = sqlite3.connect(path)
+    try:
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 5
+        assert connection.execute(
+            "SELECT id, owner_user_id FROM archives WHERE id = 'archive-1'"
+        ).fetchone() == ("archive-1", "owner-1")
+        assert connection.execute("SELECT COUNT(*) FROM archive_decisions").fetchone()[0] == 0
+    finally:
+        connection.close()
+
+
+def test_v4_to_v5_failure_rolls_back_schema_and_version(tmp_path, monkeypatch):
+    path = tmp_path / "schema-v4-failure.sqlite3"
+    connection = db.get_connection(path)
+    connection.execute("DROP TABLE IF EXISTS archive_decisions")
+    connection.execute("PRAGMA user_version = 4")
+    connection.commit()
+    connection.close()
+
+    def fail_validation(_connection):
+        raise ValueError("forced validation failure")
+
+    monkeypatch.setattr(db, "_validate_v5_table", fail_validation, raising=False)
+    with pytest.raises(ShiguanStorageError):
+        db.migrate_v4_to_v5(path)
+
+    connection = sqlite3.connect(path)
+    try:
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 4
+        assert connection.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='archive_decisions'"
+        ).fetchone() is None
+    finally:
+        connection.close()
 
 
 def test_get_connection_fails_closed_for_v1_database(tmp_path):
@@ -479,6 +611,8 @@ def test_explicit_confirmed_pair_migration_merges_fake_memorial_into_reply(tmp_p
     db.migrate_v1_to_v2(path, confirmed_pairs={"decision-1": "memorial-1"})
 
     db.migrate_v2_to_v3(path)
+    db.migrate_v3_to_v4(path)
+    db.migrate_v4_to_v5(path)
     with pytest.raises(ArchiveNotFoundError):
         storage.get_archive("decision-1", db_path=path)
     with pytest.raises(ArchiveNotFoundError):
@@ -550,6 +684,10 @@ def _make_v2(path):
     connection = db.get_connection(path)
     connection.close()
     connection = sqlite3.connect(path)
+    connection.execute("DROP TABLE archive_decisions")
+    connection.execute("DROP TABLE daily_memorial_stage_results")
+    connection.execute("DROP TABLE daily_memorial_fact_snapshots")
+    connection.execute("DROP TABLE daily_memorial_runs")
     connection.execute("DROP TABLE archive_evidence_references")
     connection.execute("PRAGMA user_version = 2")
     connection.commit()
@@ -576,11 +714,48 @@ def test_runtime_migration_backs_up_v2_and_reads_archives(tmp_path):
     report = maintenance.migrate_runtime_v2_to_v3(path)
 
     backup = path.with_name("shiguan.sqlite3.v2-backup")
-    assert report.ready is True
+    assert report.version == 3
+    assert report.ready is False
     assert report.migrated is True
     assert report.backup_path == str(backup)
     assert backup.exists()
+    upgraded = maintenance.migrate_runtime_v3_to_v4(path)
+    assert upgraded.version == 4
+    assert upgraded.ready is False
+    current = maintenance.migrate_runtime_v4_to_v5(path)
+    assert current.version == 5
+    assert current.ready is True
     assert storage.list_archives(db_path=path) == []
+
+
+def test_runtime_v4_to_v5_report_counts_every_owner_archive_past_list_limit(tmp_path):
+    path = tmp_path / "schema-v4-many-archives.sqlite3"
+    connection = db.get_connection(path)
+    connection.executemany(
+        "INSERT INTO archives "
+        "(id, type, title, content, matter_type, department, created_at, owner_user_id) "
+        "VALUES (?, 'MEMORIAL', ?, 'content', 'matter', '户部', "
+        "'2026-08-09T00:00:00+00:00', ?)",
+        [
+            (f"archive-{index:03d}", f"title-{index:03d}", f"owner-{index % 3}")
+            for index in range(105)
+        ],
+    )
+    connection.commit()
+    connection.execute("DROP TABLE archive_decisions")
+    connection.execute("PRAGMA user_version = 4")
+    connection.commit()
+    connection.close()
+
+    report = maintenance.migrate_runtime_v4_to_v5(path)
+
+    assert report.ready is True
+    assert report.archive_count == 105
+    connection = sqlite3.connect(path)
+    try:
+        assert connection.execute("SELECT COUNT(*) FROM archives").fetchone()[0] == 105
+    finally:
+        connection.close()
 
 
 def test_runtime_migration_refuses_to_overwrite_existing_backup(tmp_path):

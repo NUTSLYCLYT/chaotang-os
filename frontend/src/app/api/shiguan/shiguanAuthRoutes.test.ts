@@ -5,6 +5,7 @@ import { test } from "node:test";
 
 import { GET as archives } from "./archives/route.ts";
 import { PATCH as review } from "./archives/[id]/review/route.ts";
+import { PUT as decision } from "./archives/[id]/decision/route.ts";
 import { POST as recall } from "./recall/route.ts";
 import { GET as statistics } from "./statistics/route.ts";
 
@@ -88,5 +89,12 @@ test("review BFF short-circuits absent cookies and preserves backend 401", async
   await assertProtected((withSession) => review(
     request("http://localhost/api/shiguan/archives/a-1/review", "PATCH", { status: "ACHIEVED" }, withSession),
     { params: { id: "a-1" } },
+  ));
+});
+
+test("decision BFF short-circuits absent cookies and forwards only Bearer session", async () => {
+  await assertProtected((withSession) => decision(
+    request("http://localhost/api/shiguan/archives/a-1/decision", "PUT", { decision: "APPROVED" }, withSession),
+    { params: Promise.resolve({ id: "a-1" }) },
   ));
 });

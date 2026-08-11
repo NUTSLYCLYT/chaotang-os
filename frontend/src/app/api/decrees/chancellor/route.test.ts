@@ -13,6 +13,9 @@ function makeRequest(body: unknown, authenticated = true): Request {
           ...(body as Record<string, unknown>),
           draftVersion: 1,
           draftFingerprint: "a".repeat(64),
+          idempotencyKey:
+            (body as Record<string, unknown>).idempotencyKey ??
+            "test-idempotency-key",
         }
       : body;
   return new Request("http://localhost/api/decrees/chancellor", {
@@ -44,6 +47,8 @@ const SINGLE_RESULT = {
     councilVerdict: null,
     finalVerdict: "准行。",
     recommendations: ["核定预算", "分期拨付", "设置审计节点"],
+    deliveryKind: "accounting_report",
+    deliveryPeriod: { startYear: 2024, endYear: 2025 },
     artifacts: [{
       artifactId: "artifact-1",
       kind: "ACCOUNTING_MANAGEMENT_REPORT_XLSX",
@@ -102,6 +107,7 @@ for (const [name, result] of [["single", SINGLE_RESULT], ["multi", MULTI_RESULT]
       assert.equal(options?.sessionId, "test-session");
       assert.equal(options?.draftVersion, 1);
       assert.equal(options?.draftFingerprint, "a".repeat(64));
+      assert.equal(options?.idempotencyKey, "test-idempotency-key");
       return result;
     });
 
@@ -120,11 +126,64 @@ for (const [name, result] of [["single", SINGLE_RESULT], ["multi", MULTI_RESULT]
 test("POST preserves an empty artifacts list", async () => {
   const handler = createPostHandler(async () => ({
     ...SINGLE_RESULT,
-    data: { ...SINGLE_RESULT.data, artifacts: [] },
+    data: { ...SINGLE_RESULT.data, deliveryKind: "none", deliveryPeriod: null, artifacts: [] },
   }));
   const response = await handler(makeRequest({ decreeText: "test" }));
   assert.deepEqual((await response.json() as { artifacts: unknown }).artifacts, []);
 });
+
+test("POST maps an accepted job to browser-reachable same-origin monitor URLs", async () => {
+  let observedKey = "";
+  const jobId = "b".repeat(32);
+  const handler = createPostHandler(async (_text, options) => {
+    observedKey = options?.idempotencyKey ?? "";
+    return {
+      ok: true,
+      data: {
+        jobId,
+        state: "QUEUED" as const,
+        statusUrl: `/api/v1/decree-jobs/${jobId}`,
+        cancelUrl: `/api/v1/decree-jobs/${jobId}/cancel`,
+        acceptedAt: "2026-08-07T12:00:00Z",
+        replayed: false,
+      },
+      location: `/api/v1/decree-jobs/${jobId}`,
+      retryAfterSeconds: 1,
+    };
+  });
+
+  const response = await handler(makeRequest({
+    decreeText: "test",
+    idempotencyKey: "browser-key",
+  }));
+  const body = await response.json() as {
+    statusUrl: string;
+    cancelUrl: string;
+  };
+
+  assert.equal(response.status, 202);
+  assert.equal(response.headers.get("location"), `/api/decree-jobs/${jobId}`);
+  assert.equal(response.headers.get("retry-after"), "1");
+  assert.equal(body.statusUrl, `/api/decree-jobs/${jobId}`);
+  assert.equal(body.cancelUrl, `/api/decree-jobs/${jobId}/cancel`);
+  assert.equal(observedKey, "browser-key");
+});
+
+for (const [kind, expectedStatus, expectedReason] of [
+  ["source_not_current", 409, "source_not_current"],
+  ["draft_not_current", 409, "draft_not_current"],
+  ["conflict", 409, "idempotency_conflict"],
+  ["unavailable", 503, "unknown"],
+] as const) {
+  test(`POST preserves async enqueue error classification: ${kind}`, async () => {
+    const handler = createPostHandler(async () => ({ ok: false, kind }));
+    const response = await handler(makeRequest({ decreeText: "测试" }));
+    const body = await response.json() as { reason: string };
+
+    assert.equal(response.status, expectedStatus);
+    assert.equal(body.reason, expectedReason);
+  });
+}
 
 for (const [kind, expectedStatus] of [
   ["validation", 422],

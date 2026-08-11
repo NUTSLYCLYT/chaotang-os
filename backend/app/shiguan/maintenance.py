@@ -2,7 +2,7 @@
 
 This module deliberately keeps schema migration outside request and service
 startup paths. Operators can inspect a database without opening it for write,
-then explicitly back up and migrate a healthy v2 database to v3.
+then explicitly back up and migrate a healthy legacy database to the current schema.
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from app.shiguan import db, storage
+from app.shiguan import db
 from app.shiguan.errors import ShiguanStorageError
 
 _V2_REQUIRED_TABLES = {
@@ -25,6 +25,12 @@ _V2_REQUIRED_TABLES = {
     "archive_review_status",
 }
 _V3_REQUIRED_TABLES = _V2_REQUIRED_TABLES | {"archive_evidence_references"}
+_V4_REQUIRED_TABLES = _V3_REQUIRED_TABLES | {
+    "daily_memorial_runs",
+    "daily_memorial_fact_snapshots",
+    "daily_memorial_stage_results",
+}
+_V5_REQUIRED_TABLES = _V4_REQUIRED_TABLES | {"archive_decisions"}
 
 
 @dataclass(frozen=True)
@@ -74,14 +80,14 @@ def inspect_runtime_database(path: Path) -> RuntimeDatabaseReport:
                 "SELECT name FROM sqlite_master WHERE type = 'table'"
             ).fetchall()
         }
-        required_tables_ok = _V3_REQUIRED_TABLES <= tables
+        required_tables_ok = _V5_REQUIRED_TABLES <= tables
         return RuntimeDatabaseReport(
             database_path=str(target),
             exists=True,
             version=version,
             integrity_ok=integrity_ok,
             required_tables_ok=required_tables_ok,
-            ready=version == 3 and integrity_ok and required_tables_ok,
+            ready=version == 5 and integrity_ok and required_tables_ok,
         )
     except sqlite3.Error:
         return RuntimeDatabaseReport(
@@ -142,9 +148,135 @@ def migrate_runtime_v2_to_v3(path: Path) -> RuntimeDatabaseReport:
 
     db.migrate_v2_to_v3(target)
     after = inspect_runtime_database(target)
+    if after.version != 3 or not after.integrity_ok:
+        raise ShiguanStorageError("史馆运行库迁移后预检失败")
+    connection = None
+    try:
+        connection = _readonly_connection(target)
+        tables = {
+            row[0]
+            for row in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'table'"
+            ).fetchall()
+        }
+        archive_count = connection.execute("SELECT COUNT(*) FROM archives").fetchone()[0]
+    except sqlite3.Error as exc:
+        raise ShiguanStorageError("史馆运行库迁移后预检失败") from exc
+    finally:
+        if connection is not None:
+            connection.close()
+    if not _V3_REQUIRED_TABLES <= tables:
+        raise ShiguanStorageError("史馆运行库迁移后预检失败")
+    return RuntimeDatabaseReport(
+        **{
+            **after.to_payload(),
+            "migrated": True,
+            "backup_path": str(backup),
+            "archive_count": archive_count,
+        }
+    )
+
+
+def migrate_runtime_v3_to_v4(path: Path) -> RuntimeDatabaseReport:
+    """Back up, migrate and read back one healthy schema-v3 database."""
+
+    target = path.resolve()
+    before = inspect_runtime_database(target)
+    if not before.exists or before.version != 3 or not before.integrity_ok:
+        raise ShiguanStorageError("史馆运行库不满足 v3 迁移条件")
+
+    connection: sqlite3.Connection | None = None
+    try:
+        connection = _readonly_connection(target)
+        tables = {
+            row[0]
+            for row in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'table'"
+            ).fetchall()
+        }
+    except sqlite3.Error as exc:
+        raise ShiguanStorageError("史馆运行库预检失败") from exc
+    finally:
+        if connection is not None:
+            connection.close()
+    if not _V3_REQUIRED_TABLES <= tables or tables & {
+        "daily_memorial_runs",
+        "daily_memorial_fact_snapshots",
+        "daily_memorial_stage_results",
+    }:
+        raise ShiguanStorageError("史馆运行库不满足 v3 迁移条件")
+
+    backup = target.with_name(f"{target.name}.v3-backup")
+    if backup.exists():
+        raise ShiguanStorageError("史馆运行库备份已存在")
+    _copy_backup(target, backup)
+
+    db.migrate_v3_to_v4(target)
+    after = inspect_runtime_database(target)
+    if after.version != 4 or not after.integrity_ok:
+        raise ShiguanStorageError("史馆运行库迁移后预检失败")
+    connection = None
+    try:
+        connection = _readonly_connection(target)
+        archive_count = connection.execute("SELECT COUNT(*) FROM archives").fetchone()[0]
+    except sqlite3.Error as exc:
+        raise ShiguanStorageError("史馆运行库迁移后预检失败") from exc
+    finally:
+        if connection is not None:
+            connection.close()
+    return RuntimeDatabaseReport(
+        **{
+            **after.to_payload(),
+            "migrated": True,
+            "backup_path": str(backup),
+            "archive_count": archive_count,
+        }
+    )
+
+
+def migrate_runtime_v4_to_v5(path: Path) -> RuntimeDatabaseReport:
+    """Back up, migrate and read back one healthy schema-v4 database."""
+
+    target = path.resolve()
+    before = inspect_runtime_database(target)
+    if not before.exists or before.version != 4 or not before.integrity_ok:
+        raise ShiguanStorageError("史馆运行库不满足 v4 迁移条件")
+
+    connection: sqlite3.Connection | None = None
+    try:
+        connection = _readonly_connection(target)
+        tables = {
+            row[0]
+            for row in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'table'"
+            ).fetchall()
+        }
+    except sqlite3.Error as exc:
+        raise ShiguanStorageError("史馆运行库预检失败") from exc
+    finally:
+        if connection is not None:
+            connection.close()
+    if not _V4_REQUIRED_TABLES <= tables or "archive_decisions" in tables:
+        raise ShiguanStorageError("史馆运行库不满足 v4 迁移条件")
+
+    backup = target.with_name(f"{target.name}.v4-backup")
+    if backup.exists():
+        raise ShiguanStorageError("史馆运行库备份已存在")
+    _copy_backup(target, backup)
+
+    db.migrate_v4_to_v5(target)
+    after = inspect_runtime_database(target)
     if not after.ready:
         raise ShiguanStorageError("史馆运行库迁移后预检失败")
-    archive_count = len(storage.list_archives(db_path=target))
+    connection = None
+    try:
+        connection = _readonly_connection(target)
+        archive_count = connection.execute("SELECT COUNT(*) FROM archives").fetchone()[0]
+    except sqlite3.Error as exc:
+        raise ShiguanStorageError("史馆运行库迁移后计数失败") from exc
+    finally:
+        if connection is not None:
+            connection.close()
     return RuntimeDatabaseReport(
         **{
             **after.to_payload(),
@@ -160,6 +292,8 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     actions = parser.add_mutually_exclusive_group(required=True)
     actions.add_argument("--check", action="store_true")
     actions.add_argument("--migrate-v2-to-v3", action="store_true")
+    actions.add_argument("--migrate-v3-to-v4", action="store_true")
+    actions.add_argument("--migrate-v4-to-v5", action="store_true")
     parser.add_argument("--database", type=Path, default=db._DEFAULT_DB_PATH)
     return parser.parse_args(argv)
 
@@ -174,7 +308,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0 if report.ready else 1
 
     try:
-        report = migrate_runtime_v2_to_v3(args.database)
+        if args.migrate_v4_to_v5:
+            report = migrate_runtime_v4_to_v5(args.database)
+        elif args.migrate_v3_to_v4:
+            report = migrate_runtime_v3_to_v4(args.database)
+        else:
+            report = migrate_runtime_v2_to_v3(args.database)
     except ShiguanStorageError:
         report = inspect_runtime_database(args.database)
         print(json.dumps(report.to_payload(), ensure_ascii=False, sort_keys=True))

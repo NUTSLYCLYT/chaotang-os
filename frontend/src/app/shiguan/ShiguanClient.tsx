@@ -6,6 +6,7 @@ import { ShiguanWorkspace } from "../../features/shiguan-visual/ShiguanWorkspace
 import { buildArchiveFilterQuery } from "./archiveStatus.ts";
 import {
   parseArchivesPayload,
+  parseDecisionPayload,
   parseRecallPayload,
   parseReviewPayload,
   parseStatisticsPayload,
@@ -52,6 +53,16 @@ function createTransport(): ShiguanTransport {
       },
       parseReviewPayload,
     ),
+    decide: (archiveId, decision, signal) => requestShiguanJson(
+      `/api/shiguan/archives/${encodeURIComponent(archiveId)}/decision`,
+      {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ decision }),
+        signal,
+      },
+      parseDecisionPayload,
+    ),
   };
 }
 
@@ -89,10 +100,12 @@ export function ShiguanClient() {
         statisticsState={state.statisticsState}
         recallState={state.recallState}
         reviewState={state.reviewState}
+        decisionState={state.decisionState}
         onSelectArchive={(id) => controller.selectArchive(id)}
         onFilter={(input) => controller.filter(input)}
         onRecall={(input) => { controller.recall(input); }}
         onReview={(archiveId, input) => { controller.reviewArchive(archiveId, input); }}
+        onDecision={(archiveId, decision) => { controller.decideArchive(archiveId, decision); }}
         onRetryArchives={() => controller.retryArchives()}
         onRetryStatistics={() => controller.retryStatistics()}
         onRetryRecall={() => controller.retryRecall()}

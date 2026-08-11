@@ -6,6 +6,7 @@ import {
 const ERROR_KINDS = new Set<ShiguanErrorKind>([
   "validation",
   "not_found",
+  "conflict",
   "storage",
   "network",
   "unauthenticated",
@@ -35,6 +36,7 @@ function responseErrorKind(
   }
   if (response.status === 400 || response.status === 422) return "validation";
   if (response.status === 404) return "not_found";
+  if (response.status === 409) return "conflict";
   return "unknown";
 }
 

@@ -106,6 +106,7 @@ def test_public_health_and_protected_route_source_contract():
         "get_archive",
         "list_archives",
         "update_review_status",
+        "update_archive_decision",
         "get_statistics",
         "recall",
     ):

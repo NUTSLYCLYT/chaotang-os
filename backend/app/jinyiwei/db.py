@@ -16,7 +16,7 @@ DEFAULT_DB_PATH = _BACKEND_DATA_PATH / "jinyiwei.sqlite3"
 SHIGUAN_DB_PATH = _BACKEND_DATA_PATH / "shiguan.sqlite3"
 _BUSY_TIMEOUT_MS = 5_000
 
-_REQUIRED_SCHEMA_COLUMNS = {
+_V4_REQUIRED_SCHEMA_COLUMNS = {
     "data_gap_requests": {
         "request_id", "fingerprint", "requesting_agent", "question",
         "decision_context", "freshness_json", "existing_evidence_ids_json",
@@ -56,10 +56,155 @@ _REQUIRED_SCHEMA_COLUMNS = {
     },
 }
 
+_REQUIRED_SCHEMA_COLUMNS = {
+    **_V4_REQUIRED_SCHEMA_COLUMNS,
+    "data_gap_requests": _V4_REQUIRED_SCHEMA_COLUMNS["data_gap_requests"]
+    | {"owner_user_id"},
+    "cache_entries": _V4_REQUIRED_SCHEMA_COLUMNS["cache_entries"]
+    | {"owner_user_id"},
+    "evidence_adoptions": _V4_REQUIRED_SCHEMA_COLUMNS["evidence_adoptions"]
+    | {"owner_user_id"},
+    "adoption_batches": _V4_REQUIRED_SCHEMA_COLUMNS["adoption_batches"]
+    | {"owner_user_id"},
+}
+
+_V2_REQUIRED_SCHEMA_COLUMNS = {
+    "data_gap_requests": {
+        "request_id", "fingerprint", "requesting_agent", "question",
+        "decision_context", "freshness_json", "existing_evidence_ids_json",
+        "timeout_seconds", "source_scope_json", "canonical_json",
+    },
+    "requested_fact_slots": {
+        "request_id", "ordinal", "fact_key", "description", "category",
+        "data_scope", "subject", "jurisdiction", "expected_unit", "expected_shape",
+    },
+    "investigations": {
+        "investigation_id", "request_id", "status", "plan_json",
+        "resolved_facts_json", "unresolved_facts_json", "conflicts_json",
+        "do_not_infer_json", "started_at", "completed_at",
+    },
+    "source_attempts": {
+        "investigation_id", "ordinal", "source_type", "source_name", "status",
+        "started_at", "completed_at", "error", "facts_attempted_json",
+    },
+    "evidence_items": {
+        "evidence_id", "fact_key", "value_json", "unit", "as_of", "retrieved_at",
+        "source_url", "publisher", "source_type", "quality", "stance", "excerpt",
+        "content_hash", "confidence", "model_json",
+    },
+    "evidence_packs": {
+        "pack_id", "investigation_id", "canonical_json", "content_hash",
+    },
+    "pack_items": {"pack_id", "evidence_id", "fact_key", "ordinal"},
+    "cache_entries": {
+        "fingerprint", "pack_id", "cached_at", "expires_at", "hit_count", "last_hit_at",
+    },
+    "evidence_adoptions": {
+        "evidence_id", "reply_id", "status", "created_at", "updated_at", "confirmed_at",
+    },
+}
+
+_V2_ADDITIONAL_SCHEMA = (
+    """
+    CREATE TABLE IF NOT EXISTS investigations (
+        investigation_id TEXT PRIMARY KEY,
+        request_id TEXT NOT NULL,
+        status TEXT NOT NULL,
+        plan_json TEXT NOT NULL,
+        resolved_facts_json TEXT NOT NULL,
+        unresolved_facts_json TEXT NOT NULL,
+        conflicts_json TEXT NOT NULL,
+        do_not_infer_json TEXT NOT NULL,
+        started_at TEXT NOT NULL,
+        completed_at TEXT NOT NULL,
+        FOREIGN KEY (request_id) REFERENCES data_gap_requests(request_id)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS source_attempts (
+        investigation_id TEXT NOT NULL,
+        ordinal INTEGER NOT NULL,
+        source_type TEXT NOT NULL,
+        source_name TEXT NOT NULL,
+        status TEXT NOT NULL,
+        started_at TEXT NOT NULL,
+        completed_at TEXT NOT NULL,
+        error TEXT,
+        facts_attempted_json TEXT NOT NULL,
+        PRIMARY KEY (investigation_id, ordinal),
+        FOREIGN KEY (investigation_id) REFERENCES investigations(investigation_id)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS evidence_items (
+        evidence_id TEXT PRIMARY KEY,
+        fact_key TEXT NOT NULL,
+        value_json TEXT NOT NULL,
+        unit TEXT,
+        as_of TEXT NOT NULL,
+        retrieved_at TEXT NOT NULL,
+        source_url TEXT NOT NULL,
+        publisher TEXT NOT NULL,
+        source_type TEXT NOT NULL,
+        quality TEXT NOT NULL,
+        stance TEXT NOT NULL,
+        excerpt TEXT NOT NULL,
+        content_hash TEXT NOT NULL,
+        confidence REAL NOT NULL,
+        model_json TEXT NOT NULL
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS evidence_packs (
+        pack_id TEXT PRIMARY KEY,
+        investigation_id TEXT NOT NULL UNIQUE,
+        canonical_json TEXT NOT NULL,
+        content_hash TEXT NOT NULL,
+        FOREIGN KEY (investigation_id) REFERENCES investigations(investigation_id)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS pack_items (
+        pack_id TEXT NOT NULL,
+        evidence_id TEXT NOT NULL,
+        fact_key TEXT NOT NULL,
+        ordinal INTEGER NOT NULL,
+        PRIMARY KEY (pack_id, fact_key, ordinal),
+        UNIQUE (pack_id, evidence_id),
+        FOREIGN KEY (pack_id) REFERENCES evidence_packs(pack_id),
+        FOREIGN KEY (evidence_id) REFERENCES evidence_items(evidence_id)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS cache_entries (
+        fingerprint TEXT PRIMARY KEY,
+        pack_id TEXT NOT NULL,
+        cached_at TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        hit_count INTEGER NOT NULL DEFAULT 0,
+        last_hit_at TEXT,
+        FOREIGN KEY (pack_id) REFERENCES evidence_packs(pack_id)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS evidence_adoptions (
+        evidence_id TEXT NOT NULL,
+        reply_id TEXT NOT NULL,
+        status TEXT NOT NULL CHECK (status IN ('PENDING', 'CONFIRMED')),
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        confirmed_at TEXT,
+        PRIMARY KEY (evidence_id, reply_id),
+        FOREIGN KEY (evidence_id) REFERENCES evidence_items(evidence_id)
+    )
+    """,
+)
+
 _SCHEMA = (
     """
     CREATE TABLE IF NOT EXISTS data_gap_requests (
         request_id TEXT PRIMARY KEY,
+        owner_user_id TEXT,
         fingerprint TEXT NOT NULL,
         requesting_agent TEXT NOT NULL,
         question TEXT NOT NULL,
@@ -161,34 +306,39 @@ _SCHEMA = (
     """,
     """
     CREATE TABLE IF NOT EXISTS cache_entries (
-        fingerprint TEXT PRIMARY KEY,
+        owner_user_id TEXT NOT NULL,
+        fingerprint TEXT NOT NULL,
         pack_id TEXT NOT NULL,
         cached_at TEXT NOT NULL,
         expires_at TEXT NOT NULL,
         hit_count INTEGER NOT NULL DEFAULT 0,
         last_hit_at TEXT,
+        PRIMARY KEY (owner_user_id, fingerprint),
         FOREIGN KEY (pack_id) REFERENCES evidence_packs(pack_id)
     )
     """,
     """
     CREATE TABLE IF NOT EXISTS evidence_adoptions (
+        owner_user_id TEXT,
         evidence_id TEXT NOT NULL,
         reply_id TEXT NOT NULL,
         status TEXT NOT NULL CHECK (status IN ('PENDING', 'CONFIRMED')),
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
         confirmed_at TEXT,
-        PRIMARY KEY (evidence_id, reply_id),
+        PRIMARY KEY (owner_user_id, evidence_id, reply_id),
         FOREIGN KEY (evidence_id) REFERENCES evidence_items(evidence_id)
     )
     """,
     """
     CREATE TABLE IF NOT EXISTS adoption_batches (
-        reply_id TEXT PRIMARY KEY,
+        owner_user_id TEXT,
+        reply_id TEXT NOT NULL,
         evidence_ids_json TEXT NOT NULL,
         batch_fingerprint TEXT NOT NULL,
         created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL
+        updated_at TEXT NOT NULL,
+        PRIMARY KEY (owner_user_id, reply_id)
     )
     """,
 )
@@ -330,19 +480,12 @@ def _migrate_v1_to_v2(connection: sqlite3.Connection) -> None:
 
     connection.execute("DROP TABLE requested_fact_slots")
     connection.execute("ALTER TABLE requested_fact_slots_v2 RENAME TO requested_fact_slots")
+    for statement in _V2_ADDITIONAL_SCHEMA:
+        connection.execute(statement)
 
 
 def _assert_v2_schema(connection: sqlite3.Connection) -> None:
-    for table, expected_columns in _REQUIRED_SCHEMA_COLUMNS.items():
-        if table == "adoption_batches":
-            continue
-        if table == "source_attempts":
-            legacy_columns = expected_columns - {"call_audits_json"}
-            if frozenset(_table_columns(connection, table)) in {
-                frozenset(legacy_columns),
-                frozenset(expected_columns),
-            }:
-                continue
+    for table, expected_columns in _V2_REQUIRED_SCHEMA_COLUMNS.items():
         if _table_columns(connection, table) != expected_columns:
             raise sqlite3.DatabaseError("invalid Jinyiwei schema v2")
 
@@ -382,13 +525,13 @@ def _assert_v3_schema(connection: sqlite3.Connection) -> None:
     _assert_v2_schema(connection)
     if (
         _table_columns(connection, "adoption_batches")
-        != _REQUIRED_SCHEMA_COLUMNS["adoption_batches"]
+        != _V4_REQUIRED_SCHEMA_COLUMNS["adoption_batches"]
     ):
         raise sqlite3.DatabaseError("invalid Jinyiwei schema v3")
 
 
 def _assert_v4_schema(connection: sqlite3.Connection) -> None:
-    for table, expected_columns in _REQUIRED_SCHEMA_COLUMNS.items():
+    for table, expected_columns in _V4_REQUIRED_SCHEMA_COLUMNS.items():
         if _table_columns(connection, table) != expected_columns:
             raise sqlite3.DatabaseError("invalid Jinyiwei schema v4")
     audit_info = {
@@ -401,11 +544,11 @@ def _assert_v4_schema(connection: sqlite3.Connection) -> None:
 
 def _migrate_v3_to_v4(connection: sqlite3.Connection) -> None:
     _assert_v3_schema(connection)
-    legacy_columns = _REQUIRED_SCHEMA_COLUMNS["source_attempts"] - {
+    legacy_columns = _V4_REQUIRED_SCHEMA_COLUMNS["source_attempts"] - {
         "call_audits_json"
     }
     actual_columns = _table_columns(connection, "source_attempts")
-    if actual_columns == _REQUIRED_SCHEMA_COLUMNS["source_attempts"]:
+    if actual_columns == _V4_REQUIRED_SCHEMA_COLUMNS["source_attempts"]:
         rows = connection.execute(
             "SELECT call_audits_json FROM source_attempts"
         ).fetchall()
@@ -424,9 +567,21 @@ def _migrate_v3_to_v4(connection: sqlite3.Connection) -> None:
 
 
 def _migrate_v2_to_v3(connection: sqlite3.Connection) -> None:
+    if not _table_columns(connection, "adoption_batches"):
+        connection.execute(
+            """
+            CREATE TABLE adoption_batches (
+                reply_id TEXT PRIMARY KEY,
+                evidence_ids_json TEXT NOT NULL,
+                batch_fingerprint TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
     if (
         _table_columns(connection, "adoption_batches")
-        != _REQUIRED_SCHEMA_COLUMNS["adoption_batches"]
+        != _V4_REQUIRED_SCHEMA_COLUMNS["adoption_batches"]
     ):
         raise sqlite3.DatabaseError("invalid Jinyiwei schema v2")
     if connection.execute("SELECT COUNT(*) FROM adoption_batches").fetchone()[0]:
@@ -493,8 +648,142 @@ def _migrate_v2_to_v3(connection: sqlite3.Connection) -> None:
         raise sqlite3.DatabaseError("invalid Jinyiwei schema v2") from exc
 
 
+def _migrate_v4_to_v5(connection: sqlite3.Connection) -> None:
+    _assert_v4_schema(connection)
+    connection.execute("ALTER TABLE data_gap_requests ADD COLUMN owner_user_id TEXT")
+    connection.execute(
+        "CREATE INDEX data_gap_requests_owner_idx "
+        "ON data_gap_requests(owner_user_id)"
+    )
+    connection.execute(
+        """
+        CREATE TABLE cache_entries_v5 (
+            owner_user_id TEXT NOT NULL,
+            fingerprint TEXT NOT NULL,
+            pack_id TEXT NOT NULL,
+            cached_at TEXT NOT NULL,
+            expires_at TEXT NOT NULL,
+            hit_count INTEGER NOT NULL DEFAULT 0,
+            last_hit_at TEXT,
+            PRIMARY KEY (owner_user_id, fingerprint),
+            FOREIGN KEY (pack_id) REFERENCES evidence_packs(pack_id)
+        )
+        """
+    )
+    connection.execute("DROP TABLE cache_entries")
+    connection.execute("ALTER TABLE cache_entries_v5 RENAME TO cache_entries")
+    connection.execute(
+        """
+        CREATE TABLE evidence_adoptions_v5 (
+            owner_user_id TEXT,
+            evidence_id TEXT NOT NULL,
+            reply_id TEXT NOT NULL,
+            status TEXT NOT NULL CHECK (status IN ('PENDING', 'CONFIRMED')),
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            confirmed_at TEXT,
+            PRIMARY KEY (owner_user_id, evidence_id, reply_id),
+            FOREIGN KEY (evidence_id) REFERENCES evidence_items(evidence_id)
+        )
+        """
+    )
+    connection.execute(
+        "INSERT INTO evidence_adoptions_v5 "
+        "(owner_user_id, evidence_id, reply_id, status, created_at, updated_at, confirmed_at) "
+        "SELECT NULL, evidence_id, reply_id, status, created_at, updated_at, confirmed_at "
+        "FROM evidence_adoptions"
+    )
+    connection.execute("DROP TABLE evidence_adoptions")
+    connection.execute(
+        "ALTER TABLE evidence_adoptions_v5 RENAME TO evidence_adoptions"
+    )
+    connection.execute(
+        """
+        CREATE TABLE adoption_batches_v5 (
+            owner_user_id TEXT,
+            reply_id TEXT NOT NULL,
+            evidence_ids_json TEXT NOT NULL,
+            batch_fingerprint TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            PRIMARY KEY (owner_user_id, reply_id)
+        )
+        """
+    )
+    connection.execute(
+        "INSERT INTO adoption_batches_v5 "
+        "(owner_user_id, reply_id, evidence_ids_json, batch_fingerprint, created_at, updated_at) "
+        "SELECT NULL, reply_id, evidence_ids_json, batch_fingerprint, created_at, updated_at "
+        "FROM adoption_batches"
+    )
+    connection.execute("DROP TABLE adoption_batches")
+    connection.execute("ALTER TABLE adoption_batches_v5 RENAME TO adoption_batches")
+
+
+def _assert_v5_schema(connection: sqlite3.Connection) -> None:
+    for table, expected_columns in _REQUIRED_SCHEMA_COLUMNS.items():
+        if _table_columns(connection, table) != expected_columns:
+            raise sqlite3.DatabaseError("invalid Jinyiwei schema v5")
+    request_info = {
+        row["name"]: row
+        for row in connection.execute("PRAGMA table_info(data_gap_requests)")
+    }
+    cache_info = {
+        row["name"]: row
+        for row in connection.execute("PRAGMA table_info(cache_entries)")
+    }
+    adoption_info = {
+        row["name"]: row
+        for row in connection.execute("PRAGMA table_info(evidence_adoptions)")
+    }
+    batch_info = {
+        row["name"]: row
+        for row in connection.execute("PRAGMA table_info(adoption_batches)")
+    }
+    if request_info["owner_user_id"]["notnull"] != 0:
+        raise sqlite3.DatabaseError("invalid Jinyiwei schema v5")
+    if (
+        cache_info["owner_user_id"]["notnull"] != 1
+        or cache_info["owner_user_id"]["pk"] != 1
+        or cache_info["fingerprint"]["pk"] != 2
+    ):
+        raise sqlite3.DatabaseError("invalid Jinyiwei schema v5")
+    if (
+        adoption_info["owner_user_id"]["notnull"] != 0
+        or adoption_info["owner_user_id"]["pk"] != 1
+        or adoption_info["evidence_id"]["pk"] != 2
+        or adoption_info["reply_id"]["pk"] != 3
+        or batch_info["owner_user_id"]["notnull"] != 0
+        or batch_info["owner_user_id"]["pk"] != 1
+        or batch_info["reply_id"]["pk"] != 2
+    ):
+        raise sqlite3.DatabaseError("invalid Jinyiwei schema v5")
+    request_indexes = {
+        row["name"]: row
+        for row in connection.execute("PRAGMA index_list(data_gap_requests)")
+    }
+    owner_index = request_indexes.get("data_gap_requests_owner_idx")
+    owner_index_columns = (
+        tuple(
+            column["name"]
+            for column in connection.execute(
+                "PRAGMA index_info(data_gap_requests_owner_idx)"
+            )
+        )
+        if owner_index is not None
+        else ()
+    )
+    if (
+        owner_index is None
+        or owner_index["unique"] != 0
+        or owner_index["partial"] != 0
+        or owner_index_columns != ("owner_user_id",)
+    ):
+        raise sqlite3.DatabaseError("invalid Jinyiwei schema v5")
+
+
 def initialize_database(path: Path | None = None) -> None:
-    """Create or atomically migrate the schema to v4; repeated calls are safe."""
+    """Create or atomically migrate the schema to v5; repeated calls are safe."""
     target = _validated_target(path)
     target.parent.mkdir(parents=True, exist_ok=True)
     connection = sqlite3.connect(target)
@@ -502,10 +791,11 @@ def initialize_database(path: Path | None = None) -> None:
         _configure(connection)
         connection.execute("BEGIN IMMEDIATE")
         version = connection.execute("PRAGMA user_version").fetchone()[0]
-        if version not in (0, 1, 2, 3, 4):
+        if version not in (0, 1, 2, 3, 4, 5):
             raise sqlite3.DatabaseError("unsupported Jinyiwei schema version")
-        for statement in _SCHEMA:
-            connection.execute(statement)
+        if version == 0:
+            for statement in _SCHEMA:
+                connection.execute(statement)
         if version == 1:
             _migrate_v1_to_v2(connection)
         if version in (1, 2):
@@ -513,8 +803,14 @@ def initialize_database(path: Path | None = None) -> None:
             _migrate_v2_to_v3(connection)
         if version in (1, 2, 3):
             _migrate_v3_to_v4(connection)
-        _assert_v4_schema(connection)
-        connection.execute("PRAGMA user_version = 4")
+        if version in (1, 2, 3, 4):
+            _migrate_v4_to_v5(connection)
+        connection.execute(
+            "CREATE INDEX IF NOT EXISTS data_gap_requests_owner_idx "
+            "ON data_gap_requests(owner_user_id)"
+        )
+        _assert_v5_schema(connection)
+        connection.execute("PRAGMA user_version = 5")
         connection.commit()
     except Exception:
         connection.rollback()

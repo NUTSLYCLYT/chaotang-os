@@ -51,7 +51,7 @@ from app.jinyiwei.models import (
 )
 from app.jinyiwei.network import PinnedHTTPSClient
 from app.jinyiwei.source_registry import build_default_public_api_registry
-from app.jinyiwei.sources.mcp import McpSource
+from app.jinyiwei.sources.mcp import McpRateLimitState, McpSource
 from app.jinyiwei.sources.public_api import PublicApiSource
 from app.jinyiwei.sources.public_web import PublicWebSource
 from app.jinyiwei.sources.shiguan import ShiguanSource
@@ -70,6 +70,7 @@ _SOURCE_SCOPE = (
 _MAX_INVESTIGATIONS = 3
 _MAX_EXTRACTIONS = 6
 _DEADLINE_SECONDS = 30.0
+_DEFAULT_MCP_RATE_LIMIT_STATE = McpRateLimitState()
 _DEGRADABLE_SYNTHESIS_ERRORS = frozenset(
     {
         "uncited_fact_dependency",
@@ -265,6 +266,7 @@ class CoordinatorPort(Protocol):
         department: str,
         matter_type: str,
         extraction_budget: object,
+        owner_user_id: str,
     ) -> EvidencePack: ...
 
 
@@ -299,10 +301,14 @@ class AgentEvidenceSession:
         self,
         *,
         coordinator: CoordinatorPort,
+        owner_user_id: str,
         monotonic: Callable[[], float] = time.monotonic,
         id_factory: Callable[[], str] = lambda: str(uuid.uuid4()),
     ) -> None:
+        if not isinstance(owner_user_id, str) or not owner_user_id.strip():
+            raise ValueError("owner_user_id must be nonempty")
         self.coordinator = coordinator
+        self.owner_user_id = owner_user_id
         self._monotonic = monotonic
         self._id_factory = id_factory
         self._deadline = monotonic() + _DEADLINE_SECONDS
@@ -956,6 +962,7 @@ def _investigate_draft(
             department=department,
             matter_type=matter_type,
             extraction_budget=session,
+            owner_user_id=session.owner_user_id,
         )
     except Exception:  # noqa: BLE001 - coordinator boundary is sanitized
         return None, "evidence_unavailable"
@@ -1029,6 +1036,7 @@ def _express_precompiled_evidence(
 def build_default_evidence_session(
     chat_model: Callable[[object], str],
     *,
+    owner_user_id: str,
     db_path: Path | None = None,
 ) -> AgentEvidenceSession:
     """Wire production defaults without doing network, model, or database I/O."""
@@ -1056,6 +1064,7 @@ def build_default_evidence_session(
             registry=mcp_registry,
             client=mcp_client,
             mapper=DeterministicMcpMapper(),
+            rate_limit_state=_DEFAULT_MCP_RATE_LIMIT_STATE,
         ),
         public_api=PublicApiSource(registry=registry, client=client),
         public_web=PublicWebSource(client=client),
@@ -1064,7 +1073,10 @@ def build_default_evidence_session(
         id_factory=lambda: str(uuid.uuid4()),
         db_path=db_path,
     )
-    return AgentEvidenceSession(coordinator=coordinator)
+    return AgentEvidenceSession(
+        coordinator=coordinator,
+        owner_user_id=owner_user_id,
+    )
 
 
 def _copy_messages(messages: Sequence[Mapping[str, str]]) -> list[Message]:

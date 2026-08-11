@@ -22,6 +22,20 @@ HEADERS = [
 ]
 
 
+def test_approved_accounting_source_dir_preserves_existing_absolute_value() -> None:
+    from app.accounting_reports import config
+
+    expected = (
+        Path(__file__).resolve().parents[2]
+        / "data"
+        / "财务数据资料"
+        / "20-25年财务报表及科目余额表"
+    )
+
+    assert config.APPROVED_ACCOUNTING_SOURCE_DIR == expected
+    assert config.APPROVED_ACCOUNTING_SOURCE_DIR.is_absolute()
+
+
 def _write_xlsx(path: Path, rows: list[list[object]]) -> None:
     workbook = Workbook()
     sheet = workbook.active
@@ -195,7 +209,7 @@ def test_reader_iteration_error_is_sanitized(
         load_ledger_rows(tmp_path, ReportPeriod(2024, 2024))
 
     assert raised.value.code == "source_schema_invalid"
-    assert str(raised.value) == f"source_schema_invalid: {source.name}"
+    assert str(raised.value) == "source_schema_invalid"
     assert secret not in str(raised.value)
 
 
@@ -214,7 +228,7 @@ def test_directory_enumeration_error_is_sanitized(
         load_ledger_rows(tmp_path, ReportPeriod(2024, 2024))
 
     assert raised.value.code == "source_path_invalid"
-    assert str(raised.value) == f"source_path_invalid: {tmp_path.name}"
+    assert str(raised.value) == "source_path_invalid"
     assert secret not in str(raised.value)
 
 
@@ -238,4 +252,4 @@ def test_public_loader_rejects_symlink_escape(tmp_path: Path) -> None:
         load_ledger_rows(approved, ReportPeriod(2024, 2024))
 
     assert raised.value.code == "source_path_invalid"
-    assert str(raised.value) == f"source_path_invalid: {link.name}"
+    assert str(raised.value) == "source_path_invalid"

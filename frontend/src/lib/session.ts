@@ -18,7 +18,7 @@ export function readSessionId(request: Request): string | null {
     const [name, ...value] = part.trim().split("=");
     if (name === SESSION_COOKIE_NAME && value.length > 0) {
       const sessionId = cookieValue(value.join("="));
-      return sessionId && sessionId.length > 0 ? sessionId : null;
+      return sessionId !== null && sessionId.trim().length > 0 ? sessionId : null;
     }
   }
   return null;

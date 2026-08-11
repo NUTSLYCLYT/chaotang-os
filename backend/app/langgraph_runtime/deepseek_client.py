@@ -17,11 +17,16 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from pathlib import Path
+from typing import Literal
 
 import openai
 
 from app.langgraph_runtime.deepseek_config import DeepSeekProviderConfig
 from app.langgraph_runtime.deepseek_env import resolve_deepseek_api_key_with_dotenv_fallback
+from app.langgraph_runtime.provider_budget import (
+    ProviderAttemptBudget,
+    ProviderBudgetExceeded,
+)
 
 _MODEL_NAME_PREFIX = "openai/"
 _REQUEST_TIMEOUT_SECONDS = 60.0
@@ -30,6 +35,15 @@ _REQUEST_TIMEOUT_SECONDS = 60.0
 # ``{"role": ..., "content": ...}`` messages and returns the assistant's
 # response text.
 DeepSeekChatModel = Callable[[list[dict[str, str]]], str]
+FailureCategory = Literal[
+    "timeout",
+    "connection",
+    "rate_limit",
+    "provider_server",
+    "provider_client",
+    "budget_exhausted",
+    "unexpected",
+]
 
 
 class DeepSeekModelNameError(Exception):
@@ -45,6 +59,49 @@ class DeepSeekModelInvocationError(Exception):
     third-party SDK error text can echo request content, and we do not want
     to assume it is always safe to surface directly.
     """
+
+    failure_stage: Literal["provider_request"]
+    failure_category: FailureCategory
+    provider_http_status: int | None
+    retry_count: int
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        failure_category: FailureCategory = "unexpected",
+        provider_http_status: int | None = None,
+        retry_count: int = 0,
+    ) -> None:
+        super().__init__(message)
+        self.failure_stage = "provider_request"
+        self.failure_category = failure_category
+        self.provider_http_status = provider_http_status
+        self.retry_count = retry_count
+
+
+def _classify_provider_failure(
+    exc: Exception,
+) -> tuple[FailureCategory, int | None, bool]:
+    if isinstance(exc, ProviderBudgetExceeded):
+        return "budget_exhausted", None, False
+    if isinstance(exc, openai.APITimeoutError):
+        return "timeout", None, True
+    if isinstance(exc, openai.APIConnectionError):
+        return "connection", None, True
+    if isinstance(exc, openai.APIStatusError):
+        status_code = exc.status_code
+        if status_code == 429:
+            category: FailureCategory = "rate_limit"
+        elif 500 <= status_code < 600:
+            category = "provider_server"
+        elif 400 <= status_code < 500:
+            category = "provider_client"
+        else:
+            category = "unexpected"
+        transient = status_code in {408, 409, 429} or 500 <= status_code < 600
+        return category, status_code, transient
+    return "unexpected", None, False
 
 
 def normalize_deepseek_model_name(model_name: str) -> str:
@@ -77,6 +134,8 @@ def build_deepseek_chat_model(
     dotenv_path: Path | None = None,
     *,
     json_output: bool = False,
+    attempt_budget: ProviderAttemptBudget | None = None,
+    max_provider_attempts: int = 2,
 ) -> DeepSeekChatModel:
     """Build a callable DeepSeek chat model backed by the real ``openai`` SDK.
 
@@ -125,21 +184,22 @@ def build_deepseek_chat_model(
         if json_output:
             request_kwargs["response_format"] = {"type": "json_object"}
             request_kwargs["extra_body"] = {"thinking": {"type": "disabled"}}
-        for attempt in range(3):
+        for attempt in range(max_provider_attempts):
             try:
+                if attempt_budget is not None:
+                    attempt_budget.reserve()
                 response = client.chat.completions.create(**request_kwargs)
                 break
-            except (openai.APITimeoutError, openai.APIConnectionError) as exc:
-                if attempt < 2:
+            except Exception as exc:  # noqa: BLE001 - intentionally wrap any SDK error
+                category, status_code, transient = _classify_provider_failure(exc)
+                if transient and attempt + 1 < max_provider_attempts:
                     continue
                 raise DeepSeekModelInvocationError(
                     "DeepSeek chat completion request failed "
-                    f"(model={model_name!r}); see __cause__ for the original exception."
-                ) from exc
-            except Exception as exc:  # noqa: BLE001 - intentionally wrap any SDK error
-                raise DeepSeekModelInvocationError(
-                    "DeepSeek chat completion request failed "
-                    f"(model={model_name!r}); see __cause__ for the original exception."
+                    f"(model={model_name!r}); see __cause__ for details.",
+                    failure_category=category,
+                    provider_http_status=status_code,
+                    retry_count=attempt,
                 ) from exc
         return response.choices[0].message.content
 

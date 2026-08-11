@@ -16,6 +16,7 @@ mapping) is intentionally out of scope here -- see a later module's
 
 from app.shiguan.archive_decree import archive_chancellor_decree
 from app.shiguan.errors import (
+    ArchiveDecisionConflictError,
     ArchiveNotFoundError,
     ArchiveValidationError,
     ShiguanError,
@@ -24,6 +25,8 @@ from app.shiguan.errors import (
 from app.shiguan.models import (
     Archive,
     ArchiveCreate,
+    ArchiveDecision,
+    ArchiveDecisionValue,
     ArchiveType,
     Evidence,
     RealityLabel,
@@ -42,12 +45,16 @@ from app.shiguan.storage import (
     get_archive,
     get_statistics,
     list_archives,
+    set_archive_decision,
     upsert_review_status,
 )
 
 __all__ = [
     "Archive",
     "ArchiveCreate",
+    "ArchiveDecision",
+    "ArchiveDecisionConflictError",
+    "ArchiveDecisionValue",
     "ArchiveNotFoundError",
     "ArchiveType",
     "ArchiveValidationError",
@@ -66,6 +73,7 @@ __all__ = [
     "get_archive",
     "get_statistics",
     "list_archives",
+    "set_archive_decision",
     "safe_recall_context_for_department",
     "upsert_review_status",
 ]

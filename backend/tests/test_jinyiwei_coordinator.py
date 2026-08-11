@@ -388,7 +388,9 @@ def _investigate_with_price_document_and_no_optional_document(
                 )
             }
         ),
-    ).investigate(request, department="户部", matter_type="DECREE")
+    ).investigate(
+        request, department="户部", matter_type="DECREE", owner_user_id=OWNER_A
+    )
 
 
 def _investigate_with_failed_source(tmp_path: Path, error: str):
@@ -423,7 +425,9 @@ def _investigate_with_failed_source(tmp_path: Path, error: str):
         public_api=FakeSource(SourceType.PUBLIC_API, documents=False),
         public_web=FakeSource(SourceType.PUBLIC_WEB, documents=False),
         extractor=FakeExtractor({}),
-    ).investigate(request, department="户部", matter_type="DECREE")
+    ).investigate(
+        request, department="户部", matter_type="DECREE", owner_user_id=OWNER_A
+    )
 
 
 def test_price_evidence_resolves_when_nonrequired_metric_is_absent(
@@ -478,7 +482,7 @@ def test_fixed_order_shiguan_short_circuits_network_and_persists(tmp_path: Path)
     )
 
     pack = coordinator.investigate(
-        _request(), department="hubu", matter_type="MEMORIAL"
+        _request(), department="hubu", matter_type="MEMORIAL", owner_user_id=OWNER_A
     )
 
     assert pack.status is EvidencePackStatus.RESOLVED
@@ -526,7 +530,12 @@ def test_fixed_order_uses_mcp_only_after_archive_and_before_public_fallback(
         ),
     )
 
-    pack = coordinator.investigate(request, department="hubu", matter_type="MEMORIAL")
+    pack = coordinator.investigate(
+        request,
+        department="hubu",
+        matter_type="MEMORIAL",
+        owner_user_id=OWNER_A,
+    )
 
     assert pack.investigation_plan.source_scope == (
         SourceType.SHIGUAN,
@@ -565,7 +574,9 @@ def test_real_shiguan_primary_snapshot_short_circuits_external_sources(
     )
     request = _stock_request("req-real-shiguan")
 
-    pack = coordinator.investigate(request, department="户部", matter_type="赈灾")
+    pack = coordinator.investigate(
+        request, department="户部", matter_type="赈灾", owner_user_id=OWNER_A
+    )
 
     assert pack.status is EvidencePackStatus.RESOLVED
     assert pack.resolved_facts == ("current_stock",)
@@ -650,7 +661,7 @@ def test_canonical_market_identity_in_shiguan_short_circuits_mcp(
     pack = coordinator.investigate(
         request,
         department="户部",
-        matter_type="DECREE",
+        matter_type="DECREE", owner_user_id=OWNER_A
     )
 
     assert pack.status is EvidencePackStatus.RESOLVED
@@ -688,7 +699,7 @@ def test_real_shiguan_fact_lock_rejects_model_remap_to_other_slot(
             facts=(("current_stock", "库存"), ("stock_value", "库存价值")),
         ),
         department="户部",
-        matter_type="赈灾",
+        matter_type="赈灾", owner_user_id=OWNER_A
     )
 
     assert pack.resolved_facts == ()
@@ -737,7 +748,7 @@ def test_two_independent_authoritative_snapshots_resolve_with_original_provenanc
     pack = coordinator.investigate(
         _stock_request("req-two-authorities"),
         department="户部",
-        matter_type="赈灾",
+        matter_type="赈灾", owner_user_id=OWNER_A
     )
 
     assert pack.status is EvidencePackStatus.RESOLVED
@@ -784,7 +795,7 @@ def test_single_authoritative_snapshot_remains_unresolved(
     pack = coordinator.investigate(
         _stock_request("req-single-authority"),
         department="户部",
-        matter_type="赈灾",
+        matter_type="赈灾", owner_user_id=OWNER_A
     )
 
     assert pack.resolved_facts == ()
@@ -818,7 +829,7 @@ def test_identical_adopted_id_across_archives_is_extracted_once(
     pack = coordinator.investigate(
         _stock_request("req-duplicate-identical"),
         department="户部",
-        matter_type="赈灾",
+        matter_type="赈灾", owner_user_id=OWNER_A
     )
 
     assert pack.status is EvidencePackStatus.RESOLVED
@@ -854,7 +865,7 @@ def test_conflicting_adopted_id_fails_shiguan_closed_then_continues(
     pack = coordinator.investigate(
         _stock_request("req-duplicate-conflict"),
         department="户部",
-        matter_type="赈灾",
+        matter_type="赈灾", owner_user_id=OWNER_A
     )
 
     assert pack.resolved_facts == ()
@@ -890,7 +901,7 @@ def test_stale_adopted_snapshot_remains_historical_using_locked_as_of(
     pack = coordinator.investigate(
         _stock_request("req-stale-adopted"),
         department="户部",
-        matter_type="赈灾",
+        matter_type="赈灾", owner_user_id=OWNER_A
     )
 
     assert pack.resolved_facts == ()
@@ -952,7 +963,9 @@ def test_real_shiguan_legacy_archive_does_not_resolve_current_fact(
         ),
     )
 
-    pack = coordinator.investigate(request, department="户部", matter_type="赈灾")
+    pack = coordinator.investigate(
+        request, department="户部", matter_type="赈灾", owner_user_id=OWNER_A
+    )
 
     assert pack.resolved_facts == ()
     assert pack.unresolved_facts == ("current_stock",)
@@ -975,7 +988,7 @@ def test_later_sources_receive_only_unresolved_facts_and_same_deadline(
     pack = _coordinator(
         tmp_path, shiguan=shiguan, public_api=api, public_web=web,
         extractor=extractor,
-    ).investigate(_request(), department="hubu", matter_type="REPLY")
+    ).investigate(_request(), department="hubu", matter_type="REPLY", owner_user_id=OWNER_A)
 
     assert pack.status is EvidencePackStatus.RESOLVED
     assert shiguan.queries[0].unresolved_fact_keys == ("population", "area")
@@ -995,7 +1008,12 @@ def test_extraction_failure_discards_candidates_and_continues(tmp_path: Path) ->
     pack = _coordinator(
         tmp_path, shiguan=shiguan, public_api=api, public_web=web,
         extractor=extractor,
-    ).investigate(_request(facts=("population",)), department="hubu", matter_type="REPLY")
+    ).investigate(
+        _request(facts=("population",)),
+        department="hubu",
+        matter_type="REPLY",
+        owner_user_id=OWNER_A,
+    )
 
     assert pack.status is EvidencePackStatus.RESOLVED
     assert pack.source_attempts[0].status is SourceAttemptStatus.FAILED
@@ -1024,6 +1042,7 @@ def test_extractor_budget_is_claimed_before_call_and_stops_later_sources(
         _request(facts=("population",)),
         department="hubu",
         matter_type="REPLY",
+        owner_user_id=OWNER_A,
         extraction_budget=budget,
     )
 
@@ -1049,7 +1068,12 @@ def test_deadline_discards_over_deadline_source_and_stops_later_calls(
     pack = _coordinator(
         tmp_path, shiguan=shiguan, public_api=api, public_web=web,
         extractor=extractor, clock=clock,
-    ).investigate(_request(facts=("population",)), department="hubu", matter_type="REPLY")
+    ).investigate(
+        _request(facts=("population",)),
+        department="hubu",
+        matter_type="REPLY",
+        owner_user_id=OWNER_A,
+    )
 
     assert pack.status is EvidencePackStatus.BLOCKED
     assert pack.evidence_by_fact["population"] == ()
@@ -1077,7 +1101,12 @@ def test_deadline_after_extraction_discards_candidates_and_records_real_source(
     pack = _coordinator(
         tmp_path, shiguan=shiguan, public_api=api, public_web=web,
         extractor=extractor, clock=clock,
-    ).investigate(_request(facts=("population",)), department="hubu", matter_type="REPLY")
+    ).investigate(
+        _request(facts=("population",)),
+        department="hubu",
+        matter_type="REPLY",
+        owner_user_id=OWNER_A,
+    )
 
     assert pack.status is EvidencePackStatus.BLOCKED
     assert pack.evidence_by_fact["population"] == ()
@@ -1097,7 +1126,12 @@ def test_empty_and_failed_sources_are_unavailable(tmp_path: Path) -> None:
     pack = _coordinator(
         tmp_path, shiguan=shiguan, public_api=api, public_web=web,
         extractor=FakeExtractor({}),
-    ).investigate(_request(facts=("population",)), department="hubu", matter_type="REPLY")
+    ).investigate(
+        _request(facts=("population",)),
+        department="hubu",
+        matter_type="REPLY",
+        owner_user_id=OWNER_A,
+    )
 
     assert pack.status is EvidencePackStatus.UNAVAILABLE
     assert len(pack.source_attempts) == 3
@@ -1127,7 +1161,7 @@ def test_expired_market_quote_is_unresolved_and_not_inferable(tmp_path: Path) ->
             max_age_seconds=300,
         ),
         department="hubu",
-        matter_type="MEMORIAL",
+        matter_type="MEMORIAL", owner_user_id=OWNER_A
     )
 
     assert pack.status is EvidencePackStatus.PARTIAL
@@ -1164,7 +1198,7 @@ def test_coordinator_adopts_freshly_retrieved_latest_mcp_market_close(
     ).investigate(
         _market_request(source_type=SourceType.MCP),
         department="hubu",
-        matter_type="MEMORIAL",
+        matter_type="MEMORIAL", owner_user_id=OWNER_A
     )
 
     assert pack.status is EvidencePackStatus.RESOLVED
@@ -1196,7 +1230,7 @@ def test_coordinator_rejects_market_close_from_old_retrieval(
     ).investigate(
         _market_request(source_type=SourceType.MCP),
         department="hubu",
-        matter_type="MEMORIAL",
+        matter_type="MEMORIAL", owner_user_id=OWNER_A
     )
 
     assert pack.status is EvidencePackStatus.UNAVAILABLE
@@ -1229,7 +1263,7 @@ def test_stale_archive_is_history_and_only_its_fact_reaches_external_source(
         public_api=api,
         public_web=FakeSource(SourceType.PUBLIC_WEB),
         extractor=extractor,
-    ).investigate(_request(), department="hubu", matter_type="REPLY")
+    ).investigate(_request(), department="hubu", matter_type="REPLY", owner_user_id=OWNER_A)
 
     assert pack.status is EvidencePackStatus.RESOLVED
     assert api.queries[0].unresolved_fact_keys == ("population",)
@@ -1259,6 +1293,7 @@ def test_stale_external_evidence_is_rejected_not_preserved_as_history(
         ),
         department="hubu",
         matter_type="REPLY",
+        owner_user_id=OWNER_A,
     )
 
     assert pack.status is EvidencePackStatus.UNAVAILABLE
@@ -1287,6 +1322,7 @@ def test_stale_reason_is_attributed_only_to_source_that_produced_it(
         ),
         department="hubu",
         matter_type="REPLY",
+        owner_user_id=OWNER_A,
     )
 
     assert [attempt.error for attempt in pack.source_attempts] == [
@@ -1310,7 +1346,7 @@ def test_category_mismatch_preserves_empty_source_attribution_and_unavailability
     ).investigate(
         _request(facts=("quote",), source_scope=(SourceType.PUBLIC_API,)),
         department="hubu",
-        matter_type="MEMORIAL",
+        matter_type="MEMORIAL", owner_user_id=OWNER_A
     )
 
     assert pack.status is EvidencePackStatus.UNAVAILABLE
@@ -1338,7 +1374,7 @@ def test_documents_with_no_attempted_fact_cannot_resolve_evidence(tmp_path: Path
     ).investigate(
         _request(facts=("quote",), source_scope=(SourceType.PUBLIC_API,)),
         department="hubu",
-        matter_type="MEMORIAL",
+        matter_type="MEMORIAL", owner_user_id=OWNER_A
     )
 
     assert pack.status is EvidencePackStatus.UNAVAILABLE
@@ -1363,7 +1399,7 @@ def test_coordinator_persists_only_allowlisted_source_error_codes(tmp_path: Path
     ).investigate(
         _request(facts=("quote",), source_scope=(SourceType.PUBLIC_API,)),
         department="hubu",
-        matter_type="MEMORIAL",
+        matter_type="MEMORIAL", owner_user_id=OWNER_A
     )
 
     stored = get_evidence_pack(pack.pack_id, db_path=tmp_path / "jinyiwei.sqlite3")
@@ -1397,6 +1433,7 @@ def test_conflicting_quote_uses_stable_do_not_infer_limitation(tmp_path: Path) -
         _request(facts=("quote",), source_scope=(SourceType.SHIGUAN,)),
         department="hubu",
         matter_type="MEMORIAL",
+        owner_user_id=OWNER_A,
     )
 
     assert pack.status is EvidencePackStatus.PARTIAL
@@ -1425,11 +1462,15 @@ def test_fresh_archive_short_circuits_whole_pack_cache_and_expiry_rechecks(
         extractor=extractor, clock=clock,
     )
     request = _request(facts=("population",), max_age_seconds=10)
-    first = coordinator.investigate(request, department="hubu", matter_type="REPLY")
+    first = coordinator.investigate(
+        request, department="hubu", matter_type="REPLY", owner_user_id=OWNER_A
+    )
     assert first.cache.hit is False
     assert len(shiguan.queries) == 1
 
-    hit = coordinator.investigate(request, department="hubu", matter_type="REPLY")
+    hit = coordinator.investigate(
+        request, department="hubu", matter_type="REPLY", owner_user_id=OWNER_A
+    )
     assert hit.cache.hit is False
     assert hit.pack_id != first.pack_id
     assert len(shiguan.queries) == 2
@@ -1441,7 +1482,9 @@ def test_fresh_archive_short_circuits_whole_pack_cache_and_expiry_rechecks(
             update={"retrieved_at": "2026-07-20T12:00:10Z"}
         ),
     )
-    expired = coordinator.investigate(request, department="hubu", matter_type="REPLY")
+    expired = coordinator.investigate(
+        request, department="hubu", matter_type="REPLY", owner_user_id=OWNER_A
+    )
     assert expired.cache.hit is False
     assert expired.pack_id != first.pack_id
     assert expired.status is EvidencePackStatus.PARTIAL
@@ -1477,14 +1520,14 @@ def test_partial_pack_is_not_cached_and_rechecks_recovered_sources(
     )
 
     first = coordinator.investigate(
-        request, department="hubu", matter_type="REPLY"
+        request, department="hubu", matter_type="REPLY", owner_user_id=OWNER_A
     )
     api.has_documents = True
     extractor.evidence[SourceType.PUBLIC_API] = (
         _item("recovered-population", "population", 10, SourceType.PUBLIC_API),
     )
     second = coordinator.investigate(
-        request, department="hubu", matter_type="REPLY"
+        request, department="hubu", matter_type="REPLY", owner_user_id=OWNER_A
     )
 
     assert first.status is EvidencePackStatus.PARTIAL
@@ -1519,9 +1562,9 @@ def test_archive_resolution_precedes_resolved_pack_cache_lookup(
         source_scope=(SourceType.SHIGUAN, SourceType.PUBLIC_API),
     )
 
-    coordinator.investigate(request, department="hubu", matter_type="REPLY")
+    coordinator.investigate(request, department="hubu", matter_type="REPLY", owner_user_id=OWNER_A)
     cached = coordinator.investigate(
-        request, department="hubu", matter_type="REPLY"
+        request, department="hubu", matter_type="REPLY", owner_user_id=OWNER_A
     )
 
     assert cached.cache.hit is True
@@ -1555,12 +1598,16 @@ def test_mcp_cache_hits_only_when_source_configuration_is_unchanged(
         extractor=extractor,
     )
     first = coordinator.investigate(
-        request, department="hubu", matter_type="REPLY"
+        request, department="hubu", matter_type="REPLY", owner_user_id=OWNER_A
     )
 
-    hit = coordinator.investigate(request, department="hubu", matter_type="REPLY")
+    hit = coordinator.investigate(
+        request, department="hubu", matter_type="REPLY", owner_user_id=OWNER_A
+    )
     mcp.fingerprint = "config-b"
-    miss = coordinator.investigate(request, department="hubu", matter_type="REPLY")
+    miss = coordinator.investigate(
+        request, department="hubu", matter_type="REPLY", owner_user_id=OWNER_A
+    )
 
     assert first.cache.hit is False
     assert hit.cache.hit is True
@@ -1589,7 +1636,7 @@ def test_non_mcp_cache_key_remains_the_request_fingerprint(tmp_path: Path) -> No
                 )
             }
         ),
-    ).investigate(request, department="hubu", matter_type="REPLY")
+    ).investigate(request, department="hubu", matter_type="REPLY", owner_user_id=OWNER_A)
 
     assert pack.cache.cache_key == request.request_fingerprint
 
@@ -1612,7 +1659,12 @@ def test_duplicate_id_conflict_never_overwrites_prior_content(tmp_path: Path) ->
     pack = _coordinator(
         tmp_path, shiguan=shiguan, public_api=api, public_web=web,
         extractor=extractor,
-    ).investigate(_request(facts=("population",)), department="hubu", matter_type="REPLY")
+    ).investigate(
+        _request(facts=("population",)),
+        department="hubu",
+        matter_type="REPLY",
+        owner_user_id=OWNER_A,
+    )
 
     assert pack.status is EvidencePackStatus.PARTIAL
     assert pack.evidence_by_fact["population"][0].value == 10
@@ -1642,6 +1694,7 @@ def test_conflicting_duplicate_ids_within_one_batch_merge_nothing(
         _request(facts=("population",), source_scope=(SourceType.SHIGUAN,)),
         department="hubu",
         matter_type="REPLY",
+        owner_user_id=OWNER_A,
     )
 
     assert pack.status is EvidencePackStatus.UNAVAILABLE
@@ -1670,7 +1723,10 @@ def test_source_exception_at_deadline_blocks_current_source_and_stops(
         extractor=FakeExtractor({}),
         clock=clock,
     ).investigate(
-        _request(facts=("population",)), department="hubu", matter_type="REPLY"
+        _request(facts=("population",)),
+        department="hubu",
+        matter_type="REPLY",
+        owner_user_id=OWNER_A,
     )
 
     assert pack.status is EvidencePackStatus.BLOCKED
@@ -1697,7 +1753,10 @@ def test_extraction_exception_at_deadline_blocks_current_source_and_stops(
         extractor=extractor,
         clock=clock,
     ).investigate(
-        _request(facts=("population",)), department="hubu", matter_type="REPLY"
+        _request(facts=("population",)),
+        department="hubu",
+        matter_type="REPLY",
+        owner_user_id=OWNER_A,
     )
 
     assert pack.status is EvidencePackStatus.BLOCKED
@@ -1730,7 +1789,10 @@ def test_storage_failure_raises_typed_unavailable_without_source_work(
         InvestigationUnavailableError, match="investigation_persistence_unavailable"
     ):
         coordinator.investigate(
-            _request(facts=("population",)), department="hubu", matter_type="REPLY"
+            _request(facts=("population",)),
+            department="hubu",
+            matter_type="REPLY",
+            owner_user_id=OWNER_A,
         )
     assert shiguan.queries == []
 
@@ -1758,6 +1820,52 @@ def test_cache_operational_failure_is_typed_after_archive_resolution(
         InvestigationUnavailableError, match="investigation_persistence_unavailable"
     ):
         coordinator.investigate(
-            _request(facts=("population",)), department="hubu", matter_type="REPLY"
+            _request(facts=("population",)),
+            department="hubu",
+            matter_type="REPLY",
+            owner_user_id=OWNER_A,
         )
     assert len(shiguan.queries) == 1
+OWNER_A = "owner-a"
+OWNER_B = "owner-b"
+def test_same_fingerprint_cache_is_isolated_by_owner(tmp_path: Path) -> None:
+    shiguan = FakeSource(SourceType.SHIGUAN, documents=False)
+    api = FakeSource(SourceType.PUBLIC_API)
+    coordinator = _coordinator(
+        tmp_path,
+        shiguan=shiguan,
+        public_api=api,
+        public_web=FakeSource(SourceType.PUBLIC_WEB),
+        extractor=FakeExtractor(
+            {
+                SourceType.PUBLIC_API: (
+                    _item("api-population", "population", 10, SourceType.PUBLIC_API),
+                )
+            }
+        ),
+    )
+    request = _request(
+        facts=("population",),
+        source_scope=(SourceType.SHIGUAN, SourceType.PUBLIC_API),
+    )
+    other_owner_request = request.model_copy(
+        update={"request_id": "req-coordinate-owner-b"}
+    )
+
+    first = coordinator.investigate(
+        other_owner_request,
+        department="hubu",
+        matter_type="REPLY",
+        owner_user_id=OWNER_A,
+    )
+    second = coordinator.investigate(
+        request,
+        department="hubu",
+        matter_type="REPLY",
+        owner_user_id=OWNER_B,
+    )
+
+    assert first.cache.hit is False
+    assert second.cache.hit is False
+    assert second.pack_id != first.pack_id
+    assert len(api.queries) == 2

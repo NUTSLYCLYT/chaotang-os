@@ -2,11 +2,12 @@
 
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
-from threading import Event, Thread
+from threading import Barrier, Event, Thread
 from time import monotonic
 
 import pytest
 
+import app.jinyiwei.sources.mcp as mcp_source_module
 from app.jinyiwei.mcp.client import McpClientError, McpToolResult
 from app.jinyiwei.mcp.contracts import (
     McpAccessPolicy,
@@ -1786,6 +1787,138 @@ def test_mcp_source_rate_limit_is_atomic_per_server_and_tool() -> None:
     assert sum(
         result.attempt.error == "source_rate_limited" for result in results
     ) == 1
+
+
+def test_mcp_source_rate_limit_is_atomic_across_sources_sharing_state() -> None:
+    start = Barrier(3)
+    release = Event()
+
+    class ConcurrentClient(_Client):
+        def call(
+            self,
+            server: McpServerConfig,
+            approval: McpToolApproval,
+            arguments: dict[str, object],
+        ) -> McpToolResult:
+            result = super().call(server, approval, arguments)
+            release.wait(timeout=2)
+            return result
+
+    client = ConcurrentClient()
+    state = mcp_source_module.McpRateLimitState(clock=lambda: 0.0)
+    registry = _registry(
+        server_update={"rate_limit_per_minute": 1, "cache_ttl_seconds": 0}
+    )
+    sources = tuple(
+        McpSource(
+            registry=registry,
+            client=client,
+            mapper=DeterministicMcpMapper(),
+            now=lambda: NOW,
+            rate_limit_state=state,
+        )
+        for _ in range(2)
+    )
+    results: list[object] = []
+
+    def fetch(source: McpSource) -> None:
+        start.wait()
+        results.append(source.fetch(_query("quote")))
+
+    threads = [Thread(target=fetch, args=(source,)) for source in sources]
+    for thread in threads:
+        thread.start()
+    start.wait()
+    deadline = monotonic() + 2
+    while not client.calls and monotonic() < deadline:
+        pass
+    release.set()
+    for thread in threads:
+        thread.join()
+
+    assert len(client.calls) == 1
+    assert sum(
+        result.attempt.error == "source_rate_limited" for result in results
+    ) == 1
+
+
+def test_mcp_rate_limit_state_uses_monotonic_clock_at_exact_window_boundary() -> None:
+    current = [0.0]
+    state = mcp_source_module.McpRateLimitState(clock=lambda: current[0])
+
+    state.reserve(server_id="westock", tool_name="data_quote", rate_limit_per_minute=2)
+    current[0] = 30.0
+    state.reserve(server_id="westock", tool_name="data_quote", rate_limit_per_minute=2)
+    current[0] = 60.0
+    state.reserve(server_id="westock", tool_name="data_quote", rate_limit_per_minute=2)
+    current[0] = 89.999
+    with pytest.raises(McpClientError, match="source_rate_limited"):
+        state.reserve(
+            server_id="westock",
+            tool_name="data_quote",
+            rate_limit_per_minute=2,
+        )
+    current[0] = 90.0
+    state.reserve(server_id="westock", tool_name="data_quote", rate_limit_per_minute=2)
+
+
+def test_mcp_rate_limit_state_keeps_server_and_tool_keys_independent() -> None:
+    state = mcp_source_module.McpRateLimitState(clock=lambda: 0.0)
+
+    state.reserve(server_id="westock", tool_name="data_quote", rate_limit_per_minute=1)
+    state.reserve(server_id="other", tool_name="data_quote", rate_limit_per_minute=1)
+    state.reserve(server_id="westock", tool_name="data_search", rate_limit_per_minute=1)
+
+    with pytest.raises(McpClientError, match="source_rate_limited"):
+        state.reserve(
+            server_id="westock",
+            tool_name="data_quote",
+            rate_limit_per_minute=1,
+        )
+
+
+def test_mcp_sources_sharing_rate_limit_state_keep_call_caches_local() -> None:
+    client = _Client()
+    state = mcp_source_module.McpRateLimitState(clock=lambda: 0.0)
+    registry = _registry(server_update={"rate_limit_per_minute": 10})
+    sources = tuple(
+        McpSource(
+            registry=registry,
+            client=client,
+            mapper=DeterministicMcpMapper(),
+            now=lambda: NOW,
+            rate_limit_state=state,
+        )
+        for _ in range(2)
+    )
+
+    first_results = tuple(source.fetch(_query("quote")) for source in sources)
+    cached_results = tuple(source.fetch(_query("quote")) for source in sources)
+
+    assert len(client.calls) == 2
+    assert all(result.attempt.call_audits[0].cache_hit is False for result in first_results)
+    assert all(result.attempt.call_audits[0].cache_hit is True for result in cached_results)
+
+
+def test_plain_mcp_sources_default_to_isolated_rate_limit_state() -> None:
+    client = _Client()
+    registry = _registry(
+        server_update={"rate_limit_per_minute": 1, "cache_ttl_seconds": 0}
+    )
+    sources = tuple(
+        McpSource(
+            registry=registry,
+            client=client,
+            mapper=DeterministicMcpMapper(),
+            now=lambda: NOW,
+        )
+        for _ in range(2)
+    )
+
+    results = tuple(source.fetch(_query("quote")) for source in sources)
+
+    assert len(client.calls) == 2
+    assert all(result.attempt.error is None for result in results)
 
 
 def test_mcp_source_counts_failed_calls_and_preserves_safe_call_audit() -> None:

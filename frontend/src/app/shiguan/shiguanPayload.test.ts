@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   parseArchivesPayload,
+  parseDecisionPayload,
   parseRecallPayload,
   parseReviewPayload,
   parseStatisticsPayload,
@@ -67,6 +68,7 @@ const ARCHIVE = {
   replyTime: "2026-07-24T09:00:00Z",
   respondent: "丞相",
   reviewStatus: REVIEW,
+  decisionStatus: null,
   evidenceReferences: [EVIDENCE_REFERENCE],
 };
 
@@ -84,6 +86,7 @@ test("strict Shiguan payload decoders accept complete legal payloads and preserv
   const parsedArchive = parseArchivesPayload({ status: "ok", archives: [ARCHIVE] })?.[0];
   assert.equal(parsedArchive?.reviewStatus?.status, "PARTIAL");
   assert.deepEqual(parsedArchive?.evidenceReferences, [EVIDENCE_REFERENCE]);
+  assert.equal(parsedArchive?.decisionStatus, null);
   assert.deepEqual(
     parseStatisticsPayload({
       status: "ok",
@@ -110,6 +113,57 @@ test("strict Shiguan payload decoders accept complete legal payloads and preserv
     parseReviewPayload({ status: "ok", reviewStatus: REVIEW })?.status,
     "PARTIAL",
   );
+  assert.deepEqual(parseDecisionPayload({
+    status: "ok",
+    decisionStatus: { decision: "ADOPTED", decidedAt: "2026-08-09T02:00:00Z" },
+  }), { decision: "ADOPTED", decidedAt: "2026-08-09T02:00:00Z" });
+});
+
+test("strict Shiguan payload decoders require an explicit exact decisionStatus", () => {
+  const decidedAt = "2026-08-09T02:00:00Z";
+  const parsed = parseArchivesPayload({
+    status: "ok",
+    archives: [{
+      ...ARCHIVE,
+      decisionStatus: { decision: "ADOPTED", decidedAt },
+    }],
+  });
+  assert.deepEqual(parsed?.[0].decisionStatus, { decision: "ADOPTED", decidedAt });
+
+  for (const archive of [
+    Object.fromEntries(Object.entries(ARCHIVE).filter(([key]) => key !== "decisionStatus")),
+    { ...ARCHIVE, decisionStatus: { decision: "ADOPTED" } },
+    { ...ARCHIVE, decisionStatus: { decision: "UNKNOWN", decidedAt } },
+    { ...ARCHIVE, decisionStatus: { decision: "ADOPTED", decidedAt, extra: true } },
+  ]) {
+    assert.equal(parseArchivesPayload({ status: "ok", archives: [archive] }), null);
+  }
+});
+
+test("strict browser archive decoder rejects decisions that do not belong to the archive type", () => {
+  const decidedAt = "2026-08-09T02:00:00Z";
+  const memorial = {
+    ...ARCHIVE,
+    id: "memorial-1",
+    type: "MEMORIAL",
+    relatedArchiveIds: [],
+    sourceKind: null,
+    sourceText: null,
+    participatingDepartments: null,
+    replyProcess: null,
+    replyConclusion: null,
+    replyTime: null,
+    respondent: null,
+    decisionStatus: { decision: "ADOPTED", decidedAt },
+  };
+  const reply = {
+    ...ARCHIVE,
+    decisionStatus: { decision: "APPROVED", decidedAt },
+  };
+
+  for (const mismatched of [memorial, reply]) {
+    assert.equal(parseArchivesPayload({ status: "ok", archives: [mismatched] }), null);
+  }
 });
 
 test("strict Shiguan payload decoders reject malformed nested 200 bodies", () => {

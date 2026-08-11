@@ -30,19 +30,30 @@ the HTTP response body.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 import secrets
+from collections.abc import Callable
 from contextvars import ContextVar
-from datetime import datetime
-from pathlib import Path
+from datetime import UTC, datetime, timedelta
+from enum import StrEnum
+from typing import get_args
 
-from fastapi import APIRouter, FastAPI
+from fastapi import APIRouter, FastAPI, Header
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from app.accounting_reports.intent import detect_accounting_report_intent
-from app.accounting_reports.models import PublishedReportArtifact
+from app.accounting_reports.config import APPROVED_ACCOUNTING_SOURCE_DIR
+from app.accounting_reports.models import (
+    AccountingRequestKind,
+    PublishedReportArtifact,
+    ReportPeriod,
+)
 from app.accounting_reports.session import AccountingReportSession
+from app.accounting_reports.source_adapters import preflight_accounting_sources
+from app.accounting_reports.source_manifest import resolve_accounting_source_dir
+from app.accounting_reports.sources import AccountingSourceError
 from app.accounting_reports.storage import DEFAULT_ARTIFACT_DIR, DEFAULT_DB_PATH
 from app.agents.bureaus import bureau_profiles_for
 from app.agents.chancellor import (
@@ -50,7 +61,11 @@ from app.agents.chancellor import (
     ChancellorGraphInvocationError,
     build_chancellor_graph,
 )
-from app.agents.chancellor_draft.authority import draft_authority_registry
+from app.agents.chancellor_draft.authority import (
+    AccountingAuthorityContext,
+    ConsumedDraftAuthority,
+    draft_authority_registry,
+)
 from app.agents.chancellor_draft.routing import (
     ApprovedRouteSnapshot,
     validate_route_snapshot,
@@ -75,6 +90,8 @@ from app.agents.synthesis_failures import (
     classify_synthesis_failure,
 )
 from app.api.auth import CurrentUser
+from app.api.decree_jobs import JobStore
+from app.decree_jobs import AcceptDecreeJob, IdempotencyConflict
 from app.junjichu_cases import (
     JunjichuCaseOpenInput,
     archive_case,
@@ -82,12 +99,18 @@ from app.junjichu_cases import (
     open_case,
     record_checkpoint,
 )
-from app.langgraph_runtime.deepseek_client import DeepSeekModelNameError
+from app.langgraph_runtime.deepseek_client import (
+    DeepSeekModelInvocationError,
+    DeepSeekModelNameError,
+    FailureCategory,
+)
 from app.langgraph_runtime.deepseek_config import DeepSeekConfigError
 from app.shiguan.archive_decree import archive_chancellor_decree
 
 _LOGGER = logging.getLogger(__name__)
 _SANITIZED_MESSAGE = "丞相暂时无法处理旨意，请稍后再试"
+_PROVIDER_FAILURE_CATEGORIES = frozenset(get_args(FailureCategory))
+_RUN_ID_LENGTH = 32
 
 _MIN_DECREE_LENGTH = 1
 _MAX_DECREE_LENGTH = 2000
@@ -95,27 +118,126 @@ _FIXED_FAILURE_REASON = "processing_failed"
 _FAILURE_STAGES = frozenset(
     {"route", "bureau", "ministry", "council", "finalize", "archive", "report"}
 )
-_ACCOUNTING_SOURCE_DIR = (
-    Path(__file__).resolve().parents[3]
-    / "data"
-    / "财务数据资料"
-    / "20-25年财务报表及科目余额表"
-)
+
+
+def _model_failure_metadata(
+    error: ChancellorGraphInvocationError,
+) -> tuple[str, str, int | str, int]:
+    """Extract only fixed, validated provider metadata from an exception chain."""
+    current: BaseException | None = error
+    seen: set[int] = set()
+    for _ in range(8):
+        if current is None or id(current) in seen:
+            break
+        seen.add(id(current))
+        if isinstance(current, DeepSeekModelInvocationError):
+            category = current.failure_category
+            provider_status = current.provider_http_status
+            retry_count = current.retry_count
+            return (
+                "provider_request",
+                (
+                    category
+                    if type(category) is str
+                    and category in _PROVIDER_FAILURE_CATEGORIES
+                    else "unexpected"
+                ),
+                (
+                    provider_status
+                    if type(provider_status) is int
+                    and 100 <= provider_status <= 599
+                    else "none"
+                ),
+                (
+                    retry_count
+                    if type(retry_count) is int and 0 <= retry_count <= 1
+                    else 0
+                ),
+            )
+        current = current.__cause__
+    return "chancellor_graph", "graph_invocation", "none", 0
+
+
+def _trusted_run_id(error: ChancellorGraphInvocationError) -> str:
+    request_id = error.request_id
+    if (
+        type(request_id) is str
+        and len(request_id) == _RUN_ID_LENGTH
+        and all(character in "0123456789abcdef" for character in request_id)
+    ):
+        return request_id
+    return "unavailable"
 
 
 class AccountingReportPublicationError(RuntimeError):
     """Raised when a pending report cannot be attached to an archived reply."""
 
 
+class SourceNotCurrentError(RuntimeError):
+    """The one-time authority was consumed but its bound source no longer matches."""
+
+
+class DeliveryKind(StrEnum):
+    NONE = "none"
+    ACCOUNTING_REPORT = "accounting_report"
+    ACCOUNTING_ANALYSIS = "accounting_analysis"
+
+
+def _generated_report_identity(
+    report_session: AccountingReportSession,
+    *,
+    accounting_context: AccountingAuthorityContext | None,
+) -> str | None:
+    generations = getattr(report_session, "generations", ())
+    if not isinstance(generations, tuple):
+        raise AccountingReportPublicationError("report_generation_invalid")
+    if accounting_context is None:
+        if generations:
+            raise AccountingReportPublicationError("report_generation_unexpected")
+        return None
+    if len(generations) != 1:
+        raise AccountingReportPublicationError("report_generation_invalid")
+    generation = generations[0]
+    if (
+        getattr(generation, "request_kind", None) is not accounting_context.request_kind
+        or getattr(generation, "period", None) != accounting_context.period
+        or getattr(generation, "owner_user_id", None) != report_session.owner_user_id
+        or getattr(generation, "run_id", None) != report_session.run_id
+        or getattr(generation, "report_type", None) != "management"
+        or not report_session.is_publishable_generation(generation)
+    ):
+        raise AccountingReportPublicationError("report_generation_invalid")
+    artifact_id = getattr(generation, "artifact_id", None)
+    if not isinstance(artifact_id, str) or not artifact_id.strip():
+        raise AccountingReportPublicationError("report_generation_invalid")
+    return artifact_id.strip()
+
+
 def build_accounting_report_session(
-    *, owner_user_id: str, run_id: str
+    *,
+    owner_user_id: str,
+    run_id: str,
+    accounting_context: AccountingAuthorityContext | None = None,
 ) -> AccountingReportSession:
+    source_dir = APPROVED_ACCOUNTING_SOURCE_DIR
+    dataset = None
+    if accounting_context is not None:
+        try:
+            source_dir = resolve_accounting_source_dir()
+            dataset = preflight_accounting_sources(source_dir, accounting_context.period)
+        except AccountingSourceError:
+            raise SourceNotCurrentError from None
+        if dataset.manifest.fingerprint != accounting_context.source_fingerprint:
+            raise SourceNotCurrentError
     return AccountingReportSession(
         owner_user_id=owner_user_id,
         run_id=run_id,
-        source_dir=_ACCOUNTING_SOURCE_DIR,
+        source_dir=source_dir,
         artifact_dir=DEFAULT_ARTIFACT_DIR,
         db_path=DEFAULT_DB_PATH,
+        request_kind=(accounting_context.request_kind if accounting_context else None),
+        period=(accounting_context.period if accounting_context else None),
+        dataset=dataset,
     )
 
 
@@ -353,7 +475,27 @@ class ChancellorDecreeResponse(BaseModel):
     council_verdict: str | None
     final_verdict: str
     recommendations: list[str]
+    delivery_kind: DeliveryKind
+    delivery_period: ReportPeriod | None = None
     artifacts: list[ReportArtifactResponse] = Field(default_factory=list)
+
+
+class PreparedDecreeExecution(BaseModel):
+    """Durable model checkpoint; it contains no completed business side effect."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    response: ChancellorDecreeResponse
+    internal_result: dict[str, object]
+    generated_artifact_id: str | None = None
+
+
+def _durable_internal_result(result: dict[str, object]) -> dict[str, object]:
+    """Copy graph output without live runtime services that cannot be recovered."""
+
+    durable = dict(result)
+    durable.pop("evidence_session", None)
+    return durable
 
 
 def _non_empty_string(value: object) -> bool:
@@ -364,7 +506,7 @@ def _build_response_from_graph_result(
     result: object,
     approved_route: ApprovedRouteSnapshot,
     *,
-    decree_text: str,
+    accounting_context: AccountingAuthorityContext | None = None,
 ) -> ChancellorDecreeResponse:
     """Validate the complete graph result and construct the HTTP response.
 
@@ -484,7 +626,7 @@ def _build_response_from_graph_result(
         if len(set(normalized_recommendations)) != 3:
             raise ValueError("recommendations must be unique after stripping")
 
-        if detect_accounting_report_intent(decree_text).requested:
+        if accounting_context is not None:
             if (
                 route_type != "single"
                 or len(approved_route.departments) != 1
@@ -527,6 +669,7 @@ def _build_response_from_graph_result(
             council_verdict=(council_verdict.strip() if isinstance(council_verdict, str) else None),
             final_verdict=final_verdict.strip(),
             recommendations=normalized_recommendations,
+            delivery_kind=DeliveryKind.NONE,
         )
     except ChancellorGraphInvocationError:
         raise
@@ -536,7 +679,11 @@ def _build_response_from_graph_result(
         ) from exc
 
 
-def get_chancellor_graph(*, report_session: AccountingReportSession | None = None):
+def get_chancellor_graph(
+    *,
+    report_session: AccountingReportSession,
+    execution_boundary: Callable[[], None] | None = None,
+):
     """Build the real Chancellor graph.
 
     A plain module-level function (not a FastAPI ``Depends()``) so it is
@@ -547,20 +694,33 @@ def get_chancellor_graph(*, report_session: AccountingReportSession | None = Non
     inject a fake graph without touching configuration, environment
     variables, or the network.
     """
-    return build_chancellor_graph(
-        lifecycle_observer=_lifecycle_observer_context.get(),
-        report_session=report_session,
-    )
+    graph_kwargs = {
+        "lifecycle_observer": _lifecycle_observer_context.get(),
+        "report_session": report_session,
+        "owner_user_id": report_session.owner_user_id,
+    }
+    if execution_boundary is not None:
+        graph_kwargs["execution_boundary"] = execution_boundary
+    return build_chancellor_graph(**graph_kwargs)
 
 
 def get_execution_chancellor_agent(
-    *, report_session: AccountingReportSession
+    *,
+    report_session: AccountingReportSession,
+    execution_boundary: Callable[[], None] | None = None,
 ) -> ChancellorAgent:
     return ChancellorAgent(
         registry=build_default_skill_registry(),
         handlers={
             ChancellorSkillId.EXECUTE_DECREE: GraphSkillHandler(
-                lambda: get_chancellor_graph(report_session=report_session)
+                lambda: (
+                    get_chancellor_graph(report_session=report_session)
+                    if execution_boundary is None
+                    else get_chancellor_graph(
+                        report_session=report_session,
+                        execution_boundary=execution_boundary,
+                    )
+                )
             )
         },
     )
@@ -569,10 +729,198 @@ def get_execution_chancellor_agent(
 router = APIRouter()
 
 
-@router.post("/api/v1/decrees/chancellor", response_model=ChancellorDecreeResponse)
-def submit_decree(
-    payload: ChancellorDecreeRequest, current_user: CurrentUser
-) -> ChancellorDecreeResponse:
+class AcceptedDecreeResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    job_id: str
+    state: str
+    status_url: str
+    cancel_url: str
+    accepted_at: datetime
+    replayed: bool
+
+
+def _authority_snapshot(consumed: ConsumedDraftAuthority) -> str:
+    accounting = consumed.accounting_context
+    return json.dumps(
+        {
+            "approved_route": consumed.route_snapshot.model_dump(mode="json"),
+            "accounting_context": (
+                None
+                if accounting is None
+                else {
+                    "request_kind": accounting.request_kind.value,
+                    "period": {
+                        "start_year": accounting.period.start_year,
+                        "end_year": accounting.period.end_year,
+                    },
+                    "source_fingerprint": accounting.source_fingerprint,
+                }
+            ),
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+
+
+def _canonical_request_hash(
+    payload: ChancellorDecreeRequest, owner_user_id: str
+) -> str:
+    canonical = json.dumps(
+        {
+            "v": 1,
+            "owner_user_id": owner_user_id,
+            "draft_version": payload.draft_version,
+            "draft_fingerprint": payload.draft_fingerprint,
+            "decree_text": payload.decree_text,
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _accepted_response(job, *, replayed: bool) -> JSONResponse:
+    body = AcceptedDecreeResponse(
+        job_id=job.job_id,
+        state="QUEUED",
+        status_url=f"/api/v1/decree-jobs/{job.job_id}",
+        cancel_url=f"/api/v1/decree-jobs/{job.job_id}/cancel",
+        accepted_at=job.created_at,
+        replayed=replayed,
+    )
+    return JSONResponse(
+        status_code=202,
+        headers={
+            "Location": body.status_url,
+            "Retry-After": "1",
+            "Cache-Control": "private, no-store",
+        },
+        content=body.model_dump(mode="json"),
+    )
+
+
+@router.post(
+    "/api/v1/decrees/chancellor",
+    response_model=AcceptedDecreeResponse,
+    status_code=202,
+)
+def accept_decree(
+    payload: ChancellorDecreeRequest,
+    current_user: CurrentUser,
+    store: JobStore,
+    idempotency_key: str = Header(
+        alias="Idempotency-Key", min_length=1, max_length=128
+    ),
+) -> JSONResponse:
+    request_hash = _canonical_request_hash(payload, current_user.id)
+    try:
+        recovered = store.recover_acceptance(
+            owner_user_id=current_user.id,
+            idempotency_key=idempotency_key,
+            request_hash=request_hash,
+        )
+    except IdempotencyConflict:
+        return JSONResponse(
+            status_code=409,
+            content={"status": "error", "reason": "idempotency_conflict"},
+        )
+    if recovered is not None:
+        return _accepted_response(recovered.job, replayed=True)
+
+    reservation_id = secrets.token_hex(16)
+    try:
+        consumed = draft_authority_registry.reserve_with_context(
+            owner_user_id=current_user.id,
+            version=payload.draft_version or 0,
+            fingerprint=payload.draft_fingerprint or "",
+            decree_text=payload.decree_text,
+            reservation_id=reservation_id,
+        )
+    except Exception:
+        raise AccountingReportPublicationError(
+            "draft_authority_unavailable"
+        ) from None
+    if consumed is None:
+        raise DraftNotCurrentError
+
+    try:
+        approved_route = validate_route_snapshot(consumed.route_snapshot)
+        consumed = ConsumedDraftAuthority(
+            approved_route, consumed.accounting_context
+        )
+        accepted = store.accept(
+            AcceptDecreeJob(
+                owner_user_id=current_user.id,
+                idempotency_key=idempotency_key,
+                request_hash=request_hash,
+                draft_fingerprint=payload.draft_fingerprint or "",
+                decree_text=payload.decree_text,
+                approved_route_json=_authority_snapshot(consumed),
+                deadline_at=datetime.now(UTC) + timedelta(minutes=30),
+                acceptance_committed=False,
+            )
+        )
+    except IdempotencyConflict:
+        draft_authority_registry.release_reservation(
+            owner_user_id=current_user.id, reservation_id=reservation_id
+        )
+        return JSONResponse(
+            status_code=409,
+            content={"status": "error", "reason": "idempotency_conflict"},
+        )
+    except Exception:
+        draft_authority_registry.release_reservation(
+            owner_user_id=current_user.id, reservation_id=reservation_id
+        )
+        raise
+
+    if accepted.replayed:
+        draft_authority_registry.release_reservation(
+            owner_user_id=current_user.id, reservation_id=reservation_id
+        )
+        return _accepted_response(accepted.job, replayed=True)
+
+    if not draft_authority_registry.commit_reservation(
+        owner_user_id=current_user.id, reservation_id=reservation_id
+    ):
+        store.abandon_acceptance(accepted.job.job_id, current_user.id)
+        raise AccountingReportPublicationError("draft_authority_commit_failed")
+    try:
+        job = store.activate_acceptance(accepted.job.job_id, current_user.id)
+    except Exception:
+        abandoned = False
+        try:
+            store.abandon_acceptance(accepted.job.job_id, current_user.id)
+        except Exception:
+            pass
+        else:
+            abandoned = True
+        if abandoned:
+            draft_authority_registry.restore_if_absent(
+                owner_user_id=current_user.id,
+                version=payload.draft_version or 0,
+                fingerprint=payload.draft_fingerprint or "",
+                decree_text=payload.decree_text,
+                consumed=consumed,
+            )
+        raise AccountingReportPublicationError(
+            "draft_authority_activation_failed"
+        ) from None
+    return _accepted_response(job, replayed=False)
+
+
+def execute_decree_now(
+    payload: ChancellorDecreeRequest,
+    current_user,
+    *,
+    consumed_authority: ConsumedDraftAuthority | None = None,
+    execution_id: str | None = None,
+    defer_business_side_effects: bool = False,
+    execution_control: Callable[[], None] | None = None,
+) -> ChancellorDecreeResponse | PreparedDecreeExecution:
     """Submit a decree (旨意) to the Chancellor agent and return its full result.
 
     ``payload`` has already passed :class:`ChancellorDecreeRequest` validation
@@ -587,27 +935,33 @@ def submit_decree(
     不实现 agent 图逻辑").
     """
     try:
-        approved_route = draft_authority_registry.consume(
+        consumed_authority = (
+            consumed_authority
+            or draft_authority_registry.consume_with_context(
             owner_user_id=current_user.id,
             version=payload.draft_version or 0,
             fingerprint=payload.draft_fingerprint or "",
             decree_text=payload.decree_text,
+            )
         )
     except Exception:
         raise AccountingReportPublicationError(
             "draft_authority_unavailable"
         ) from None
-    if approved_route is None:
+    if consumed_authority is None:
         raise DraftNotCurrentError
+    approved_route = consumed_authority.route_snapshot
+    accounting_context = consumed_authority.accounting_context
     try:
         approved_route = validate_route_snapshot(approved_route)
     except Exception:
         raise DraftNotCurrentError from None
 
-    run_id = secrets.token_hex(16)
+    run_id = execution_id or secrets.token_hex(16)
     report_session = build_accounting_report_session(
         owner_user_id=current_user.id,
         run_id=run_id,
+        accounting_context=accounting_context,
     )
     observer = _StorageCaseLifecycleObserver(current_user.id)
     context_token = None
@@ -618,9 +972,15 @@ def submit_decree(
     try:
         context_token = _lifecycle_observer_context.set(observer)
         try:
-            runtime_result = get_execution_chancellor_agent(
-                report_session=report_session
-            ).invoke(
+            agent = (
+                get_execution_chancellor_agent(report_session=report_session)
+                if execution_control is None
+                else get_execution_chancellor_agent(
+                    report_session=report_session,
+                    execution_boundary=execution_control,
+                )
+            )
+            runtime_result = agent.invoke(
                 entrypoint=ChancellorEntrypoint.EXECUTE,
                 requested_skill=ChancellorSkillId.EXECUTE_DECREE,
                 owner_user_id=current_user.id,
@@ -648,19 +1008,18 @@ def submit_decree(
         response = _build_response_from_graph_result(
             result,
             approved_route,
-            decree_text=payload.decree_text,
+            accounting_context=accounting_context,
         )
-        audited_result = dict(result)
+        audited_result = _durable_internal_result(result)
         pre_archive_side_effects = ["authority_consumed"]
         if observer.case_created:
             pre_archive_side_effects.append("case_created")
             final_side_effects.append("case_created")
-        has_pending = getattr(
+        generated_artifact_id = _generated_report_identity(
             report_session,
-            "has_pending",
-            getattr(report_session, "_summary", None) is not None,
+            accounting_context=accounting_context,
         )
-        if has_pending:
+        if generated_artifact_id is not None:
             pre_archive_side_effects.append("report_prepared")
             final_side_effects.append("report_prepared")
         persisted_audit = (
@@ -683,12 +1042,23 @@ def submit_decree(
                 ),
             }
         )
+        if defer_business_side_effects:
+            audit_result = "success"
+            audit_failure_code = None
+            return PreparedDecreeExecution(
+                response=response,
+                internal_result=audited_result,
+                generated_artifact_id=generated_artifact_id,
+            )
         try:
+            archive_kwargs = {"owner_user_id": current_user.id}
+            if execution_id is not None:
+                archive_kwargs["reply_id"] = execution_id
             archive_result = archive_chancellor_decree(
                 payload.decree_text,
                 response,
                 audited_result,
-                owner_user_id=current_user.id,
+                **archive_kwargs,
             )
         except Exception as exc:
             observer.fail(
@@ -697,17 +1067,41 @@ def submit_decree(
             raise AccountingReportPublicationError("reply_archive_failed") from None
         if getattr(archive_result, "archived", False):
             final_side_effects.append("reply_archived")
-        if has_pending:
+        if generated_artifact_id is not None:
             if not archive_result.archived or not archive_result.reply_id:
                 raise AccountingReportPublicationError("reply_archive_required")
             try:
                 published = report_session.publish(archive_result.reply_id)
+                if (
+                    len(published) != 1
+                    or published[0].artifact_id != generated_artifact_id
+                    or published[0].owner_user_id != current_user.id
+                    or published[0].run_id != run_id
+                    or published[0].reply_id != archive_result.reply_id
+                    or published[0].report_type != "management"
+                    or published[0].period != accounting_context.period
+                ):
+                    raise AccountingReportPublicationError(
+                        "publication_identity_invalid"
+                    )
                 artifacts = [
                     ReportArtifactResponse.from_domain(item) for item in published
                 ]
             except Exception:
                 raise AccountingReportPublicationError("publication_failed") from None
-            response = response.model_copy(update={"artifacts": artifacts})
+            delivery_kind = (
+                DeliveryKind.ACCOUNTING_ANALYSIS
+                if accounting_context.request_kind
+                is AccountingRequestKind.ACCOUNTING_ANALYSIS
+                else DeliveryKind.ACCOUNTING_REPORT
+            )
+            response = response.model_copy(
+                update={
+                    "artifacts": artifacts,
+                    "delivery_kind": delivery_kind,
+                    "delivery_period": accounting_context.period,
+                }
+            )
             if artifacts:
                 final_side_effects.append("report_published")
         if response.route_type == "multi":
@@ -722,6 +1116,8 @@ def submit_decree(
         return response
     except Exception as exc:
         report_session.abort()
+        if isinstance(exc, ChancellorGraphInvocationError):
+            exc.request_id = run_id
         failure_stage = (
             getattr(exc, "failure_stage", None)
             if isinstance(exc, ChancellorGraphInvocationError)
@@ -793,18 +1189,37 @@ def register_chancellor_exception_handlers(app: FastAPI) -> None:
     async def _handle_model_unavailable(
         _request, _exc: ChancellorGraphInvocationError
     ) -> JSONResponse:
-        chain: list[str] = []
-        current: BaseException | None = _exc
-        while current is not None and len(chain) < 8:
-            chain.append(f"{type(current).__name__}:{current}")
-            current = current.__cause__
-        _LOGGER.warning("decree model failure chain=%s", " <- ".join(chain))
+        stage, category, provider_http_status, retry_count = _model_failure_metadata(
+            _exc
+        )
+        _LOGGER.warning(
+            "decree_model_failure stage=%s category=%s provider_http_status=%s "
+            "retry_count=%s request_id=%s",
+            stage,
+            category,
+            provider_http_status,
+            retry_count,
+            _trusted_run_id(_exc),
+        )
         return JSONResponse(
             status_code=502,
             content={
                 "status": "error",
                 "reason": "model_unavailable",
                 "message": _SANITIZED_MESSAGE,
+            },
+        )
+
+    @app.exception_handler(SourceNotCurrentError)
+    async def _handle_source_not_current(
+        _request, _exc: SourceNotCurrentError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=409,
+            content={
+                "status": "error",
+                "reason": "source_not_current",
+                "message": "会计数据源已变化，请重新拟旨后再下旨。",
             },
         )
 

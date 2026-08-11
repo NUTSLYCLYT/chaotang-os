@@ -35,8 +35,21 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.api.auth import CurrentUser
 from app.shiguan import storage
-from app.shiguan.errors import ArchiveNotFoundError, ArchiveValidationError, ShiguanStorageError
-from app.shiguan.models import Archive, ArchiveType, DadianOverview, ReviewStatus, Statistics
+from app.shiguan.errors import (
+    ArchiveDecisionConflictError,
+    ArchiveNotFoundError,
+    ArchiveValidationError,
+    ShiguanStorageError,
+)
+from app.shiguan.models import (
+    Archive,
+    ArchiveDecision,
+    ArchiveDecisionValue,
+    ArchiveType,
+    DadianOverview,
+    ReviewStatus,
+    Statistics,
+)
 from app.shiguan.recall import MAX_RECALL_LIMIT, RecallMatch, find_similar_archives
 
 _DEFAULT_LIST_LIMIT = 100
@@ -54,6 +67,14 @@ class ReviewStatusUpdateRequest(BaseModel):
     status: str
     reviewed_at: str
     note: str | None = None
+
+
+class ArchiveDecisionRequest(BaseModel):
+    """Strict terminal-decision request owned by the authenticated user."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    decision: ArchiveDecisionValue
 
 
 class RecallRequest(BaseModel):
@@ -131,6 +152,18 @@ def update_review_status(
     )
 
 
+@router.put("/archives/{archive_id}/decision", response_model=ArchiveDecision)
+def update_archive_decision(
+    archive_id: str, payload: ArchiveDecisionRequest, current_user: CurrentUser
+) -> ArchiveDecision:
+    """Record one immutable terminal decision for an owner-scoped archive."""
+    return storage.set_archive_decision(
+        archive_id,
+        payload.decision,
+        owner_user_id=current_user.id,
+    )
+
+
 @router.get("/statistics", response_model=Statistics)
 def get_statistics(current_user: CurrentUser) -> Statistics:
     """Report archive counters and the achievement success rate.
@@ -193,6 +226,15 @@ def register_shiguan_exception_handlers(app: FastAPI) -> None:
         return JSONResponse(
             status_code=422,
             content={"status": "error", "reason": "validation_failed", "message": str(exc)},
+        )
+
+    @app.exception_handler(ArchiveDecisionConflictError)
+    async def _handle_archive_decision_conflict(
+        _request, exc: ArchiveDecisionConflictError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=409,
+            content={"status": "error", "reason": "decision_conflict", "message": str(exc)},
         )
 
     @app.exception_handler(ShiguanStorageError)

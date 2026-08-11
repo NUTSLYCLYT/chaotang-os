@@ -123,7 +123,7 @@
 .ministryGrid article span { color: #ad9e83; font-size: 11px; }
 .ministryGrid article p { color: #c8bba2; font-size: 12px; line-height: 1.55; overflow-wrap: anywhere; }
 
-button:focus-visible, select:focus-visible { outline: 2px solid #f0c66a; outline-offset: 3px; }
+.scene button:focus-visible, .scene select:focus-visible { outline: 2px solid #f0c66a; outline-offset: 3px; }
 
 @media (max-width: 1280px) {
   .workspace { grid-template-columns: minmax(240px, .7fr) minmax(480px, 1.3fr); }

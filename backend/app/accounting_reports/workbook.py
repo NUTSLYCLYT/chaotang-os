@@ -6,7 +6,7 @@ import re
 import tempfile
 import zipfile
 from collections.abc import Iterable
-from datetime import UTC, datetime
+from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
 from typing import Final
@@ -29,7 +29,6 @@ SHEET_NAMES: Final = (
 )
 MONEY_FORMAT: Final = '#,##0.00;[Red](#,##0.00);-'
 PERCENT_FORMAT: Final = "0.00%"
-DATE_FORMAT: Final = "yyyy-mm-dd hh:mm:ss"
 _HEADER_FILL: Final = PatternFill("solid", fgColor="1F4E78")
 _SHEET_REFERENCE = re.compile(r"'([^']+)'!")
 _QUALIFIED_REFERENCE = re.compile(
@@ -50,6 +49,15 @@ _FORBIDDEN_FORMULA_MARKERS: Final = (
     "#DIV/0!",
     "#VALUE!",
     "#NAME?",
+)
+_DETERMINISTIC_XLSX_DATETIME: Final = (1980, 1, 1, 0, 0, 0)
+_DETERMINISTIC_ZIP_DATETIME: Final = (1980, 1, 1, 0, 0, 0)
+_DETERMINISTIC_CORE_TIMESTAMP: Final = b"1980-01-01T00:00:00Z"
+_CORE_CREATED_TIMESTAMP = re.compile(
+    rb"(<dcterms:created\b[^>]*>)[^<]*(</dcterms:created>)"
+)
+_CORE_MODIFIED_TIMESTAMP = re.compile(
+    rb"(<dcterms:modified\b[^>]*>)[^<]*(</dcterms:modified>)"
 )
 
 
@@ -89,7 +97,6 @@ def _finish_table(sheet: Worksheet) -> None:
 def _write_management_summary(
     sheet: Worksheet,
     summary: AccountingReportSummary,
-    generated_at: datetime,
     source_hashes: tuple[str, ...],
 ) -> None:
     sheet.append(["管理报告", "值"])
@@ -99,12 +106,11 @@ def _write_management_summary(
             f"{summary.period.start_year}-{summary.period.end_year}",
         ]
     )
-    sheet.append(["生成时间", generated_at])
+    sheet.append(["报告基准年度", summary.period.end_year])
     sheet.append(["来源哈希", ", ".join(source_hashes)])
     sheet.append(["总体校验", summary.overall_status])
     last_core_row = summary.period.end_year - summary.period.start_year + 2
     sheet.append(["末期利润", f"='核心财务报表'!H{last_core_row}"])
-    sheet["B3"].number_format = DATE_FORMAT
     sheet["B6"].number_format = MONEY_FORMAT
     _style_header(sheet)
     sheet.column_dimensions["A"].width = 18
@@ -274,7 +280,6 @@ def _write_checks(sheet: Worksheet, summary: AccountingReportSummary) -> None:
 def _write_sources(
     sheet: Worksheet,
     summary: AccountingReportSummary,
-    generated_at: datetime,
     rows: tuple[NormalizedLedgerRow, ...],
 ) -> None:
     sheet.append(["文件名", "工作表", "来源标识", "来源哈希", "来源行"])
@@ -304,9 +309,6 @@ def _write_sources(
             f"{summary.period.start_year}-{summary.period.end_year}",
         ]
     )
-    generated_row = sheet.max_row + 1
-    sheet.append(["生成时间", generated_at])
-    sheet.cell(generated_row, 2).number_format = DATE_FORMAT
     for source_hash in sorted({row.source.file_sha256 for row in rows}):
         sheet.append(["来源哈希", source_hash])
     _style_header(sheet)
@@ -324,18 +326,62 @@ def _build_workbook(
     workbook.calculation.calcMode = "auto"
     workbook.calculation.fullCalcOnLoad = True
     workbook.calculation.forceFullCalc = True
-    generated_at = datetime.now(UTC).replace(tzinfo=None, microsecond=0)
+    metadata_timestamp = datetime(*_DETERMINISTIC_XLSX_DATETIME)
+    workbook.properties.created = metadata_timestamp
+    workbook.properties.modified = metadata_timestamp
     source_hashes = tuple(sorted({row.source.file_sha256 for row in rows}))
-    _write_management_summary(
-        workbook["管理摘要"], summary, generated_at, source_hashes
-    )
+    _write_management_summary(workbook["管理摘要"], summary, source_hashes)
     _write_details(workbook["科目明细"], rows)
     _write_core(workbook["核心财务报表"], summary, len(rows) + 1)
     _write_trends(workbook["科目趋势"], rows)
     _write_exceptions(workbook["异常分析"], summary.exceptions)
     _write_checks(workbook["校验结果"], summary)
-    _write_sources(workbook["数据来源"], summary, generated_at, rows)
+    _write_sources(workbook["数据来源"], summary, rows)
     return workbook
+
+
+def _normalize_xlsx_archive(path: Path) -> None:
+    descriptor, normalized_name = tempfile.mkstemp(
+        prefix=f".{path.name}.",
+        suffix=".normalized.xlsx",
+        dir=path.parent,
+    )
+    os.close(descriptor)
+    normalized_path = Path(normalized_name)
+    try:
+        with zipfile.ZipFile(path, "r") as source:
+            members = []
+            for info in sorted(source.infolist(), key=lambda item: item.filename):
+                content = source.read(info.filename)
+                if info.filename == "docProps/core.xml":
+                    for pattern in (
+                        _CORE_CREATED_TIMESTAMP,
+                        _CORE_MODIFIED_TIMESTAMP,
+                    ):
+                        content = pattern.sub(
+                            lambda match: (
+                                match.group(1)
+                                + _DETERMINISTIC_CORE_TIMESTAMP
+                                + match.group(2)
+                            ),
+                            content,
+                        )
+                members.append((info.filename, content))
+        with zipfile.ZipFile(
+            normalized_path,
+            "w",
+            compression=zipfile.ZIP_DEFLATED,
+            compresslevel=9,
+        ) as destination:
+            for filename, content in members:
+                info = zipfile.ZipInfo(filename, _DETERMINISTIC_ZIP_DATETIME)
+                info.compress_type = zipfile.ZIP_DEFLATED
+                info.create_system = 0
+                info.external_attr = 0
+                destination.writestr(info, content, compress_type=zipfile.ZIP_DEFLATED)
+        os.replace(normalized_path, path)
+    finally:
+        normalized_path.unlink(missing_ok=True)
 
 
 def _audit_generated_workbook(path: Path) -> None:
@@ -460,6 +506,7 @@ def write_management_report(
             workbook.save(temporary_path)
         finally:
             workbook.close()
+        _normalize_xlsx_archive(temporary_path)
         _audit_generated_workbook(temporary_path)
         digest = hashlib.sha256(temporary_path.read_bytes()).hexdigest()
         os.replace(temporary_path, path)

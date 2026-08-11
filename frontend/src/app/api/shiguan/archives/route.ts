@@ -9,6 +9,7 @@ const ARCHIVE_TYPES = new Set<ArchiveType>(["MEMORIAL", "REPLY"]);
 const FRIENDLY_MESSAGE_BY_KIND = {
   validation: "史馆筛选条件未通过校验，请调整后重试。",
   not_found: "未找到对应史馆档案。",
+  conflict: "史馆档案状态冲突，请刷新后重试。",
   storage: "史馆暂时不可用，请稍后重试。",
   network: "无法连接朝堂后端，请稍后重试。",
   unknown: "史馆服务暂时不可用，请稍后重试。",
@@ -31,6 +32,9 @@ function errorStatus(kind: keyof typeof FRIENDLY_MESSAGE_BY_KIND): number {
   }
   if (kind === "not_found") {
     return 404;
+  }
+  if (kind === "conflict") {
+    return 409;
   }
   return 503;
 }

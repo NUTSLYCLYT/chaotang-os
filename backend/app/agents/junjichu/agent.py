@@ -211,6 +211,7 @@ def _invoke_junjichu_council_with_report_authorized(
     approved_departments: Sequence[str],
     required_bureaus_by_department: Mapping[str, Sequence[str]],
     ministry_invoker: Callable[[str, tuple[str, ...]], MinistryAgentInvocationResult],
+    execution_boundary: Callable[[], None] | None = None,
 ) -> JunjichuCouncilInvocationResult:
     """Run one typed ministry call per approved department and synthesize a CouncilReport."""
     approved = tuple(approved_departments)
@@ -256,6 +257,8 @@ def _invoke_junjichu_council_with_report_authorized(
             ),
         },
     ]
+    if execution_boundary is not None:
+        execution_boundary()
     try:
         synthesis = invoke_strict_structured(
             chat_model,
@@ -383,6 +386,7 @@ def invoke_junjichu_council_with_report(
     approved_departments: Sequence[str],
     required_bureaus_by_department: Mapping[str, Sequence[str]],
     ministry_invoker: Callable[[str, tuple[str, ...]], MinistryAgentInvocationResult],
+    execution_boundary: Callable[[], None] | None = None,
 ) -> JunjichuCouncilInvocationResult:
     """Authorize ministry access before any council-side production action."""
 
@@ -410,6 +414,7 @@ def invoke_junjichu_council_with_report(
             approved_departments=approved_departments,
             required_bureaus_by_department=required_bureaus_by_department,
             ministry_invoker=ministry_invoker,
+            execution_boundary=execution_boundary,
         ),
     )
 
@@ -426,12 +431,15 @@ def run_junjichu_council_with_report(
     report_session: AccountingReportSession | None = None,
     lifecycle_observer: CaseLifecycleObserver | None = None,
     processing_path: list[str] | None = None,
+    execution_boundary: Callable[[], None] | None = None,
 ) -> JunjichuCouncilInvocationResult:
     """Compatibility orchestration boundary that owns privileged ministry context."""
 
     def ministry_invoker(
         department: str, required_bureaus: tuple[str, ...]
     ) -> MinistryAgentInvocationResult:
+        if execution_boundary is not None:
+            execution_boundary()
         kwargs: dict[str, object] = {
             "required_bureaus": required_bureaus,
             "recall_context": recall_contexts[department] if recall_contexts else None,
@@ -459,6 +467,7 @@ def run_junjichu_council_with_report(
         approved_departments=tuple(departments),
         required_bureaus_by_department=required_bureaus_by_department,
         ministry_invoker=ministry_invoker,
+        execution_boundary=execution_boundary,
     )
     if evidence_session is not None and result.runtime_report.status.value != "completed":
         evidence_session.record_degradation("junjichu:council")
@@ -551,6 +560,7 @@ def run_junjichu_council(
     report_session: AccountingReportSession | None = None,
     lifecycle_observer: CaseLifecycleObserver | None = None,
     processing_path: list[str] | None = None,
+    execution_boundary: Callable[[], None] | None = None,
 ) -> tuple[list[MinistryOpinion], str]:
     """Run the full multi-department 军机处 council sequence.
 
@@ -599,11 +609,14 @@ def run_junjichu_council(
             report_session=report_session,
             lifecycle_observer=lifecycle_observer,
             processing_path=processing_path,
+            execution_boundary=execution_boundary,
         )
         return result.ministry_opinions, result.verdict
 
     ministry_opinions: list[MinistryOpinion] = []
     for department in departments:
+        if execution_boundary is not None:
+            execution_boundary()
         ministry_kwargs = {
             "recall_context": (recall_contexts[department] if recall_contexts else None),
             "required_bureaus": tuple(required_bureaus_by_department[department]),
@@ -633,6 +646,8 @@ def run_junjichu_council(
             processing_path=council_processing_path,
         )
     try:
+        if execution_boundary is not None:
+            execution_boundary()
         verdict = invoke_junjichu_council(
             decree_text,
             rationale,

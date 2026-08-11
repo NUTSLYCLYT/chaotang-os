@@ -11,6 +11,7 @@ from types import SimpleNamespace
 
 import pytest
 
+import app.agents.evidence_protocol as evidence_protocol_module
 from app.agents.evidence_protocol import (
     AgentEvidenceSession,
     EvidenceProtocolError,
@@ -46,6 +47,8 @@ from app.agents.runtime_skills.tool_models import (
 )
 from app.agents.runtime_skills.tool_policy import approve_tool_call
 from app.agents.runtime_skills.tool_registry import TOOL_DESCRIPTORS
+
+OWNER_A = "owner-a"
 
 
 def _legacy_parser(value: object) -> dict[str, str]:
@@ -266,7 +269,7 @@ class Coordinator:
     ) -> None:
         self.status = status
         self.cache_hit = cache_hit
-        self.calls: list[tuple[DataGapRequest, str, str, object]] = []
+        self.calls: list[tuple[DataGapRequest, str, str, object, str]] = []
 
     def investigate(
         self,
@@ -275,14 +278,20 @@ class Coordinator:
         department: str,
         matter_type: str,
         extraction_budget: object,
+        owner_user_id: str,
     ) -> EvidencePack:
-        self.calls.append((request, department, matter_type, extraction_budget))
+        self.calls.append(
+            (request, department, matter_type, extraction_budget, owner_user_id)
+        )
         return _pack(request, status=self.status, cache_hit=self.cache_hit)
 
 
 def test_bureau_evidence_tool_adapter_uses_real_session_and_canonical_projection() -> None:
     coordinator = Coordinator()
-    session = AgentEvidenceSession(coordinator=coordinator, id_factory=lambda: "request-tool")
+    session = AgentEvidenceSession(owner_user_id=OWNER_A,
+        coordinator=coordinator,
+        id_factory=lambda: "request-tool",
+    )
     adapter = build_bureau_evidence_tool_adapter(
         session=session, node_id="bureau:libu:policy", department="吏部",
         matter_type="MEMORIAL", case_id="case-1", decree_id="decree-1",
@@ -302,6 +311,7 @@ def test_bureau_evidence_tool_adapter_uses_real_session_and_canonical_projection
     payload = adapter(SimpleNamespace(approved_call=call))
     assert len(coordinator.calls) == 1
     assert coordinator.calls[0][0].required_facts[0].key == "market_size"
+    assert coordinator.calls[0][4] == OWNER_A
     assert session.snapshot().available_evidence_ids == ("e-1",)
     assert payload["data"] == {"facts": [{
         "ref": "evidence:case:case-1:decree:decree-1:e-1",
@@ -312,8 +322,17 @@ def test_bureau_evidence_tool_adapter_uses_real_session_and_canonical_projection
         adapter._case_id = "forged"  # type: ignore[attr-defined]
 
 
+@pytest.mark.parametrize("owner_user_id", ("", "   "))
+def test_agent_evidence_session_rejects_blank_owner(owner_user_id: str) -> None:
+    with pytest.raises(ValueError, match="owner_user_id"):
+        AgentEvidenceSession(
+            coordinator=Coordinator(),
+            owner_user_id=owner_user_id,
+        )
+
+
 def test_bureau_evidence_tool_adapter_is_signed_final_and_tamper_evident() -> None:
-    session = AgentEvidenceSession(coordinator=Coordinator())
+    session = AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator())
     adapter = build_bureau_evidence_tool_adapter(
         session=session, node_id="bureau:libu:policy", department="吏部",
         matter_type="MEMORIAL", case_id="case-1", decree_id="decree-1",
@@ -331,7 +350,7 @@ def test_bureau_evidence_tool_adapter_is_signed_final_and_tamper_evident() -> No
 
 
 def test_exact_type_full_slot_clone_cannot_reuse_signed_provenance() -> None:
-    session = AgentEvidenceSession(coordinator=Coordinator())
+    session = AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator())
     original = build_bureau_evidence_tool_adapter(session=session, node_id="bureau:x", department="吏部", matter_type="MEMORIAL", case_id="case-1", decree_id="decree-1")
     clone = object.__new__(type(original))
     for slot in type(original).__slots__:
@@ -343,7 +362,7 @@ def test_exact_type_full_slot_clone_cannot_reuse_signed_provenance() -> None:
 
 def test_bureau_evidence_tool_real_approved_end_to_end() -> None:
     coordinator = Coordinator()
-    session = AgentEvidenceSession(coordinator=coordinator, id_factory=lambda: "req-e2e")
+    session = AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=coordinator, id_factory=lambda: "req-e2e")
     skill = build_default_downstream_skill_registry().get_by_agent("libu-policy")
     policy = skill.tool_policy
     assert policy is not None
@@ -383,7 +402,7 @@ def test_bureau_evidence_tool_real_approved_end_to_end() -> None:
     ],
 )
 def test_bureau_evidence_tool_status_mapping(status, expected) -> None:
-    session = AgentEvidenceSession(coordinator=Coordinator(status=status))
+    session = AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator(status=status))
     adapter = build_bureau_evidence_tool_adapter(session=session, node_id="bureau:x", department="吏部", matter_type="MEMORIAL", case_id="case-1", decree_id="decree-1")
     call = SimpleNamespace(case_id="case-1", decree_id="decree-1", normalized_arguments={"domain": "workforce.policy", "fact_slots": [{"fact_slot": "market_size", "description": "market size", "category": "PUBLIC_STATISTIC", "data_scope": "EXTERNAL_PUBLIC", "subject": "market", "time_range": {"as_of": "case"}, "freshness": {"max_age_seconds": 600}, "use": "decision"}]})
     if status is EvidencePackStatus.PARTIAL:
@@ -427,7 +446,7 @@ def _invoke(
 
 def test_bare_ready_response_is_rejected_without_investigation() -> None:
     coordinator = Coordinator()
-    session = AgentEvidenceSession(coordinator=coordinator)
+    session = AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=coordinator)
 
     result = _invoke(session, lambda _messages: '{"opinion":"可行"}')
 
@@ -445,7 +464,7 @@ def test_bare_ready_response_is_rejected_without_investigation() -> None:
 def test_initial_malformed_ready_degrades_without_adopting_output() -> None:
     """An incomplete READY is discarded instead of aborting the whole decree."""
 
-    session = AgentEvidenceSession(coordinator=Coordinator())
+    session = AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator())
     node = bureau_node_id("户部", "预算司")
 
     result = _invoke(
@@ -466,7 +485,7 @@ def test_ready_response_rejects_missing_factual_claim_declarations() -> None:
     """READY envelopes cannot hide a factual dependency outside the contract."""
 
     result = _invoke(
-        AgentEvidenceSession(coordinator=Coordinator()),
+        AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator()),
         lambda _messages: json.dumps(
             {
                 "status": "READY",
@@ -483,7 +502,7 @@ def test_ready_response_rejects_missing_factual_claim_declarations() -> None:
 
 def test_ready_response_rejects_empty_citations_for_declared_external_claim() -> None:
     result = _invoke(
-        AgentEvidenceSession(coordinator=Coordinator()),
+        AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator()),
         lambda _messages: _ready(
             "比亚迪最新股价上涨",
             fact_basis="CITED",
@@ -504,7 +523,7 @@ def test_ready_response_rejects_empty_citations_for_declared_external_claim() ->
 
 
 def test_ready_cannot_hide_external_fact_dependency_with_empty_claims() -> None:
-    session = AgentEvidenceSession(coordinator=Coordinator())
+    session = AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator())
 
     with pytest.raises(EvidenceProtocolError, match="unsupported_factual_dependency"):
         invoke_bureau_with_evidence(
@@ -523,7 +542,7 @@ def test_ready_cannot_hide_external_fact_dependency_with_empty_claims() -> None:
 
 def test_unsupported_dependency_correction_can_request_data_once() -> None:
     coordinator = Coordinator()
-    session = AgentEvidenceSession(coordinator=coordinator)
+    session = AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=coordinator)
     node = bureau_node_id("户部", "预算司")
     rejected_ready_body = _ready("比亚迪现价为 300 元")
     responses = iter(
@@ -577,7 +596,7 @@ def test_unsupported_dependency_correction_rejects_corrected_ready() -> None:
         return next(responses)
 
     with pytest.raises(EvidenceProtocolError, match="unsupported_factual_dependency"):
-        _invoke(AgentEvidenceSession(coordinator=Coordinator()), model)
+        _invoke(AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator()), model)
     assert len(model_calls) == 2
 
 
@@ -595,7 +614,7 @@ def test_bare_opinion_gets_one_sanitized_protocol_correction() -> None:
         model_calls.append(messages)
         return next(responses)
 
-    result = _invoke(AgentEvidenceSession(coordinator=Coordinator()), model)
+    result = _invoke(AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator()), model)
 
     assert result == {"opinion": "建议先定义岗位职责与交付里程碑"}
     assert len(model_calls) == 2
@@ -606,7 +625,7 @@ def test_bare_opinion_gets_one_sanitized_protocol_correction() -> None:
 
 
 def test_bare_opinion_invalid_correction_degrades_without_using_output() -> None:
-    session = AgentEvidenceSession(coordinator=Coordinator())
+    session = AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator())
     node = bureau_node_id("户部", "预算司")
     rejected_correction = '{"opinion":"SECRET-REJECTED-FACT 300"}'
     responses = iter(
@@ -672,7 +691,7 @@ def test_misnested_ready_envelope_gets_one_schema_correction() -> None:
         model_calls.append(messages)
         return next(responses)
 
-    result = _invoke(AgentEvidenceSession(coordinator=Coordinator()), model)
+    result = _invoke(AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator()), model)
 
     assert result == {"opinion": "建议先定义最小输入输出契约"}
     assert len(model_calls) == 2
@@ -683,7 +702,7 @@ def test_misnested_ready_envelope_gets_one_schema_correction() -> None:
 
 
 def test_bare_opinion_with_consumed_envelope_budget_degrades_locally() -> None:
-    session = AgentEvidenceSession(coordinator=Coordinator())
+    session = AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator())
     node = bureau_node_id("工部", "技术司")
     assert session.claim_envelope_correction(node) is True
 
@@ -709,7 +728,7 @@ def test_bare_opinion_with_consumed_envelope_budget_degrades_locally() -> None:
 
 def test_bare_opinion_then_investigation_can_correct_resumed_factual_dependency() -> None:
     coordinator = Coordinator()
-    session = AgentEvidenceSession(coordinator=coordinator)
+    session = AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=coordinator)
     node = bureau_node_id("户部", "预算司")
     bare_response = '{"opinion":"Recommend hiring two quantitative developers."}'
     rejected_resumed_ready = _ready("The target market size is 300.")
@@ -755,7 +774,7 @@ def test_bare_opinion_then_investigation_can_correct_resumed_factual_dependency(
 
 def test_resumed_correction_invalid_envelope_degrades_without_adopting_output() -> None:
     coordinator = Coordinator()
-    session = AgentEvidenceSession(coordinator=coordinator)
+    session = AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=coordinator)
     node = bureau_node_id("户部", "预算司")
     rejected_ready = _ready("The target market size is 300.")
     rejected_correction = '{"opinion":"SECRET-REJECTED-FACT 300"}'
@@ -782,7 +801,7 @@ def test_resumed_correction_invalid_envelope_degrades_without_adopting_output() 
 
 
 def test_resumed_correction_model_failure_does_not_degrade() -> None:
-    session = AgentEvidenceSession(coordinator=Coordinator())
+    session = AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator())
     node = bureau_node_id("户部", "预算司")
     responses = iter(
         (
@@ -808,7 +827,7 @@ def test_resumed_correction_model_failure_does_not_degrade() -> None:
 
 
 def test_unsupported_dependency_correction_is_once_per_session() -> None:
-    session = AgentEvidenceSession(coordinator=Coordinator())
+    session = AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator())
     calls_by_bureau: dict[str, int] = {}
 
     def invoke(department: str, bureau: str, *, correction_available: bool) -> None:
@@ -859,7 +878,7 @@ def test_unsupported_dependency_correction_is_once_per_session() -> None:
 
 
 def test_unsupported_dependency_with_consumed_budget_degrades_locally() -> None:
-    session = AgentEvidenceSession(coordinator=Coordinator())
+    session = AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator())
     node = bureau_node_id("工部", "技术司")
     assert session.claim_protocol_correction() is True
 
@@ -884,7 +903,7 @@ def test_unsupported_dependency_with_consumed_budget_degrades_locally() -> None:
 
 
 def test_protocol_correction_claim_is_atomic() -> None:
-    session = AgentEvidenceSession(coordinator=Coordinator())
+    session = AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator())
 
     with ThreadPoolExecutor(max_workers=16) as executor:
         claims = list(executor.map(lambda _index: session.claim_protocol_correction(), range(64)))
@@ -894,7 +913,7 @@ def test_protocol_correction_claim_is_atomic() -> None:
 
 
 def test_envelope_correction_budget_is_once_per_bureau_node() -> None:
-    session = AgentEvidenceSession(coordinator=Coordinator())
+    session = AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator())
     first = bureau_node_id("工部", "技术司")
     second = bureau_node_id("工部", "质量司")
 
@@ -905,7 +924,7 @@ def test_envelope_correction_budget_is_once_per_bureau_node() -> None:
 
 
 def test_envelope_and_protocol_correction_claims_have_independent_atomic_budgets() -> None:
-    session = AgentEvidenceSession(coordinator=Coordinator())
+    session = AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator())
     first = bureau_node_id("工部", "技术司")
     second = bureau_node_id("工部", "质量司")
 
@@ -937,7 +956,7 @@ def test_unsupported_dependency_correction_skips_model_unavailable() -> None:
         raise RuntimeError("provider failure")
 
     with pytest.raises(EvidenceProtocolError, match="model_unavailable"):
-        _invoke(AgentEvidenceSession(coordinator=Coordinator()), model)
+        _invoke(AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator()), model)
     assert model_calls == 1
 
 
@@ -950,7 +969,7 @@ def test_unsupported_dependency_correction_skips_response_invalid() -> None:
         return "not json"
 
     with pytest.raises(EvidenceProtocolError, match="response_invalid"):
-        _invoke(AgentEvidenceSession(coordinator=Coordinator()), model)
+        _invoke(AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator()), model)
     assert model_calls == 1
 
 
@@ -966,7 +985,7 @@ def test_unsupported_dependency_correction_skips_adoption_invalid() -> None:
         )
 
     with pytest.raises(EvidenceProtocolError, match="adoption_invalid"):
-        _invoke(AgentEvidenceSession(coordinator=Coordinator()), model)
+        _invoke(AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator()), model)
     assert model_calls == 1
 
 
@@ -980,7 +999,7 @@ def test_unsupported_dependency_correction_skips_evidence_binding_invalid() -> N
             "source_scope": ["SHIGUAN"],
         }
     )
-    session = AgentEvidenceSession(coordinator=Coordinator())
+    session = AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator())
     session.freeze_pack(_pack(request))
     model_calls = 0
 
@@ -1016,7 +1035,7 @@ def test_unsupported_dependency_correction_keeps_second_gap_fallback() -> None:
         model_calls += 1
         return next(responses)
 
-    result = _invoke(AgentEvidenceSession(coordinator=Coordinator()), model)
+    result = _invoke(AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator()), model)
 
     assert result == {"opinion": "证据受限：second_data_gap"}
     assert model_calls == 3
@@ -1034,7 +1053,7 @@ def test_unsupported_dependency_correction_message_is_static_and_sanitized() -> 
         return next(responses)
 
     with pytest.raises(EvidenceProtocolError, match="unsupported_factual_dependency"):
-        _invoke(AgentEvidenceSession(coordinator=Coordinator()), model)
+        _invoke(AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator()), model)
 
     correction = model_calls[1][-1]["content"]
     assert rejected_ready_body not in correction
@@ -1058,13 +1077,13 @@ def test_normative_ready_is_not_misclassified_as_external_dependency() -> None:
         chat_model=lambda _messages: _ready("建议在当前阶段先建立三级审核流程"),
         legacy_parser=_legacy_parser,
         fallback=lambda reason: {"opinion": reason},
-        session=AgentEvidenceSession(coordinator=Coordinator()),
+        session=AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator()),
     )
 
     assert result == {"opinion": "建议在当前阶段先建立三级审核流程"}
 
     metric_policy = _invoke(
-        AgentEvidenceSession(coordinator=Coordinator()),
+        AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator()),
         lambda _messages: _ready("建议加强营收披露审核"),
     )
     assert metric_policy == {"opinion": "建议加强营收披露审核"}
@@ -1094,7 +1113,7 @@ def test_ready_rejects_objective_opinion_not_covered_by_declared_claim() -> None
         )
     )
 
-    session = AgentEvidenceSession(coordinator=Coordinator())
+    session = AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator())
     result = _invoke(session, lambda _messages: next(responses))
 
     assert result == {"opinion": "证据受限：model_synthesis_invalid"}
@@ -1146,7 +1165,7 @@ def test_ready_allows_nonassertive_citation_attribution_before_bound_claim() -> 
         chat_model=lambda _messages: next(responses),
         legacy_parser=_legacy_parser,
         fallback=lambda reason: {"opinion": reason},
-        session=AgentEvidenceSession(coordinator=Coordinator()),
+        session=AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator()),
     )
 
     assert result == {
@@ -1179,7 +1198,7 @@ def test_ready_rejects_attribution_clause_that_asserts_an_extra_fact() -> None:
         )
     )
 
-    session = AgentEvidenceSession(coordinator=Coordinator())
+    session = AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator())
     result = invoke_bureau_with_evidence(
         node_id=node,
         department="户部",
@@ -1224,7 +1243,7 @@ def test_ready_rejects_unrelated_citation_with_same_value_and_state() -> None:
         )
     )
 
-    session = AgentEvidenceSession(coordinator=Coordinator())
+    session = AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator())
     result = _invoke(session, lambda _messages: next(responses))
 
     assert result == {"opinion": "证据受限：model_synthesis_invalid"}
@@ -1258,7 +1277,7 @@ def test_user_provided_claim_must_be_traceable_to_original_prompt() -> None:
             ),
             legacy_parser=_legacy_parser,
             fallback=lambda reason: {"opinion": reason},
-            session=AgentEvidenceSession(coordinator=Coordinator()),
+            session=AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator()),
         )
 
 
@@ -1266,7 +1285,7 @@ def test_user_provided_claim_must_be_traceable_to_original_prompt() -> None:
 def test_ready_rejects_plain_numeric_and_short_status_facts(opinion: str) -> None:
     with pytest.raises(EvidenceProtocolError, match="unsupported_factual_dependency"):
         _invoke(
-            AgentEvidenceSession(coordinator=Coordinator()),
+            AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator()),
             lambda _messages: _ready(opinion),
         )
 
@@ -1277,7 +1296,7 @@ def test_ready_rejects_plain_numeric_and_short_status_facts(opinion: str) -> Non
 )
 def test_ready_allows_numeric_and_date_normative_proposals(opinion: str) -> None:
     assert _invoke(
-        AgentEvidenceSession(coordinator=Coordinator()),
+        AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator()),
         lambda _messages: _ready(opinion),
     ) == {"opinion": opinion}
 
@@ -1295,7 +1314,7 @@ def test_ready_allows_numeric_and_date_normative_proposals(opinion: str) -> None
 )
 def test_ready_allows_explicit_normative_obligations(opinion: str) -> None:
     assert _invoke(
-        AgentEvidenceSession(coordinator=Coordinator()),
+        AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator()),
         lambda _messages: _ready(opinion),
     ) == {"opinion": opinion}
 
@@ -1314,7 +1333,7 @@ def test_ready_allows_explicit_normative_obligations(opinion: str) -> None:
 def test_normative_words_cannot_hide_observed_facts(opinion: str) -> None:
     with pytest.raises(EvidenceProtocolError, match="unsupported_factual_dependency"):
         _invoke(
-            AgentEvidenceSession(coordinator=Coordinator()),
+            AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator()),
             lambda _messages: _ready(opinion),
         )
 
@@ -1341,7 +1360,7 @@ def test_ready_rejects_any_unclaimed_observation(prompt: str, opinion: str) -> N
             chat_model=lambda _messages: _ready(opinion),
             legacy_parser=_legacy_parser,
             fallback=lambda reason: {"opinion": reason},
-            session=AgentEvidenceSession(coordinator=Coordinator()),
+            session=AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator()),
         )
 
 
@@ -1350,7 +1369,7 @@ def test_ready_rejects_any_unclaimed_observation(prompt: str, opinion: str) -> N
 )
 def test_ready_allows_unbounded_normative_wording(opinion: str) -> None:
     assert _invoke(
-        AgentEvidenceSession(coordinator=Coordinator()),
+        AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator()),
         lambda _messages: _ready(opinion),
     ) == {"opinion": opinion}
 
@@ -1377,7 +1396,7 @@ def test_user_provided_question_is_not_a_grounded_fact() -> None:
             ),
             legacy_parser=_legacy_parser,
             fallback=lambda reason: {"opinion": reason},
-            session=AgentEvidenceSession(coordinator=Coordinator()),
+            session=AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator()),
         )
 
     assert invoke_bureau_with_evidence(
@@ -1397,7 +1416,7 @@ def test_user_provided_question_is_not_a_grounded_fact() -> None:
         ),
         legacy_parser=_legacy_parser,
         fallback=lambda reason: {"opinion": reason},
-        session=AgentEvidenceSession(coordinator=Coordinator()),
+        session=AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator()),
     ) == {"opinion": "比亚迪营收为300亿元"}
 
 
@@ -1433,7 +1452,7 @@ def test_user_provided_request_overrides_fact_marker(prompt: str) -> None:
             ),
             legacy_parser=_legacy_parser,
             fallback=lambda reason: {"opinion": reason},
-            session=AgentEvidenceSession(coordinator=Coordinator()),
+            session=AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator()),
         )
 
 
@@ -1460,7 +1479,7 @@ def test_normative_prefix_cannot_hide_observation(opinion: str) -> None:
             chat_model=lambda _messages: _ready(opinion),
             legacy_parser=_legacy_parser,
             fallback=lambda reason: {"opinion": reason},
-            session=AgentEvidenceSession(coordinator=Coordinator()),
+            session=AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator()),
         )
 
 
@@ -1502,7 +1521,7 @@ def test_normative_declaration_cannot_exempt_embedded_observed_fact(
 
     with pytest.raises(EvidenceProtocolError, match="unsupported_factual_dependency"):
         _invoke(
-            AgentEvidenceSession(coordinator=Coordinator()),
+            AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator()),
             lambda _messages: _ready(opinion, factual_claims=factual_claims),
         )
 
@@ -1520,7 +1539,7 @@ def test_normative_declaration_cannot_exempt_embedded_observed_fact(
 )
 def test_explicit_proposal_remains_exempt(opinion: str) -> None:
     assert _invoke(
-        AgentEvidenceSession(coordinator=Coordinator()),
+        AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator()),
         lambda _messages: _ready(opinion),
     ) == {"opinion": opinion}
 
@@ -1528,7 +1547,7 @@ def test_explicit_proposal_remains_exempt(opinion: str) -> None:
 def test_nonempty_ready_requires_exact_claim_for_every_clause() -> None:
     with pytest.raises(EvidenceProtocolError, match="unsupported_factual_dependency"):
         _invoke(
-            AgentEvidenceSession(coordinator=Coordinator()),
+            AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator()),
             lambda _messages: _ready(
                 "必须评审；不得绕过验收",
                 factual_claims=[],
@@ -1544,7 +1563,7 @@ def test_structured_normative_claims_allow_imperative_and_numbered_clauses() -> 
     ]
 
     assert _invoke(
-        AgentEvidenceSession(coordinator=Coordinator()),
+        AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator()),
         lambda _messages: _ready(opinion, factual_claims=claims),
     ) == {"opinion": opinion}
 
@@ -1553,7 +1572,7 @@ def test_structured_normative_claim_can_cover_multiple_contiguous_clauses() -> N
     opinion = "必须完成技术评审；不得绕过质量验收"
 
     assert _invoke(
-        AgentEvidenceSession(coordinator=Coordinator()),
+        AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator()),
         lambda _messages: _ready(
             opinion,
             factual_claims=[_normative_claim(opinion)],
@@ -1599,7 +1618,7 @@ def test_structured_normative_requires_exact_unique_clause_coverage(
 ) -> None:
     with pytest.raises(EvidenceProtocolError, match="unsupported_factual_dependency"):
         _invoke(
-            AgentEvidenceSession(coordinator=Coordinator()),
+            AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator()),
             lambda _messages: _ready(opinion, factual_claims=claims),
         )
 
@@ -1616,7 +1635,7 @@ def test_structured_normative_requires_exact_unique_clause_coverage(
 def test_structured_normative_rejects_fact_disguise(claim: str) -> None:
     with pytest.raises(EvidenceProtocolError, match="unsupported_factual_dependency"):
         _invoke(
-            AgentEvidenceSession(coordinator=Coordinator()),
+            AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator()),
             lambda _messages: _ready(
                 claim,
                 factual_claims=[_normative_claim(claim)],
@@ -1649,7 +1668,7 @@ def test_structured_normative_rejects_current_quantified_observation(
 ) -> None:
     with pytest.raises(EvidenceProtocolError, match="unsupported_factual_dependency"):
         _invoke(
-            AgentEvidenceSession(coordinator=Coordinator()),
+            AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator()),
             lambda _messages: _ready(
                 claim,
                 factual_claims=[_normative_claim(claim)],
@@ -1669,7 +1688,7 @@ def test_structured_normative_proposal_cannot_hide_observation(
 ) -> None:
     with pytest.raises(EvidenceProtocolError, match="unsupported_factual_dependency"):
         _invoke(
-            AgentEvidenceSession(coordinator=Coordinator()),
+            AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator()),
             lambda _messages: _ready(
                 claim,
                 factual_claims=[_normative_claim(claim)],
@@ -1697,7 +1716,7 @@ def test_structured_normative_accepts_pure_declaration_without_lead(
     claim: str,
 ) -> None:
     assert _invoke(
-        AgentEvidenceSession(coordinator=Coordinator()),
+        AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator()),
         lambda _messages: _ready(
             claim,
             factual_claims=[_normative_claim(claim)],
@@ -1724,7 +1743,7 @@ def test_frozen_evidence_binding_is_read_only_and_fact_specific() -> None:
         timeout_seconds=30,
         source_scope=("SHIGUAN",),
     )
-    session = AgentEvidenceSession(coordinator=Coordinator())
+    session = AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator())
     session.freeze_pack(_pack(request))
 
     binding = session.evidence_binding("e-1")
@@ -1757,7 +1776,7 @@ def test_population_evidence_cannot_support_byd_quote_claim() -> None:
         timeout_seconds=30,
         source_scope=("SHIGUAN",),
     )
-    session = AgentEvidenceSession(coordinator=Coordinator())
+    session = AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator())
     session.freeze_pack(_pack(population_request))
 
     with pytest.raises(EvidenceProtocolError, match="evidence_binding_invalid"):
@@ -1792,7 +1811,7 @@ def test_cited_and_archived_claims_enforce_evidence_partition() -> None:
         timeout_seconds=30,
         source_scope=("SHIGUAN",),
     )
-    historical_session = AgentEvidenceSession(coordinator=Coordinator())
+    historical_session = AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator())
     historical_session.freeze_pack(_pack(request, historical=True))
 
     with pytest.raises(EvidenceProtocolError, match="evidence_binding_invalid"):
@@ -1803,7 +1822,7 @@ def test_cited_and_archived_claims_enforce_evidence_partition() -> None:
             ),
         )
 
-    archived_session = AgentEvidenceSession(coordinator=Coordinator())
+    archived_session = AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator())
     archived_session.freeze_pack(_pack(request, historical=True))
     assert _invoke(
         archived_session,
@@ -1815,7 +1834,7 @@ def test_cited_and_archived_claims_enforce_evidence_partition() -> None:
     ) == {"opinion": "历史市场规模为100元"}
 
     public_request = request.model_copy(update={"source_scope": (SourceType.PUBLIC_API,)})
-    public_session = AgentEvidenceSession(coordinator=Coordinator())
+    public_session = AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator())
     public_session.freeze_pack(
         _pack(public_request, source_type=SourceType.PUBLIC_API)
     )
@@ -1832,7 +1851,7 @@ def test_cited_and_archived_claims_enforce_evidence_partition() -> None:
 
 def test_bureau_requests_current_market_quote_then_cites_frozen_evidence() -> None:
     coordinator = Coordinator()
-    session = AgentEvidenceSession(coordinator=coordinator)
+    session = AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=coordinator)
     node = bureau_node_id("户部", "预算司")
     current_quote_gap = json.dumps(
         {
@@ -1885,7 +1904,7 @@ def test_bureau_requests_current_market_quote_then_cites_frozen_evidence() -> No
 
 def test_price_only_decree_constrains_draft_to_one_mainland_last_price() -> None:
     coordinator = Coordinator(status=EvidencePackStatus.UNAVAILABLE)
-    session = AgentEvidenceSession(coordinator=coordinator)
+    session = AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=coordinator)
     node = bureau_node_id("户部", "投资司")
     gap = _market_gap(
         node,
@@ -1919,7 +1938,7 @@ def test_price_only_decree_constrains_draft_to_one_mainland_last_price() -> None
 
 def test_natural_price_decree_discards_model_generated_optional_metrics() -> None:
     coordinator = Coordinator(status=EvidencePackStatus.UNAVAILABLE)
-    session = AgentEvidenceSession(coordinator=coordinator)
+    session = AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=coordinator)
     node = bureau_node_id("户部", "投资司")
     gap = _market_gap(
         node,
@@ -1952,7 +1971,7 @@ def test_natural_price_decree_discards_model_generated_optional_metrics() -> Non
 
 def test_price_and_volume_decree_keeps_both_explicit_metrics() -> None:
     coordinator = Coordinator()
-    session = AgentEvidenceSession(coordinator=coordinator)
+    session = AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=coordinator)
     node = bureau_node_id("户部", "投资司")
     gap = _market_gap(
         node,
@@ -1988,7 +2007,7 @@ def test_price_and_volume_decree_keeps_both_explicit_metrics() -> None:
 
 def test_explicit_market_decree_discards_malformed_optional_market_fact() -> None:
     coordinator = Coordinator()
-    session = AgentEvidenceSession(coordinator=coordinator)
+    session = AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=coordinator)
     node = bureau_node_id("户部", "投资司")
     malformed_optional = _market_fact("BYD_TRADING_CONTEXT", "PE_RATIO")
     malformed_optional.pop("market_metric")
@@ -2026,7 +2045,7 @@ def test_explicit_market_decree_discards_malformed_optional_market_fact() -> Non
 
 def test_market_scope_uses_only_explicit_original_decree_text() -> None:
     coordinator = Coordinator(status=EvidencePackStatus.UNAVAILABLE)
-    session = AgentEvidenceSession(coordinator=coordinator)
+    session = AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=coordinator)
     node = bureau_node_id("户部", "投资司")
     gap = _market_gap(
         node,
@@ -2088,7 +2107,7 @@ def test_price_only_decree_fails_closed_for_ambiguous_mainland_facts() -> None:
             chat_model=lambda _messages: gap,
             legacy_parser=_legacy_parser,
             fallback=lambda reason: {"opinion": reason},
-            session=AgentEvidenceSession(coordinator=Coordinator()),
+            session=AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator()),
         )
 
 
@@ -2100,7 +2119,7 @@ def test_price_gap_normalizes_known_mainland_jurisdiction_alias(
     jurisdiction_alias: str,
 ) -> None:
     coordinator = Coordinator()
-    session = AgentEvidenceSession(coordinator=coordinator)
+    session = AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=coordinator)
     node = bureau_node_id("户部", "投资司")
     invalid_gap = _market_gap(
         node,
@@ -2146,7 +2165,7 @@ def test_price_gap_normalizes_known_mainland_jurisdiction_alias(
 
 def test_price_gap_with_model_added_hk_scope_gets_one_static_correction() -> None:
     coordinator = Coordinator()
-    session = AgentEvidenceSession(coordinator=coordinator)
+    session = AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=coordinator)
     node = bureau_node_id("户部", "投资司")
     invalid_payload = json.loads(
         _market_gap(
@@ -2209,7 +2228,7 @@ def test_price_gap_with_model_added_hk_scope_gets_one_static_correction() -> Non
 
 def test_price_gap_with_noncanonical_unit_and_shape_gets_one_correction() -> None:
     coordinator = Coordinator()
-    session = AgentEvidenceSession(coordinator=coordinator)
+    session = AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=coordinator)
     node = bureau_node_id("户部", "投资司")
     invalid_fact = _market_fact(
         "BYD_PRICE",
@@ -2281,7 +2300,7 @@ def test_explicit_hk_decree_does_not_get_mainland_gap_correction() -> None:
             chat_model=model,
             legacy_parser=_legacy_parser,
             fallback=lambda reason: {"opinion": reason},
-            session=AgentEvidenceSession(coordinator=Coordinator()),
+            session=AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator()),
         )
 
     assert model_calls == 1
@@ -2302,7 +2321,7 @@ def test_explicit_market_decree_fails_closed_without_allowed_fact() -> None:
             chat_model=lambda _messages: gap,
             legacy_parser=_legacy_parser,
             fallback=lambda reason: {"opinion": reason},
-            session=AgentEvidenceSession(coordinator=Coordinator()),
+            session=AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator()),
         )
 
 
@@ -2322,7 +2341,7 @@ def test_market_scope_runs_after_market_fact_schema_validation() -> None:
             chat_model=lambda _messages: _market_gap(node, [malformed]),
             legacy_parser=_legacy_parser,
             fallback=lambda reason: {"opinion": reason},
-            session=AgentEvidenceSession(coordinator=Coordinator()),
+            session=AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator()),
         )
 
 
@@ -2338,8 +2357,10 @@ def test_partial_market_evidence_remains_usable_on_resume() -> None:
             department: str,
             matter_type: str,
             extraction_budget: object,
+            owner_user_id: str,
         ) -> EvidencePack:
             del department, matter_type, extraction_budget
+            assert owner_user_id == OWNER_A
             self.calls.append(request)
             price_key, volume_key = (fact.key for fact in request.required_facts)
             return EvidencePack(
@@ -2367,7 +2388,7 @@ def test_partial_market_evidence_remains_usable_on_resume() -> None:
             )
 
     coordinator = PartialCoordinator()
-    session = AgentEvidenceSession(coordinator=coordinator)
+    session = AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=coordinator)
     node = bureau_node_id("户部", "投资司")
     responses = iter(
         (
@@ -2407,7 +2428,7 @@ def test_partial_market_evidence_remains_usable_on_resume() -> None:
 
 def test_policy_only_ready_response_declares_not_required_fact_basis() -> None:
     result = _invoke(
-        AgentEvidenceSession(coordinator=Coordinator()),
+        AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator()),
         lambda _messages: json.dumps(
                 {
                     "status": "READY",
@@ -2427,7 +2448,7 @@ def test_policy_only_ready_response_declares_not_required_fact_basis() -> None:
 
 def test_cited_ready_response_requires_adopted_evidence() -> None:
     result = _invoke(
-        AgentEvidenceSession(coordinator=Coordinator()),
+        AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator()),
         lambda _messages: json.dumps(
             {
                 "status": "READY",
@@ -2444,7 +2465,7 @@ def test_cited_ready_response_requires_adopted_evidence() -> None:
 
 def test_enveloped_ready_adopts_only_frozen_unique_evidence() -> None:
     coordinator = Coordinator()
-    session = AgentEvidenceSession(coordinator=coordinator)
+    session = AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=coordinator)
     node = bureau_node_id("户部", "预算司")
     responses = iter(
         (
@@ -2466,7 +2487,7 @@ def test_enveloped_ready_adopts_only_frozen_unique_evidence() -> None:
 
 
 def test_cache_hit_freezes_pack_but_does_not_claim_real_investigation() -> None:
-    session = AgentEvidenceSession(coordinator=Coordinator(cache_hit=True))
+    session = AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator(cache_hit=True))
     node = bureau_node_id("户部", "预算司")
     responses = iter(
         (
@@ -2491,7 +2512,7 @@ def test_non_bureau_identity_is_rejected_before_model_call() -> None:
         return '{"opinion":"不应调用"}'
 
     with pytest.raises(EvidenceProtocolError, match="bureau_identity_invalid"):
-        _invoke(AgentEvidenceSession(coordinator=Coordinator()), model, node_id="ministry:户部")
+        _invoke(AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator()), model, node_id="ministry:户部")
     assert calls == 0
 
 
@@ -2499,21 +2520,21 @@ def test_spoofed_or_oversized_gap_is_sanitized() -> None:
     node = bureau_node_id("户部", "预算司")
     spoofed = _gap(bureau_node_id("工部", "质量司"))
     with pytest.raises(EvidenceProtocolError, match="data_gap_invalid") as exc_info:
-        _invoke(AgentEvidenceSession(coordinator=Coordinator()), lambda _messages: spoofed)
+        _invoke(AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator()), lambda _messages: spoofed)
     assert "质量司" not in str(exc_info.value)
 
     oversized = json.loads(_gap(node))
     oversized["data_gap"]["question"] = "x" * 501
     with pytest.raises(EvidenceProtocolError, match="data_gap_invalid"):
         _invoke(
-            AgentEvidenceSession(coordinator=Coordinator()),
+            AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator()),
             lambda _messages: json.dumps(oversized),
         )
 
 
 def test_one_investigation_injects_delimited_untrusted_pack_and_resumes_same_bureau() -> None:
     coordinator = Coordinator()
-    session = AgentEvidenceSession(coordinator=coordinator)
+    session = AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=coordinator)
     node = bureau_node_id("户部", "预算司")
     seen: list[list[dict[str, str]]] = []
 
@@ -2542,13 +2563,13 @@ def test_second_gap_and_unavailable_pack_use_fallback_without_loop() -> None:
         calls += 1
         return _gap(node)
 
-    result = _invoke(AgentEvidenceSession(coordinator=Coordinator()), model)
+    result = _invoke(AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator()), model)
     assert result == {"opinion": "证据受限：second_data_gap"}
     assert calls == 2
 
     calls = 0
     result = _invoke(
-        AgentEvidenceSession(coordinator=Coordinator(status=EvidencePackStatus.UNAVAILABLE)),
+        AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator(status=EvidencePackStatus.UNAVAILABLE)),
         model,
     )
     assert result == {"opinion": "证据受限：evidence_unavailable"}
@@ -2557,7 +2578,7 @@ def test_second_gap_and_unavailable_pack_use_fallback_without_loop() -> None:
 
 def test_per_bureau_once_and_decree_three_investigation_cap() -> None:
     coordinator = Coordinator()
-    session = AgentEvidenceSession(coordinator=coordinator)
+    session = AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=coordinator)
     identities = (("户部", "预算司"), ("户部", "出纳司"), ("工部", "质量司"))
     for department, bureau in identities:
         node = bureau_node_id(department, bureau)
@@ -2596,7 +2617,7 @@ def test_per_bureau_once_and_decree_three_investigation_cap() -> None:
 
 def test_deadline_and_unknown_existing_evidence_fall_closed() -> None:
     clock = Clock()
-    session = AgentEvidenceSession(coordinator=Coordinator(), monotonic=clock)
+    session = AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator(), monotonic=clock)
     clock.value = 130.0
     node = bureau_node_id("户部", "预算司")
     assert _invoke(session, lambda _messages: _gap(node)) == {
@@ -2605,7 +2626,7 @@ def test_deadline_and_unknown_existing_evidence_fall_closed() -> None:
 
     with pytest.raises(EvidenceProtocolError, match="data_gap_invalid"):
         _invoke(
-            AgentEvidenceSession(coordinator=Coordinator()),
+            AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator()),
             lambda _messages: _gap(node, existing=["unknown"]),
         )
 
@@ -2613,7 +2634,7 @@ def test_deadline_and_unknown_existing_evidence_fall_closed() -> None:
 def test_subsecond_remaining_time_falls_back_without_oversized_request() -> None:
     clock = Clock()
     coordinator = Coordinator()
-    session = AgentEvidenceSession(coordinator=coordinator, monotonic=clock)
+    session = AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=coordinator, monotonic=clock)
     clock.value = 129.5
     node = bureau_node_id("户部", "预算司")
 
@@ -2627,7 +2648,7 @@ def test_subsecond_remaining_time_falls_back_without_oversized_request() -> None
 def test_deadline_rechecked_after_investigation_claim_before_coordinator() -> None:
     values = iter((100.0, 129.0, 129.5, 130.0))
     coordinator = Coordinator()
-    session = AgentEvidenceSession(coordinator=coordinator, monotonic=lambda: next(values))
+    session = AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=coordinator, monotonic=lambda: next(values))
     node = bureau_node_id("户部", "预算司")
 
     assert _invoke(session, lambda _messages: _gap(node)) == {
@@ -2638,7 +2659,7 @@ def test_deadline_rechecked_after_investigation_claim_before_coordinator() -> No
 
 
 def test_extractor_cap_is_exactly_six_and_snapshot_is_immutable() -> None:
-    session = AgentEvidenceSession(coordinator=Coordinator())
+    session = AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator())
     assert [session.claim() for _ in range(7)] == [True] * 6 + [False]
     snapshot = session.snapshot()
     assert snapshot.extractor_count == 6
@@ -2652,7 +2673,7 @@ def test_coordinator_failure_is_sanitized_and_default_factory_has_no_io(tmp_path
             raise RuntimeError("secret evidence\ntrace")
 
     node = bureau_node_id("户部", "预算司")
-    failing_session = AgentEvidenceSession(coordinator=FailingCoordinator())
+    failing_session = AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=FailingCoordinator())
     assert _invoke(
         failing_session,
         lambda _messages: _gap(node),
@@ -2667,9 +2688,37 @@ def test_coordinator_failure_is_sanitized_and_default_factory_has_no_io(tmp_path
         model_calls += 1
         raise AssertionError("must not run during construction")
 
-    built = build_default_evidence_session(model, db_path=tmp_path / "jinyiwei.sqlite3")
+    built = build_default_evidence_session(
+        model,
+        owner_user_id=OWNER_A,
+        db_path=tmp_path / "jinyiwei.sqlite3",
+    )
     assert isinstance(built, AgentEvidenceSession)
+    assert built.owner_user_id == OWNER_A
     assert model_calls == 0
+
+
+def test_default_evidence_sessions_share_one_process_rate_limit_state(
+    monkeypatch, tmp_path: Path
+) -> None:
+    states: list[object] = []
+    real_mcp_source = evidence_protocol_module.McpSource
+
+    def capture_mcp_source(**kwargs: object):
+        states.append(kwargs["rate_limit_state"])
+        return real_mcp_source(**kwargs)
+
+    monkeypatch.setattr(evidence_protocol_module, "McpSource", capture_mcp_source)
+
+    for name in ("first.sqlite3", "second.sqlite3"):
+        build_default_evidence_session(
+            lambda _messages: pytest.fail("model called"),
+            owner_user_id=OWNER_A,
+            db_path=tmp_path / name,
+        )
+
+    assert len(states) == 2
+    assert states[0] is states[1]
 
 
 def test_default_evidence_session_does_not_touch_environment_when_mcp_disabled(
@@ -2700,6 +2749,7 @@ def test_default_evidence_session_does_not_touch_environment_when_mcp_disabled(
 
     session = build_default_evidence_session(
         lambda _messages: pytest.fail("model called"),
+        owner_user_id=OWNER_A,
         db_path=tmp_path / "jinyiwei.sqlite3",
     )
 
@@ -2709,7 +2759,7 @@ def test_default_evidence_session_does_not_touch_environment_when_mcp_disabled(
 
 def test_malformed_ready_and_adoption_outside_frozen_pack_are_typed() -> None:
     with pytest.raises(EvidenceProtocolError, match="response_invalid"):
-        _invoke(AgentEvidenceSession(coordinator=Coordinator()), lambda _messages: "not json")
+        _invoke(AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator()), lambda _messages: "not json")
 
     node = bureau_node_id("户部", "预算司")
     responses = iter(
@@ -2719,7 +2769,7 @@ def test_malformed_ready_and_adoption_outside_frozen_pack_are_typed() -> None:
         )
     )
     with pytest.raises(EvidenceProtocolError, match="adoption_invalid"):
-        _invoke(AgentEvidenceSession(coordinator=Coordinator()), lambda _messages: next(responses))
+        _invoke(AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=Coordinator()), lambda _messages: next(responses))
 
 
 class QuoteCoordinator:
@@ -2738,8 +2788,10 @@ class QuoteCoordinator:
         department: str,
         matter_type: str,
         extraction_budget: object,
+        owner_user_id: str,
     ) -> EvidencePack:
         del department, matter_type, extraction_budget
+        assert owner_user_id == OWNER_A
         self.requests.append(request)
         fact_key = request.required_facts[0].key
         item = EvidenceItem(
@@ -2828,7 +2880,7 @@ def _invoke_precompiled(
 
 def test_precompiled_plan_skips_model_generated_data_gap() -> None:
     coordinator = QuoteCoordinator()
-    session = AgentEvidenceSession(coordinator=coordinator)
+    session = AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=coordinator)
     calls: list[list[dict[str, str]]] = []
 
     def model(messages: list[dict[str, str]]) -> str:
@@ -2867,7 +2919,7 @@ def test_precompiled_plan_skips_model_generated_data_gap() -> None:
 )
 def test_precompiled_expression_failure_uses_verified_renderer_once(response: object) -> None:
     coordinator = QuoteCoordinator()
-    session = AgentEvidenceSession(coordinator=coordinator)
+    session = AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=coordinator)
     calls = 0
 
     def model(_messages: list[dict[str, str]]) -> str:
@@ -2901,7 +2953,7 @@ def test_precompiled_expression_failure_uses_verified_renderer_once(response: ob
 
 def test_precompiled_valid_but_altered_price_uses_authoritative_renderer() -> None:
     coordinator = QuoteCoordinator()
-    session = AgentEvidenceSession(coordinator=coordinator)
+    session = AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=coordinator)
     altered = _ready(
         "任意公司最新可得价格为 999 CNY",
         adopted_evidence_ids=["quote-evidence"],
@@ -2930,7 +2982,7 @@ def test_precompiled_valid_but_altered_price_uses_authoritative_renderer() -> No
 
 def test_precompiled_investigation_failure_never_runs_renderer() -> None:
     coordinator = QuoteCoordinator(status=EvidencePackStatus.UNAVAILABLE)
-    session = AgentEvidenceSession(coordinator=coordinator)
+    session = AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=coordinator)
     renderer_calls = 0
 
     def renderer(_pack: EvidencePack):
@@ -2951,7 +3003,7 @@ def test_precompiled_investigation_failure_never_runs_renderer() -> None:
 
 def test_precompiled_partial_pack_fails_before_expression_or_adoption() -> None:
     coordinator = QuoteCoordinator(status=EvidencePackStatus.PARTIAL)
-    session = AgentEvidenceSession(coordinator=coordinator)
+    session = AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=coordinator)
     model_calls = 0
     renderer_calls = 0
 
@@ -2989,7 +3041,7 @@ def test_precompiled_plan_requires_exact_locked_source_scope(
     source_scope: tuple[SourceType, ...],
 ) -> None:
     coordinator = QuoteCoordinator()
-    session = AgentEvidenceSession(coordinator=coordinator)
+    session = AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=coordinator)
     model_calls = 0
 
     def model(_messages: list[dict[str, str]]) -> str:
@@ -3018,7 +3070,7 @@ def test_precompiled_plan_requires_exact_locked_source_scope(
 
 
 def test_degradation_reason_is_recorded_once_in_invocation_order() -> None:
-    session = AgentEvidenceSession(coordinator=QuoteCoordinator())
+    session = AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=QuoteCoordinator())
     first = bureau_node_id("户部", "投资司")
     second = bureau_node_id("户部", "预算司")
 
@@ -3033,7 +3085,7 @@ def test_degradation_reason_is_recorded_once_in_invocation_order() -> None:
 
 
 def test_renderer_records_selection_before_returning_through_legacy_parser() -> None:
-    session = AgentEvidenceSession(coordinator=QuoteCoordinator())
+    session = AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=QuoteCoordinator())
     node_id = bureau_node_id("户部", "投资司")
 
     def parser(value: object) -> dict[str, str]:
@@ -3048,7 +3100,7 @@ def test_renderer_records_selection_before_returning_through_legacy_parser() -> 
 
 
 def test_has_adopted_fact_requires_selected_current_resolved_canonical_binding() -> None:
-    session = AgentEvidenceSession(coordinator=QuoteCoordinator())
+    session = AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=QuoteCoordinator())
     _invoke_precompiled(session, lambda _messages: _valid_quote_ready())
     node_id = bureau_node_id("户部", "投资司")
 
@@ -3075,7 +3127,7 @@ def test_has_adopted_fact_requires_selected_current_resolved_canonical_binding()
 
 
 def test_has_adopted_fact_rejects_unrelated_prefilled_adoption() -> None:
-    session = AgentEvidenceSession(coordinator=QuoteCoordinator())
+    session = AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=QuoteCoordinator())
     session.record_selection(
         bureau_node_id("户部", "投资司"),
         ("unrelated-evidence",),
@@ -3118,6 +3170,7 @@ def test_has_adopted_fact_rejects_selected_ineligible_item_when_pack_resolved(
         department="户部",
         matter_type="MEMORIAL",
         extraction_budget=object(),
+        owner_user_id=OWNER_A,
     )
     eligible = pack.evidence_by_fact["market_quote:last_price"][0]
     ineligible = eligible.model_copy(
@@ -3133,7 +3186,7 @@ def test_has_adopted_fact_rejects_selected_ineligible_item_when_pack_resolved(
             }
         }
     )
-    session = AgentEvidenceSession(coordinator=QuoteCoordinator())
+    session = AgentEvidenceSession(owner_user_id=OWNER_A, coordinator=QuoteCoordinator())
     session.freeze_pack(forged)
     session.record_selection(
         bureau_node_id("户部", "投资司"),

@@ -2,6 +2,11 @@ import assert from "node:assert/strict";
 import { access, readFile } from "node:fs/promises";
 import test from "node:test";
 
+import {
+  projectDraftConfirmation,
+  type ChancellorDraftResult,
+} from "../../app/study/chancellorDraft.ts";
+
 test("DevStudyWorkspace supersedes the unused sibling workspace", async () => {
   await Promise.all(
     [
@@ -19,6 +24,37 @@ test("dev study workspace exposes the latest named workspace contract", async ()
 
   assert.match(source, /export function DevStudyWorkspace\b/);
   assert.doesNotMatch(source, /export function StudyWorkspace\b/);
+});
+
+test("dev study workspace renders distinct async decree progress without dropping daily memorial", async () => {
+  const source = await readFile(new URL("./DevStudyWorkspace.tsx", import.meta.url), "utf8");
+
+  assert.match(source, /\["enqueueing", "queued", "running"\]\.includes\(props\.uiState\.phase\)/);
+  assert.match(source, /phase === "enqueueing"[\s\S]*?圣旨正在入队/);
+  assert.match(source, /phase === "queued"[\s\S]*?圣旨已入队/);
+  assert.match(source, /phase === "running"[\s\S]*?正在办理圣旨/);
+  assert.doesNotMatch(source, /phase === "submitting"/);
+  assert.match(source, /<h2 id="daily-memorial-title">每日奏折<\/h2>/);
+});
+
+test("daily memorial card exposes truthful status and explicit accessible confirmation", async () => {
+  const [source, css] = await Promise.all([
+    readFile(new URL("./DevStudyWorkspace.tsx", import.meta.url), "utf8"),
+    readFile(new URL("./DevStudyWorkspace.module.css", import.meta.url), "utf8"),
+  ]);
+  assert.match(source, /dailyMemorialState: DailyMemorialUiState/);
+  assert.match(source, /aria-labelledby="daily-memorial-title"/);
+  assert.match(source, /<h2 id="daily-memorial-title">每日奏折<\/h2>/);
+  assert.match(source, /aria-live="polite"/);
+  assert.match(source, /39\/39 司/);
+  assert.match(source, /6\/6 部/);
+  assert.match(source, /确认上奏并归档为奏折/);
+  assert.match(source, /onClick=\{props\.onConfirmDailyMemorial\}/);
+  assert.match(source, /phase === "no_facts"[\s\S]*?没有可用的受控事实/);
+  assert.match(source, /phase === "failed"[\s\S]*?onRetryDailyMemorial/);
+  assert.doesNotMatch(source, /REPLY|回奏已生成|圣旨已下|已批准|已执行/);
+  assert.match(css, /\.dailyMemorialCard\s*\{[\s\S]*?min-width:\s*0/);
+  assert.match(css, /\.dailyMemorialConfirm:focus-visible/);
 });
 
 test("dev study workspace restores the first-court ritual as local-only interaction", async () => {
@@ -104,7 +140,8 @@ test("ready draft only presents participating departments and the edict about to
   assert.match(draftBranch, /负责事项/);
   assert.match(draftBranch, /预计产出/);
   assert.match(draftBranch, /即将下旨的草案/);
-  assert.match(draftBranch, /props\.draftResult\.expert_example/);
+  assert.match(draftBranch, /draftConfirmation\?\.visibleCanonicalText/);
+  assert.match(draftBranch, /draftConfirmation\?\.showIssueAction/);
   assert.match(draftBranch, /draftDepartmentDisplayRows\(props\.draftResult\.draft\.departments\)\.map/);
   assert.match(draftBranch, /item\.department/);
   assert.match(draftBranch, /item\.bureaus/);
@@ -123,6 +160,53 @@ test("ready draft only presents participating departments and the edict about to
     draftBranch,
     /props\.draftResult\.(understanding|recommendation_reason|assumptions)|props\.draftResult\.draft\.(objective|scope|exclusions|input_materials|material_gaps|key_questions|execution_steps|deliverables|completion_criteria|permissions_and_limits)/,
   );
+});
+
+test("periodless draft shows canonical 2025 before confirmation while NEEDS_INPUT exposes no decree action", async () => {
+  const ready: ChancellorDraftResult = {
+    status: "DRAFT_READY",
+    version: 1,
+    fingerprint: "a".repeat(64),
+    understanding: "生成上一完整年度财务报表",
+    expert_example: "请户部会计司生成2025年财务报表并提供下载。",
+    recommendation_reason: "采用上一完整年度",
+    assumptions: ["上一完整年度为2025年"],
+    revision_prompt: "可直接下旨",
+    draft: {
+      objective: "生成财务报表",
+      scope: ["2025年"], exclusions: [], input_materials: [], material_gaps: [],
+      key_questions: ["数据是否完整"],
+      departments: [{
+        department: "户部", bureaus: ["会计司"], role: "主办", reason: "财务报表",
+        responsibility: "生成报表", expected_output: "XLSX",
+      }],
+      execution_steps: ["核验数据"], deliverables: ["XLSX"],
+      completion_criteria: ["可下载"], permissions_and_limits: ["只读"],
+      current_status: "DRAFT_READY",
+    },
+    decree_text: "请户部会计司生成2025年财务报表并提供下载。",
+  };
+  const needsInput: ChancellorDraftResult = {
+    ...ready,
+    status: "NEEDS_INPUT",
+    draft: null,
+    decree_text: null,
+    expert_example: "上一完整年度（2025年）的财务数据当前不可用。",
+  };
+
+  assert.deepEqual(projectDraftConfirmation(ready), {
+    visibleCanonicalText: "请户部会计司生成2025年财务报表并提供下载。",
+    showIssueAction: true,
+  });
+  assert.deepEqual(projectDraftConfirmation(needsInput), {
+    visibleCanonicalText: "上一完整年度（2025年）的财务数据当前不可用。",
+    showIssueAction: false,
+  });
+
+  const source = await readFile(new URL("./DevStudyWorkspace.tsx", import.meta.url), "utf8");
+  assert.match(source, /projectDraftConfirmation\(props\.draftResult\)/);
+  assert.match(source, /draftConfirmation\?\.visibleCanonicalText/);
+  assert.match(source, /draftConfirmation\?\.showIssueAction/);
 });
 
 test("draft pending and failure are visible in the central scroll", async () => {

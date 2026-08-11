@@ -3,7 +3,7 @@
  * Cross-process integration verification for chaotang-os.
  *
  * Starts the real backend (uvicorn) and real frontend (`next start`) processes
- * as OS-level child processes and exercises two scenarios end-to-end:
+ * as OS-level child processes and exercises three scenarios end-to-end:
  *
  *   1. Success path: backend and frontend both running, frontend pointed at
  *      the live backend via `BACKEND_BASE_URL`. Asserts the public home page
@@ -13,16 +13,14 @@
  *      "backend unavailable" marker (not a 500 / crash).
  *   3. Decree BFF connectivity path (`POST /api/decrees/chancellor` -> real FastAPI
  *      `POST /api/v1/decrees/chancellor`): registers a one-off throwaway test account
- *      through the real `POST /api/auth/register` BFF to obtain a real session cookie,
- *      then submits `{"decreeText": ""}` (which fails Pydantic validation on the backend
- *      before `get_chancellor_graph()` is ever called -- see
- *      `backend/app/api/decrees.py`'s "Provider wiring pitfall" docstring) and asserts the
- *      BFF returns `{status:"error", reason:"validation"}`/422 -- never `reason:"network"` --
- *      proving the BFF really reaches the decree endpoint when the backend is healthy.
+ *      through the real register BFF, then logs in through the real login BFF to obtain a
+ *      cookie-only session. It submits a valid-shaped request with a deliberately unknown
+ *      draft fingerprint and asserts `draft_not_current`/409 -- never `reason:"network"` --
+ *      proving the BFF reaches the backend without crossing the model execution boundary.
  *      A second sub-scenario points a fresh frontend instance at an unreachable sentinel
  *      (reusing `createUnavailableBackendSentinel()`) and asserts the same request instead
  *      returns `{status:"error", reason:"network"}`/503 with no internal address leaked in
- *      the response body. Never submits real decree text that could reach a real model call.
+ *      the response body. Neither sub-scenario can reach a real model call.
  *
  * Written in plain Node.js (no bash) on purpose so behaviour is identical on
  * a Windows development machine and on Ubuntu CI runners. All spawned child
@@ -41,8 +39,12 @@
 import { spawn, spawnSync } from "node:child_process";
 import { createServer } from "node:net";
 import { existsSync } from "node:fs";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+
+import { resolvePythonExecutable } from "./verify_integration_runtime.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..");
@@ -51,6 +53,7 @@ const FRONTEND_DIR = path.join(REPO_ROOT, "frontend");
 
 const IS_WINDOWS = process.platform === "win32";
 const MAX_START_ATTEMPTS = 3;
+const PROTECTED_PORTS = new Set([3000, 8000, 13000, 18000, 13381, 18381]);
 
 function log(message) {
   console.log(`[verify_integration] ${message}`);
@@ -82,35 +85,25 @@ function spawnNpmArgs(args) {
   return { command: npmCommand(), args, shell: false };
 }
 
-function resolvePythonExecutable() {
-  const venvPython = IS_WINDOWS
-    ? path.join(BACKEND_DIR, ".venv", "Scripts", "python.exe")
-    : path.join(BACKEND_DIR, ".venv", "bin", "python");
-  if (existsSync(venvPython)) {
-    return venvPython;
-  }
-  log(
-    `警告：未找到 ${venvPython}，回退使用 PATH 中的系统 ${IS_WINDOWS ? "python" : "python3"}` +
-      "（需已安装 backend 依赖，否则后端进程会启动失败）。",
-  );
-  return IS_WINDOWS ? "python" : "python3";
-}
-
 /** 系统分配一个当前空闲的端口号：短暂监听后立即关闭，供随后真正的服务使用。 */
 async function getFreePort() {
-  return await new Promise((resolve, reject) => {
-    const server = createServer();
-    server.on("error", reject);
-    server.listen(0, "127.0.0.1", () => {
-      const address = server.address();
-      const port = typeof address === "object" && address ? address.port : undefined;
-      server.close((closeError) => {
-        if (closeError) reject(closeError);
-        else if (port === undefined) reject(new Error("无法分配空闲端口"));
-        else resolve(port);
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const port = await new Promise((resolve, reject) => {
+      const server = createServer();
+      server.on("error", reject);
+      server.listen(0, "127.0.0.1", () => {
+        const address = server.address();
+        const allocated = typeof address === "object" && address ? address.port : undefined;
+        server.close((closeError) => {
+          if (closeError) reject(closeError);
+          else if (allocated === undefined) reject(new Error("无法分配空闲端口"));
+          else resolve(allocated);
+        });
       });
     });
-  });
+    if (!PROTECTED_PORTS.has(port)) return port;
+  }
+  throw new Error("无法分配非受保护的空闲端口");
 }
 
 async function getUniqueFreePort(usedPorts) {
@@ -125,41 +118,55 @@ async function getUniqueFreePort(usedPorts) {
 }
 
 async function createUnavailableBackendSentinel() {
-  const sockets = new Set();
-  const server = createServer((socket) => {
-    sockets.add(socket);
-    socket.once("close", () => sockets.delete(socket));
-    socket.destroy();
-  });
-  const port = await new Promise((resolve, reject) => {
-    server.once("error", reject);
-    server.listen(0, "127.0.0.1", () => {
-      server.off("error", reject);
-      const address = server.address();
-      if (typeof address === "object" && address) resolve(address.port);
-      else reject(new Error("无法为不可用后端 sentinel 分配监听端口"));
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const sockets = new Set();
+    const server = createServer((socket) => {
+      sockets.add(socket);
+      socket.once("close", () => sockets.delete(socket));
+      socket.destroy();
     });
-  });
-  return {
-    port,
-    close: async () => {
-      for (const socket of sockets) socket.destroy();
-      await new Promise((resolve, reject) => {
-        server.close((error) => {
-          if (error) reject(error);
-          else resolve();
-        });
+    const port = await new Promise((resolve, reject) => {
+      server.once("error", reject);
+      server.listen(0, "127.0.0.1", () => {
+        server.off("error", reject);
+        const address = server.address();
+        if (typeof address === "object" && address) resolve(address.port);
+        else reject(new Error("无法为不可用后端 sentinel 分配监听端口"));
       });
-    },
-  };
+    });
+    if (!PROTECTED_PORTS.has(port)) {
+      return {
+        port,
+        close: async () => {
+          for (const socket of sockets) socket.destroy();
+          await new Promise((resolve, reject) => {
+            server.close((error) => {
+              if (error) reject(error);
+              else resolve();
+            });
+          });
+        },
+      };
+    }
+    await new Promise((resolve, reject) => {
+      server.close((error) => {
+        if (error) reject(error);
+        else resolve();
+      });
+    });
+  }
+  throw new Error("无法为不可用后端 sentinel 分配非受保护端口");
 }
 
-async function waitForHttp(url, { timeoutMs = 20000, intervalMs = 250 } = {}) {
+async function waitForHttp(
+  url,
+  { timeoutMs = 20000, intervalMs = 250, headers = {} } = {},
+) {
   const deadline = Date.now() + timeoutMs;
   let lastError;
   while (Date.now() < deadline) {
     try {
-      return await fetch(url, { cache: "no-store" });
+      return await fetch(url, { cache: "no-store", headers });
     } catch (error) {
       lastError = error;
       await sleep(intervalMs);
@@ -282,12 +289,24 @@ async function waitForProcessGroupExit(pid, timeoutMs) {
   return false;
 }
 
-function startBackend(port) {
-  const python = resolvePythonExecutable();
+function startBackend(port, integrationTmp) {
+  const python = resolvePythonExecutable({ backendDir: BACKEND_DIR, log });
   const child = spawn(
     python,
-    ["-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", String(port)],
-    { cwd: BACKEND_DIR, stdio: ["ignore", "pipe", "pipe"], detached: !IS_WINDOWS },
+    ["-m", "uvicorn", "tests.integration_isolated_app:app", "--host", "127.0.0.1", "--port", String(port)],
+    {
+      cwd: BACKEND_DIR,
+      stdio: ["ignore", "pipe", "pipe"],
+      detached: !IS_WINDOWS,
+      env: {
+        ...process.env,
+        CHAOTANG_INTEGRATION_TMP: integrationTmp,
+        CHAOTANG_DECREE_JOB_WORKER_ENABLED: "0",
+        DEEPSEEK_API_KEY: "",
+        JINYIWEI_EXTERNAL_NETWORK_ENABLED: "",
+        JINYIWEI_MCP_CREDENTIAL_SOURCE: "env",
+      },
+    },
   );
   return new ManagedProcess("backend", child);
 }
@@ -332,9 +351,12 @@ async function startManagedServiceWithRetry({
 }
 
 function createPageAsserter(frontendPort, frontend) {
-  return async function assertPage(pathname, { contains, matches = [], excludes } = {}) {
+  return async function assertPage(
+    pathname,
+    { contains, matches = [], excludes, headers = {} } = {},
+  ) {
     const url = `http://127.0.0.1:${frontendPort}${pathname}`;
-    const response = await waitForHttp(url).catch((error) => {
+    const response = await waitForHttp(url, { headers }).catch((error) => {
       throw new Error(`前端页面 ${pathname} 未能就绪：${error.message}\n${frontend.describeForError()}`);
     });
     if (response.status !== 200) {
@@ -368,7 +390,7 @@ function createPageAsserter(frontendPort, frontend) {
   };
 }
 
-async function runSuccessScenario(usedPorts) {
+async function runSuccessScenario(usedPorts, integrationTmp) {
   log("场景一（成功路径）：启动后端 + 前端指向它 ...");
   let backend;
   let frontend;
@@ -376,7 +398,7 @@ async function runSuccessScenario(usedPorts) {
     const backendStart = await startManagedServiceWithRetry({
       name: "backend",
       usedPorts,
-      start: startBackend,
+      start: (port) => startBackend(port, integrationTmp),
       readinessPath: "/health",
     });
     backend = backendStart.managedProcess;
@@ -392,8 +414,8 @@ async function runSuccessScenario(usedPorts) {
     const assertPage = createPageAsserter(frontendPort, frontend);
     await assertPage("/", {
       matches: [
-        /<h1[^>]*>朝堂 OS<\/h1>/,
-        /<a[^>]*href="\/login"[^>]*>已有账号<\/a>/,
+        /<h1[^>]*>启 朝<\/h1>/,
+        /<a[^>]*href="\/login"[^>]*>已有朝堂？登录<\/a>/,
       ],
       excludes: "data-backend-ok",
     });
@@ -423,8 +445,8 @@ async function runFailureScenario(usedPorts) {
     const assertPage = createPageAsserter(frontendPort, frontend);
     await assertPage("/", {
       matches: [
-        /<h1[^>]*>朝堂 OS<\/h1>/,
-        /<a[^>]*href="\/login"[^>]*>已有账号<\/a>/,
+        /<h1[^>]*>启 朝<\/h1>/,
+        /<a[^>]*href="\/login"[^>]*>已有朝堂？登录<\/a>/,
       ],
       excludes: "data-backend-ok",
     });
@@ -474,19 +496,18 @@ function parseSetCookieValue(setCookieHeader, cookieName) {
  *
  * 覆盖 `docs/product/tasks/2026-07-28-decree-bff-backend-connectivity.md` 的验收标准
  * 第一、二条：健康后端下 BFF 确实能转发到下旨端点（而不是误报 `network`），以及后端
- * 不可达时 BFF 返回可操作且不泄露内部地址的错误。全程只发送 `decreeText: ""`，在后端
- * Pydantic 校验阶段即被拒绝（422），`get_chancellor_graph()` 不会被调用，不产生任何真实
- * 模型调用。
+ * 不可达时 BFF 返回可操作且不泄露内部地址的错误。健康子场景发送合法形状但不存在的
+ * 拟旨指纹，后端在 authority 边界返回 409；不会进入 graph 或产生真实模型调用。
  */
-async function runDecreeBffConnectivityScenario(usedPorts) {
-  log("场景三（下旨 BFF 连通性）：健康后端下应转发到下旨端点并映射为 validation，而非 network ...");
+async function runDecreeBffConnectivityScenario(usedPorts, integrationTmp) {
+  log("场景三（下旨 BFF 连通性）：健康后端下应转发到下旨端点并映射为 draft_not_current，而非 network ...");
   let backend;
   let healthyFrontend;
   try {
     const backendStart = await startManagedServiceWithRetry({
       name: "backend（下旨 BFF 场景）",
       usedPorts,
-      start: startBackend,
+      start: (port) => startBackend(port, integrationTmp),
       readinessPath: "/health",
     });
     backend = backendStart.managedProcess;
@@ -505,6 +526,12 @@ async function runDecreeBffConnectivityScenario(usedPorts) {
     const username = `verify-integration-${suffix}`;
     const email = `verify-integration-${suffix}@example.invalid`;
     const password = "Verify-Integration-Test-Password-123";
+    const connectivityPayload = {
+      decreeText: "integration connectivity check",
+      draftVersion: 1,
+      draftFingerprint: "0".repeat(64),
+      idempotencyKey: `verify-integration-${suffix}`,
+    };
 
     const registerResponse = await postJson(
       `http://127.0.0.1:${frontendPort}/api/auth/register`,
@@ -516,36 +543,57 @@ async function runDecreeBffConnectivityScenario(usedPorts) {
           healthyFrontend.describeForError(),
       );
     }
-    const setCookieHeader = registerResponse.headers.get("set-cookie");
+    const loginResponse = await postJson(
+      `http://127.0.0.1:${frontendPort}/api/auth/login`,
+      { identifier: username, password },
+    );
+    if (loginResponse.status !== 200) {
+      throw new Error(
+        `登录一次性测试账号失败，期望 200 实际 ${loginResponse.status}：${loginResponse.text.slice(0, 500)}\n` +
+          healthyFrontend.describeForError(),
+      );
+    }
+    const setCookieHeader = loginResponse.headers.get("set-cookie");
     const sessionCookieValue = parseSetCookieValue(setCookieHeader, SESSION_COOKIE_NAME);
     if (!sessionCookieValue) {
       throw new Error(
-        `注册响应缺少 ${SESSION_COOKIE_NAME} 会话 cookie；Set-Cookie 头：${JSON.stringify(setCookieHeader)}`,
+        `登录响应缺少 ${SESSION_COOKIE_NAME} 会话 cookie；Set-Cookie 头：${JSON.stringify(setCookieHeader)}`,
       );
     }
 
+    const sessionCookieHeader = `${SESSION_COOKIE_NAME}=${sessionCookieValue}`;
+    const assertPage = createPageAsserter(frontendPort, healthyFrontend);
+    await assertPage("/study", {
+      contains: "上书房",
+      headers: { cookie: sessionCookieHeader },
+    });
+    await assertPage("/jinyiwei", {
+      contains: "锦衣卫",
+      headers: { cookie: sessionCookieHeader },
+    });
+
     const decreeResponse = await postJson(
       `http://127.0.0.1:${frontendPort}/api/decrees/chancellor`,
-      { decreeText: "" },
-      { cookie: `${SESSION_COOKIE_NAME}=${sessionCookieValue}` },
+      connectivityPayload,
+      { cookie: sessionCookieHeader },
     );
-    if (decreeResponse.status !== 422) {
+    if (decreeResponse.status !== 409) {
       throw new Error(
-        `健康后端场景期望下旨 BFF 返回 422（validation），实际 ${decreeResponse.status}：` +
+        `健康后端场景期望下旨 BFF 返回 409（draft_not_current），实际 ${decreeResponse.status}：` +
           `${decreeResponse.text.slice(0, 500)}\n${healthyFrontend.describeForError()}`,
       );
     }
     if (
       decreeResponse.json === null ||
       decreeResponse.json.status !== "error" ||
-      decreeResponse.json.reason !== "validation"
+      decreeResponse.json.reason !== "draft_not_current"
     ) {
       throw new Error(
-        `健康后端场景期望响应体 {status:"error", reason:"validation"}，实际：` +
+        `健康后端场景期望响应体 {status:"error", reason:"draft_not_current"}，实际：` +
           `${JSON.stringify(decreeResponse.json)}（原文：${decreeResponse.text.slice(0, 500)}）`,
       );
     }
-    log("场景三 · 正向子场景通过：健康后端下下旨 BFF 转发成功，422/validation（不是 network）。");
+    log("场景三 · 正向子场景通过：健康后端下下旨 BFF 转发成功，409/draft_not_current（不是 network）。");
   } finally {
     if (healthyFrontend) await healthyFrontend.kill();
     if (backend) await backend.kill();
@@ -571,7 +619,12 @@ async function runDecreeBffConnectivityScenario(usedPorts) {
     const fakeSessionCookieValue = "verify-integration-sentinel-fake-session-token";
     const decreeResponse = await postJson(
       `http://127.0.0.1:${frontendPort}/api/decrees/chancellor`,
-      { decreeText: "" },
+      {
+        decreeText: "integration unreachable-backend check",
+        draftVersion: 1,
+        draftFingerprint: "0".repeat(64),
+        idempotencyKey: "verify-integration-unreachable",
+      },
       { cookie: `${SESSION_COOKIE_NAME}=${fakeSessionCookieValue}` },
     );
     if (decreeResponse.status !== 503) {
@@ -607,11 +660,16 @@ async function runDecreeBffConnectivityScenario(usedPorts) {
 
 async function main() {
   ensureFrontendBuilt();
-  const usedPorts = new Set();
-  await runSuccessScenario(usedPorts);
-  await runFailureScenario(usedPorts);
-  await runDecreeBffConnectivityScenario(usedPorts);
-  log("集成校验全部通过：成功路径、失败路径与下旨 BFF 连通性场景均可重复验证，子进程均已清理。");
+  const integrationTmp = await mkdtemp(path.join(tmpdir(), "chaotang-integration-"));
+  try {
+    const usedPorts = new Set(PROTECTED_PORTS);
+    await runSuccessScenario(usedPorts, integrationTmp);
+    await runFailureScenario(usedPorts);
+    await runDecreeBffConnectivityScenario(usedPorts, integrationTmp);
+    log("集成校验全部通过：成功路径、失败路径与下旨 BFF 连通性场景均可重复验证，子进程均已清理。");
+  } finally {
+    await rm(integrationTmp, { recursive: true, force: true });
+  }
 }
 
 main().catch((error) => {

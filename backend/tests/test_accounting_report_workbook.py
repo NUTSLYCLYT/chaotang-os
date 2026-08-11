@@ -124,8 +124,13 @@ def test_writer_creates_exact_auditable_seven_sheet_workbook(tmp_path: Path) -> 
     }
 
     sources = workbook["数据来源"]
-    assert {"报告期间", "生成时间", "来源哈希"} <= {
+    source_labels = {
         sources.cell(row, 1).value for row in range(1, sources.max_row + 1)
+    }
+    assert {"报告期间", "来源哈希"} <= source_labels
+    assert "生成时间" not in source_labels
+    assert "生成时间" not in {
+        management.cell(row, 1).value for row in range(1, management.max_row + 1)
     }
 
     for sheet in workbook.worksheets:
@@ -140,6 +145,22 @@ def test_writer_creates_exact_auditable_seven_sheet_workbook(tmp_path: Path) -> 
                     )
                     assert str(tmp_path) not in formula
     workbook.close()
+
+
+def test_writer_is_byte_and_digest_deterministic_for_identical_inputs(
+    tmp_path: Path,
+) -> None:
+    rows = _rows()
+    summary = analyze_ledger(rows, ReportPeriod(2024, 2025))
+    first_destination = tmp_path / "first-management-report.xlsx"
+    second_destination = tmp_path / "second-management-report.xlsx"
+
+    first_digest = write_management_report(rows, summary, first_destination)
+    second_digest = write_management_report(rows, summary, second_destination)
+
+    assert first_destination.read_bytes() == second_destination.read_bytes()
+    assert first_digest == second_digest
+    assert first_digest == hashlib.sha256(first_destination.read_bytes()).hexdigest()
 
 
 def test_writer_removes_partial_file_and_sanitizes_unstable_errors(

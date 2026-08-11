@@ -19,6 +19,7 @@ from pathlib import Path
 
 from app.shiguan import db, validation
 from app.shiguan.errors import (
+    ArchiveDecisionConflictError,
     ArchiveNotFoundError,
     ArchiveValidationError,
     ShiguanStorageError,
@@ -27,6 +28,7 @@ from app.shiguan.errors import (
 from app.shiguan.models import (
     Archive,
     ArchiveCreate,
+    ArchiveDecision,
     ArchiveEvidenceReference,
     ArchiveEvidenceReferenceCreate,
     ArchiveEvidenceSnapshot,
@@ -109,6 +111,25 @@ def _insert_validated_archive(
     return _build_archive(conn, row, owner_user_id)
 
 
+def insert_archive_in_transaction(
+    conn: sqlite3.Connection,
+    payload: dict | ArchiveCreate,
+    *,
+    owner_user_id: str,
+    archive_id: str | None = None,
+) -> Archive:
+    """Validate and insert an archive without ending the caller's transaction."""
+
+    payload_dict = payload.model_dump() if isinstance(payload, ArchiveCreate) else dict(payload)
+    validated = validation.validate_archive_create(payload_dict)
+    return _insert_validated_archive(
+        conn,
+        validated,
+        owner_user_id=owner_user_id,
+        archive_id=archive_id,
+    )
+
+
 def _build_archive(conn: sqlite3.Connection, row: sqlite3.Row, owner_user_id: str) -> Archive:
     archive_id = row["id"]
 
@@ -142,6 +163,20 @@ def _build_archive(conn: sqlite3.Connection, row: sqlite3.Row, owner_user_id: st
             note=review_row["note"],
         )
         if review_row is not None
+        else None
+    )
+
+    decision_row = conn.execute(
+        "SELECT decision, decided_at FROM archive_decisions "
+        "WHERE archive_id = ? AND owner_user_id = ?",
+        (archive_id, owner_user_id),
+    ).fetchone()
+    decision_status = (
+        ArchiveDecision(
+            decision=decision_row["decision"],
+            decided_at=decision_row["decided_at"],
+        )
+        if decision_row is not None
         else None
     )
 
@@ -198,6 +233,7 @@ def _build_archive(conn: sqlite3.Connection, row: sqlite3.Row, owner_user_id: st
         reply_time=row["reply_time"],
         respondent=row["respondent"],
         review_status=review_status,
+        decision_status=decision_status,
         evidence_references=evidence_references,
     )
 
@@ -218,7 +254,13 @@ def _payload_from_archive(archive: Archive) -> ArchiveCreate:
     return ArchiveCreate.model_validate(
         archive.model_dump(
             mode="json",
-            exclude={"id", "created_at", "review_status", "evidence_references"},
+            exclude={
+                "id",
+                "created_at",
+                "review_status",
+                "decision_status",
+                "evidence_references",
+            },
         )
     )
 
@@ -407,6 +449,72 @@ def get_archive(
             return _build_archive(conn, row, owner_user_id)
         except sqlite3.Error as exc:
             raise ShiguanStorageError("史馆查询失败，请稍后再试") from exc
+    finally:
+        conn.close()
+
+
+_DECISIONS_BY_ARCHIVE_TYPE = {
+    "MEMORIAL": frozenset({"APPROVED", "REJECTED"}),
+    "REPLY": frozenset({"ADOPTED", "RETURNED_FOR_RECONSIDERATION"}),
+}
+
+
+def set_archive_decision(
+    archive_id: str,
+    decision: str,
+    *,
+    owner_user_id: str = _SYSTEM_OWNER_ID,
+    db_path: Path | None = None,
+) -> ArchiveDecision:
+    """Record one immutable terminal decision for an owner-scoped archive."""
+
+    valid_decisions = frozenset().union(*_DECISIONS_BY_ARCHIVE_TYPE.values())
+    if decision not in valid_decisions:
+        raise ArchiveValidationError("档案决定无效")
+
+    conn = db.get_connection(db_path)
+    try:
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            archive_row = conn.execute(
+                "SELECT type FROM archives WHERE id = ? AND owner_user_id = ?",
+                (archive_id, owner_user_id),
+            ).fetchone()
+            if archive_row is None:
+                raise ArchiveNotFoundError(f"档案不存在: {archive_id}")
+            if decision not in _DECISIONS_BY_ARCHIVE_TYPE[archive_row["type"]]:
+                raise ArchiveValidationError("档案类型与决定不匹配")
+
+            existing = conn.execute(
+                "SELECT decision, decided_at FROM archive_decisions "
+                "WHERE archive_id = ? AND owner_user_id = ?",
+                (archive_id, owner_user_id),
+            ).fetchone()
+            if existing is not None:
+                if existing["decision"] != decision:
+                    raise ArchiveDecisionConflictError("档案已有不同的最终决定")
+                result = ArchiveDecision(
+                    decision=existing["decision"], decided_at=existing["decided_at"]
+                )
+                conn.commit()
+                return result
+
+            decided_at = _now_iso()
+            conn.execute(
+                "INSERT INTO archive_decisions "
+                "(archive_id, owner_user_id, actor_user_id, decision, decided_at) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (archive_id, owner_user_id, owner_user_id, decision, decided_at),
+            )
+            result = ArchiveDecision(decision=decision, decided_at=decided_at)
+            conn.commit()
+            return result
+        except (ArchiveNotFoundError, ArchiveValidationError, ArchiveDecisionConflictError):
+            conn.rollback()
+            raise
+        except sqlite3.Error as exc:
+            conn.rollback()
+            raise ShiguanStorageError("史馆决定写入失败，请稍后再试") from exc
     finally:
         conn.close()
 

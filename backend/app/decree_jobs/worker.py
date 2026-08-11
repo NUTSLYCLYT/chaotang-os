@@ -1,0 +1,303 @@
+from __future__ import annotations
+
+import threading
+from collections.abc import Callable
+from datetime import UTC, datetime, timedelta
+from typing import Protocol
+
+from .models import DecreeJob, DecreeJobState
+from .storage import DecreeJobStore, LeaseConflict
+
+
+class JobControlAbort(BaseException):
+    """Internal cooperative control flow that must cross provider wrappers."""
+
+
+class JobCancelled(JobControlAbort):
+    pass
+
+
+class JobLeaseLost(JobControlAbort):
+    pass
+
+
+class JobDeadlineExceeded(JobControlAbort):
+    pass
+
+
+class TransientJobError(RuntimeError):
+    def __init__(self, code: str) -> None:
+        super().__init__(code)
+        self.code = code
+
+
+class PermanentJobError(RuntimeError):
+    def __init__(self, code: str) -> None:
+        super().__init__(code)
+        self.code = code
+
+
+def _failure_category(code: str) -> str:
+    if code == "provider_budget_exceeded":
+        return "budget"
+    if code == "deadline_exceeded":
+        return "deadline"
+    if code.startswith("provider_"):
+        return "provider"
+    if code == "retry_exhausted":
+        return "retry"
+    return "internal"
+
+
+class DecreeJobExecutor(Protocol):
+    def execute(self, job: DecreeJob, control: DecreeJobControl) -> str: ...
+
+    def archive(self, job: DecreeJob) -> str: ...
+
+    def publish(self, job: DecreeJob) -> str | None: ...
+
+
+class DecreeJobControl:
+    def __init__(
+        self,
+        store: DecreeJobStore,
+        job: DecreeJob,
+        worker_id: str,
+        clock: Callable[[], datetime],
+        lease_lost: threading.Event,
+    ) -> None:
+        self._store = store
+        self._job = job
+        self._worker_id = worker_id
+        self._clock = clock
+        self._lease_lost = lease_lost
+
+    def record_provider_request(self, count: int = 1) -> None:
+        if self._lease_lost.is_set():
+            raise JobLeaseLost
+        try:
+            self._store.add_provider_requests(
+                self._job.job_id,
+                self._worker_id,
+                count=count,
+                now=self._clock(),
+            )
+        except LeaseConflict as exc:
+            raise JobLeaseLost from exc
+
+    def raise_if_cancelled(self) -> None:
+        if self._lease_lost.is_set():
+            raise JobLeaseLost
+        if self._clock() >= self._job.deadline_at:
+            raise JobDeadlineExceeded
+        current = self._store.get_for_owner(
+            self._job.job_id, self._job.owner_user_id
+        )
+        if not current.cancel_requested:
+            return
+        cancelled = self._store.cancel_at_boundary(
+            self._job.job_id, self._worker_id, now=self._clock()
+        )
+        if cancelled.state is DecreeJobState.CANCELLED:
+            raise JobCancelled
+
+
+class DecreeJobWorker:
+    def __init__(
+        self,
+        store: DecreeJobStore,
+        executor: DecreeJobExecutor,
+        *,
+        worker_id: str,
+        clock: Callable[[], datetime] | None = None,
+        lease_seconds: int = 90,
+        retry_delay_seconds: int = 5,
+        poll_seconds: float = 0.5,
+    ) -> None:
+        self.store = store
+        self.executor = executor
+        self.worker_id = worker_id
+        self.clock = clock or (lambda: datetime.now(UTC))
+        self.lease_seconds = lease_seconds
+        self.retry_delay_seconds = retry_delay_seconds
+        self.poll_seconds = poll_seconds
+        self._stop = threading.Event()
+        self._thread: threading.Thread | None = None
+
+    def _start_heartbeat(
+        self, job_id: str
+    ) -> tuple[threading.Event, threading.Event, threading.Thread]:
+        stopped = threading.Event()
+        lease_lost = threading.Event()
+        interval = max(min(self.lease_seconds / 3, 30), 0.1)
+
+        def renew() -> None:
+            while not stopped.wait(interval):
+                try:
+                    self.store.renew_lease(
+                        job_id,
+                        self.worker_id,
+                        now=self.clock(),
+                        lease_seconds=self.lease_seconds,
+                    )
+                except (LeaseConflict, OSError):
+                    lease_lost.set()
+                    return
+
+        thread = threading.Thread(
+            target=renew,
+            name=f"decree-job-lease-{self.worker_id}",
+            daemon=True,
+        )
+        thread.start()
+        return stopped, lease_lost, thread
+
+    def run_once(self) -> bool:
+        now = self.clock()
+        job = self.store.claim_next(
+            self.worker_id, now=now, lease_seconds=self.lease_seconds
+        )
+        if job is None:
+            return False
+        heartbeat_stop, lease_lost, heartbeat = self._start_heartbeat(job.job_id)
+        control = DecreeJobControl(
+            self.store, job, self.worker_id, self.clock, lease_lost
+        )
+        model_phase = job.state is DecreeJobState.RUNNING
+        try:
+            if job.state is DecreeJobState.RUNNING:
+                control.raise_if_cancelled()
+                result_json = self.executor.execute(job, control)
+                control.raise_if_cancelled()
+                job = self.store.checkpoint_result(
+                    job.job_id,
+                    self.worker_id,
+                    result_json=result_json,
+                    now=self.clock(),
+                )
+                model_phase = False
+            if job.state is DecreeJobState.RESULT_READY:
+                control.raise_if_cancelled()
+                job = self.store.begin_archiving(
+                    job.job_id, self.worker_id, now=self.clock()
+                )
+            if job.state is DecreeJobState.ARCHIVING:
+                reply_id = self.executor.archive(job)
+                job = self.store.begin_publishing(
+                    job.job_id,
+                    self.worker_id,
+                    reply_id=reply_id,
+                    now=self.clock(),
+                )
+            if job.state is DecreeJobState.PUBLISHING:
+                final_result_json = self.executor.publish(job)
+                self.store.complete(
+                    job.job_id,
+                    self.worker_id,
+                    result_json=final_result_json,
+                    now=self.clock(),
+                )
+            return True
+        except JobCancelled:
+            return True
+        except JobLeaseLost:
+            return True
+        except JobDeadlineExceeded:
+            self.store.fail_attempt(
+                job.job_id,
+                self.worker_id,
+                error_code="deadline_exceeded",
+                error_category="deadline",
+                transient=False,
+                retry_at=self.clock(),
+                now=self.clock(),
+            )
+            return True
+        except TransientJobError as exc:
+            if model_phase:
+                self.store.fail_attempt(
+                    job.job_id,
+                    self.worker_id,
+                    error_code=exc.code,
+                    error_category=_failure_category(exc.code),
+                    transient=True,
+                    retry_at=self.clock()
+                    + timedelta(seconds=self.retry_delay_seconds),
+                    now=self.clock(),
+                )
+            else:
+                self.store.fail_checkpoint(
+                    job.job_id,
+                    self.worker_id,
+                    error_code=exc.code,
+                    error_category=_failure_category(exc.code),
+                    transient=True,
+                    now=self.clock(),
+                )
+            return True
+        except PermanentJobError as exc:
+            if model_phase:
+                self.store.fail_attempt(
+                    job.job_id,
+                    self.worker_id,
+                    error_code=exc.code,
+                    error_category=_failure_category(exc.code),
+                    transient=False,
+                    retry_at=self.clock(),
+                    now=self.clock(),
+                )
+            else:
+                self.store.fail_checkpoint(
+                    job.job_id,
+                    self.worker_id,
+                    error_code=exc.code,
+                    error_category=_failure_category(exc.code),
+                    transient=False,
+                    now=self.clock(),
+                )
+            return True
+        except Exception:
+            if model_phase:
+                self.store.fail_attempt(
+                    job.job_id,
+                    self.worker_id,
+                    error_code="execution_failed",
+                    error_category="internal",
+                    transient=False,
+                    retry_at=self.clock(),
+                    now=self.clock(),
+                )
+            else:
+                self.store.fail_checkpoint(
+                    job.job_id,
+                    self.worker_id,
+                    error_code="side_effect_failed",
+                    error_category="internal",
+                    transient=True,
+                    now=self.clock(),
+                )
+            return True
+        finally:
+            heartbeat_stop.set()
+            heartbeat.join(timeout=1)
+
+    def _run(self) -> None:
+        while not self._stop.is_set():
+            if not self.run_once():
+                self._stop.wait(self.poll_seconds)
+
+    def start(self) -> None:
+        if self._thread is not None and self._thread.is_alive():
+            return
+        self._stop.clear()
+        self._thread = threading.Thread(
+            target=self._run,
+            name=f"decree-job-{self.worker_id}",
+            daemon=True,
+        )
+        self._thread.start()
+
+    def stop(self, timeout: float = 5) -> None:
+        self._stop.set()
+        if self._thread is not None:
+            self._thread.join(timeout=timeout)

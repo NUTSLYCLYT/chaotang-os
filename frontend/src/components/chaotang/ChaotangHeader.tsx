@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { LogoutButton } from "./LogoutButton";
 import styles from "./ChaotangHeader.module.css";
 
 type VisualNavItem = {
@@ -124,6 +125,7 @@ export function ChaotangHeader({ currentLabel, currentPath = "/study" }: { curre
         <button className={styles.emperor} type="button" aria-label="皇上" title="皇上">
           皇
         </button>
+        <LogoutButton className={styles.logoutButton} />
       </div>
     </header>
   );

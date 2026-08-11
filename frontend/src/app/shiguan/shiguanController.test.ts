@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type {
+  ArchiveDecision,
   ReviewStatusValue,
   ShiguanArchive,
   ShiguanRecallMatch,
@@ -45,9 +46,141 @@ function archive(id: string, title = id): ShiguanArchive {
     replyTime: "2026-07-24T09:00:00Z",
     respondent: "丞相",
     reviewStatus: null,
+    decisionStatus: null,
     evidenceReferences: [],
   };
 }
+
+function decision(value: ArchiveDecision["decision"], decidedAt = "2026-08-09T02:00:00Z"): ArchiveDecision {
+  return { decision: value, decidedAt };
+}
+
+test("decision is non-optimistic, suppresses duplicate clicks, and survives a stale archive refresh", async () => {
+  const decisionRequest = deferred<ArchiveDecision>();
+  const staleArchives = deferred<ShiguanArchive[]>();
+  let listCalls = 0;
+  let decisionCalls = 0;
+  const controller = new ShiguanController({
+    listArchives: () => listCalls++ === 0 ? Promise.resolve([archive("a-1")]) : staleArchives.promise,
+    getStatistics: async () => statistics(1),
+    recall: async () => [],
+    review: async () => review("OBSERVING", "2026-08-09T01:00:00Z"),
+    decide: () => {
+      decisionCalls += 1;
+      return decisionRequest.promise;
+    },
+  });
+  controller.start();
+  await settle();
+
+  assert.equal(controller.decideArchive("a-1", "ADOPTED"), true);
+  assert.equal(controller.decideArchive("a-1", "RETURNED_FOR_RECONSIDERATION"), false);
+  assert.equal(decisionCalls, 1);
+  assert.equal(controller.state.decisionState.status, "loading");
+  assert.equal(controller.state.archives[0].decisionStatus, null);
+
+  controller.retryArchives();
+  decisionRequest.resolve(decision("ADOPTED"));
+  await settle();
+  staleArchives.resolve([archive("a-1", "stale copy")]);
+  await settle();
+
+  assert.deepEqual(controller.state.archives[0].decisionStatus, decision("ADOPTED"));
+  assert.equal(controller.state.decisionState.status, "ready");
+  assert.match(controller.state.decisionState.message, /已采纳/);
+  assert.equal(controller.decideArchive("a-1", "ADOPTED"), false);
+});
+
+test("decision conflict keeps the last confirmed archive value and exposes retry guidance", async () => {
+  const existing = { ...archive("a-1"), decisionStatus: decision("REJECTED") };
+  const controller = new ShiguanController({
+    listArchives: async () => [existing],
+    getStatistics: async () => statistics(1),
+    recall: async () => [],
+    review: async () => review("OBSERVING", "2026-08-09T01:00:00Z"),
+    decide: async () => { throw new ShiguanUiError("conflict", "请刷新查看已归档结果"); },
+  });
+  controller.start();
+  await settle();
+
+  assert.equal(controller.decideArchive("a-1", "APPROVED"), false);
+  assert.equal(controller.state.archives[0].decisionStatus?.decision, "REJECTED");
+
+  const pendingController = new ShiguanController({
+    listArchives: async () => [archive("a-2")],
+    getStatistics: async () => statistics(1),
+    recall: async () => [],
+    review: async () => review("OBSERVING", "2026-08-09T01:00:00Z"),
+    decide: async () => { throw new ShiguanUiError("conflict", "请刷新查看已归档结果"); },
+  });
+  pendingController.start();
+  await settle();
+  assert.equal(pendingController.decideArchive("a-2", "ADOPTED"), true);
+  await settle();
+  assert.equal(pendingController.state.decisionState.errorKind, "conflict");
+  assert.equal(pendingController.state.archives[0].decisionStatus, null);
+});
+
+test("decision transient failure remains pending and the same action retries successfully", async () => {
+  let calls = 0;
+  const controller = new ShiguanController({
+    listArchives: async () => [archive("a-1")],
+    getStatistics: async () => statistics(1),
+    recall: async () => [],
+    review: async () => review("OBSERVING", "2026-08-09T01:00:00Z"),
+    decide: async () => {
+      calls += 1;
+      if (calls === 1) throw new ShiguanUiError("network", "首次失败，请重试");
+      return decision("ADOPTED", "2026-08-09T03:00:00Z");
+    },
+  });
+  controller.start();
+  await settle();
+
+  assert.equal(controller.decideArchive("a-1", "ADOPTED"), true);
+  await settle();
+  assert.equal(controller.state.decisionState.status, "error");
+  assert.equal(controller.state.archives[0].decisionStatus, null);
+
+  assert.equal(controller.decideArchive("a-1", "ADOPTED"), true);
+  await settle();
+  assert.equal(calls, 2);
+  assert.equal(controller.state.decisionState.status, "ready");
+  assert.deepEqual(
+    controller.state.archives[0].decisionStatus,
+    decision("ADOPTED", "2026-08-09T03:00:00Z"),
+  );
+});
+
+test("final disconnect aborts an in-flight decision and ignores its late completion", async () => {
+  const decisionRequest = deferred<ArchiveDecision>();
+  let decisionSignal: AbortSignal | undefined;
+  let notifications = 0;
+  const controller = new ShiguanController({
+    listArchives: async () => [archive("a-1")],
+    getStatistics: async () => statistics(1),
+    recall: async () => [],
+    review: async () => review("OBSERVING", "2026-08-09T01:00:00Z"),
+    decide: (_archiveId, _decision, signal) => {
+      decisionSignal = signal;
+      return decisionRequest.promise;
+    },
+  });
+  const disconnect = controller.connect(() => { notifications += 1; });
+  controller.start();
+  await settle();
+  assert.equal(controller.decideArchive("a-1", "ADOPTED"), true);
+  const notificationsBeforeDisconnect = notifications;
+
+  disconnect();
+  await settle();
+  assert.equal(decisionSignal?.aborted, true);
+  decisionRequest.resolve(decision("ADOPTED"));
+  await settle();
+
+  assert.equal(controller.state.archives[0].decisionStatus, null);
+  assert.equal(notifications, notificationsBeforeDisconnect);
+});
 
 function statistics(total: number, partial = 0): ShiguanStatistics {
   return {
@@ -87,6 +220,7 @@ test("archives and statistics settle independently and preserve stale last-known
     getStatistics: () => statisticsRequests[statisticsCall++].promise,
     recall: async () => [],
     review: async () => review("OBSERVING", "2026-07-24T09:00:00Z"),
+    decide: async () => decision("ADOPTED"),
   });
 
   controller.start();
@@ -138,6 +272,7 @@ test("latest archive and statistics generations win filtered request races", asy
     getStatistics: () => [statsOld, statsNew][statsCall++].promise,
     recall: async () => [],
     review: async () => review("OBSERVING", "2026-07-24T09:00:00Z"),
+    decide: async () => decision("ADOPTED"),
   });
 
   controller.start();
@@ -170,6 +305,7 @@ test("recall exposes validation, not-found and unauthenticated errors with expli
         throw errors[calls++];
       },
       review: async () => review("OBSERVING", "2026-07-24T09:00:00Z"),
+      decide: async () => decision("ADOPTED"),
     },
     { onUnauthorized: () => { navigations += 1; } },
   );
@@ -217,6 +353,7 @@ test("unauthenticated response clears all expired state and navigates once", asy
         return [match];
       },
       review: async () => review("OBSERVING", "2026-07-24T09:00:00Z"),
+      decide: async () => decision("ADOPTED"),
     },
     { onUnauthorized: () => { navigations += 1; } },
   );
@@ -267,6 +404,7 @@ test("real empty and HTML 401 responses clear controller state and navigate once
           );
         },
         review: async () => review("OBSERVING", "2026-07-24T09:00:00Z"),
+        decide: async () => decision("ADOPTED"),
       },
       { onUnauthorized: () => { navigations += 1; } },
     );
@@ -295,6 +433,7 @@ test("review disables duplicate submit, ignores stale responses, and preserves P
     getStatistics: async () => statistics(2),
     recall: async () => [],
     review: () => [firstReview, secondReview][calls++].promise,
+    decide: async () => decision("ADOPTED"),
   });
   controller.start();
   await settle();
@@ -345,6 +484,7 @@ test("review success survives stale archive and pre-review statistics responses"
     getStatistics: () => [initialStats, filteredStats, refreshedStats][statsCall++].promise,
     recall: async () => [],
     review: async () => review("PARTIAL", "2026-07-24T11:00:00Z"),
+    decide: async () => decision("ADOPTED"),
   });
 
   controller.start();
@@ -400,6 +540,7 @@ test("Strict Mode replay reuses one start and final disconnect disposes every re
         signals.push(signal);
         return reviewRequest.promise;
       },
+      decide: async () => decision("ADOPTED"),
     },
     { onUnauthorized: () => { unauthorized += 1; } },
   );
@@ -443,6 +584,7 @@ test("Strict Mode replay reuses one start and final disconnect disposes every re
     getStatistics: async () => statistics(0),
     recall: async () => [],
     review: async () => review("OBSERVING", "2026-07-24T12:00:00Z"),
+    decide: async () => decision("ADOPTED"),
   });
   const recreatedCleanup = recreated.connect(() => undefined);
   recreated.start();
@@ -462,6 +604,7 @@ test("last disconnect synchronously pauses queued continuations before deferred 
       getStatistics: async () => statistics(0),
       recall: () => recallRequest.promise,
       review: async () => review("OBSERVING", "2026-07-24T12:00:00Z"),
+      decide: async () => decision("ADOPTED"),
     },
     { onUnauthorized: () => { unauthorized += 1; } },
   );
@@ -489,6 +632,7 @@ test("last disconnect synchronously pauses queued continuations before deferred 
     },
     recall: async () => [],
     review: () => reviewRequest.promise,
+    decide: async () => decision("ADOPTED"),
   });
   const disconnectReview = reviewController.connect(() => {
     reviewNotifications += 1;
@@ -522,6 +666,7 @@ test("immediate reconnect restores active continuations without repeating initia
     },
     recall: async () => [],
     review: async () => review("OBSERVING", "2026-07-24T12:00:00Z"),
+    decide: async () => decision("ADOPTED"),
   });
 
   const firstDisconnect = controller.connect(() => undefined);

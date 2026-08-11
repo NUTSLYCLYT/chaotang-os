@@ -118,7 +118,8 @@
 .departmentOpinionNotice p { margin-top: 7px; color: #c6b79d; line-height: 1.6; overflow-wrap: anywhere; }
 .departmentSrOnly { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 
-button:focus-visible, a:focus-visible { outline: 2px solid #f0c66a; outline-offset: 3px; }
+:is(.overview, .departmentWorkspace) button:focus-visible,
+:is(.overview, .departmentWorkspace) a:focus-visible { outline: 2px solid #f0c66a; outline-offset: 3px; }
 
 @media (max-width: 1280px) {
   .departmentThreeAxis { grid-template-columns: minmax(240px, .75fr) minmax(480px, 1.25fr); }

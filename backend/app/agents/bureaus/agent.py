@@ -253,7 +253,13 @@ def _invoke_bureau_agent_with_report_authorized(
 
         if detect_accounting_report_intent(decree_text).requested:
             try:
-                report_summary = report_session.maybe_generate(department, bureau, decree_text)
+                generation = report_session.maybe_generate(
+                    department, bureau, decree_text
+                )
+                if isinstance(generation, str):
+                    report_summary = generation
+                elif generation is not None:
+                    report_summary = generation.model_prompt
             except Exception as exc:  # noqa: BLE001 - sanitized report boundary
                 error = BureauAgentInvocationError("Accounting report generation failed.")
                 error.failure_stage = "report"

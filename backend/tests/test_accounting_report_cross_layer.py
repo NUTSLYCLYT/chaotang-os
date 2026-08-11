@@ -1,18 +1,29 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from io import BytesIO
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
 from openpyxl import load_workbook
 
 import app.api.decrees as decrees_api
-from app.accounting_reports.models import NormalizedLedgerRow, SourceRef
+from app.accounting_reports.models import (
+    AccountingRequestKind,
+    NormalizedLedgerRow,
+    ReportPeriod,
+    SourceRef,
+)
 from app.accounting_reports.session import AccountingReportSession
 from app.agents.chancellor.graph import build_chancellor_graph
-from app.agents.chancellor_draft.authority import DraftAuthorityRegistry
+from app.agents.chancellor_draft.authority import (
+    AccountingAuthorityContext,
+    ConsumedDraftAuthority,
+    DraftAuthorityRegistry,
+)
 from app.agents.chancellor_draft.routing import (
     ApprovedDepartmentRoute,
     ApprovedRouteSnapshot,
@@ -22,6 +33,7 @@ from app.api.report_artifacts import configure_report_artifact_db
 from app.auth import configure_auth_db, create_session, create_user
 from app.main import app
 from app.shiguan.storage import list_archives
+from app.work_products import ConfirmationStatus, WorkProductStatus
 
 
 def _row(year: int, category: str, code: str, closing: int) -> NormalizedLedgerRow:
@@ -41,8 +53,8 @@ def _row(year: int, category: str, code: str, closing: int) -> NormalizedLedgerR
         closing_credit=Decimal(0 if debit_oriented else closing),
         source=SourceRef(
             file_name="synthetic-ledger.xlsx",
-            sheet_name="Synthetic",
-            row_number=int(code[-1]) + 1,
+            sheet_name=f"Synthetic-{year}",
+            row_number=int(code[0]) + 1,
             file_sha256="a" * 64,
         ),
     )
@@ -52,10 +64,130 @@ SYNTHETIC_ROWS = (
     _row(2025, "asset", "1001", 1000),
     _row(2025, "liability", "2001", 400),
     _row(2025, "equity", "3001", 600),
-    _row(2025, "revenue", "4001", 500),
+    _row(2025, "revenue", "4001", 300),
     _row(2025, "cost", "5001", 200),
     _row(2025, "expense", "6001", 100),
 )
+
+
+def test_e19_session_replay_is_semantically_stable_across_runtime_identity(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "app.accounting_reports.session.load_ledger_rows",
+        lambda _source, _period: SYNTHETIC_ROWS,
+    )
+
+    envelopes = []
+    file_digests = []
+    generated_at_values = []
+    for index in (1, 2):
+        root = tmp_path / f"replay-{index}"
+        session = AccountingReportSession(
+            owner_user_id="owner-e19",
+            run_id=f"random-run-{index}",
+            source_dir=root / "source",
+            artifact_dir=root / "artifacts",
+            db_path=root / "artifacts.sqlite3",
+        )
+        generation = session.maybe_generate(
+            "户部",
+            "会计司",
+            "请生成2025年财务报表",
+        )
+        assert generation is not None
+        envelope = session.storage.get_work_product_for_artifact(
+            "owner-e19", generation.artifact_id
+        )
+        envelopes.append(envelope)
+        pending_path = root / "artifacts" / f"{generation.artifact_id}.pending.xlsx"
+        file_digests.append(hashlib.sha256(pending_path.read_bytes()).hexdigest())
+        workbook = load_workbook(pending_path, data_only=False, read_only=True)
+        try:
+            assert workbook.properties.created.year == 1980
+            assert workbook.properties.modified.year == 1980
+            visible_values = tuple(
+                cell.value
+                for sheet_name in ("管理摘要", "数据来源")
+                for row in workbook[sheet_name].iter_rows()
+                for cell in row
+                if cell.value is not None
+            )
+        finally:
+            workbook.close()
+        assert "生成时间" not in visible_values
+        assert not any(
+            getattr(value, "year", None) == 1980 for value in visible_values
+        )
+        published = session.publish(f"reply-e19-{index}")
+        assert len(published) == 1
+        generated_at_values.append(published[0].generated_at)
+
+    first, second = envelopes
+    assert first.work_status is second.work_status is (
+        WorkProductStatus.READY_FOR_HUMAN_CONFIRMATION
+    )
+    assert first.confirmation_status is second.confirmation_status is (
+        ConfirmationStatus.PENDING
+    )
+    assert first.artifact_gate.reason_codes == second.artifact_gate.reason_codes == ()
+    assert tuple(fact["fact_id"] for fact in first.facts) == tuple(
+        fact["fact_id"] for fact in second.facts
+    )
+    assert first.artifact_manifest == second.artifact_manifest
+    assert first.content_digest == second.content_digest
+    assert file_digests[0] == file_digests[1]
+    assert generated_at_values[0] != generated_at_values[1]
+    assert all(value.year != 1980 for value in generated_at_values)
+    management_item = next(
+        item for item in first.artifact_manifest if item.kind == "management_report_xlsx"
+    )
+    assert management_item.content_digest == file_digests[0]
+
+
+def test_session_aborts_pending_artifact_when_envelope_storage_fails(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "app.accounting_reports.session.load_ledger_rows",
+        lambda _source, _period: SYNTHETIC_ROWS,
+    )
+    session = AccountingReportSession(
+        owner_user_id="owner-fail-closed",
+        run_id="run-fail-closed",
+        source_dir=tmp_path / "source",
+        artifact_dir=tmp_path / "artifacts",
+        db_path=tmp_path / "artifacts.sqlite3",
+    )
+    artifact_ids: list[str] = []
+    original_create_pending = session.storage.create_pending
+
+    def capture_pending(**kwargs):
+        pending = original_create_pending(**kwargs)
+        artifact_ids.append(pending.artifact_id)
+        return pending
+
+    monkeypatch.setattr(session.storage, "create_pending", capture_pending)
+    monkeypatch.setattr(
+        session.storage,
+        "create_work_product",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            RuntimeError("synthetic envelope failure")
+        ),
+    )
+
+    with pytest.raises(RuntimeError, match="synthetic envelope failure"):
+        session.maybe_generate(
+            "户部",
+            "会计司",
+            "请生成2025年财务报表",
+        )
+
+    assert len(artifact_ids) == 1
+    assert session.storage.get_state(artifact_ids[0]) == "ABORTED"
+    assert session.generations == ()
 
 
 class _AccountingGraph:
@@ -177,14 +309,24 @@ def test_synthetic_accounting_report_crosses_decree_archive_publish_and_download
     owner_headers = {"Authorization": f"Bearer {create_session(owner.id)}"}
     other_headers = {"Authorization": f"Bearer {create_session(other.id)}"}
     sessions: list[AccountingReportSession] = []
+    accounting_context = AccountingAuthorityContext(
+        AccountingRequestKind.ACCOUNTING_REPORT,
+        ReportPeriod(2025, 2025),
+        "a" * 64,
+    )
 
-    def build_session(*, owner_user_id: str, run_id: str) -> AccountingReportSession:
+    def build_session(
+        *, owner_user_id: str, run_id: str, accounting_context=accounting_context
+    ) -> AccountingReportSession:
         session = AccountingReportSession(
             owner_user_id=owner_user_id,
             run_id=run_id,
             source_dir=tmp_path / "synthetic-source",
             artifact_dir=tmp_path / "report_artifacts",
             db_path=artifact_db,
+            request_kind=accounting_context.request_kind,
+            period=accounting_context.period,
+            dataset=SimpleNamespace(ledger_rows=SYNTHETIC_ROWS),
         )
         sessions.append(session)
         return session
@@ -214,17 +356,25 @@ def test_synthetic_accounting_report_crosses_decree_archive_publish_and_download
             )
         ),
     )
+    monkeypatch.setattr(
+        decrees_api.draft_authority_registry,
+        "consume_with_context",
+        lambda **kwargs: ConsumedDraftAuthority(
+            decrees_api.draft_authority_registry.consume(**kwargs),
+            accounting_context,
+        ),
+    )
 
     try:
         with TestClient(app) as client:
             configure_report_artifact_db(artifact_db)
-            response = client.post(
-                "/api/v1/decrees/chancellor",
-                json={"decree_text": "请生成2025年财务报表"},
-                headers=owner_headers,
+            response = decrees_api.execute_decree_now(
+                decrees_api.ChancellorDecreeRequest(
+                    decree_text="请生成2025年财务报表"
+                ),
+                owner,
             )
-            assert response.status_code == 200, response.text
-            body = response.json()
+            body = response.model_dump(mode="json")
             assert body["departments"] == expected_departments
             assert [
                 item["department"] for item in body["ministry_opinions"]
@@ -245,6 +395,7 @@ def test_synthetic_accounting_report_crosses_decree_archive_publish_and_download
                 ]
             assert len(body["artifacts"]) == 1
             artifact_id = body["artifacts"][0]["artifact_id"]
+            assert sessions[0].generations[0].artifact_id == artifact_id
             replies = list_archives(type="REPLY", owner_user_id=owner.id)
             assert len(replies) == 1
             assert sessions[0].storage.get_state(artifact_id) == "PUBLISHED"
@@ -321,6 +472,15 @@ def test_real_authority_graph_report_archive_download_trust_chain(
             ),
         )
     )
+    two_year_rows = (
+        _row(2024, "asset", "1001", 0),
+        _row(2024, "liability", "2001", 0),
+        _row(2024, "equity", "3001", 0),
+        _row(2024, "revenue", "4001", 0),
+        _row(2024, "cost", "5001", 0),
+        _row(2024, "expense", "6001", 0),
+        *SYNTHETIC_ROWS,
+    )
     registry = DraftAuthorityRegistry()
     registry.register(
         owner_user_id=owner.id,
@@ -328,6 +488,11 @@ def test_real_authority_graph_report_archive_download_trust_chain(
         fingerprint=draft_fingerprint,
         decree_text=decree_text,
         route_snapshot=approved_route,
+        accounting_context=AccountingAuthorityContext(
+            AccountingRequestKind.ACCOUNTING_REPORT,
+            ReportPeriod(2024, 2025),
+            "a" * 64,
+        ),
     )
     monkeypatch.setattr(decrees_api, "draft_authority_registry", registry)
     monkeypatch.setattr(
@@ -355,7 +520,7 @@ def test_real_authority_graph_report_archive_download_trust_chain(
     )
 
     def build_session(
-        *, owner_user_id: str, run_id: str
+        *, owner_user_id: str, run_id: str, accounting_context
     ) -> AccountingReportSession:
         return AccountingReportSession(
             owner_user_id=owner_user_id,
@@ -363,6 +528,9 @@ def test_real_authority_graph_report_archive_download_trust_chain(
             source_dir=tmp_path / "synthetic-source",
                 artifact_dir=tmp_path / "report_artifacts",
             db_path=artifact_db,
+            request_kind=accounting_context.request_kind,
+            period=accounting_context.period,
+            dataset=SimpleNamespace(ledger_rows=two_year_rows),
         )
 
     responses = iter(
@@ -383,6 +551,7 @@ def test_real_authority_graph_report_archive_download_trust_chain(
         decrees_api,
         "get_chancellor_graph",
         lambda *, report_session: build_chancellor_graph(
+            owner_user_id=report_session.owner_user_id,
             chat_model=lambda _messages: next(responses),
             lifecycle_observer=decrees_api._lifecycle_observer_context.get(),
             report_session=report_session,
@@ -392,18 +561,15 @@ def test_real_authority_graph_report_archive_download_trust_chain(
     try:
         with TestClient(app) as client:
             configure_report_artifact_db(artifact_db)
-            response = client.post(
-                "/api/v1/decrees/chancellor",
-                headers=owner_headers,
-                json={
-                    "decree_text": decree_text,
-                    "draft_version": draft_version,
-                    "draft_fingerprint": draft_fingerprint,
-                },
+            response = decrees_api.execute_decree_now(
+                decrees_api.ChancellorDecreeRequest(
+                    decree_text=decree_text,
+                    draft_version=draft_version,
+                    draft_fingerprint=draft_fingerprint,
+                ),
+                owner,
             )
-
-            assert response.status_code == 200, response.text
-            body = response.json()
+            body = response.model_dump(mode="json")
             assert body["route_type"] == "single"
             assert body["departments"] == ["户部"]
             assert body["processing_path"] == [

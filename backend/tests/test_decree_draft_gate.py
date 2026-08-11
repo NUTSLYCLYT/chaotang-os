@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 import app.api.decrees as decrees_api
+from app.api.auth import require_current_user
+from app.api.decree_jobs import get_decree_job_store
 from app.auth import configure_auth_db, create_session, create_user
-from app.main import app
+from app.decree_jobs import DecreeJobStore
 
 
 def test_decree_without_current_ready_draft_is_blocked_before_graph(
@@ -40,10 +43,20 @@ def test_decree_without_current_ready_draft_is_blocked_before_graph(
         "archive_chancellor_decree",
         lambda *_args, **_kwargs: effects.append("archive"),
     )
+    app = FastAPI()
+    app.include_router(decrees_api.router)
+    decrees_api.register_chancellor_exception_handlers(app)
+    app.dependency_overrides[require_current_user] = lambda: user
+    app.dependency_overrides[get_decree_job_store] = lambda: DecreeJobStore(
+        tmp_path / "jobs.sqlite3"
+    )
     try:
         response = TestClient(app).post(
             "/api/v1/decrees/chancellor",
-            headers={"Authorization": f"Bearer {create_session(user.id)}"},
+            headers={
+                "Authorization": f"Bearer {create_session(user.id)}",
+                "Idempotency-Key": "missing-draft",
+            },
             json={
                 "decree_text": "伪造草案",
                 "draft_version": 1,

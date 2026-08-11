@@ -60,6 +60,9 @@ test("department and office use shared edict and explicit read states", async ()
   assert.match(scenes, /status === "ready"/);
   assert.match(scenes, /重试读取/);
   assert.match(css, /:focus-visible/);
+  assert.match(css, /:is\(\.overview, \.departmentWorkspace\) button:focus-visible/);
+  assert.match(css, /:is\(\.overview, \.departmentWorkspace\) a:focus-visible/);
+  assert.doesNotMatch(css, /(?:^|\n)button:focus-visible/);
   assert.match(css, /@media \(max-width: 767px\)/);
   assert.match(css, /overflow-wrap:\s*anywhere/);
   assert.doesNotMatch(css, /line-clamp/);

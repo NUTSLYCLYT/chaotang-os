@@ -273,7 +273,7 @@ def test_controlled_evidence_session_rejects_non_bureau_roles_before_any_access(
             chat_model=model,
             legacy_parser=lambda value: value,
             fallback=lambda reason: reason,
-            session=AgentEvidenceSession(coordinator=Coordinator()),
+            session=AgentEvidenceSession(owner_user_id="test-owner", coordinator=Coordinator()),
         )
 
     assert model_calls == 0
@@ -430,7 +430,7 @@ def test_invalid_responses_fail_closed_with_sanitized_preserved_cause(response):
 
 def test_session_enabled_bureau_degrades_invalid_model_content_without_leaking_body():
     rejected_body = "SECRET-INVALID-BUREAU-BODY"
-    session = AgentEvidenceSession(coordinator=object())
+    session = AgentEvidenceSession(owner_user_id="test-owner", coordinator=object())
 
     result = invoke_bureau_agent(
         "工部",
@@ -452,7 +452,7 @@ def test_session_enabled_bureau_degrades_invalid_model_content_without_leaking_b
 
 def test_session_enabled_bureau_provider_failure_still_fails_closed():
     marker = "SECRET-PROVIDER-FAILURE"
-    session = AgentEvidenceSession(coordinator=object())
+    session = AgentEvidenceSession(owner_user_id="test-owner", coordinator=object())
 
     def failing_model(_messages):
         raise RuntimeError(marker)
@@ -489,7 +489,7 @@ def test_session_enabled_bureau_alone_receives_evidence_protocol_prompt():
             '"adopted_evidence_ids":[],"fact_basis":"NOT_REQUIRED"}'
         )
 
-    session = AgentEvidenceSession(coordinator=Coordinator())
+    session = AgentEvidenceSession(owner_user_id="test-owner", coordinator=Coordinator())
     profile = BUREAU_PROFILES[0]
 
     result = invoke_bureau_agent(
@@ -541,7 +541,10 @@ def test_evidence_fallback_says_data_is_insufficient_without_factual_conclusion(
             return False
 
     profile = BUREAU_PROFILES[0]
-    session = ExhaustedSession(coordinator=UnavailableCoordinator())
+    session = ExhaustedSession(
+        owner_user_id="test-owner",
+        coordinator=UnavailableCoordinator(),
+    )
     node_id = bureau_node_id(profile.department, profile.bureau)
     response = {
         "status": "NEEDS_DATA",
@@ -583,7 +586,7 @@ def test_evidence_fallback_says_data_is_insufficient_without_factual_conclusion(
 def test_investment_bureau_rejects_planned_fact_plan_without_a_draft(
     monkeypatch,
 ) -> None:
-    session = AgentEvidenceSession(coordinator=object())
+    session = AgentEvidenceSession(owner_user_id="test-owner", coordinator=object())
     captured: dict[str, object] = {}
     planned = FactPlanResult(FactPlanDisposition.PLANNED)
 

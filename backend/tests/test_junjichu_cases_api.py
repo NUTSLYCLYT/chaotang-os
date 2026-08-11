@@ -3,14 +3,17 @@
 from __future__ import annotations
 
 import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 import app.api.decrees as decrees_module
 from app.agents.chancellor.graph import ChancellorGraphInvocationError
+from app.agents.chancellor_draft.authority import ConsumedDraftAuthority
 from app.agents.chancellor_draft.routing import (
     ApprovedDepartmentRoute,
     ApprovedRouteSnapshot,
 )
+from app.api.auth import CurrentUser
 from app.auth import configure_auth_db, create_session, create_user
 from app.junjichu_cases import storage
 from app.junjichu_cases.models import JunjichuCaseOpenInput
@@ -18,6 +21,22 @@ from app.main import app
 from app.shiguan.archive_decree import ArchiveDecreeResult
 
 client = TestClient(app)
+execution_app = FastAPI()
+decrees_module.register_chancellor_exception_handlers(execution_app)
+
+
+@execution_app.post(
+    "/api/v1/decrees/chancellor",
+    response_model=decrees_module.ChancellorDecreeResponse,
+)
+def _execute_decree_for_case_tests(
+    payload: decrees_module.ChancellorDecreeRequest,
+    current_user: CurrentUser,
+):
+    return decrees_module.execute_decree_now(payload, current_user)
+
+
+execution_client = TestClient(execution_app)
 CASES_URL = "/api/v1/junjichu/cases"
 
 
@@ -26,9 +45,12 @@ def _authenticated_case_api(tmp_path, monkeypatch):
     monkeypatch.setattr(storage, "_DEFAULT_DB_PATH", tmp_path / "junjichu_cases.sqlite3")
     configure_auth_db(tmp_path / "auth.sqlite3")
     owner = create_user("case-owner", "case-owner@example.com", "six-or-more")
-    client.headers["Authorization"] = f"Bearer {create_session(owner.id)}"
+    authorization = f"Bearer {create_session(owner.id)}"
+    client.headers["Authorization"] = authorization
+    execution_client.headers["Authorization"] = authorization
     yield owner
     client.headers.pop("Authorization", None)
+    execution_client.headers.pop("Authorization", None)
     configure_auth_db(None)
 
 
@@ -159,6 +181,7 @@ def test_decree_to_case_ledger_is_private_and_records_only_real_terminal_outcome
 
     second_user = create_user("case-second", "case-second@example.com", "six-or-more")
     observed_processing_cases: list[dict[str, object]] = []
+    observed_owner_ids: list[str] = []
     archive_reply_ids = iter(("reply-owner-a", "reply-owner-b", "reply-single"))
     outcomes = iter(("success", "success", "failure", "single"))
 
@@ -188,8 +211,9 @@ def test_decree_to_case_ledger_is_private_and_records_only_real_terminal_outcome
             "recommendations": ["建议一", "建议二", "建议三"],
         }
 
-    def fake_builder(*, lifecycle_observer, report_session=None):
-        del report_session
+    def fake_builder(*, lifecycle_observer, report_session, owner_user_id):
+        assert owner_user_id == report_session.owner_user_id
+        observed_owner_ids.append(owner_user_id)
         outcome = next(outcomes)
 
         class _FakeGraph:
@@ -233,35 +257,44 @@ def test_decree_to_case_ledger_is_private_and_records_only_real_terminal_outcome
     monkeypatch.setattr(decrees_module, "archive_chancellor_decree", fake_archive)
     monkeypatch.setattr(
         decrees_module.draft_authority_registry,
-        "consume",
-        lambda **kwargs: ApprovedRouteSnapshot(
-            departments=(
-                (
-                    ApprovedDepartmentRoute(
-                        department="户部", required_bureaus=("预算司",)
-                    ),
+        "consume_with_context",
+        lambda **kwargs: ConsumedDraftAuthority(
+            route_snapshot=ApprovedRouteSnapshot(
+                departments=(
+                    (
+                        ApprovedDepartmentRoute(
+                            department="户部", required_bureaus=("预算司",)
+                        ),
+                    )
+                    if "单部" in kwargs["decree_text"]
+                    else (
+                        ApprovedDepartmentRoute(
+                            department="兵部", required_bureaus=("报价司",)
+                        ),
+                        ApprovedDepartmentRoute(
+                            department="户部", required_bureaus=("预算司",)
+                        ),
+                    )
                 )
-                if "单部" in kwargs["decree_text"]
-                else (
-                    ApprovedDepartmentRoute(
-                        department="兵部", required_bureaus=("报价司",)
-                    ),
-                    ApprovedDepartmentRoute(
-                        department="户部", required_bureaus=("预算司",)
-                    ),
-                )
-            )
+            ),
+            accounting_context=None,
         ),
     )
 
-    first = client.post("/api/v1/decrees/chancellor", json={"decree_text": "甲的跨部旨意"})
+    first = execution_client.post(
+        "/api/v1/decrees/chancellor", json={"decree_text": "甲的跨部旨意"}
+    )
     assert first.status_code == 200
     assert observed_processing_cases[0]["status"] == "MINISTRY_REVIEWING"
     assert observed_processing_cases[0]["reply_id"] is None
 
     client.headers["Authorization"] = f"Bearer {create_session(second_user.id)}"
-    second = client.post("/api/v1/decrees/chancellor", json={"decree_text": "乙的跨部旨意"})
+    execution_client.headers["Authorization"] = client.headers["Authorization"]
+    second = execution_client.post(
+        "/api/v1/decrees/chancellor", json={"decree_text": "乙的跨部旨意"}
+    )
     assert second.status_code == 200
+    assert observed_owner_ids == [_authenticated_case_api.id, second_user.id]
     second_owner_cases = client.get(CASES_URL).json()
     second_owner_summary = [
         (item["decree_text"], item["status"], item["reply_id"])
@@ -272,10 +305,15 @@ def test_decree_to_case_ledger_is_private_and_records_only_real_terminal_outcome
     ]
 
     client.headers["Authorization"] = f"Bearer {create_session(_authenticated_case_api.id)}"
-    failure = client.post("/api/v1/decrees/chancellor", json={"decree_text": "甲的失败旨意"})
+    execution_client.headers["Authorization"] = client.headers["Authorization"]
+    failure = execution_client.post(
+        "/api/v1/decrees/chancellor", json={"decree_text": "甲的失败旨意"}
+    )
     assert failure.status_code == 502
     assert "provider_token" not in failure.text
-    single = client.post("/api/v1/decrees/chancellor", json={"decree_text": "甲的单部旨意"})
+    single = execution_client.post(
+        "/api/v1/decrees/chancellor", json={"decree_text": "甲的单部旨意"}
+    )
     assert single.status_code == 200
 
     owner_cases = client.get(CASES_URL).json()

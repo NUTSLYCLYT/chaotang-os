@@ -232,7 +232,7 @@ def test_structured_bureau_rejects_opinion_duplicated_in_any_section() -> None:
 
 
 def test_partial_coverage_uses_only_current_bureau_selection(monkeypatch) -> None:
-    session = AgentEvidenceSession(coordinator=object())
+    session = AgentEvidenceSession(owner_user_id="test-owner", coordinator=object())
     node_id = bureau_node_id("户部", "会计司")
     session.record_selection(node_id, ("old-evidence",))
     calls = 0
@@ -277,7 +277,7 @@ def test_partial_coverage_uses_only_current_bureau_selection(monkeypatch) -> Non
 
 
 def test_full_current_call_legacy_evidence_result_remains_degraded(monkeypatch) -> None:
-    session = AgentEvidenceSession(coordinator=object())
+    session = AgentEvidenceSession(owner_user_id="test-owner", coordinator=object())
     node_id = bureau_node_id("户部", "会计司")
     skill = build_default_downstream_skill_registry().get_by_agent("hubu-accounting")
 
@@ -310,7 +310,7 @@ def test_full_current_call_legacy_evidence_result_remains_degraded(monkeypatch) 
 
 
 def test_second_call_does_not_inherit_first_call_degradation(monkeypatch) -> None:
-    session = AgentEvidenceSession(coordinator=object())
+    session = AgentEvidenceSession(owner_user_id="test-owner", coordinator=object())
     node_id = bureau_node_id("户部", "会计司")
     skill = build_default_downstream_skill_registry().get_by_agent("hubu-accounting")
     calls = 0
@@ -361,7 +361,7 @@ def test_second_call_does_not_inherit_first_call_degradation(monkeypatch) -> Non
 
 
 def test_second_call_records_its_own_new_degradation(monkeypatch) -> None:
-    session = AgentEvidenceSession(coordinator=object())
+    session = AgentEvidenceSession(owner_user_id="test-owner", coordinator=object())
     node_id = bureau_node_id("户部", "会计司")
     skill = build_default_downstream_skill_registry().get_by_agent("hubu-accounting")
     calls = 0
