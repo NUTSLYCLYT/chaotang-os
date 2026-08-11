@@ -7,11 +7,12 @@ from app.agents.runtime_skills.roles.bureaus.professional import (
     BUREAU_TOOL_POLICY_SPECS,
 )
 from app.agents.runtime_skills.roles.bureaus.skill_registry import BUREAU_SKILL_SPECS
-from app.agents.runtime_skills.tool_models import ToolName
+from app.agents.runtime_skills.tool_models import ToolHealth, ToolName, ToolSideEffect
 from app.agents.runtime_skills.tool_registry import (
     BUREAU_TOOL_POLICIES,
     TOOL_DESCRIPTORS,
     bureau_tool_policy_for,
+    tool_catalog_snapshot,
     tool_descriptor_for,
     validate_bureau_tool_registry,
 )
@@ -27,6 +28,16 @@ def test_exact_authoritative_descriptors() -> None:
         ),
         ToolName.INSPECT_APPROVED_DATA: ("approved_data_query.v1", "approved_data_result.v1", True),
         ToolName.COMPUTE_ANALYSIS: ("analysis_request.v1", "analysis_result.v1", True),
+        ToolName.INSPECT_ACCOUNTING_CONTENT: (
+            "accounting_content_query.v1",
+            "accounting_content_result.v1",
+            True,
+        ),
+        ToolName.GENERATE_ACCOUNTING_WORKBOOK: (
+            "accounting_workbook_request.v1",
+            "accounting_workbook_result.v1",
+            True,
+        ),
     }
     assert set(TOOL_DESCRIPTORS) == set(expected)
     for name, descriptor in TOOL_DESCRIPTORS.items():
@@ -36,8 +47,38 @@ def test_exact_authoritative_descriptors() -> None:
         assert descriptor.input_schema_id == input_schema
         assert descriptor.output_schema_id == output_schema
         assert descriptor.handler_id == f"bureau-handler.{name.value}.v1"
-        assert descriptor.read_only is True
         assert descriptor.deterministic is deterministic
+
+
+def test_accounting_descriptors_have_explicit_capability_authority() -> None:
+    inspect = TOOL_DESCRIPTORS[ToolName.INSPECT_ACCOUNTING_CONTENT]
+    generate = TOOL_DESCRIPTORS[ToolName.GENERATE_ACCOUNTING_WORKBOOK]
+
+    assert inspect.capability_group == "finance.accounting"
+    assert inspect.required_scopes == frozenset({"finance.read"})
+    assert inspect.data_domains == frozenset({"finance.accounting"})
+    assert inspect.side_effect is ToolSideEffect.READ
+    assert inspect.read_only is True
+    assert generate.capability_group == "finance.accounting"
+    assert generate.required_scopes == frozenset({"artifact.generate"})
+    assert generate.data_domains == frozenset({"finance.accounting"})
+    assert generate.side_effect is ToolSideEffect.ARTIFACT
+    assert generate.read_only is False
+
+
+def test_catalog_snapshot_keeps_registered_but_unavailable_tool_for_audit() -> None:
+    snapshot = tool_catalog_snapshot(
+        {ToolName.INSPECT_ACCOUNTING_CONTENT: ToolHealth.UNAVAILABLE}
+    )
+
+    assert snapshot[ToolName.INSPECT_ACCOUNTING_CONTENT].health is ToolHealth.UNAVAILABLE
+
+
+def test_accounting_skill_allows_content_probe_and_artifact_generation() -> None:
+    policy = bureau_tool_policy_for("hubu-accounting")
+
+    assert ToolName.INSPECT_ACCOUNTING_CONTENT in policy.allowed_tools
+    assert ToolName.GENERATE_ACCOUNTING_WORKBOOK in policy.allowed_tools
 
 
 def test_exact_39_explicit_constrained_policies() -> None:
@@ -164,6 +205,47 @@ def test_validator_rejects_wrong_descriptor_id(monkeypatch: pytest.MonkeyPatch) 
         validate_bureau_tool_registry()
 
 
+@pytest.mark.parametrize("name", tuple(ToolName))
+@pytest.mark.parametrize(
+    "updates",
+    (
+        {"capability_group": "drifted.capability"},
+        {"required_scopes": frozenset({"drifted.scope"})},
+        {"data_domains": frozenset({"drifted.domain"})},
+    ),
+)
+def test_validator_rejects_descriptor_authority_metadata_drift(
+    monkeypatch: pytest.MonkeyPatch,
+    name: ToolName,
+    updates: dict[str, object],
+) -> None:
+    descriptors = dict(TOOL_DESCRIPTORS)
+    descriptors[name] = descriptors[name].model_copy(update=updates)
+    monkeypatch.setattr(registry_module, "TOOL_DESCRIPTORS", descriptors)
+
+    with pytest.raises(ValueError, match="invalid_tool_descriptor_contract"):
+        validate_bureau_tool_registry()
+
+
+@pytest.mark.parametrize("name", tuple(ToolName))
+def test_validator_rejects_descriptor_side_effect_and_read_only_drift(
+    monkeypatch: pytest.MonkeyPatch,
+    name: ToolName,
+) -> None:
+    descriptors = dict(TOOL_DESCRIPTORS)
+    descriptor = descriptors[name]
+    updates = (
+        {"side_effect": ToolSideEffect.READ, "read_only": True}
+        if descriptor.side_effect is ToolSideEffect.ARTIFACT
+        else {"side_effect": ToolSideEffect.ARTIFACT, "read_only": False}
+    )
+    descriptors[name] = descriptor.model_copy(update=updates)
+    monkeypatch.setattr(registry_module, "TOOL_DESCRIPTORS", descriptors)
+
+    with pytest.raises(ValueError, match="invalid_tool_descriptor_contract"):
+        validate_bureau_tool_registry()
+
+
 @pytest.mark.parametrize("mutation", ["missing", "extra", "duplicate_id"])
 def test_validator_rejects_descriptor_inventory_mutations(
     monkeypatch: pytest.MonkeyPatch, mutation: str
@@ -191,7 +273,7 @@ def test_validator_rejects_descriptor_inventory_mutations(
     [
         ("input_schema_id", "wrong.v1", "invalid_tool_descriptor_contract"),
         ("output_schema_id", "wrong.v1", "invalid_tool_descriptor_contract"),
-        ("read_only", False, "unsafe_tool_descriptor"),
+        ("read_only", False, "invalid_tool_descriptor_contract"),
         ("max_tool_calls", 5, "unsafe_tool_descriptor"),
         ("max_tool_rounds", 3, "unsafe_tool_descriptor"),
         ("max_result_rows", 201, "unsafe_tool_descriptor"),

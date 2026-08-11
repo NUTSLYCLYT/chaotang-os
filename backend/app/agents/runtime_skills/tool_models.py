@@ -20,6 +20,8 @@ class ToolName(StrEnum):
     READ_APPROVED_MATERIALS = "read_approved_materials"
     INSPECT_APPROVED_DATA = "inspect_approved_data"
     COMPUTE_ANALYSIS = "compute_analysis"
+    INSPECT_ACCOUNTING_CONTENT = "inspect_accounting_content"
+    GENERATE_ACCOUNTING_WORKBOOK = "generate_accounting_workbook"
 
 
 class ToolSideEffect(StrEnum):

@@ -32,12 +32,16 @@ SKILL: BureauRuntimeSkillSpec = BureauRuntimeSkillSpec(
             ToolName.READ_APPROVED_MATERIALS,
             ToolName.INSPECT_APPROVED_DATA,
             ToolName.COMPUTE_ANALYSIS,
+            ToolName.INSPECT_ACCOUNTING_CONTENT,
+            ToolName.GENERATE_ACCOUNTING_WORKBOOK,
         ),
         allowed_data_domains=("finance.accounting",),
         tool_operations=(
             (ToolName.READ_APPROVED_MATERIALS, ("read_summary", "lookup_section")),
             (ToolName.INSPECT_APPROVED_DATA, ("aggregate", "compare", "lookup")),
             (ToolName.COMPUTE_ANALYSIS, ("arithmetic", "difference", "reconcile")),
+            (ToolName.INSPECT_ACCOUNTING_CONTENT, ("inspect_content",)),
+            (ToolName.GENERATE_ACCOUNTING_WORKBOOK, ("generate_workbook",)),
         ),
         tool_argument_constraints=(
             (
@@ -64,6 +68,28 @@ SKILL: BureauRuntimeSkillSpec = BureauRuntimeSkillSpec(
             ),
             (
                 ToolName.COMPUTE_ANALYSIS,
+                (
+                    ("allowed_domains", ("finance.accounting",)),
+                    ("operation_required", True),
+                    ("approved_refs_only", True),
+                    ("allowed_fields", ("finance.accounting.ledger_ref",)),
+                    ("allowed_dimensions", ("finance.accounting.account_period",)),
+                    ("allowed_metrics", ("finance.accounting.balance_difference",)),
+                ),
+            ),
+            (
+                ToolName.INSPECT_ACCOUNTING_CONTENT,
+                (
+                    ("allowed_domains", ("finance.accounting",)),
+                    ("operation_required", True),
+                    ("approved_refs_only", True),
+                    ("allowed_fields", ("finance.accounting.ledger_ref",)),
+                    ("allowed_dimensions", ("finance.accounting.account_period",)),
+                    ("allowed_metrics", ("finance.accounting.balance_difference",)),
+                ),
+            ),
+            (
+                ToolName.GENERATE_ACCOUNTING_WORKBOOK,
                 (
                     ("allowed_domains", ("finance.accounting",)),
                     ("operation_required", True),

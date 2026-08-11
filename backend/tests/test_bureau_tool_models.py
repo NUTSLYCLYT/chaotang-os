@@ -114,6 +114,8 @@ def test_exact_tool_enums() -> None:
         "read_approved_materials",
         "inspect_approved_data",
         "compute_analysis",
+        "inspect_accounting_content",
+        "generate_accounting_workbook",
     }
 
 

@@ -19,7 +19,10 @@ from app.agents.runtime_skills.tool_policy import (
     ToolPolicyError,
     approve_tool_call,
 )
-from app.agents.runtime_skills.tool_registry import TOOL_DESCRIPTORS
+from app.agents.runtime_skills.tool_registry import (
+    TOOL_DESCRIPTORS,
+    bureau_tool_policy_for,
+)
 
 AGENT_ID = "libu-policy"
 SKILL = build_default_downstream_skill_registry().get_by_agent(AGENT_ID)
@@ -159,8 +162,18 @@ def _denied(
     return error
 
 
-@pytest.mark.parametrize("tool", tuple(ToolName))
-def test_approves_each_tool_with_canonical_identity(tool: ToolName) -> None:
+@pytest.mark.parametrize(
+    "tool",
+    (
+        ToolName.REQUEST_EVIDENCE,
+        ToolName.READ_APPROVED_MATERIALS,
+        ToolName.INSPECT_APPROVED_DATA,
+        ToolName.COMPUTE_ANALYSIS,
+    ),
+)
+def test_approves_each_currently_executable_tool_with_canonical_identity(
+    tool: ToolName,
+) -> None:
     approved = approve_tool_call(_context(), _proposal(tool), _budget(), ())
     assert isinstance(approved, ApprovedToolCall)
     assert approved.approval_status is ToolCallStatus.APPROVED
@@ -184,6 +197,20 @@ def test_approves_each_tool_with_canonical_identity(tool: ToolName) -> None:
     assert approved.fingerprint_history_entry == (
         f"fingerprint:{approved.argument_fingerprint}"
     )
+
+
+def test_accounting_only_tools_bind_to_explicit_accounting_policy() -> None:
+    accounting_skill = build_default_downstream_skill_registry().get_by_agent(
+        "hubu-accounting"
+    )
+    accounting_policy = bureau_tool_policy_for("hubu-accounting")
+
+    assert accounting_skill.tool_policy == accounting_policy
+    assert {
+        ToolName.INSPECT_ACCOUNTING_CONTENT,
+        ToolName.GENERATE_ACCOUNTING_WORKBOOK,
+    } <= accounting_policy.allowed_tools
+    assert accounting_policy.allowed_data_domains == frozenset({"finance.accounting"})
 
 
 @pytest.mark.parametrize(
