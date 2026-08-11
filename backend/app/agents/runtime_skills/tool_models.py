@@ -22,6 +22,19 @@ class ToolName(StrEnum):
     COMPUTE_ANALYSIS = "compute_analysis"
 
 
+class ToolSideEffect(StrEnum):
+    READ = "read"
+    ARTIFACT = "artifact"
+    SYSTEM_WRITE = "system_write"
+    EXTERNAL = "external"
+
+
+class ToolHealth(StrEnum):
+    AVAILABLE = "available"
+    DEGRADED = "degraded"
+    UNAVAILABLE = "unavailable"
+
+
 class ToolCallStatus(StrEnum):
     PROPOSED = "PROPOSED"
     VALIDATING = "VALIDATING"
@@ -89,11 +102,78 @@ class ToolDescriptor(_FrozenToolContract):
     max_tool_rounds: int = Field(gt=0, le=2)
     max_result_rows: int = Field(ge=0)
     max_result_bytes: int = Field(ge=0)
+    capability_group: str = "general"
+    required_scopes: frozenset[str] = frozenset()
+    data_domains: frozenset[str] = frozenset()
+    side_effect: ToolSideEffect = ToolSideEffect.READ
+    health: ToolHealth = ToolHealth.AVAILABLE
 
     _identifiers = field_validator(
-        "descriptor_id", "handler_id", "input_schema_id", "output_schema_id", "risk_level"
+        "descriptor_id", "handler_id", "input_schema_id", "output_schema_id", "risk_level",
+        "capability_group",
     )(_require_nonblank)
     _version = field_validator("version")(_require_semantic_version)
+
+    @field_validator("required_scopes", "data_domains")
+    @classmethod
+    def reject_blank_authority_values(cls, value: frozenset[str]) -> frozenset[str]:
+        return _reject_blank_nested(value)
+
+
+class ToolDiscoveryContext(_FrozenToolContract):
+    version: str
+    agent_id: str
+    skill_id: str
+    skill_version: str
+    policy_id: str
+    policy_version: str
+    decree_scopes: frozenset[str]
+    data_domains: frozenset[str]
+    allowed_side_effects: frozenset[ToolSideEffect]
+
+    _identifiers = field_validator("agent_id", "skill_id", "policy_id")(_require_nonblank)
+    _versions = field_validator("version", "skill_version", "policy_version")(
+        _require_semantic_version
+    )
+
+    @field_validator("decree_scopes", "data_domains")
+    @classmethod
+    def reject_blank_authority_values(cls, value: frozenset[str]) -> frozenset[str]:
+        return _reject_blank_nested(value)
+
+
+class DiscoveredTool(_FrozenToolContract):
+    descriptor_id: str
+    name: ToolName
+    version: str
+    input_schema_id: str
+    output_schema_id: str
+    capability_group: str
+    risk_level: str
+    deterministic: bool
+    side_effect: ToolSideEffect
+    health: ToolHealth
+    handler_id: None = None
+
+    _identifiers = field_validator(
+        "descriptor_id", "input_schema_id", "output_schema_id", "capability_group", "risk_level"
+    )(_require_nonblank)
+    _version = field_validator("version")(_require_semantic_version)
+
+    @classmethod
+    def from_descriptor(cls, descriptor: ToolDescriptor) -> DiscoveredTool:
+        return cls(
+            descriptor_id=descriptor.descriptor_id,
+            name=descriptor.tool_name,
+            version=descriptor.version,
+            input_schema_id=descriptor.input_schema_id,
+            output_schema_id=descriptor.output_schema_id,
+            capability_group=descriptor.capability_group,
+            risk_level=descriptor.risk_level,
+            deterministic=descriptor.deterministic,
+            side_effect=descriptor.side_effect,
+            health=descriptor.health,
+        )
 
 
 class BureauToolPolicy(_FrozenToolContract):
