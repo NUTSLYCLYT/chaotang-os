@@ -9,9 +9,61 @@ from app.accounting_reports.models import ReportPeriod
 from app.accounting_reports.source_manifest import (
     SourceRole,
     build_accounting_source_manifest,
+    freeze_candidate_workbooks,
     resolve_accounting_source_dir,
 )
 from app.accounting_reports.sources import AccountingSourceError
+
+
+def test_freeze_candidate_workbooks_accepts_noncanonical_filename_and_freezes_bytes(
+    tmp_path: Path,
+) -> None:
+    candidate = tmp_path / "arbitrary-name.xlsx"
+    _write_balance(candidate)
+
+    frozen = freeze_candidate_workbooks(tmp_path)
+    approved = frozen[0].content
+    candidate.write_bytes(b"changed")
+
+    assert approved != candidate.read_bytes()
+    assert len(frozen[0].sha256) == 64
+
+
+def test_freeze_candidate_workbooks_uses_bounded_read_and_rejects_growth(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from app.accounting_reports import source_manifest
+
+    candidate = tmp_path / "growing.xlsx"
+    candidate.write_bytes(b"small")
+    original_open = Path.open
+
+    class GrowingReader:
+        def __init__(self, wrapped) -> None:
+            self.wrapped = wrapped
+
+        def __enter__(self):
+            self.wrapped.__enter__()
+            return self
+
+        def __exit__(self, *args):
+            return self.wrapped.__exit__(*args)
+
+        def fileno(self):
+            return self.wrapped.fileno()
+
+        def read(self, size: int) -> bytes:
+            assert size == source_manifest.MAX_PROBE_FILE_BYTES + 1
+            return b"x" * size
+
+    def controlled_open(path: Path, *args, **kwargs):
+        wrapped = original_open(path, *args, **kwargs)
+        return GrowingReader(wrapped) if path == candidate.resolve() else wrapped
+
+    monkeypatch.setattr(Path, "open", controlled_open)
+
+    with pytest.raises(AccountingSourceError, match="^source_schema_invalid$"):
+        freeze_candidate_workbooks(tmp_path)
 
 
 def _write_balance(path: Path) -> None:

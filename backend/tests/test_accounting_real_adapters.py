@@ -9,6 +9,7 @@ from decimal import Decimal
 from pathlib import Path
 
 import pytest
+import xlrd
 from openpyxl import Workbook
 
 from app.accounting_reports.models import (
@@ -48,7 +49,7 @@ BALANCE_ROW_7 = [
 BALANCE_ROW_8 = [None, None, None, None, "借方", "贷方", "借方", "贷方", "借方", "贷方"]
 
 
-def _compound_biff_workbook(record: bytes) -> bytes:
+def _compound_biff_workbook(record: bytes, *, with_vba_storage: bool = False) -> bytes:
     """Build a minimal CFB file containing one real BIFF8 Workbook stream."""
     free = 0xFFFFFFFF
     end = 0xFFFFFFFE
@@ -63,7 +64,15 @@ def _compound_biff_workbook(record: bytes) -> bytes:
     for offset in range(80, 512, 4):
         struct.pack_into("<I", header, offset, free)
 
-    def directory_entry(name: str, entry_type: int, child: int, start: int, size: int) -> bytes:
+    def directory_entry(
+        name: str,
+        entry_type: int,
+        child: int,
+        start: int,
+        size: int,
+        *,
+        right: int = no_stream,
+    ) -> bytes:
         entry = bytearray(128)
         encoded = (name + "\0").encode("utf-16le")
         entry[: len(encoded)] = encoded
@@ -75,7 +84,7 @@ def _compound_biff_workbook(record: bytes) -> bytes:
             entry_type,
             1,
             no_stream,
-            no_stream,
+            right,
             child,
         )
         struct.pack_into("<IQ", entry, 116, start, size)
@@ -83,7 +92,11 @@ def _compound_biff_workbook(record: bytes) -> bytes:
 
     directory = bytearray(512)
     directory[:128] = directory_entry("Root Entry", 5, 1, end, 0)
-    directory[128:256] = directory_entry("Workbook", 2, no_stream, 1, 4096)
+    directory[128:256] = directory_entry(
+        "Workbook", 2, no_stream, 1, 4096, right=2 if with_vba_storage else no_stream
+    )
+    if with_vba_storage:
+        directory[256:384] = directory_entry("VBA", 1, no_stream, end, 0)
     bof = struct.pack(
         "<HHHHHHII",
         0x0809,
@@ -116,6 +129,23 @@ def _biff_number_record() -> bytes:
     return struct.pack("<HH", 0x0203, len(payload)) + payload
 
 
+def _biff_external_record(record_id: int) -> bytes:
+    return struct.pack("<HHH", record_id, 2, 0)
+
+
+def _bound_sheet_formula_records() -> bytes:
+    name = b"Sheet1"
+    bounds_payload_size = 8 + len(name)
+    sheet_offset = 20 + 4 + bounds_payload_size + 4
+    bounds_payload = struct.pack("<IBBB", sheet_offset, 0, 0, len(name)) + b"\0" + name
+    bounds = struct.pack("<HH", 0x0085, len(bounds_payload)) + bounds_payload
+    eof = struct.pack("<HH", 0x000A, 0)
+    sheet_bof = struct.pack(
+        "<HHHHHHII", 0x0809, 16, 0x0600, 0x0010, 0x0DBB, 0x07CC, 0x41, 0x06
+    )
+    return bounds + eof + sheet_bof + _biff_formula_record()
+
+
 def test_real_biff_formula_record_is_rejected_before_xlrd_parsing() -> None:
     with pytest.raises(AccountingSourceError, match="^source_schema_invalid$"):
         _reject_biff_formulas(_compound_biff_workbook(_biff_formula_record()))
@@ -123,6 +153,516 @@ def test_real_biff_formula_record_is_rejected_before_xlrd_parsing() -> None:
 
 def test_real_biff_constant_record_remains_allowed() -> None:
     _reject_biff_formulas(_compound_biff_workbook(_biff_number_record()))
+
+
+def test_real_ole_vba_storage_is_rejected() -> None:
+    from app.accounting_reports.source_adapters import _reject_ole_macros
+
+    with pytest.raises(AccountingSourceError, match="^source_schema_invalid$"):
+        _reject_ole_macros(
+            _compound_biff_workbook(_biff_number_record(), with_vba_storage=True)
+        )
+
+
+def test_biff_formula_positions_preserve_formula_source_coordinates() -> None:
+    from app.accounting_reports.source_adapters import _biff_formula_positions
+
+    assert _biff_formula_positions(_compound_biff_workbook(_bound_sheet_formula_records())) == (
+        ("Sheet1", 2, 3, "biff:1e0100"),
+    )
+
+
+def test_xls_probe_marks_cached_formula_value_as_formula_source(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.accounting_reports import source_adapters
+
+    source = _compound_biff_workbook(_bound_sheet_formula_records())
+
+    class CellStub:
+        ctype = xlrd.XL_CELL_NUMBER
+        value = 2.0
+
+    class SheetStub:
+        name = "Sheet1"
+        nrows = 2
+        ncols = 3
+        merged_cells = ()
+
+        def cell(self, _row: int, _column: int) -> CellStub:
+            return CellStub()
+
+    class WorkbookStub:
+        def sheets(self):
+            return (SheetStub(),)
+
+        def release_resources(self) -> None:
+            pass
+
+    monkeypatch.setattr(source_adapters, "_open_xls", lambda *_args, **_kwargs: WorkbookStub())
+
+    sheets = source_adapters._read_xls_probe_sheets(source)
+
+    assert sheets[0][2][1][2] == "formula"
+    assert sheets[0][1][1][2] == "biff:1e0100"
+    assert sheets[0][1][1][2] != 2.0
+
+
+@pytest.mark.parametrize("record_id", [0x01AE, 0x0017, 0x0023])
+def test_xls_probe_rejects_biff_external_reference_records_before_xlrd(
+    record_id: int, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from app.accounting_reports import source_adapters
+
+    source = _compound_biff_workbook(_biff_external_record(record_id))
+    monkeypatch.setattr(
+        source_adapters,
+        "_open_xls",
+        lambda *_args, **_kwargs: pytest.fail("external BIFF must fail before xlrd"),
+    )
+
+    with pytest.raises(AccountingSourceError, match="^source_schema_invalid$"):
+        source_adapters._read_xls_probe_sheets(source)
+
+
+def test_xls_probe_preserves_xlrd_types_and_merged_cells(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.accounting_reports import source_adapters
+
+    ctypes = (
+        xlrd.XL_CELL_EMPTY,
+        xlrd.XL_CELL_TEXT,
+        xlrd.XL_CELL_NUMBER,
+        xlrd.XL_CELL_DATE,
+        xlrd.XL_CELL_BOOLEAN,
+        xlrd.XL_CELL_ERROR,
+        xlrd.XL_CELL_BLANK,
+    )
+
+    class CellStub:
+        def __init__(self, ctype: int, value: object) -> None:
+            self.ctype = ctype
+            self.value = value
+
+    class SheetStub:
+        name = "Typed"
+        nrows = 1
+        ncols = len(ctypes)
+        merged_cells = ((0, 1, 0, 2),)
+
+        def cell(self, row: int, column: int) -> CellStub:
+            return CellStub(ctypes[column], column)
+
+    class WorkbookStub:
+        nsheets = 1
+
+        def sheets(self):
+            return (SheetStub(),)
+
+        def release_resources(self) -> None:
+            pass
+
+    monkeypatch.setattr(source_adapters, "_biff_formula_positions", lambda _source: ())
+    monkeypatch.setattr(
+        source_adapters, "_reject_biff_external_references", lambda _source: None
+    )
+    monkeypatch.setattr(source_adapters, "_open_xls", lambda *_args, **_kwargs: WorkbookStub())
+
+    sheet = source_adapters._read_xls_probe_sheets(b"fixture")[0]
+
+    assert sheet[2][0] == ("empty", "string", "number", "date", "boolean", "error", "blank")
+    assert sheet[3] == ((1, 1, 1, 2),)
+
+
+@pytest.mark.parametrize(
+    "evidence",
+    [
+        (
+            ("Typed", 1, 1, "biff:1e0100"),
+            ("Typed", 1, 1, "biff:1e0200"),
+        ),
+        (("Typed", 99, 1, "biff:1e0100"),),
+        (("Missing", 1, 1, "biff:1e0100"),),
+    ],
+)
+def test_xls_probe_requires_every_formula_evidence_key_exactly_once(
+    evidence: tuple[tuple[str, int, int, str], ...],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.accounting_reports import source_adapters
+
+    class CellStub:
+        ctype = xlrd.XL_CELL_NUMBER
+        value = 1.0
+
+    class SheetStub:
+        name = "Typed"
+        nrows = 1
+        ncols = 1
+        merged_cells = ()
+
+        def cell(self, _row: int, _column: int) -> CellStub:
+            return CellStub()
+
+    class WorkbookStub:
+        def sheets(self):
+            return (SheetStub(),)
+
+        def release_resources(self) -> None:
+            pass
+
+    monkeypatch.setattr(source_adapters, "_reject_biff_external_references", lambda _source: None)
+    monkeypatch.setattr(source_adapters, "_biff_formula_positions", lambda _source: evidence)
+    monkeypatch.setattr(source_adapters, "_open_xls", lambda *_args, **_kwargs: WorkbookStub())
+
+    with pytest.raises(AccountingSourceError, match="^source_schema_invalid$"):
+        source_adapters._read_xls_probe_sheets(b"fixture")
+
+
+def test_xls_probe_rejects_duplicate_sheet_names(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.accounting_reports import source_adapters
+
+    class SheetStub:
+        name = "Duplicate"
+        nrows = 0
+        ncols = 0
+        merged_cells = ()
+
+    class WorkbookStub:
+        def sheets(self):
+            return (SheetStub(), SheetStub())
+
+        def release_resources(self) -> None:
+            pass
+
+    monkeypatch.setattr(source_adapters, "_reject_biff_external_references", lambda _source: None)
+    monkeypatch.setattr(source_adapters, "_biff_formula_positions", lambda _source: ())
+    monkeypatch.setattr(source_adapters, "_open_xls", lambda *_args, **_kwargs: WorkbookStub())
+
+    with pytest.raises(AccountingSourceError, match="^source_schema_invalid$"):
+        source_adapters._read_xls_probe_sheets(b"fixture")
+
+
+@pytest.mark.parametrize("failure_stage", ["cell", "merged"])
+def test_xls_probe_sanitizes_parser_and_metadata_exceptions(
+    failure_stage: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from app.accounting_reports import source_adapters
+
+    class SheetStub:
+        name = "Sheet1"
+        nrows = 1
+        ncols = 1
+
+        @property
+        def merged_cells(self):
+            if failure_stage == "merged":
+                raise RuntimeError("SECRET merged path/data")
+            return ()
+
+        def cell(self, _row: int, _column: int):
+            if failure_stage == "cell":
+                raise RuntimeError("SECRET cell path/data")
+            return type("Cell", (), {"ctype": xlrd.XL_CELL_NUMBER, "value": 1.0})()
+
+    class WorkbookStub:
+        released = False
+
+        def sheets(self):
+            return (SheetStub(),)
+
+        def release_resources(self) -> None:
+            self.released = True
+
+    workbook = WorkbookStub()
+    monkeypatch.setattr(source_adapters, "_reject_biff_external_references", lambda _source: None)
+    monkeypatch.setattr(source_adapters, "_biff_formula_positions", lambda _source: ())
+    monkeypatch.setattr(source_adapters, "_open_xls", lambda *_args, **_kwargs: workbook)
+
+    with pytest.raises(AccountingSourceError) as caught:
+        source_adapters._read_xls_probe_sheets(b"fixture")
+
+    rendered = f"{caught.value} {caught.value!r}"
+    assert str(caught.value) == "source_schema_invalid"
+    assert "SECRET" not in rendered
+    assert workbook.released is True
+
+
+@pytest.mark.parametrize(
+    ("failure_stage", "release_fails"),
+    [
+        ("nsheets", False),
+        ("sheets", False),
+        ("release", True),
+        ("cell_and_release", True),
+    ],
+)
+def test_xls_probe_protects_opened_workbook_lifecycle(
+    failure_stage: str,
+    release_fails: bool,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.accounting_reports import source_adapters
+
+    class CellStub:
+        ctype = xlrd.XL_CELL_NUMBER
+        value = 1.0
+
+    class SheetStub:
+        name = "Sheet1"
+        nrows = 1
+        ncols = 1
+        merged_cells = ()
+
+        def cell(self, _row: int, _column: int) -> CellStub:
+            if failure_stage == "cell_and_release":
+                raise RuntimeError("SECRET cell")
+            return CellStub()
+
+    class WorkbookStub:
+        release_attempted = False
+
+        @property
+        def nsheets(self):
+            if failure_stage == "nsheets":
+                raise RuntimeError("SECRET nsheets")
+            return 1
+
+        def sheets(self):
+            if failure_stage == "sheets":
+                raise RuntimeError("SECRET sheets")
+            return (SheetStub(),)
+
+        def release_resources(self) -> None:
+            self.release_attempted = True
+            if release_fails:
+                raise RuntimeError("SECRET release")
+
+    workbook = WorkbookStub()
+    monkeypatch.setattr(source_adapters, "_reject_ole_macros", lambda _source: None)
+    monkeypatch.setattr(source_adapters, "_reject_biff_external_references", lambda _source: None)
+    monkeypatch.setattr(source_adapters, "_biff_formula_positions", lambda _source: ())
+    monkeypatch.setattr(
+        source_adapters.xlrd,
+        "open_workbook",
+        lambda **_kwargs: workbook,
+    )
+
+    if failure_stage == "release":
+        result = source_adapters._read_xls_probe_sheets(b"fixture")
+        assert result[0][0] == "Sheet1"
+    else:
+        with pytest.raises(AccountingSourceError) as caught:
+            source_adapters._read_xls_probe_sheets(b"fixture")
+        rendered = f"{caught.value} {caught.value!r}"
+        assert str(caught.value) == "source_schema_invalid"
+        assert "SECRET" not in rendered
+    assert workbook.release_attempted is True
+
+
+@pytest.mark.parametrize("changing_dimension", ["nrows", "ncols"])
+def test_xls_probe_revalidates_snapshot_dimensions_before_cells(
+    changing_dimension: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.accounting_reports import source_adapters
+
+    class DynamicSheet:
+        name = "Sheet1"
+        dimension_reads = {"nrows": 0, "ncols": 0}
+        cell_called = False
+        merged_cells = ()
+
+        @property
+        def nrows(self) -> int:
+            self.dimension_reads["nrows"] += 1
+            if changing_dimension == "nrows" and self.dimension_reads["nrows"] > 1:
+                return source_adapters.MAX_PROBE_XLS_ROWS + 1
+            return 1
+
+        @property
+        def ncols(self) -> int:
+            self.dimension_reads["ncols"] += 1
+            if changing_dimension == "ncols" and self.dimension_reads["ncols"] > 1:
+                return source_adapters.MAX_PROBE_XLS_COLUMNS + 1
+            return 1
+
+        def cell(self, _row: int, _column: int):
+            self.cell_called = True
+            pytest.fail("changed XLS dimensions must be rejected before cell materialization")
+
+    class WorkbookStub:
+        nsheets = 1
+        release_attempted = False
+
+        def __init__(self) -> None:
+            self.sheet = DynamicSheet()
+
+        def sheets(self):
+            return (self.sheet,)
+
+        def release_resources(self) -> None:
+            self.release_attempted = True
+            raise RuntimeError("SECRET release")
+
+    workbook = WorkbookStub()
+    monkeypatch.setattr(source_adapters, "_reject_ole_macros", lambda _source: None)
+    monkeypatch.setattr(source_adapters, "_reject_biff_external_references", lambda _source: None)
+    monkeypatch.setattr(source_adapters, "_biff_formula_positions", lambda _source: ())
+    monkeypatch.setattr(source_adapters.xlrd, "open_workbook", lambda **_kwargs: workbook)
+
+    with pytest.raises(AccountingSourceError) as caught:
+        source_adapters._read_xls_probe_sheets(b"fixture")
+
+    rendered = f"{caught.value} {caught.value!r}"
+    assert str(caught.value) == "source_schema_invalid"
+    assert "SECRET" not in rendered
+    assert workbook.sheet.cell_called is False
+    assert workbook.release_attempted is True
+
+
+def test_xls_probe_rejects_later_sheet_growth_before_cells(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.accounting_reports import source_adapters
+
+    class SheetStub:
+        nrows = 1
+        ncols = 1
+        merged_cells = ()
+        cell_called = False
+
+        def __init__(self, name: str) -> None:
+            self.name = name
+
+        def cell(self, _row: int, _column: int):
+            self.cell_called = True
+            pytest.fail("grown XLS sheet collection must be rejected before cells")
+
+    class WorkbookStub:
+        nsheets = 1
+        sheets_calls = 0
+        release_attempted = False
+
+        def __init__(self) -> None:
+            self.sheet = SheetStub("Sheet1")
+
+        def sheets(self):
+            self.sheets_calls += 1
+            if self.sheets_calls == 1:
+                return (self.sheet,)
+            return tuple(
+                SheetStub(f"Sheet{index}")
+                for index in range(source_adapters.MAX_PROBE_XLS_SHEETS + 1)
+            )
+
+        def release_resources(self) -> None:
+            self.release_attempted = True
+            raise RuntimeError("SECRET release")
+
+    workbook = WorkbookStub()
+    monkeypatch.setattr(source_adapters, "_reject_ole_macros", lambda _source: None)
+    monkeypatch.setattr(source_adapters, "_reject_biff_external_references", lambda _source: None)
+    monkeypatch.setattr(source_adapters, "_biff_formula_positions", lambda _source: ())
+    monkeypatch.setattr(source_adapters.xlrd, "open_workbook", lambda **_kwargs: workbook)
+
+    with pytest.raises(AccountingSourceError) as caught:
+        source_adapters._read_xls_probe_sheets(b"fixture")
+
+    rendered = f"{caught.value} {caught.value!r}"
+    assert str(caught.value) == "source_schema_invalid"
+    assert "SECRET" not in rendered
+    assert workbook.sheet.cell_called is False
+    assert workbook.release_attempted is True
+
+
+@pytest.mark.parametrize("merge_hazard", ["dynamic", "too_many", "out_of_bounds"])
+def test_xls_probe_freezes_and_validates_merges_before_cells(
+    merge_hazard: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.accounting_reports import source_adapters
+
+    class SheetStub:
+        name = "Sheet1"
+        nrows = 1
+        ncols = 1
+        cell_called = False
+
+        @property
+        def merged_cells(self):
+            if merge_hazard == "dynamic":
+                raise RuntimeError("SECRET merge access")
+            if merge_hazard == "too_many":
+                return ((0, 1, 0, 1),) * (
+                    source_adapters.MAX_MERGED_RANGES_PER_SHEET + 1
+                )
+            return ((0, 2, 0, 1),)
+
+        def cell(self, _row: int, _column: int):
+            self.cell_called = True
+            pytest.fail("invalid XLS merges must be rejected before cells")
+
+    class WorkbookStub:
+        nsheets = 1
+        release_attempted = False
+
+        def __init__(self) -> None:
+            self.sheet = SheetStub()
+
+        def sheets(self):
+            return (self.sheet,)
+
+        def release_resources(self) -> None:
+            self.release_attempted = True
+            raise RuntimeError("SECRET release")
+
+    workbook = WorkbookStub()
+    monkeypatch.setattr(source_adapters, "_reject_ole_macros", lambda _source: None)
+    monkeypatch.setattr(source_adapters, "_reject_biff_external_references", lambda _source: None)
+    monkeypatch.setattr(source_adapters, "_biff_formula_positions", lambda _source: ())
+    monkeypatch.setattr(source_adapters.xlrd, "open_workbook", lambda **_kwargs: workbook)
+
+    with pytest.raises(AccountingSourceError) as caught:
+        source_adapters._read_xls_probe_sheets(b"fixture")
+
+    rendered = f"{caught.value} {caught.value!r}"
+    assert str(caught.value) == "source_schema_invalid"
+    assert "SECRET" not in rendered
+    assert workbook.sheet.cell_called is False
+    assert workbook.release_attempted is True
+
+
+def test_xls_declared_dimensions_are_rejected_before_cell_iteration(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.accounting_reports import source_adapters
+
+    class OversizedSheet:
+        name = "Sheet1"
+        nrows = source_adapters.MAX_PROBE_XLS_ROWS + 1
+        ncols = 1
+
+        def cell_value(self, _row: int, _column: int) -> object:
+            pytest.fail("oversized xls cells must not be iterated")
+
+    class WorkbookStub:
+        nsheets = 1
+
+        def sheets(self):
+            return (OversizedSheet(),)
+
+        def release_resources(self) -> None:
+            pass
+
+    monkeypatch.setattr(source_adapters.xlrd, "open_workbook", lambda **_kwargs: WorkbookStub())
+    monkeypatch.setattr(source_adapters, "_reject_ole_macros", lambda _source: None)
+
+    with pytest.raises(AccountingSourceError, match="^source_schema_invalid$"):
+        source_adapters._read_xls_sheets(b"fixture", reject_formulas=False)
 
 
 def _write_balance(path: Path, *, row7=None, row8=None, data=None) -> None:

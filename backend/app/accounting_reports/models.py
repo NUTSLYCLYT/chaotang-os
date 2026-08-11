@@ -70,6 +70,60 @@ class ReportPeriod:
             raise ValueError("report period must not be reversed")
 
 
+@dataclass(frozen=True, slots=True, repr=False)
+class CellProbe:
+    row: int
+    column: int
+    value_type: str
+    value: object
+
+    def __repr__(self) -> str:
+        return (
+            f"CellProbe(row={self.row}, column={self.column}, "
+            f"value_type={self.value_type!r}, <redacted>)"
+        )
+
+
+@dataclass(frozen=True, slots=True, repr=False)
+class CellRegion:
+    start_row: int
+    end_row: int
+    start_column: int
+    end_column: int
+    header_depth: int
+    cells: tuple[CellProbe, ...] = ()
+    formula_cells: tuple[tuple[int, int, str], ...] = ()
+
+    def __repr__(self) -> str:
+        return "CellRegion(<redacted>)"
+
+
+@dataclass(frozen=True, slots=True, repr=False)
+class SheetProbe:
+    name: str
+    row_count: int
+    column_count: int
+    regions: tuple[CellRegion, ...]
+    merged_ranges: tuple[str, ...] = ()
+    rejected_rows: tuple[int, ...] = ()
+
+    def __repr__(self) -> str:
+        return (
+            f"SheetProbe(row_count={self.row_count}, "
+            f"column_count={self.column_count}, <redacted>)"
+        )
+
+
+@dataclass(frozen=True, slots=True, repr=False)
+class WorkbookProbe:
+    sha256: str
+    years: tuple[int, ...]
+    sheets: tuple[SheetProbe, ...]
+
+    def __repr__(self) -> str:
+        return f"WorkbookProbe(years={self.years!r}, sheet_count={len(self.sheets)}, <redacted>)"
+
+
 class ReportIntentKind(StrEnum):
     NOT_REQUESTED = "NOT_REQUESTED"
     EXPLICIT_PERIOD = "EXPLICIT_PERIOD"

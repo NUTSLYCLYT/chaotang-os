@@ -55,6 +55,10 @@ _OBSERVED_FIRST_HEADERS: Final = {
     "利润表": {"项目", "项  目"},
     "现金流量表": {"项目", "项       目"},
 }
+MAX_PROBE_XLS_SHEETS: Final = 32
+MAX_PROBE_XLS_ROWS: Final = 20_000
+MAX_PROBE_XLS_COLUMNS: Final = 256
+MAX_MERGED_RANGES_PER_SHEET: Final = 4_096
 
 
 @dataclass(frozen=True, slots=True, repr=False)
@@ -193,30 +197,280 @@ def _reject_biff_formulas(source: bytes) -> None:
         offset = record_end
 
 
+def _biff_formula_positions(source: bytes) -> tuple[tuple[str, int, int, str], ...]:
+    """Bind BIFF FORMULA records to BoundSheet names and stream offsets."""
+    stream = _workbook_stream(source)
+    offset = 0
+    boundaries: dict[int, str] = {}
+    current_sheet: str | None = None
+    positions: list[tuple[str, int, int, str]] = []
+    while offset + 4 <= len(stream):
+        record_id, payload_size = struct.unpack_from("<HH", stream, offset)
+        payload = offset + 4
+        record_end = payload + payload_size
+        if record_end > len(stream):
+            raise AccountingSourceError("source_schema_invalid")
+        if record_id == 0x0085:
+            if payload_size < 8:
+                raise AccountingSourceError("source_schema_invalid")
+            sheet_offset = struct.unpack_from("<I", stream, payload)[0]
+            name_length = stream[payload + 6]
+            options = stream[payload + 7]
+            name_width = 2 if options & 0x01 else 1
+            name_end = payload + 8 + name_length * name_width
+            if name_end > record_end:
+                raise AccountingSourceError("source_schema_invalid")
+            encoding = "utf-16le" if name_width == 2 else "latin-1"
+            sheet_name = stream[payload + 8 : name_end].decode(encoding)
+            if not sheet_name or sheet_offset in boundaries or sheet_name in boundaries.values():
+                raise AccountingSourceError("source_schema_invalid")
+            boundaries[sheet_offset] = sheet_name
+        elif record_id == 0x0809 and payload_size >= 4:
+            _, substream_type = struct.unpack_from("<HH", stream, payload)
+            if substream_type == 0x0010:
+                if offset not in boundaries:
+                    raise AccountingSourceError("source_schema_invalid")
+                current_sheet = boundaries[offset]
+            elif substream_type == 0x0005:
+                current_sheet = None
+        elif record_id == 0x0006:
+            if payload_size < 22 or current_sheet is None:
+                raise AccountingSourceError("source_schema_invalid")
+            row, column = struct.unpack_from("<HH", stream, payload)
+            token_size = struct.unpack_from("<H", stream, payload + 20)[0]
+            if token_size > 4096 or payload + 22 + token_size > record_end:
+                raise AccountingSourceError("source_schema_invalid")
+            token_bytes = stream[payload + 22 : payload + 22 + token_size]
+            positions.append(
+                (current_sheet, row + 1, column + 1, f"biff:{token_bytes.hex()}")
+            )
+        elif record_id == 0x000A:
+            current_sheet = None
+        offset = record_end
+    return tuple(positions)
+
+
+def _reject_biff_external_references(source: bytes) -> None:
+    stream = _workbook_stream(source)
+    external_record_ids = {0x01AE, 0x0017, 0x0023}
+    offset = 0
+    while offset + 4 <= len(stream):
+        record_id, payload_size = struct.unpack_from("<HH", stream, offset)
+        record_end = offset + 4 + payload_size
+        if record_end > len(stream):
+            raise AccountingSourceError("source_schema_invalid")
+        if record_id in external_record_ids:
+            raise AccountingSourceError("source_schema_invalid")
+        offset = record_end
+
+
+def _reject_ole_macros(source: bytes) -> None:
+    try:
+        compound = CompDoc(source, logfile=StringIO())
+        names = {
+            str(getattr(entry, "name", "")).casefold()
+            for entry in getattr(compound, "dirlist", ())
+        }
+    except Exception:
+        raise AccountingSourceError("source_schema_invalid") from None
+    if any(name in {"vba", "macros", "_vba_project_cur"} or "vbaproject" in name for name in names):
+        raise AccountingSourceError("source_schema_invalid")
+
+
+def _open_xls(source: bytes, *, reject_formulas: bool):
+    _reject_ole_macros(source)
+    if reject_formulas:
+        _reject_biff_formulas(source)
+    workbook = None
+    try:
+        workbook = xlrd.open_workbook(file_contents=source, on_demand=True)
+        if workbook.nsheets > MAX_PROBE_XLS_SHEETS:
+            raise AccountingSourceError("source_schema_invalid")
+        for sheet in workbook.sheets():
+            if (
+                sheet.nrows > MAX_PROBE_XLS_ROWS
+                or sheet.ncols > MAX_PROBE_XLS_COLUMNS
+            ):
+                raise AccountingSourceError("source_schema_invalid")
+        return workbook
+    except AccountingSourceError:
+        if workbook is not None:
+            _best_effort_release(workbook)
+        raise
+    except Exception:
+        if workbook is not None:
+            _best_effort_release(workbook)
+        raise AccountingSourceError("source_schema_invalid") from None
+
+
+def _best_effort_release(workbook: object) -> None:
+    try:
+        workbook.release_resources()  # type: ignore[attr-defined]
+    except Exception:
+        pass
+
+
 def _read_xls_sheets(
-    source: bytes | Path,
+    source: bytes | Path, *, reject_formulas: bool = True
 ) -> tuple[tuple[str, tuple[tuple[object, ...], ...]], ...]:
     try:
         content = source if isinstance(source, bytes) else source.read_bytes()
-        _reject_biff_formulas(content)
-        workbook = xlrd.open_workbook(file_contents=content, on_demand=True)
-    except Exception:
-        raise AccountingSourceError("source_schema_invalid") from None
+        workbook = _open_xls(content, reject_formulas=reject_formulas)
+    except AccountingSourceError:
+        raise
     try:
-        return tuple(
-            (
-                sheet.name,
-                tuple(
-                    tuple(sheet.cell_value(row, column) for column in range(sheet.ncols))
-                    for row in range(sheet.nrows)
-                ),
-            )
-            for sheet in workbook.sheets()
-        )
+        result = []
+        for sheet in workbook.sheets():
+            rows = []
+            for row in range(sheet.nrows):
+                if row >= MAX_PROBE_XLS_ROWS:
+                    raise AccountingSourceError("source_schema_invalid")
+                values = []
+                for column in range(sheet.ncols):
+                    if column >= MAX_PROBE_XLS_COLUMNS:
+                        raise AccountingSourceError("source_schema_invalid")
+                    values.append(sheet.cell_value(row, column))
+                rows.append(tuple(values))
+            result.append((sheet.name, tuple(rows)))
+        return tuple(result)
     except Exception:
         raise AccountingSourceError("source_schema_invalid") from None
     finally:
-        workbook.release_resources()
+        _best_effort_release(workbook)
+
+
+def _read_xls_probe_sheets(
+    source: bytes,
+) -> tuple[
+    tuple[
+        str,
+        tuple[tuple[object, ...], ...],
+        tuple[tuple[str, ...], ...],
+        tuple[tuple[int, int, int, int], ...],
+    ],
+    ...,
+]:
+    _reject_biff_external_references(source)
+    evidence_records = _biff_formula_positions(source)
+    evidence_keys = [(name, row, column) for name, row, column, _ in evidence_records]
+    evidence_counts = Counter(evidence_keys)
+    if any(count != 1 for count in evidence_counts.values()):
+        raise AccountingSourceError("source_schema_invalid")
+    formula_evidence = {
+        (name, row, column): evidence
+        for name, row, column, evidence in evidence_records
+    }
+    workbook = _open_xls(source, reject_formulas=False)
+    type_names = {
+        xlrd.XL_CELL_EMPTY: "empty",
+        xlrd.XL_CELL_TEXT: "string",
+        xlrd.XL_CELL_NUMBER: "number",
+        xlrd.XL_CELL_DATE: "date",
+        xlrd.XL_CELL_BOOLEAN: "boolean",
+        xlrd.XL_CELL_ERROR: "error",
+        xlrd.XL_CELL_BLANK: "blank",
+    }
+    try:
+        result = []
+        sheets = tuple(workbook.sheets())
+        if len(sheets) > MAX_PROBE_XLS_SHEETS:
+            raise AccountingSourceError("source_schema_invalid")
+        sheet_snapshot = tuple(
+            (
+                sheet,
+                sheet.name,
+                sheet.nrows,
+                sheet.ncols,
+                tuple(tuple(region) for region in sheet.merged_cells),
+            )
+            for sheet in sheets
+        )
+        if any(
+            nrows > MAX_PROBE_XLS_ROWS or ncols > MAX_PROBE_XLS_COLUMNS
+            for _sheet, _name, nrows, ncols, _merged in sheet_snapshot
+        ):
+            raise AccountingSourceError("source_schema_invalid")
+        for _sheet, _name, nrows, ncols, merged in sheet_snapshot:
+            if len(merged) > MAX_MERGED_RANGES_PER_SHEET:
+                raise AccountingSourceError("source_schema_invalid")
+            for region in merged:
+                if len(region) != 4 or any(type(value) is not int for value in region):
+                    raise AccountingSourceError("source_schema_invalid")
+                row_low, row_high, column_low, column_high = region
+                if (
+                    row_low < 0
+                    or column_low < 0
+                    or row_low >= row_high
+                    or column_low >= column_high
+                    or row_high > nrows
+                    or column_high > ncols
+                    or row_high > MAX_PROBE_XLS_ROWS
+                    or column_high > MAX_PROBE_XLS_COLUMNS
+                ):
+                    raise AccountingSourceError("source_schema_invalid")
+        workbook_name_list = [
+            name for _sheet, name, _nrows, _ncols, _merged in sheet_snapshot
+        ]
+        if len(workbook_name_list) != len(set(workbook_name_list)):
+            raise AccountingSourceError("source_schema_invalid")
+        workbook_names = set(workbook_name_list)
+        if any(name not in workbook_names for name, _, _ in formula_evidence):
+            raise AccountingSourceError("source_schema_invalid")
+        sheet_dimensions = {
+            name: (nrows, ncols)
+            for _sheet, name, nrows, ncols, _merged in sheet_snapshot
+        }
+        if any(
+            row < 1
+            or column < 1
+            or row > sheet_dimensions[name][0]
+            or column > sheet_dimensions[name][1]
+            for name, row, column in formula_evidence
+            if name in sheet_dimensions
+        ):
+            raise AccountingSourceError("source_schema_invalid")
+        consumed_evidence: Counter[tuple[str, int, int]] = Counter()
+        for sheet, sheet_name, nrows, ncols, frozen_merged in sheet_snapshot:
+            rows = []
+            types = []
+            for row_index in range(nrows):
+                if row_index >= MAX_PROBE_XLS_ROWS:
+                    raise AccountingSourceError("source_schema_invalid")
+                row_values = []
+                row_types = []
+                for column_index in range(ncols):
+                    if column_index >= MAX_PROBE_XLS_COLUMNS:
+                        raise AccountingSourceError("source_schema_invalid")
+                    cell = sheet.cell(row_index, column_index)
+                    formula_key = (sheet_name, row_index + 1, column_index + 1)
+                    row_values.append(formula_evidence.get(formula_key, cell.value))
+                    if formula_key in formula_evidence:
+                        consumed_evidence[formula_key] += 1
+                    try:
+                        observed_type = type_names[cell.ctype]
+                    except KeyError:
+                        raise AccountingSourceError("source_schema_invalid") from None
+                    row_types.append(
+                        "formula"
+                        if formula_key in formula_evidence
+                        else observed_type
+                    )
+                rows.append(tuple(row_values))
+                types.append(tuple(row_types))
+            merged = tuple(
+                (row_low + 1, row_high, column_low + 1, column_high)
+                for row_low, row_high, column_low, column_high in frozen_merged
+            )
+            result.append((sheet_name, tuple(rows), tuple(types), merged))
+        if consumed_evidence != evidence_counts:
+            raise AccountingSourceError("source_schema_invalid")
+        return tuple(result)
+    except AccountingSourceError:
+        raise
+    except Exception:
+        raise AccountingSourceError("source_schema_invalid") from None
+    finally:
+        _best_effort_release(workbook)
 
 
 def _normalized_cells(

@@ -22,6 +22,8 @@ _BALANCE_NAME: Final = re.compile(r"^(?P<year>20\d{2})年发生额及余额表\.
 _STATEMENT_NAME: Final = re.compile(r"^.+(?P<year>20\d{2})(?:年|12)财务报表\.xls$")
 _YEAR_TOKEN: Final = re.compile(r"20\d{2}")
 _REPARSE_ATTRIBUTE: Final = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
+MAX_PROBE_FILE_BYTES: Final = 16 * 1024 * 1024
+MAX_PROBE_FILES: Final = 32
 
 
 class SourceRole(StrEnum):
@@ -115,6 +117,46 @@ def resolve_accounting_source_dir(
     return _resolve_directory(APPROVED_ACCOUNTING_SOURCE_DIR)
 
 
+def resolve_accounting_source_dir_at(source_dir: Path) -> Path:
+    """Resolve an application-approved source root supplied by trusted code."""
+    return _resolve_directory(source_dir)
+
+
+@dataclass(frozen=True, slots=True, repr=False)
+class FrozenWorkbook:
+    path: Path = field(repr=False)
+    content: bytes = field(repr=False)
+    sha256: str
+
+    def __repr__(self) -> str:
+        return "FrozenWorkbook(<redacted>)"
+
+
+def freeze_candidate_workbooks(root: Path) -> tuple[FrozenWorkbook, ...]:
+    root = _resolve_directory(root)
+    try:
+        entries = tuple(sorted(root.iterdir(), key=lambda item: item.name.casefold()))
+    except OSError:
+        raise AccountingSourceError("source_path_invalid") from None
+    candidates = [item for item in entries if item.suffix.casefold() in {".xlsx", ".xls"}]
+    if len(candidates) > MAX_PROBE_FILES:
+        raise AccountingSourceError("source_schema_invalid")
+    frozen: list[FrozenWorkbook] = []
+    for candidate in candidates:
+        resolved = _resolve_selected_file(candidate, root)
+        try:
+            expected = resolved.lstat()
+        except OSError:
+            raise AccountingSourceError("source_schema_invalid") from None
+        if expected.st_size > MAX_PROBE_FILE_BYTES:
+            raise AccountingSourceError("source_schema_invalid")
+        content = _read_selected_bytes(resolved, root, expected)
+        if len(content) > MAX_PROBE_FILE_BYTES:
+            raise AccountingSourceError("source_schema_invalid")
+        frozen.append(FrozenWorkbook(resolved, content, hashlib.sha256(content).hexdigest()))
+    return tuple(frozen)
+
+
 def _resolve_selected_file(path: Path, root: Path) -> Path:
     if _is_reparse(path):
         raise AccountingSourceError("source_path_invalid")
@@ -160,9 +202,11 @@ def _read_selected_bytes(
             before_handle = os.fstat(source.fileno())
             if _file_identity(before_handle) != _file_identity(expected):
                 raise AccountingSourceError("source_schema_invalid")
-            content = source.read()
+            content = source.read(MAX_PROBE_FILE_BYTES + 1)
             after_handle = os.fstat(source.fileno())
             if _file_identity(after_handle) != _file_identity(before_handle):
+                raise AccountingSourceError("source_schema_invalid")
+            if len(content) > MAX_PROBE_FILE_BYTES:
                 raise AccountingSourceError("source_schema_invalid")
         _before_selected_postcheck(path)
         after_path = path.lstat()
