@@ -7,6 +7,7 @@ import pytest
 
 import app.agents.runtime_skills.tool_policy as policy_module
 from app.agents.runtime_skills.registry import build_default_downstream_skill_registry
+from app.agents.runtime_skills.tool_issuance import _issue_tool_authorization_context
 from app.agents.runtime_skills.tool_models import (
     ApprovedToolCall,
     ToolAuthorizationContext,
@@ -36,26 +37,50 @@ DATA_REF = f"case:{CASE_ID}:decree:{DECREE_ID}:data:dataset-1"
 
 
 def _context(**updates: Any) -> ToolAuthorizationContext:
+    requested_agent = updates.pop("agent_id", AGENT_ID)
+    try:
+        selected_skill = build_default_downstream_skill_registry().get_by_agent(
+            requested_agent
+        )
+        selected_policy = selected_skill.tool_policy
+    except (KeyError, ValueError):
+        selected_skill = SKILL
+        selected_policy = POLICY
+    assert selected_policy is not None
+    if requested_agent not in {AGENT_ID, "libu-appointments"}:
+        selected_skill = SKILL
+        selected_policy = POLICY
     values: dict[str, Any] = {
         "request_id": "request-1",
         "case_id": CASE_ID,
         "decree_id": DECREE_ID,
-        "agent_id": AGENT_ID,
-        "skill_id": SKILL.skill_id,
-        "skill_version": SKILL.version,
-        "policy_id": POLICY.policy_id,
-        "policy_version": POLICY.version,
+        "agent_id": selected_skill.agent_id,
+        "skill_id": selected_skill.skill_id,
+        "skill_version": selected_skill.version,
         "approved_input_refs": (INPUT_REF,),
         "approved_evidence_refs": (EVIDENCE_REF,),
         "approved_data_refs": (DATA_REF,),
         "business_state": "ready",
-        "system_max_calls": 4,
+        "system_max_calls": 6,
         "system_max_rounds": 2,
         "system_max_result_rows": 200,
         "system_max_result_bytes": 262_144,
     }
+    tamper = {
+        key: updates.pop(key) for key in tuple(updates)
+        if key in {"policy_id", "policy_version"}
+    }
+    if tamper.get("policy_id") == selected_policy.policy_id:
+        tamper.pop("policy_id")
+    if tamper.get("policy_version") == selected_policy.version:
+        tamper.pop("policy_version")
     values.update(updates)
-    return ToolAuthorizationContext(**values)
+    context = _issue_tool_authorization_context(
+        **values, policy=selected_policy, report_session_present=False
+    )
+    if selected_skill.agent_id != requested_agent:
+        tamper["agent_id"] = requested_agent
+    return context.model_copy(update=tamper) if tamper else context
 
 
 def _budget(**updates: int) -> ToolBudget:

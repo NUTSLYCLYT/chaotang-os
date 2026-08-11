@@ -22,6 +22,7 @@ from app.agents.runtime_skills.tool_models import (
     ToolHandlerContext,
     ToolName,
     ToolResultEnvelope,
+    ToolSideEffect,
 )
 
 
@@ -163,7 +164,7 @@ def test_descriptor_is_frozen_and_rejects_invalid_metadata() -> None:
         descriptor.version = "2.0.0"
     for updates in (
         {"descriptor_id": " "}, {"version": "v1"}, {"max_result_rows": -1},
-        {"max_tool_calls": 5}, {"max_tool_rounds": 3}, {"unknown": True},
+        {"max_tool_calls": 7}, {"max_tool_rounds": 3}, {"unknown": True},
     ):
         with pytest.raises(ValidationError):
             ToolDescriptor.model_validate({**descriptor.model_dump(), **updates})
@@ -177,7 +178,7 @@ def test_policy_rejects_blank_nested_values_and_limits() -> None:
         {"tool_operations": {ToolName.COMPUTE_ANALYSIS: ("",)}},
         {"tool_argument_constraints": {ToolName.COMPUTE_ANALYSIS: {" ": ("x",)}}},
         {"required_data_refs": ("",)},
-        {"max_tool_calls": 0}, {"max_tool_calls": 5},
+        {"max_tool_calls": 0}, {"max_tool_calls": 7},
         {"max_tool_rounds": 0}, {"max_tool_rounds": 3},
         {"max_result_rows": -1}, {"max_result_bytes": 0},
     ):
@@ -252,6 +253,8 @@ def test_authorization_and_handler_context_are_restricted() -> None:
         approved_data_refs=("approved-data:ledger",), business_state="approved",
         system_max_calls=4, system_max_rounds=2,
         system_max_result_rows=100, system_max_result_bytes=4096,
+        decree_scopes=frozenset(), data_domains=frozenset({"finance.accounting"}),
+        allowed_side_effects=frozenset({ToolSideEffect.READ}),
     )
     assert authorization.business_state == "approved"
     context = ToolHandlerContext(
@@ -361,7 +364,7 @@ def test_audit_record_requires_nonblank_decree_id() -> None:
 @pytest.mark.parametrize(
     "updates",
     [
-        {"max_calls": 0}, {"max_calls": 5}, {"consumed_calls": 5},
+        {"max_calls": 0}, {"max_calls": 7}, {"consumed_calls": 7},
         {"max_rounds": 0}, {"max_rounds": 3}, {"consumed_rounds": 3},
         {"max_rows": 0}, {"consumed_rows": -1}, {"consumed_rows": 101},
         {"max_bytes": 0}, {"consumed_bytes": -1}, {"consumed_bytes": 4097},

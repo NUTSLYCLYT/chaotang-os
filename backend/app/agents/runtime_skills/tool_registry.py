@@ -13,7 +13,7 @@ from app.agents.runtime_skills.tool_models import (
     ToolSideEffect,
 )
 
-SYSTEM_MAX_TOOL_CALLS = 4
+SYSTEM_MAX_TOOL_CALLS = 6
 SYSTEM_MAX_TOOL_ROUNDS = 2
 SYSTEM_MAX_RESULT_ROWS = 200
 SYSTEM_MAX_RESULT_BYTES = 262_144

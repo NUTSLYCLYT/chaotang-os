@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from collections.abc import Callable, Mapping, Sequence
 from copy import deepcopy
@@ -10,15 +11,20 @@ from pydantic import BaseModel, ConfigDict
 from app.agents.runtime_skills.models import RuntimeSkillDefinition
 from app.agents.runtime_skills.tool_executor import (
     ToolExecutionError,
+    _issue_loop_recovery_state,
     execute_approved_tool,
     record_tool_audit,
 )
 from app.agents.runtime_skills.tool_models import (
     BureauToolPolicy,
+    RetryStrategy,
     ToolAuthorizationContext,
     ToolBudget,
     ToolCallProposal,
+    ToolFailureCode,
     ToolHandlerContext,
+    ToolHealth,
+    ToolName,
     ToolResultEnvelope,
 )
 from app.agents.runtime_skills.tool_policy import ToolPolicyError, approve_tool_call
@@ -26,6 +32,26 @@ from app.agents.runtime_skills.tool_registry import tool_descriptor_for
 
 ModelMessage = Mapping[str, object]
 ModelAdapter = Callable[[tuple[ModelMessage, ...]], object]
+
+_RECOVERABLE_FAILURES = frozenset(
+    {
+        ToolFailureCode.FORMAT_UNRECOGNIZED,
+        ToolFailureCode.TOOL_UNAVAILABLE,
+        ToolFailureCode.SOURCE_NOT_FOUND,
+    }
+)
+
+
+def next_strategy(
+    history: Sequence[RetryStrategy],
+    result: ToolFailureCode,
+    catalog: Sequence[object],
+) -> RetryStrategy | None:
+    """Choose the first untried bounded recovery strategy."""
+    if result not in _RECOVERABLE_FAILURES or not catalog:
+        return None
+    tried = frozenset(history)
+    return next((item for item in RetryStrategy if item not in tried), None)
 
 
 class BureauToolLoopResult(BaseModel):
@@ -95,6 +121,7 @@ def run_bureau_tool_loop(
     authorization_context: ToolAuthorizationContext,
     handlers: object,
     resolved_approved_inputs: Mapping[str, Any],
+    tool_health: Mapping[ToolName, ToolHealth] | None = None,
 ) -> BureauToolLoopResult:
     """Run a non-recursive, fail-closed bureau proposal loop."""
 
@@ -118,6 +145,11 @@ def run_bureau_tool_loop(
         )
     if [dict(item) for item in tool_descriptors] != expected_descriptors:
         raise ValueError("tool_descriptor_projection_invalid")
+    catalog_fingerprint = hashlib.sha256(
+        json.dumps(
+            expected_descriptors, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        ).encode("utf-8")
+    ).hexdigest()
 
     messages: list[ModelMessage] = [
         {
@@ -139,6 +171,11 @@ def run_bureau_tool_loop(
     calls = rounds = rows = size = 0
     correction_used = False
     final: dict[str, Any] | None = None
+    recovery_history: list[RetryStrategy] = []
+    pending_strategy: RetryStrategy | None = None
+    retry_source: str | None = None
+    failed_tool: ToolName | None = None
+    failed_fingerprint: str | None = None
 
     while rounds < min(authorization_context.system_max_rounds, policy.max_tool_rounds):
         rounds += 1
@@ -236,6 +273,27 @@ def run_bureau_tool_loop(
                     break
                 continue
             history.extend((approved.call_history_entry, approved.fingerprint_history_entry))
+            if retry_source is not None:
+                if failed_tool is approved.tool_name:
+                    pending_strategy = RetryStrategy.CORRECT_ARGUMENTS
+                else:
+                    pending_strategy = RetryStrategy.ALTERNATE_TOOL
+                prefix = tuple(RetryStrategy)[: tuple(RetryStrategy).index(pending_strategy)]
+                if (
+                    next_strategy(
+                        prefix,
+                        ToolFailureCode.FORMAT_UNRECOGNIZED,
+                        expected_descriptors,
+                    )
+                    is not pending_strategy
+                ):
+                    raise ValueError("tool_recovery_strategy_invalid")
+                if (
+                    pending_strategy is RetryStrategy.CORRECT_ARGUMENTS
+                    and failed_fingerprint == approved.argument_fingerprint
+                ):
+                    reasons.append("tool_recovery_action_mismatch")
+                    continue
             handler_context = ToolHandlerContext(
                 approved_call=approved,
                 capability_id=handlers.capability_id,
@@ -244,7 +302,24 @@ def run_bureau_tool_loop(
                 budget=execution_budget,
             )
             try:
-                result = execute_approved_tool(approved, handler_context, handlers)
+                result = execute_approved_tool(
+                    approved, handler_context, handlers, health=tool_health,
+                    authorization_context=authorization_context,
+                    recovery_state=(
+                        _issue_loop_recovery_state(
+                            retry_source, pending_strategy, catalog_fingerprint,
+                            failed_tool, failed_fingerprint,
+                            approved.tool_name, approved.argument_fingerprint,
+                        )
+                        if (
+                            retry_source is not None
+                            and pending_strategy is not None
+                            and failed_tool is not None
+                            and failed_fingerprint is not None
+                        )
+                        else None
+                    ),
+                )
             except ToolExecutionError as exc:
                 reasons.append(exc.code)
                 audit_refs.append(exc.audit.audit_ref)
@@ -255,7 +330,24 @@ def run_bureau_tool_loop(
                         "code": exc.code,
                     }
                 )
+                try:
+                    failure = ToolFailureCode(exc.code)
+                except ValueError:
+                    failure = None
+                strategy = (
+                    next_strategy(recovery_history, failure, expected_descriptors)
+                    if failure is not None
+                    else None
+                )
+                if strategy is not None:
+                    retry_source = exc.audit.audit_ref
+                    failed_tool = approved.tool_name
+                    failed_fingerprint = approved.argument_fingerprint
                 continue
+            pending_strategy = None
+            retry_source = None
+            failed_tool = None
+            failed_fingerprint = None
             accepted.append(result)
             audit_refs.append(result.audit_ref)
             returned = result.returned_records

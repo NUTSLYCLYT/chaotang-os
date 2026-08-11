@@ -15,20 +15,25 @@ from app.agents.runtime_skills.tool_executor import (
     _AuthorizedToolHandlerSet,
     _ToolHandlerBinding,
     clear_tool_audits,
-    execute_approved_tool,
     tool_audit_snapshot,
+)
+from app.agents.runtime_skills.tool_executor import (
+    execute_approved_tool as _execute_approved_tool,
 )
 from app.agents.runtime_skills.tool_issuance import (
     _bureau_tool_policy_fingerprint,
     _issue_approved_tool_call,
+    _issue_tool_authorization_context,
     _tool_descriptor_fingerprint,
 )
 from app.agents.runtime_skills.tool_models import (
     ApprovedToolCall,
+    ToolAuthorizationContext,
     ToolBudget,
     ToolCallStatus,
     ToolDataQuality,
     ToolHandlerContext,
+    ToolHealth,
     ToolName,
 )
 from app.agents.runtime_skills.tool_registry import (
@@ -57,12 +62,49 @@ def isolated_audit() -> Any:
 
 
 def call(tool: ToolName = ToolName.READ_APPROVED_MATERIALS, **changes: Any) -> ApprovedToolCall:
-    normalized = {"estimated_rows": 2, "estimated_bytes": 4096}
-    if tool is ToolName.COMPUTE_ANALYSIS:
-        normalized.update({"algorithm_id": "difference", "algorithm_version": "1.0.0"})
+    normalized_by_tool = {
+        ToolName.REQUEST_EVIDENCE: {
+            "operation": "request_fact_slots", "domain": "workforce.policy",
+            "fact_slots": [{"fact_slot": "policy-date", "description": "date",
+                "category": "policy", "data_scope": "workforce.policy",
+                "subject": "policy", "time_range": {"as_of": "case"},
+                "freshness": {"max_age_seconds": 3600}, "use": "finding"}],
+            "estimated_rows": 1, "estimated_bytes": 1024,
+        },
+        ToolName.READ_APPROVED_MATERIALS: {
+            "operation": "read_summary", "domain": "workforce.policy",
+            "input_refs": [INPUT], "fields": ["workforce.policy.policy_id"],
+            "estimated_rows": 1, "estimated_bytes": 1024,
+        },
+        ToolName.INSPECT_APPROVED_DATA: {
+            "operation": "compare", "domain": "workforce.policy", "data_ref": DATA,
+            "fields": ["workforce.policy.policy_id"], "operators": ["eq"],
+            "dimensions": ["workforce.policy.effective_period"],
+            "metrics": ["workforce.policy.exception_rate"],
+            "estimated_rows": 20, "estimated_bytes": 4096,
+        },
+        ToolName.COMPUTE_ANALYSIS: {
+            "operation": "difference", "domain": "workforce.policy", "data_refs": [DATA],
+            "algorithm_id": "difference", "algorithm_version": "1.0.0",
+            "metrics": ["workforce.policy.exception_rate"],
+            "dimensions": ["workforce.policy.effective_period"], "thresholds": [0.5],
+            "estimated_rows": 20, "estimated_bytes": 4096,
+        },
+        ToolName.INSPECT_ACCOUNTING_CONTENT: {
+            "operation": "inspect_content", "domain": "finance.accounting",
+            "data_ref": DATA, "fields": ["finance.accounting.ledger_ref"],
+            "estimated_rows": 20, "estimated_bytes": 4096,
+        },
+        ToolName.GENERATE_ACCOUNTING_WORKBOOK: {
+            "operation": "generate_workbook", "domain": "finance.accounting",
+            "data_ref": DATA, "fields": ["finance.accounting.ledger_ref"],
+            "estimated_rows": 20, "estimated_bytes": 4096,
+        },
+    }
+    normalized = normalized_by_tool.get(tool, {"estimated_rows": 2, "estimated_bytes": 4096})
     values: dict[str, Any] = {
         "request_id": "request-1", "case_id": CASE, "decree_id": DECREE,
-        "agent_id": "libu-policy", "skill_id": "bureau.libu.policy.v1",
+        "agent_id": "libu-policy", "skill_id": "analyze-hr-policy",
         "skill_version": "1.0.0", "policy_id": "bureau.libu.policy.tools",
         "policy_version": "1.0.0", "tool_call_id": "tc-1", "tool_name": tool,
         "purpose": "bounded lookup", "arguments": {"estimated_rows": 2, "estimated_bytes": 4096},
@@ -78,7 +120,21 @@ def call(tool: ToolName = ToolName.READ_APPROVED_MATERIALS, **changes: Any) -> A
         "descriptor_handler_id": TOOL_DESCRIPTORS[tool].handler_id,
         "audit_ref": new_tool_audit_ref(),
     }
+    argument_updates = changes.pop("arguments", None)
+    normalized_updates = changes.pop("normalized_arguments", None)
     values.update(changes)
+    if argument_updates is not None:
+        values["arguments"] = {**normalized, **argument_updates}
+    if normalized_updates is not None:
+        values["normalized_arguments"] = {**normalized, **normalized_updates}
+    if values["agent_id"] == "hubu-accounting":
+        values.update({
+            "skill_id": "analyze-accounting-position",
+            "policy_id": "bureau.hubu.accounting.tools",
+            "policy_fingerprint": _bureau_tool_policy_fingerprint(
+                BUREAU_TOOL_POLICIES["hubu-accounting"]
+            ),
+        })
     return _issue_approved_tool_call(ApprovedToolCall(**values))
 
 
@@ -96,8 +152,8 @@ def context(
         },
         restricted_adapters={},
         budget=ToolBudget(
-            max_calls=3, consumed_calls=1, max_rounds=2, consumed_rounds=1,
-            max_rows=7, consumed_rows=2, max_bytes=8192, consumed_bytes=128,
+            max_calls=4, consumed_calls=1, max_rounds=2, consumed_rounds=1,
+            max_rows=200, consumed_rows=2, max_bytes=262_144, consumed_bytes=128,
         ),
     )
 
@@ -118,6 +174,118 @@ def authorized(
     capability = authorize_trusted_handlers({approved.tool_name: handler})
     base = ctx or context(approved)
     return base.model_copy(update={"capability_id": capability.capability_id}), capability
+
+
+def test_execution_rechecks_health_before_handler() -> None:
+    approved = call()
+    invoked: list[bool] = []
+    ctx, handlers = authorized(approved, lambda _: invoked.append(True) or {})
+    with pytest.raises(ToolExecutionError) as caught:
+        execute_approved_tool(
+            approved, ctx, handlers,
+            health={approved.tool_name: ToolHealth.UNAVAILABLE},
+        )
+    assert caught.value.code == "tool_unavailable"
+    assert invoked == []
+
+
+def authoritative_context(approved: ApprovedToolCall, **changes: Any) -> ToolAuthorizationContext:
+    policy = BUREAU_TOOL_POLICIES[approved.agent_id]
+    context = _issue_tool_authorization_context(
+        request_id=approved.request_id, case_id=approved.case_id,
+        decree_id=approved.decree_id, agent_id=approved.agent_id,
+        skill_id=approved.skill_id, skill_version=approved.skill_version,
+        policy=policy, approved_input_refs=(INPUT,),
+        approved_evidence_refs=(EVIDENCE,), approved_data_refs=(DATA,),
+        business_state="ready", system_max_calls=6, system_max_rounds=2,
+        system_max_result_rows=200, system_max_result_bytes=262_144,
+        report_session_present=approved.agent_id == "hubu-accounting",
+    )
+    return context.model_copy(update=changes) if changes else context
+
+
+def execute_approved_tool(
+    approved: ApprovedToolCall,
+    ctx: ToolHandlerContext,
+    handlers: Any,
+    audit_sink: Any = None,
+    **kwargs: Any,
+) -> Any:
+    authority_call = approved if isinstance(approved, ApprovedToolCall) else ctx.approved_call
+    kwargs.setdefault("authorization_context", authoritative_context(authority_call))
+    return _execute_approved_tool(
+        approved, ctx, handlers, audit_sink=audit_sink, **kwargs
+    )
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"skill_id": "different-skill"}, {"decree_id": "different-decree"},
+        {"decree_scopes": frozenset()},
+        {"data_domains": frozenset()}, {"allowed_side_effects": frozenset()},
+        {"approved_input_refs": ()}, {"business_state": "blocked"},
+    ],
+)
+def test_execution_full_reauthorization_rejects_authority_drift(change: dict[str, Any]) -> None:
+    approved = call()
+    invoked: list[bool] = []
+    ctx, handlers = authorized(approved, lambda _: invoked.append(True) or {})
+    with pytest.raises(ToolExecutionError):
+        execute_approved_tool(
+            approved, ctx, handlers,
+            authorization_context=authoritative_context(approved, **change),
+        )
+    assert invoked == []
+
+
+def test_execution_full_reauthorization_rejects_budget_drift() -> None:
+    approved = call()
+    invoked: list[bool] = []
+    ctx, handlers = authorized(approved, lambda _: invoked.append(True) or {})
+    ctx = ctx.model_copy(update={"budget": ctx.budget.model_copy(update={"consumed_calls": 4})})
+    with pytest.raises(ToolExecutionError, match="tool_budget_exceeded"):
+        execute_approved_tool(approved, ctx, handlers)
+    assert invoked == []
+
+
+def test_directly_constructed_authorization_context_is_never_trusted() -> None:
+    approved = call()
+    invoked: list[bool] = []
+    ctx, handlers = authorized(approved, lambda _: invoked.append(True) or {})
+    forged = ToolAuthorizationContext(
+        **authoritative_context(approved).model_dump(mode="python")
+    )
+    with pytest.raises(ToolExecutionError, match="tool_authorization_context_invalid"):
+        execute_approved_tool(
+            approved, ctx, handlers, authorization_context=forged
+        )
+    assert invoked == []
+
+
+def test_recovery_metadata_is_not_handler_visible_or_caller_context_forgeable() -> None:
+    assert "retry_source" not in ToolHandlerContext.model_fields
+    assert "retry_strategy" not in ToolHandlerContext.model_fields
+    assert "catalog_fingerprint" not in ToolHandlerContext.model_fields
+    approved = call()
+    ctx, handlers = authorized(approved, lambda _: {})
+    with pytest.raises(ValueError, match="tool_recovery_state_invalid"):
+        execute_approved_tool(approved, ctx, handlers, recovery_state=object())
+
+
+@pytest.mark.parametrize(
+    "tool", (ToolName.INSPECT_ACCOUNTING_CONTENT, ToolName.GENERATE_ACCOUNTING_WORKBOOK)
+)
+def test_accounting_tools_without_handler_fail_explicitly(tool: ToolName) -> None:
+    approved = call(tool, agent_id="hubu-accounting")
+    ctx = context(approved)
+    capability = authorize_trusted_handlers({ToolName.READ_APPROVED_MATERIALS: lambda _: {}})
+    ctx = ctx.model_copy(update={"capability_id": capability.capability_id})
+    with pytest.raises(ToolExecutionError, match="tool_handler_unavailable"):
+        execute_approved_tool(
+            approved, ctx, capability,
+            authorization_context=authoritative_context(approved),
+        )
 
 
 def invoke(
@@ -188,7 +356,7 @@ def fake_result(value: Any) -> Any:
     return handler
 
 
-@pytest.mark.parametrize("tool", tuple(ToolName))
+@pytest.mark.parametrize("tool", tuple(TOOL_DESCRIPTORS)[:4])
 def test_valid_success_for_each_descriptor(tool: ToolName) -> None:
     approved = call(tool)
     refs = {
@@ -300,7 +468,7 @@ def test_current_policy_mutation_is_rejected_before_effect(
     assert audits == (caught.value.audit,)
     assert caught.value.audit.audit_ref == approved.audit_ref
     assert caught.value.audit.reason_code == "tool_policy_identity_mismatch"
-    assert (caught.value.audit.max_calls, caught.value.audit.consumed_calls) == (3, 2)
+    assert (caught.value.audit.max_calls, caught.value.audit.consumed_calls) == (4, 2)
     serialized = caught.value.audit.model_dump_json()
     assert approved.tool_call_id not in serialized
     assert "SENSITIVE" not in serialized
@@ -343,7 +511,7 @@ def test_success_and_failure_audits_apply_the_same_execution_budget_transition(
         execute_approved_tool(approved, authorized_context, capability)
     failure = caught.value.audit
     for audit in (success, failure):
-        assert (audit.max_calls, audit.consumed_calls) == (3, 2)
+        assert (audit.max_calls, audit.consumed_calls) == (4, 2)
         assert (audit.max_rounds, audit.consumed_rounds) == (2, 1)
         assert audit.consumed_rows <= audit.max_rows
         assert audit.consumed_bytes <= audit.max_bytes
@@ -615,7 +783,7 @@ def test_algorithm_identity_must_match_approved_fixed_algorithm() -> None:
 
 
 def test_mapping_and_byte_truncation_keep_whole_boundaries_and_real_budget() -> None:
-    limits = {"estimated_rows": 7, "estimated_bytes": 8192}
+    limits = {"estimated_rows": 5, "estimated_bytes": 200}
     approved = call(arguments=limits, normalized_arguments=limits)
     ctx = context(approved).model_copy(update={
         "budget": ToolBudget(
@@ -731,7 +899,7 @@ def test_replaced_callable_and_fake_capability_fail_before_activity() -> None:
     assert hits == 0
 
 
-@pytest.mark.parametrize("tool", tuple(ToolName))
+@pytest.mark.parametrize("tool", tuple(TOOL_DESCRIPTORS)[:4])
 def test_real_payload_schema_rejects_nonsense_extra_and_wrong_types(tool: ToolName) -> None:
     approved = call(tool)
     invalid_data = {

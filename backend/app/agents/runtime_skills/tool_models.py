@@ -37,6 +37,21 @@ class ToolHealth(StrEnum):
     UNAVAILABLE = "unavailable"
 
 
+class ToolFailureCode(StrEnum):
+    FORMAT_UNRECOGNIZED = "format_unrecognized"
+    TOOL_UNAVAILABLE = "tool_unavailable"
+    SOURCE_NOT_FOUND = "source_not_found"
+    POLICY_DENIED = "policy_denied"
+
+
+class RetryStrategy(StrEnum):
+    CORRECT_ARGUMENTS = "correct_arguments"
+    NARROW_SCOPE = "narrow_scope"
+    CHUNK_READ = "chunk_read"
+    ALTERNATE_MODE = "alternate_mode"
+    ALTERNATE_TOOL = "alternate_tool"
+
+
 class ToolCallStatus(StrEnum):
     PROPOSED = "PROPOSED"
     VALIDATING = "VALIDATING"
@@ -100,7 +115,7 @@ class ToolDescriptor(_FrozenToolContract):
     read_only: bool
     risk_level: str
     deterministic: bool
-    max_tool_calls: int = Field(gt=0, le=4)
+    max_tool_calls: int = Field(gt=0, le=6)
     max_tool_rounds: int = Field(gt=0, le=2)
     max_result_rows: int = Field(ge=0)
     max_result_bytes: int = Field(ge=0)
@@ -187,7 +202,7 @@ class BureauToolPolicy(_FrozenToolContract):
     tool_operations: dict[ToolName, tuple[str, ...]]
     tool_argument_constraints: dict[ToolName, dict[str, Any]]
     required_data_refs: tuple[str, ...]
-    max_tool_calls: int = Field(gt=0, le=4)
+    max_tool_calls: int = Field(gt=0, le=6)
     max_tool_rounds: int = Field(gt=0, le=2)
     max_result_rows: int = Field(gt=0)
     max_result_bytes: int = Field(gt=0)
@@ -312,7 +327,7 @@ class ApprovedToolCall(_FrozenToolContract):
 
 
 class ToolBudget(_FrozenToolContract):
-    max_calls: int = Field(gt=0, le=4)
+    max_calls: int = Field(gt=0, le=6)
     consumed_calls: int = Field(ge=0)
     max_rounds: int = Field(gt=0, le=2)
     consumed_rounds: int = Field(ge=0)
@@ -346,10 +361,20 @@ class ToolAuthorizationContext(_FrozenToolContract):
     approved_evidence_refs: tuple[str, ...]
     approved_data_refs: tuple[str, ...]
     business_state: str
-    system_max_calls: int = Field(gt=0, le=4)
+    system_max_calls: int = Field(gt=0, le=6)
     system_max_rounds: int = Field(gt=0, le=2)
     system_max_result_rows: int = Field(gt=0)
     system_max_result_bytes: int = Field(gt=0)
+    decree_scopes: frozenset[str]
+    data_domains: frozenset[str]
+    allowed_side_effects: frozenset[ToolSideEffect]
+    _authorization_issuance: object | None = PrivateAttr(default=None)
+
+    @model_validator(mode="after")
+    def require_execution_permissions(self) -> ToolAuthorizationContext:
+        if not self.data_domains or not self.allowed_side_effects:
+            raise ValueError("execution_permissions_required")
+        return self
 
     _text = field_validator(
         "request_id", "case_id", "decree_id", "agent_id", "skill_id", "policy_id",
@@ -375,6 +400,7 @@ class ToolHandlerContext(_FrozenToolContract):
     budget: ToolBudget
 
     _capability = field_validator("capability_id")(_require_nonblank)
+
 
     @field_validator("resolved_approved_inputs", "restricted_adapters")
     @classmethod
@@ -480,7 +506,7 @@ class ToolAuditRecord(_FrozenToolContract):
     output_refs: tuple[str, ...]
     result_rows: int = Field(ge=0)
     result_bytes: int = Field(ge=0)
-    max_calls: int = Field(gt=0, le=4)
+    max_calls: int = Field(gt=0, le=6)
     consumed_calls: int = Field(ge=0)
     max_rounds: int = Field(gt=0, le=2)
     consumed_rounds: int = Field(ge=0)
@@ -489,6 +515,8 @@ class ToolAuditRecord(_FrozenToolContract):
     max_bytes: int = Field(gt=0)
     consumed_bytes: int = Field(ge=0)
     retry_source: str | None = None
+    retry_strategy: RetryStrategy | None = None
+    catalog_fingerprint: str | None = None
     duration_ms: int = Field(ge=0)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
@@ -513,7 +541,7 @@ class ToolAuditRecord(_FrozenToolContract):
     def reject_blank_refs(cls, value: tuple[str, ...]) -> tuple[str, ...]:
         return _reject_blank_nested(value)
 
-    @field_validator("retry_source")
+    @field_validator("retry_source", "catalog_fingerprint")
     @classmethod
     def reject_blank_retry_source(cls, value: str | None) -> str | None:
         return _require_nonblank(value) if value is not None else None

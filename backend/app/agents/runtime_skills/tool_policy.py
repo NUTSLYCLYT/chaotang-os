@@ -13,6 +13,7 @@ from app.agents.runtime_skills.tool_audit_ref import _mint_tool_audit_ref
 from app.agents.runtime_skills.tool_issuance import (
     _bureau_tool_policy_fingerprint,
     _issue_approved_tool_call,
+    _tool_authorization_context_is_issued,
     _tool_descriptor_fingerprint,
 )
 from app.agents.runtime_skills.tool_models import (
@@ -96,6 +97,12 @@ _ARGUMENT_KEYS: Mapping[ToolName, frozenset[str]] = {
             "tolerance",
             *_ESTIMATE_KEYS,
         }
+    ),
+    ToolName.INSPECT_ACCOUNTING_CONTENT: frozenset(
+        {"operation", "domain", "data_ref", "fields", *_ESTIMATE_KEYS}
+    ),
+    ToolName.GENERATE_ACCOUNTING_WORKBOOK: frozenset(
+        {"operation", "domain", "data_ref", "fields", *_ESTIMATE_KEYS}
     ),
 }
 _FACT_SLOT_KEYS = frozenset(
@@ -256,6 +263,8 @@ def _reject(
 def _authoritative_binding(
     context: ToolAuthorizationContext,
 ) -> tuple[Any, BureauToolPolicy] | None:
+    if not _tool_authorization_context_is_issued(context):
+        return None
     skill = next(
         (item for item in ALL_DOWNSTREAM_SKILLS if item.agent_id == context.agent_id), None
     )
@@ -443,6 +452,15 @@ def _arguments_valid(tool: ToolName, arguments: Mapping[str, Any]) -> bool:
                 )
             )
         )
+    if tool in {
+        ToolName.INSPECT_ACCOUNTING_CONTENT,
+        ToolName.GENERATE_ACCOUNTING_WORKBOOK,
+    }:
+        return (
+            isinstance(arguments.get("data_ref"), str)
+            and bool(arguments["data_ref"].strip())
+            and _nonblank_strings(arguments.get("fields"), maximum=50)
+        )
     return (
         _nonblank_strings(arguments.get("data_refs"), maximum=20)
         and isinstance(arguments.get("algorithm_id"), str)
@@ -507,6 +525,11 @@ def _refs_for(tool: ToolName, arguments: Mapping[str, Any]) -> tuple[tuple[str, 
         return ((arguments["data_ref"], "data"),)
     if tool is ToolName.COMPUTE_ANALYSIS:
         return tuple((ref, "data") for ref in arguments["data_refs"])
+    if tool in {
+        ToolName.INSPECT_ACCOUNTING_CONTENT,
+        ToolName.GENERATE_ACCOUNTING_WORKBOOK,
+    }:
+        return ((arguments["data_ref"], "data"),)
     return ()
 
 

@@ -9,6 +9,7 @@ import re
 import secrets
 from collections import deque
 from collections.abc import Callable, Mapping
+from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from threading import RLock
@@ -17,17 +18,24 @@ from time import monotonic_ns
 from app.agents.runtime_skills.tool_issuance import (
     _approved_call_is_issued,
     _bureau_tool_policy_fingerprint,
+    _tool_authorization_context_is_issued,
     _tool_descriptor_fingerprint,
 )
 from app.agents.runtime_skills.tool_models import (
     ApprovedToolCall,
+    RetryStrategy,
     ToolAuditRecord,
+    ToolAuthorizationContext,
+    ToolBudget,
+    ToolCallProposal,
     ToolCallStatus,
     ToolDataQuality,
     ToolHandlerContext,
+    ToolHealth,
     ToolName,
     ToolResultEnvelope,
 )
+from app.agents.runtime_skills.tool_policy import ToolPolicyError, approve_tool_call
 from app.agents.runtime_skills.tool_registry import (
     bureau_tool_policy_for,
     tool_descriptor_for,
@@ -45,7 +53,23 @@ class _ToolHandlerBinding:
     handler: ToolHandler
 
 
+@dataclass(frozen=True)
+class _RecoveryState:
+    retry_source: str
+    retry_strategy: object
+    catalog_fingerprint: str
+    source_tool: ToolName
+    source_fingerprint: str
+    target_tool: ToolName
+    target_fingerprint: str
+    seal: object
+
+
 _CAPABILITY_SEAL = object()
+_RECOVERY_SEAL = object()
+_ACTIVE_RECOVERY: ContextVar[_RecoveryState | None] = ContextVar(
+    "bureau_tool_recovery", default=None
+)
 _CAPABILITY_SIGNING_KEY = secrets.token_bytes(32)
 
 
@@ -76,6 +100,47 @@ class _AuthorizedToolHandlerSet:
     def capability_id(self) -> str:
         return self._capability_id
 
+
+def _issue_loop_recovery_state(
+    retry_source: str,
+    retry_strategy: object,
+    catalog_fingerprint: str,
+    source_tool: ToolName,
+    source_fingerprint: str,
+    target_tool: ToolName,
+    target_fingerprint: str,
+) -> _RecoveryState:
+    source = next(
+        (audit for audit in tool_audit_snapshot() if audit.audit_ref == retry_source),
+        None,
+    )
+    if (
+        source is None
+        or source.tool_name is not source_tool
+        or source.argument_hash != source_fingerprint
+        or source.reason_code not in {
+            "format_unrecognized", "source_not_found", "tool_unavailable"
+        }
+        or not isinstance(retry_strategy, RetryStrategy)
+        or re.fullmatch(r"[0-9a-f]{64}", catalog_fingerprint) is None
+        or (
+            retry_strategy is RetryStrategy.ALTERNATE_TOOL
+            and target_tool is source_tool
+        )
+        or (
+            retry_strategy is RetryStrategy.CORRECT_ARGUMENTS
+            and (
+                target_tool is not source_tool
+                or target_fingerprint == source_fingerprint
+            )
+        )
+    ):
+        raise ValueError("tool_recovery_issuance_invalid")
+    return _RecoveryState(
+        retry_source, retry_strategy, catalog_fingerprint,
+        source_tool, source_fingerprint, target_tool, target_fingerprint,
+        _RECOVERY_SEAL,
+    )
 
 def _capability_signature(
     capability_id: str, bindings: tuple[_ToolHandlerBinding, ...]
@@ -195,7 +260,16 @@ def _audit(
     output_refs: tuple[str, ...] = (),
     rows: int = 0,
     size: int = 0,
+    retry_source: str | None = None,
+    retry_strategy: object | None = None,
+    catalog_fingerprint: str | None = None,
 ) -> ToolAuditRecord:
+    recovery = _ACTIVE_RECOVERY.get()
+    _ACTIVE_RECOVERY.set(None)
+    if recovery is not None:
+        retry_source = recovery.retry_source
+        retry_strategy = recovery.retry_strategy
+        catalog_fingerprint = recovery.catalog_fingerprint
     budget = context.budget
     return ToolAuditRecord(
         audit_ref=call.audit_ref, tool_call_id=call.audit_ref, request_id=call.request_id,
@@ -214,6 +288,9 @@ def _audit(
         consumed_rows=min(budget.max_rows, budget.consumed_rows + rows),
         max_bytes=budget.max_bytes,
         consumed_bytes=min(budget.max_bytes, budget.consumed_bytes + size),
+        retry_source=retry_source,
+        retry_strategy=retry_strategy,
+        catalog_fingerprint=catalog_fingerprint,
         duration_ms=max(0, (monotonic_ns() - started_ns) // 1_000_000),
         created_at=datetime.now(UTC),
     )
@@ -280,11 +357,16 @@ def _validate_safe(value: object, depth: int = 0) -> int:
     return fields
 
 
-def _invoke(handler: ToolHandler, context: ToolHandlerContext) -> tuple[bool, object]:
+def _invoke(handler: ToolHandler, context: ToolHandlerContext) -> tuple[bool, object, str]:
     try:
-        return True, handler(context)
+        return True, handler(context), ""
+    except FileNotFoundError:
+        return False, None, "source_not_found"
+    except ValueError as exc:
+        code = str(exc)
+        return False, None, code if code == "format_unrecognized" else "tool_execution_failed"
     except Exception:
-        return False, None
+        return False, None, "tool_execution_failed"
 
 
 def _refs(raw: Mapping[str, object], name: str) -> tuple[str, ...]:
@@ -433,10 +515,21 @@ def execute_approved_tool(
     context: ToolHandlerContext,
     handlers: _AuthorizedToolHandlerSet,
     audit_sink: ToolAuditSink | None = None,
+    *,
+    health: Mapping[ToolName, ToolHealth] | None = None,
+    authorization_context: ToolAuthorizationContext | None = None,
+    recovery_state: _RecoveryState | None = None,
 ) -> ToolResultEnvelope:
     if not _approved_call_is_issued(call):
         raise ValueError("tool_call_not_issued")
     started = monotonic_ns()
+    if recovery_state is not None:
+        if (
+            not isinstance(recovery_state, _RecoveryState)
+            or recovery_state.seal is not _RECOVERY_SEAL
+        ):
+            raise ValueError("tool_recovery_state_invalid")
+        _ACTIVE_RECOVERY.set(recovery_state)
     audit_call = call if isinstance(call, ApprovedToolCall) else context.approved_call
     if not isinstance(call, ApprovedToolCall):
         raise _error(
@@ -444,6 +537,40 @@ def execute_approved_tool(
         ) from None
     if context.approved_call != call:
         raise _error(call, context, "tool_context_mismatch", started, audit_sink) from None
+    if recovery_state is not None:
+        alternate = recovery_state.retry_strategy is RetryStrategy.ALTERNATE_TOOL
+        correct = recovery_state.retry_strategy is RetryStrategy.CORRECT_ARGUMENTS
+        if (
+            call.tool_name is not recovery_state.target_tool
+            or call.argument_fingerprint != recovery_state.target_fingerprint
+            or
+            (alternate and call.tool_name is recovery_state.source_tool)
+            or (
+                correct
+                and (
+                    call.tool_name is not recovery_state.source_tool
+                    or call.argument_fingerprint == recovery_state.source_fingerprint
+                )
+            )
+        ):
+            _ACTIVE_RECOVERY.set(None)
+            raise _error(
+                call, context, "tool_recovery_action_mismatch", started, audit_sink
+            ) from None
+    if authorization_context is None:
+        raise _error(
+            call, context, "tool_authorization_context_missing", started, audit_sink
+        ) from None
+    if not _tool_authorization_context_is_issued(authorization_context):
+        raise _error(
+            call, context, "tool_authorization_context_invalid", started, audit_sink
+        ) from None
+    identity = (
+        "request_id", "case_id", "decree_id", "agent_id", "skill_id",
+        "skill_version", "policy_id", "policy_version",
+    )
+    if any(getattr(call, key) != getattr(authorization_context, key) for key in identity):
+        raise _error(call, context, "tool_authorization_drift", started, audit_sink) from None
     try:
         current_policy = bureau_tool_policy_for(call.agent_id)
     except ValueError:
@@ -475,6 +602,48 @@ def execute_approved_tool(
         raise _error(
             call, context, "tool_descriptor_identity_mismatch", started, audit_sink
         ) from None
+    current_health = (
+        descriptor.health
+        if health is None
+        else health.get(call.tool_name, ToolHealth.UNAVAILABLE)
+    )
+    if current_health is ToolHealth.UNAVAILABLE:
+        raise _error(call, context, "tool_unavailable", started, audit_sink) from None
+    if (
+        authorization_context.decree_scopes is not None
+        and not descriptor.required_scopes <= authorization_context.decree_scopes
+    ) or (
+        authorization_context.data_domains is not None
+        and (
+            not current_policy.allowed_data_domains
+            <= authorization_context.data_domains
+            or not descriptor.data_domains <= authorization_context.data_domains
+        )
+    ) or (
+        authorization_context.allowed_side_effects is not None
+        and descriptor.side_effect not in authorization_context.allowed_side_effects
+    ):
+        raise _error(call, context, "tool_authorization_drift", started, audit_sink) from None
+    proposal = ToolCallProposal(
+        tool_call_id=call.tool_call_id,
+        tool_name=call.tool_name,
+        purpose=call.purpose,
+        arguments=call.normalized_arguments,
+        required_for=call.required_for,
+        expected_result_schema=call.expected_result_schema,
+    )
+    try:
+        reauthorization_budget = context.budget.model_copy(
+            update={"consumed_rounds": max(0, context.budget.consumed_rounds - 1)}
+        )
+        approve_tool_call(
+            authorization_context,
+            proposal,
+            ToolBudget.model_validate(reauthorization_budget.model_dump()),
+            (),
+        )
+    except ToolPolicyError as exc:
+        raise _error(call, context, exc.code, started, audit_sink) from None
     descriptor_identity = (
         _tool_descriptor_fingerprint(descriptor),
         descriptor.version,
@@ -522,9 +691,9 @@ def execute_approved_tool(
         or not callable(binding.handler)
     ):
         raise _error(call, context, "tool_handler_invalid", started, audit_sink) from None
-    ok, raw_value = _invoke(binding.handler, context)
+    ok, raw_value, failure_code = _invoke(binding.handler, context)
     if not ok:
-        raise _error(call, context, "tool_execution_failed", started, audit_sink) from None
+        raise _error(call, context, failure_code, started, audit_sink) from None
     if not isinstance(raw_value, Mapping):
         raise _error(call, context, "tool_handler_invalid", started, audit_sink) from None
     raw = raw_value

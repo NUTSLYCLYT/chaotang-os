@@ -12,8 +12,11 @@ from app.agents.runtime_skills.tool_executor import (
     tool_audit_snapshot,
 )
 from app.agents.runtime_skills.tool_handlers import build_bureau_tool_handlers
+from app.agents.runtime_skills.tool_issuance import _issue_tool_authorization_context
+from app.agents.runtime_skills.tool_loop import next_strategy
 from app.agents.runtime_skills.tool_models import (
-    ToolAuthorizationContext,
+    RetryStrategy,
+    ToolFailureCode,
     ToolHandlerContext,
     ToolName,
 )
@@ -25,6 +28,7 @@ from app.agents.runtime_skills.tool_registry import (
 CASE = "case-1"
 DECREE = "decree-1"
 INPUT = f"input:case:{CASE}:decree:{DECREE}:brief"
+DATA = f"approved-data:case:{CASE}:decree:{DECREE}:rows"
 
 
 class ScriptedModel:
@@ -37,26 +41,26 @@ class ScriptedModel:
         return self.responses.pop(0)
 
 
-def _dependencies(*, max_calls: int = 4) -> dict[str, object]:
+def _dependencies(*, max_calls: int = 6) -> dict[str, object]:
     skill = next(s for s in ALL_DOWNSTREAM_SKILLS if s.agent_id == "libu-appointments")
     policy = bureau_tool_policy_for(skill.agent_id)
-    context = ToolAuthorizationContext(
+    context = _issue_tool_authorization_context(
         request_id="request-1",
         case_id=CASE,
         decree_id=DECREE,
         agent_id=skill.agent_id,
         skill_id=skill.skill_id,
         skill_version=skill.version,
-        policy_id=policy.policy_id,
-        policy_version=policy.version,
+        policy=policy,
         approved_input_refs=(INPUT,),
         approved_evidence_refs=(),
-        approved_data_refs=(),
+        approved_data_refs=(DATA,),
         business_state="ready",
         system_max_calls=max_calls,
         system_max_rounds=2,
         system_max_result_rows=200,
         system_max_result_bytes=262_144,
+        report_session_present=False,
     )
     handler_calls: list[str] = []
 
@@ -87,7 +91,7 @@ def _dependencies(*, max_calls: int = 4) -> dict[str, object]:
         "handlers": build_bureau_tool_handlers(
             material_reader=material_reader, data_reader=None, evidence_requester=None
         ),
-        "resolved_approved_inputs": {INPUT: {"title": "brief"}},
+        "resolved_approved_inputs": {INPUT: {"title": "brief"}, DATA: [{"value": 1}]},
         "handler_calls": handler_calls,
     }
 
@@ -120,7 +124,7 @@ def _run(model: ScriptedModel, **changes: object):
     from app.agents.bureaus.prompts import policy_projected_tool_descriptors
     from app.agents.runtime_skills.tool_loop import run_bureau_tool_loop
 
-    deps = _dependencies(max_calls=int(changes.pop("max_calls", 4)))
+    deps = _dependencies(max_calls=int(changes.pop("max_calls", 6)))
     deps.update(changes)
     calls = deps.pop("handler_calls")
     policy = deps["policy"]
@@ -385,3 +389,67 @@ def test_denied_and_failed_audits_match_single_consumed_loop_call() -> None:
     assert handler_calls == ["failed"]
     assert [audit.consumed_calls for audit in failed_audits] == [1]
     assert failed_audits[0].consumed_calls == failed_result.consumed_budget.consumed_calls
+
+
+def test_recovery_state_machine_uses_each_strategy_once() -> None:
+    catalog = ("inspect_accounting_content", "inspect_approved_data")
+    history: tuple[RetryStrategy, ...] = ()
+    for expected in RetryStrategy:
+        assert next_strategy(history, ToolFailureCode.FORMAT_UNRECOGNIZED, catalog) is expected
+        history = (*history, expected)
+    assert next_strategy(history, ToolFailureCode.FORMAT_UNRECOGNIZED, catalog) is None
+
+
+def test_nonrecoverable_failure_has_no_strategy() -> None:
+    assert next_strategy((), ToolFailureCode.POLICY_DENIED, ("tool",)) is None
+
+
+def test_real_failure_switches_capability_member_without_repeating_fingerprint() -> None:
+    clear_tool_audits()
+    attempts: list[str] = []
+
+    def bad_format(_: ToolHandlerContext) -> Mapping[str, object]:
+        attempts.append("read")
+        raise ValueError("format_unrecognized")
+
+    def inspect(ctx: ToolHandlerContext) -> Mapping[str, object]:
+        attempts.append("inspect")
+        return {
+            "result_schema": "approved_data_result.v1",
+            "data": {
+                "operation": "compare", "columns": ["candidate_id"],
+                "rows": [{"candidate_id": "1"}],
+            },
+            "input_refs": [], "evidence_refs": [],
+            "approved_data_refs": [DATA], "data_quality": "SUFFICIENT",
+            "limitations": [], "as_of": "2026-08-11T00:00:00Z",
+        }
+
+    handlers = build_bureau_tool_handlers(
+        material_reader=bad_format, data_reader=inspect, evidence_requester=None
+    )
+    evidence_call = {
+        "tool_call_id": "inspect-2", "tool_name": "inspect_approved_data",
+        "purpose": "use alternate capability", "arguments": {
+            "operation": "compare", "domain": "workforce.appointments", "data_ref": DATA,
+            "fields": ["workforce.appointments.candidate_id"], "operators": ["eq"],
+            "dimensions": ["workforce.appointments.grade"],
+            "metrics": ["workforce.appointments.appointment_fit"],
+            "estimated_rows": 1, "estimated_bytes": 128,
+        }, "required_for": ["appointment finding"],
+        "expected_result_schema": "approved_data_result.v1",
+    }
+    model = ScriptedModel(
+        {"status": "TOOL_CALLS", "calls": [_call("format-1")]},
+        {"status": "TOOL_CALLS", "calls": [evidence_call]},
+    )
+    result, _ = _run(model, handlers=handlers)
+    audits = tool_audit_snapshot()
+    assert attempts == ["read", "inspect"]
+    assert [item.tool_name for item in audits] == [
+        ToolName.READ_APPROVED_MATERIALS, ToolName.INSPECT_APPROVED_DATA,
+    ]
+    assert len({item.argument_hash for item in audits}) == 2
+    assert audits[1].retry_source == audits[0].audit_ref
+    assert audits[1].retry_strategy is RetryStrategy.ALTERNATE_TOOL
+    assert result.accepted_results

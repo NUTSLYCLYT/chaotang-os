@@ -10,7 +10,10 @@ import app.agents.runtime_skills.tool_audit_ref as audit_ref_module
 from app.agents.runtime_skills.tool_audit_ref import _mint_tool_audit_ref
 from app.agents.runtime_skills.tool_issuance import (
     _bureau_tool_policy_fingerprint,
+    _issue_tool_authorization_context,
+    _tool_authorization_context_is_issued,
 )
+from app.agents.runtime_skills.tool_models import ToolSideEffect
 from app.agents.runtime_skills.tool_registry import BUREAU_TOOL_POLICIES
 
 
@@ -81,3 +84,42 @@ def test_policy_fingerprint_is_canonical_and_deep_copy_stable() -> None:
     ] = True
     assert _bureau_tool_policy_fingerprint(policy) == expected
     assert _bureau_tool_policy_fingerprint(deep_copy) != expected
+
+
+def _authorization(agent_id: str, *, report_session_present: bool = False):
+    policy = BUREAU_TOOL_POLICIES[agent_id]
+    return _issue_tool_authorization_context(
+        request_id="request-1", case_id="case-1", decree_id="decree-1",
+        agent_id=agent_id,
+        skill_id=(
+            "analyze-accounting-position"
+            if agent_id == "hubu-accounting"
+            else "analyze-hr-policy"
+        ),
+        skill_version="1.0.0", policy=policy,
+        approved_input_refs=(), approved_evidence_refs=(), approved_data_refs=(),
+        business_state="ready", system_max_calls=6, system_max_rounds=2,
+        system_max_result_rows=200, system_max_result_bytes=262_144,
+        report_session_present=report_session_present,
+    )
+
+
+def test_system_context_factory_seals_all_fields_and_tampering_invalidates() -> None:
+    context = _authorization("libu-policy")
+    assert _tool_authorization_context_is_issued(context)
+    clone = context.model_copy(update={"business_state": "blocked"})
+    assert not _tool_authorization_context_is_issued(clone)
+
+
+def test_accounting_permissions_require_system_agent_and_report_session() -> None:
+    without_session = _authorization("hubu-accounting")
+    assert without_session.decree_scopes == frozenset()
+    assert without_session.allowed_side_effects == frozenset({ToolSideEffect.READ})
+    with_session = _authorization("hubu-accounting", report_session_present=True)
+    assert with_session.decree_scopes == frozenset({"finance.read", "artifact.generate"})
+    assert with_session.allowed_side_effects == frozenset(
+        {ToolSideEffect.READ, ToolSideEffect.ARTIFACT}
+    )
+    non_accounting = _authorization("libu-policy", report_session_present=True)
+    assert non_accounting.decree_scopes == frozenset()
+    assert non_accounting.allowed_side_effects == frozenset({ToolSideEffect.READ})

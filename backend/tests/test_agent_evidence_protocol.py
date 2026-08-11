@@ -42,7 +42,7 @@ from app.agents.runtime_skills.registry import build_default_downstream_skill_re
 from app.agents.runtime_skills.tool_executor import execute_approved_tool
 from app.agents.runtime_skills.tool_handlers import build_bureau_tool_handlers
 from app.agents.runtime_skills.tool_models import (
-    ToolAuthorizationContext, ToolBudget, ToolCallProposal, ToolHandlerContext,
+    ToolBudget, ToolCallProposal, ToolHandlerContext,
     ToolName,
 )
 from app.agents.runtime_skills.tool_policy import approve_tool_call
@@ -371,20 +371,24 @@ def test_bureau_evidence_tool_real_approved_end_to_end() -> None:
         "fact_slots": [{"fact_slot": "market_size", "description": "market size", "category": "PUBLIC_STATISTIC", "data_scope": "EXTERNAL_PUBLIC", "subject": "market", "time_range": {"as_of": "case"}, "freshness": {"max_age_seconds": 600}, "use": "decision"}],
         "estimated_rows": 1, "estimated_bytes": 1024,
     }
-    authorization = ToolAuthorizationContext(
+    from app.agents.runtime_skills.tool_issuance import _issue_tool_authorization_context
+    authorization = _issue_tool_authorization_context(
         request_id="request-1", case_id="case-1", decree_id="decree-1",
         agent_id=skill.agent_id, skill_id=skill.skill_id, skill_version=skill.version,
-        policy_id=policy.policy_id, policy_version=policy.version,
+        policy=policy,
         approved_input_refs=(), approved_evidence_refs=(), approved_data_refs=(),
-        business_state="ready", system_max_calls=4, system_max_rounds=2,
+        business_state="ready", system_max_calls=6, system_max_rounds=2,
         system_max_result_rows=200, system_max_result_bytes=262144,
+        report_session_present=False,
     )
     budget = ToolBudget(max_calls=4, consumed_calls=0, max_rounds=2, consumed_rounds=0, max_rows=200, consumed_rows=0, max_bytes=262144, consumed_bytes=0)
     approved = approve_tool_call(authorization, ToolCallProposal(tool_call_id="tc-e2e", tool_name=ToolName.REQUEST_EVIDENCE, purpose="bounded fact", arguments=arguments, required_for=("finding",), expected_result_schema=TOOL_DESCRIPTORS[ToolName.REQUEST_EVIDENCE].output_schema_id), budget, ())
     adapter = build_bureau_evidence_tool_adapter(session=session, node_id="bureau:libu:policy", department="吏部", matter_type="MEMORIAL", case_id="case-1", decree_id="decree-1")
     capability = build_bureau_tool_handlers(material_reader=None, data_reader=None, evidence_requester=adapter)
     context = ToolHandlerContext(approved_call=approved, capability_id=capability.capability_id, resolved_approved_inputs={}, restricted_adapters={"evidence": "protocol"}, budget=budget)  # type: ignore[attr-defined]
-    result = execute_approved_tool(approved, context, capability)
+    result = execute_approved_tool(
+        approved, context, capability, authorization_context=authorization
+    )
     assert result.data["facts"][0]["fact_key"] == "market_size"
     assert len(coordinator.calls) == 1
     assert coordinator.calls[0][0].source_scope[:2] == (SourceType.SHIGUAN, SourceType.MCP)

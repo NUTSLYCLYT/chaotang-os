@@ -10,12 +10,18 @@ from app.agents.runtime_skills.roles.bureaus.skill_registry import BUREAU_SKILL_
 from app.agents.runtime_skills.tool_models import ToolHealth, ToolName, ToolSideEffect
 from app.agents.runtime_skills.tool_registry import (
     BUREAU_TOOL_POLICIES,
+    SYSTEM_MAX_TOOL_CALLS,
     TOOL_DESCRIPTORS,
     bureau_tool_policy_for,
     tool_catalog_snapshot,
     tool_descriptor_for,
     validate_bureau_tool_registry,
 )
+
+
+def test_system_tool_call_ceiling_is_six_and_policies_may_tighten() -> None:
+    assert SYSTEM_MAX_TOOL_CALLS == 6
+    assert all(policy.max_tool_calls <= 6 for policy in BUREAU_TOOL_POLICIES.values())
 
 
 def test_exact_authoritative_descriptors() -> None:
@@ -274,7 +280,7 @@ def test_validator_rejects_descriptor_inventory_mutations(
         ("input_schema_id", "wrong.v1", "invalid_tool_descriptor_contract"),
         ("output_schema_id", "wrong.v1", "invalid_tool_descriptor_contract"),
         ("read_only", False, "invalid_tool_descriptor_contract"),
-        ("max_tool_calls", 5, "unsafe_tool_descriptor"),
+        ("max_tool_calls", 7, "unsafe_tool_descriptor"),
         ("max_tool_rounds", 3, "unsafe_tool_descriptor"),
         ("max_result_rows", 201, "unsafe_tool_descriptor"),
         ("max_result_bytes", 262_145, "unsafe_tool_descriptor"),

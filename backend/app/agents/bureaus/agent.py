@@ -292,8 +292,10 @@ def _invoke_bureau_agent_with_report_authorized(
     try:
         from app.agents.bureaus.prompts import policy_projected_tool_descriptors
         from app.agents.runtime_skills.tool_handlers import build_bureau_tool_handlers
+        from app.agents.runtime_skills.tool_issuance import (
+            _issue_tool_authorization_context,
+        )
         from app.agents.runtime_skills.tool_loop import run_bureau_tool_loop
-        from app.agents.runtime_skills.tool_models import ToolAuthorizationContext
         from app.agents.runtime_skills.tool_registry import (
             SYSTEM_MAX_RESULT_BYTES,
             SYSTEM_MAX_RESULT_ROWS,
@@ -385,15 +387,14 @@ def _invoke_bureau_agent_with_report_authorized(
             for key, value in supplied_data.items()
         }
         approved_refs = tuple(dict.fromkeys((*approved_data_refs, *canonical_data)))
-        authorization_context = ToolAuthorizationContext(
+        authorization_context = _issue_tool_authorization_context(
             request_id=f"bureau-tool-request:{operation_id}",
             case_id=case_id,
             decree_id=decree_id,
             agent_id=runtime_skill.agent_id,
             skill_id=runtime_skill.skill_id,
             skill_version=runtime_skill.version,
-            policy_id=policy.policy_id,
-            policy_version=policy.version,
+            policy=policy,
             approved_input_refs=(approved_material_ref,),
             approved_evidence_refs=(),
             approved_data_refs=approved_refs,
@@ -402,6 +403,7 @@ def _invoke_bureau_agent_with_report_authorized(
             system_max_rounds=SYSTEM_MAX_TOOL_ROUNDS,
             system_max_result_rows=SYSTEM_MAX_RESULT_ROWS,
             system_max_result_bytes=SYSTEM_MAX_RESULT_BYTES,
+            report_session_present=report_session is not None,
         )
         evidence_requester = None
         if evidence_session is not None and node_id is not None:
