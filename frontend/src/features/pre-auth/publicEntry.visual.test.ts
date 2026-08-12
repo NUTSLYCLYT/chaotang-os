@@ -73,10 +73,10 @@ test("public entry shells use the V5 palace visual language without replacing li
   assert.match(shell, /data-public-entry-shell/);
   assert.match(shell, /chaotang-os · 数字朝堂/);
   assert.match(shell, /独立朝堂 · Agent 自动办理 · v5/);
-  assert.equal(countMatches(authCss, /\/assets\/v5-pre-auth\/palace-(?:login|gate)\.png/g), 1);
+  assert.equal(countMatches(authCss, /\/assets\/v5-pre-auth\/palace-(?:login|gate)\.webp/g), 1);
   assert.match(pageRule, /min-height:\s*100svh\s*;/);
   assert.match(pageRule, /grid-template-rows:\s*72px\s+minmax\(0,\s*1fr\)\s+64px\s*;/);
-  assert.match(pageRule, /url\("\/assets\/v5-pre-auth\/palace-(?:login|gate)\.png"\)\s+center\s*\/\s*cover\s+no-repeat/);
+  assert.match(pageRule, /url\("\/assets\/v5-pre-auth\/palace-(?:login|gate)\.webp"\)\s+center\s*\/\s*cover\s+no-repeat/);
   assert.match(pageRule, /overflow-y:\s*auto\s*;/);
   assert.match(topbarRule, /min-height:\s*72px\s*;/);
   assert.match(footerRule, /min-height:\s*64px\s*;/);

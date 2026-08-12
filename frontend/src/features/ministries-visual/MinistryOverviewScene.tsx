@@ -140,7 +140,7 @@ export function MinistryOverviewScene({
     <ImmersiveCourtShell
       currentLabel="六部"
       currentPath="/liubu"
-      backgroundImage="/assets/zhuangyuan/04-zhuangyuan-liubu-manors.png"
+      backgroundImage="/assets/zhuangyuan/04-zhuangyuan-liubu-manors.webp"
       scene="liubu"
       showVeil={false}
       fullBleedContent

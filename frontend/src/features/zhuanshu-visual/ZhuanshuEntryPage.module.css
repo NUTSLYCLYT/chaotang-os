@@ -1,6 +1,6 @@
 .page { position: relative; display: grid; min-height: calc(100svh - 64px); grid-template-rows: minmax(480px, 1fr) auto; overflow: hidden; isolation: isolate; background: #04060e; color: #f5e9c9; }
 .backdrop, .backdrop::before, .backdrop::after { position: absolute; inset: 0; content: ""; }
-.backdrop { z-index: -2; background: linear-gradient(180deg, rgba(2, 4, 10, .08) 45%, #04060e 100%), url("/assets/zhuanshu/jinyiwei-hero-v3.png") center top / cover no-repeat; }
+.backdrop { z-index: -2; background: linear-gradient(180deg, rgba(2, 4, 10, .08) 45%, #04060e 100%), url("/assets/zhuanshu/jinyiwei-hero-v3.webp") center top / cover no-repeat; }
 .backdrop::before { z-index: -1; background: linear-gradient(90deg, rgba(2, 4, 10, .24), transparent 52%, rgba(2, 4, 10, .2)); }
 .backdrop::after { background: linear-gradient(180deg, transparent 48%, rgba(2, 4, 10, .82) 78%, #04060e); }
 .visualStage { min-height: clamp(480px, 62vh, 720px); }

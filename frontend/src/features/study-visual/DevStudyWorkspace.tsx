@@ -216,7 +216,7 @@ export function DevStudyWorkspace(props: DevStudyWorkspaceProps) {
   const archivedReplyId = archivedReply?.id;
   const archivedReplyRef = useRef<HTMLElement>(null);
   const showScroll = expanded || archivedReply !== null || props.uiState.phase !== "idle" || props.draftPending || props.draftError !== null || props.draftResult !== null;
-  const hasReplyContent = archivedReply !== null || props.uiState.phase === "success" || props.draftPending || props.draftError !== null || props.draftResult !== null;
+  const hasReplyContent = archivedReply !== null || props.uiState.phase === "success" || props.uiState.phase === "idle" || props.draftPending || props.draftError !== null || props.draftResult !== null;
   const artifactView = projectStudyArtifacts(props.uiState);
   const draftConfirmation = props.draftResult
     ? projectDraftConfirmation(props.draftResult)
@@ -327,61 +327,6 @@ export function DevStudyWorkspace(props: DevStudyWorkspaceProps) {
       scene="study"
     >
       <div className={styles.stage}>
-        <section
-          className={styles.dailyMemorialCard}
-          aria-labelledby="daily-memorial-title"
-          data-phase={props.dailyMemorialState.phase}
-        >
-          <header className={styles.dailyMemorialHeader}>
-            <div>
-              <p className={styles.dailyMemorialEyebrow}>39司 → 6部 → 丞相</p>
-              <h2 id="daily-memorial-title">每日奏折</h2>
-            </div>
-            <span className={styles.dailyMemorialSeal}>
-              {dailyMemorialPhaseLabel(props.dailyMemorialState.phase)}
-            </span>
-          </header>
-          <p className={styles.dailyMemorialStatus} aria-live="polite">
-            {props.dailyMemorialState.message}
-          </p>
-          {(props.dailyMemorialState.phase === "ready" ||
-            props.dailyMemorialState.phase === "confirming" ||
-            props.dailyMemorialState.phase === "confirmed") &&
-            props.dailyMemorialState.draft && (
-            <div className={styles.dailyMemorialBody}>
-              <dl className={styles.dailyMemorialMeta}>
-                <div><dt>报告日期</dt><dd>{props.dailyMemorialState.draft.reportDate}</dd></div>
-                <div><dt>事实截止</dt><dd>{formatBusinessTime(props.dailyMemorialState.draft.sourceWindowEnd)}</dd></div>
-              </dl>
-              <p className={styles.dailyMemorialProgress}>
-                <span>39/39 司</span><i aria-hidden="true">→</i><span>6/6 部</span><i aria-hidden="true">→</i><span>丞相汇总</span>
-              </p>
-              <div className={styles.dailyMemorialContent}>
-                {props.dailyMemorialState.draft.content}
-              </div>
-              <p className={styles.dailyMemorialFacts}>
-                事实引用 {props.dailyMemorialState.draft.factRefs.length} 条
-              </p>
-              <button
-                type="button"
-                className={styles.dailyMemorialConfirm}
-                onClick={props.onConfirmDailyMemorial}
-                disabled={!canConfirmDailyMemorial(props.dailyMemorialState)}
-              >
-                确认上奏并归档为奏折
-              </button>
-            </div>
-          )}
-          {props.dailyMemorialState.phase === "no_facts" && (
-            <p className={styles.dailyMemorialNotice}>报告期内没有可用的受控事实，因此没有生成待审草稿。</p>
-          )}
-          {(props.dailyMemorialState.phase === "failed" ||
-            props.dailyMemorialState.phase === "error") && (
-            <button type="button" className={styles.dailyMemorialRetry} onClick={props.onRetryDailyMemorial}>
-              重新读取状态
-            </button>
-          )}
-        </section>
         <button
           className={styles.scrollToggle}
           type="button"
@@ -406,11 +351,11 @@ export function DevStudyWorkspace(props: DevStudyWorkspaceProps) {
               : styles.collapsedSlot
           }`}
         >
-          {!showScroll ? (
+          {!showScroll && props.uiState.phase !== "idle" ? (
             <CollapsedEdictScroll
-              title="今日圣旨"
-              status="待裁决"
-              source={polished ? "已润色" : "未润色"}
+              title="每日奏折"
+              status={dailyMemorialPhaseLabel(props.dailyMemorialState.phase)}
+              source="39司 · 6部 · 丞相"
               countLabel={getStudyDepartmentCountLabel(props.uiState)}
               onOpen={() => setExpanded(true)}
             />
@@ -552,6 +497,36 @@ export function DevStudyWorkspace(props: DevStudyWorkspaceProps) {
                     <StudyArtifactConfirmation key={artifact.artifactId} artifactId={artifact.artifactId} />
                   ))}
                 </div>
+              </section>
+            </EdictStage>
+          ) : (props.uiState.phase as string) === "idle" ? (
+            <EdictStage
+              document={{
+                id: "daily-memorial",
+                kicker: "39司 → 6部 → 丞相",
+                title: "每日奏折",
+                issuer: dailyMemorialPhaseLabel(props.dailyMemorialState.phase),
+              }}
+              theme="imperial"
+              bodyLabel="每日奏折摘要"
+            >
+              <section className={styles.dailyMemorialBody} data-phase={props.dailyMemorialState.phase}>
+                <h2 id="daily-memorial-title">每日奏折</h2>
+                <p className={styles.dailyMemorialStatus} aria-live="polite">{props.dailyMemorialState.message}</p>
+                {(props.dailyMemorialState.phase === "ready" || props.dailyMemorialState.phase === "confirming" || props.dailyMemorialState.phase === "confirmed") && props.dailyMemorialState.draft && (
+                  <>
+                    <dl className={styles.dailyMemorialMeta}>
+                      <div><dt>报告日期</dt><dd>{props.dailyMemorialState.draft.reportDate}</dd></div>
+                      <div><dt>事实截止</dt><dd>{formatBusinessTime(props.dailyMemorialState.draft.sourceWindowEnd)}</dd></div>
+                    </dl>
+                    <p className={styles.dailyMemorialProgress}><span>39/39 司</span><i aria-hidden="true">→</i><span>6/6 部</span><i aria-hidden="true">→</i><span>丞相汇总</span></p>
+                    <div className={styles.dailyMemorialContent}>{props.dailyMemorialState.draft.content}</div>
+                    <p className={styles.dailyMemorialFacts}>事实引用 {props.dailyMemorialState.draft.factRefs.length} 条</p>
+                    <button type="button" className={styles.dailyMemorialConfirm} onClick={props.onConfirmDailyMemorial} disabled={!canConfirmDailyMemorial(props.dailyMemorialState)}>确认上奏并归档为奏折</button>
+                  </>
+                )}
+                {props.dailyMemorialState.phase === "no_facts" && <p className={styles.dailyMemorialNotice}>报告期内没有可用的受控事实，因此没有生成待审草稿。</p>}
+                {(props.dailyMemorialState.phase === "failed" || props.dailyMemorialState.phase === "error") && <button type="button" className={styles.dailyMemorialRetry} onClick={props.onRetryDailyMemorial}>重新读取状态</button>}
               </section>
             </EdictStage>
           ) : (

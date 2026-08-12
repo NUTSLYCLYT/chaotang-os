@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import styles from "./ZhuanshuEntryPage.module.css";
 
-const HERO_IMAGE = "/assets/zhuanshu/jinyiwei-hero-v3.png";
+const HERO_IMAGE = "/assets/zhuanshu/jinyiwei-hero-v3.webp";
 
 export function ZhuanshuEntryPage({ variant }: { variant: "zhuanshu" }) {
   return (

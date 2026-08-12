@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import type { ReactElement } from "react";
 
@@ -26,8 +27,7 @@ export function CourtQuickDock({
     >
       <Link href="/study" className={styles.adviser}>
         <span className={styles.portrait} aria-hidden="true">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/shangshufang/portrait-chancellor.webp" alt="" />
+          <Image src="/shangshufang/portrait-chancellor.webp" alt="" width={124} height={222} />
           <span className={styles.portraitIcon}>议</span>
         </span>
         <span>
@@ -47,8 +47,7 @@ export function CourtQuickDock({
           <small>先看时机与风险</small>
         </span>
         <span className={styles.portrait} aria-hidden="true">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/shangshufang/portrait-wang.webp" alt="" />
+          <Image src="/shangshufang/portrait-wang.webp" alt="" width={118} height={220} />
           <span className={`${styles.portraitIcon} ${styles.qintianIcon}`}>象</span>
         </span>
       </Link>

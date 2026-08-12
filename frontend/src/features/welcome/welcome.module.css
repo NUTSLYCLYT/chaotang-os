@@ -27,13 +27,21 @@
 }
 
 .closed {
-  background-image: url("/assets/v5-pre-auth/welcome-gate-closed.png");
+  background-image: url("/assets/v5-pre-auth/welcome-gate-closed.webp");
 }
 
 .backgroundVideo {
   object-fit: cover;
   object-position: center;
   pointer-events: none;
+}
+
+.videoPreloading {
+  visibility: hidden;
+}
+
+.videoVisible {
+  visibility: visible;
 }
 
 .header,
@@ -114,10 +122,6 @@
   cursor: pointer;
   font: 600 1.08rem/1 Georgia, "Noto Serif SC", serif;
   letter-spacing: 0.22em;
-}
-
-.attend:disabled {
-  cursor: default;
 }
 
 .login {

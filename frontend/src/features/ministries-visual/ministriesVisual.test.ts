@@ -73,7 +73,7 @@ test("overview renders six manor plaques with hover-only reply details on one sh
   const css = await read("./ministries.module.css");
   assert.doesNotMatch(source, /ResizeObserver|useLayoutEffect|viewportRef|canvasViewport|canvasImage|canvas-scale/);
   assert.match(source, /const MINISTRY_BOXES/);
-  assert.match(source, /04-zhuangyuan-liubu-manors\.png/);
+  assert.match(source, /04-zhuangyuan-liubu-manors\.webp/);
   assert.match(source, /personnel:\s*\{\s*left:\s*158,\s*top:\s*128,\s*width:\s*365,\s*height:\s*135\s*\}/);
   assert.match(source, /ops:\s*\{\s*left:\s*95,\s*top:\s*287,\s*width:\s*430,\s*height:\s*142\s*\}/);
   assert.match(source, /gongbu:\s*\{\s*left:\s*34,\s*top:\s*477,\s*width:\s*480,\s*height:\s*186\s*\}/);

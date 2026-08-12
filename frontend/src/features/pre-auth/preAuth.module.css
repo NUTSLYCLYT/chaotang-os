@@ -10,7 +10,7 @@
   background:
     linear-gradient(90deg, rgba(8, 7, 5, .82), rgba(8, 7, 5, .36) 54%, rgba(8, 7, 5, .68)),
     linear-gradient(180deg, rgba(8, 7, 5, .18), rgba(8, 7, 5, .76)),
-    url("/assets/v5-pre-auth/palace-login.png") center / cover no-repeat,
+    url("/assets/v5-pre-auth/palace-login.webp") center / cover no-repeat,
     #090806;
 }
 

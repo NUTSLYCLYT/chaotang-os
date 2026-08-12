@@ -37,13 +37,16 @@ test("dev study workspace renders distinct async decree progress without droppin
   assert.match(source, /<h2 id="daily-memorial-title">每日奏折<\/h2>/);
 });
 
-test("daily memorial card exposes truthful status and explicit accessible confirmation", async () => {
+test("daily memorial uses the sole main scroll with truthful status and confirmation", async () => {
   const [source, css] = await Promise.all([
     readFile(new URL("./DevStudyWorkspace.tsx", import.meta.url), "utf8"),
     readFile(new URL("./DevStudyWorkspace.module.css", import.meta.url), "utf8"),
   ]);
   assert.match(source, /dailyMemorialState: DailyMemorialUiState/);
-  assert.match(source, /aria-labelledby="daily-memorial-title"/);
+  assert.equal((source.match(/<EdictStage/g) ?? []).length, 4);
+  assert.doesNotMatch(source, /styles\.dailyMemorialCard/);
+  assert.match(source, /title: "每日奏折"/);
+  assert.match(source, /bodyLabel="每日奏折摘要"/);
   assert.match(source, /<h2 id="daily-memorial-title">每日奏折<\/h2>/);
   assert.match(source, /aria-live="polite"/);
   assert.match(source, /39\/39 司/);
@@ -53,7 +56,6 @@ test("daily memorial card exposes truthful status and explicit accessible confir
   assert.match(source, /phase === "no_facts"[\s\S]*?没有可用的受控事实/);
   assert.match(source, /phase === "failed"[\s\S]*?onRetryDailyMemorial/);
   assert.doesNotMatch(source, /REPLY|回奏已生成|圣旨已下|已批准|已执行/);
-  assert.match(css, /\.dailyMemorialCard\s*\{[\s\S]*?min-width:\s*0/);
   assert.match(css, /\.dailyMemorialConfirm:focus-visible/);
 });
 
@@ -364,10 +366,10 @@ test("dev study CSS owns the responsive parent slot instead of redrawing the scr
     css,
     /\.expandedSlot\s*\{[\s\S]*?height:\s*clamp\(420px,\s*calc\(100dvh - 260px\),\s*660px\)/,
   );
-  assert.match(css, /\.collapsedSlot\s*\{[\s\S]*?margin-top:\s*52px/);
+  assert.match(css, /\.collapsedSlot\s*\{[\s\S]*?margin-top:\s*12px/);
   assert.match(
     css,
-    /@media \(max-width: 700px\)\s*\{[\s\S]*?\.edictSlot\s*\{[\s\S]*?max-width:\s*100%[\s\S]*?padding-inline:\s*0[\s\S]*?\.collapsedSlot\s*\{[\s\S]*?margin-top:\s*377px/,
+    /@media \(max-width: 700px\)\s*\{[\s\S]*?\.edictSlot\s*\{[\s\S]*?max-width:\s*100%[\s\S]*?padding-inline:\s*0[\s\S]*?\.collapsedSlot\s*\{[\s\S]*?margin-top:\s*12px/,
   );
   assert.match(
     css,

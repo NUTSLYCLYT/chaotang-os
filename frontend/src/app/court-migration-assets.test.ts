@@ -11,10 +11,10 @@ async function readSource(path: string): Promise<string> {
 test("court migration keeps valid image assets wired to their actual consumers", async () => {
   const assets = [
     {
-      file: "../../public/assets/zhuangyuan/04-zhuangyuan-liubu-manors.png",
-      publicPath: "/assets/zhuangyuan/04-zhuangyuan-liubu-manors.png",
+      file: "../../public/assets/zhuangyuan/04-zhuangyuan-liubu-manors.webp",
+      publicPath: "/assets/zhuangyuan/04-zhuangyuan-liubu-manors.webp",
       consumer: "../features/ministries-visual/MinistryOverviewScene.tsx",
-      format: "png",
+      format: "webp",
     },
     {
       file: "../../public/shangshufang/portrait-chancellor.webp",
@@ -38,18 +38,10 @@ test("court migration keeps valid image assets wired to their actual consumers",
       readSource(asset.consumer),
     ]);
     assert.ok(metadata.isFile(), `${asset.file} must remain a file`);
-    if (asset.format === "png") {
-      assert.ok(metadata.size >= 8, `${asset.file} must contain a PNG signature`);
-      assert.deepEqual(
-        bytes.subarray(0, 8),
-        Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
-      );
-    } else {
-      assert.ok(metadata.size >= 12, `${asset.file} must contain a WebP header`);
-      assert.equal(bytes.subarray(0, 4).toString("ascii"), "RIFF");
-      assert.equal(bytes.subarray(8, 12).toString("ascii"), "WEBP");
-      assert.equal(bytes.readUInt32LE(4) + 8, metadata.size);
-    }
+    assert.ok(metadata.size >= 12, `${asset.file} must contain a WebP header`);
+    assert.equal(bytes.subarray(0, 4).toString("ascii"), "RIFF");
+    assert.equal(bytes.subarray(8, 12).toString("ascii"), "WEBP");
+    assert.equal(bytes.readUInt32LE(4) + 8, metadata.size);
     assert.ok(
       consumer.includes(asset.publicPath),
       `${asset.consumer} must consume ${asset.publicPath}`,
@@ -97,6 +89,12 @@ test("shared court shell and migrated workspaces import the quick dock and edict
     assert.match(source, /court-visuals\/edict\/EdictStage/);
     assert.match(source, /<EdictStage\b/);
   }
+});
+
+test("court quick dock renders portraits through Next Image", async () => {
+  const quickDock = await readSource("../features/court-visuals/CourtQuickDock.tsx");
+  assert.match(quickDock, /import Image from ["']next\/image["']/);
+  assert.doesNotMatch(quickDock, /<img\b/);
 });
 
 test("legacy department demo files stay deleted", async () => {

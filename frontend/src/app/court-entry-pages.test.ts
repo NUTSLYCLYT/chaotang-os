@@ -90,7 +90,7 @@ test("Zhuanshu restores the dev entry into the protected Jinyiwei desk", async (
   assert.match(entry, /href="\/zhuanshu\/jinyiwei"/);
   assert.match(entry, /专署/);
   assert.match(entry, /锦衣卫/);
-  assert.match(entry, /assets\/zhuanshu\/jinyiwei-hero-v3\.png/);
+  assert.match(entry, /assets\/zhuanshu\/jinyiwei-hero-v3\.webp/);
   assert.match(entry, /太医院/);
   assert.match(entry, /钦天监/);
   assert.match(entry, /aria-hidden/);
@@ -120,7 +120,7 @@ test("Jinyiwei uses a guarded scroll desk with an atmospheric guard background",
   assert.doesNotMatch(desk, /const CASE_FILES/);
   assert.match(desk, /只读案卷/);
   assert.doesNotMatch(desk, /method\s*:\s*["'](?:POST|PATCH|PUT|DELETE)/);
-  assert.match(stylesheet, /assets\/jinyiwei\/audit-hall\.png/);
+  assert.match(stylesheet, /assets\/jinyiwei\/audit-hall\.webp/);
   assert.match(stylesheet, /grid-template-columns/);
   assert.match(stylesheet, /\.index\s*\{[\s\S]*?max-height:/);
   assert.match(stylesheet, /\.caseList\s*\{[\s\S]*?overflow-y:\s*auto/);

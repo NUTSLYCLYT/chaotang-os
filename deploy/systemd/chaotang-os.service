@@ -1,0 +1,17 @@
+[Unit]
+Description=chaotang-os containers
+Requires=docker.service
+After=docker.service network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/chaotang-os/current
+EnvironmentFile=/opt/chaotang-os/current/images.env
+ExecStart=/usr/bin/docker compose --env-file /opt/chaotang-os/current/images.env -f /opt/chaotang-os/current/deploy/compose.yaml up -d --wait
+ExecStop=/usr/bin/docker compose --env-file /opt/chaotang-os/current/images.env -f /opt/chaotang-os/current/deploy/compose.yaml down
+TimeoutStartSec=300
+TimeoutStopSec=120
+
+[Install]
+WantedBy=multi-user.target

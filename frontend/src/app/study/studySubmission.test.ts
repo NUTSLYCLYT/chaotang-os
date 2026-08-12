@@ -310,7 +310,6 @@ test("malformed legacy failure uses unknown fallback rather than model", async (
   });
   assert.deepEqual(state, { phase: "error", message: "发生未知错误，请稍后重试。" });
 });
-
 test("polling retries bounded transient status failures and preserves sequencing", async () => {
   const jobId = "e".repeat(32);
   const waits: number[] = [];
