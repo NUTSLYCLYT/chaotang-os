@@ -13,7 +13,7 @@ from app.agents.runtime_skills.tool_executor import (
 )
 from app.agents.runtime_skills.tool_handlers import build_bureau_tool_handlers
 from app.agents.runtime_skills.tool_issuance import _issue_tool_authorization_context
-from app.agents.runtime_skills.tool_loop import next_strategy
+from app.agents.runtime_skills.tool_loop import _next_terminal_failure, next_strategy
 from app.agents.runtime_skills.tool_models import (
     RetryStrategy,
     ToolFailureCode,
@@ -402,6 +402,41 @@ def test_recovery_state_machine_uses_each_strategy_once() -> None:
 
 def test_nonrecoverable_failure_has_no_strategy() -> None:
     assert next_strategy((), ToolFailureCode.POLICY_DENIED, ("tool",)) is None
+
+
+def test_failed_loop_exposes_its_terminal_required_tool_failure() -> None:
+    def missing(_: ToolHandlerContext) -> Mapping[str, object]:
+        raise FileNotFoundError
+
+    result, _ = _run(
+        ScriptedModel({"status": "TOOL_CALLS", "calls": [_call("missing")]}, _final()),
+        handlers=build_bureau_tool_handlers(
+            material_reader=missing, data_reader=None, evidence_requester=None
+        ),
+    )
+
+    assert result.terminal_failure_code is ToolFailureCode.SOURCE_NOT_FOUND
+    assert result.final_synthesis == {"summary": "done"}
+
+
+@pytest.mark.parametrize(
+    ("sequence", "expected"),
+    [
+        (
+            (ToolFailureCode.FORMAT_UNRECOGNIZED, ToolFailureCode.TOOL_UNAVAILABLE),
+            ToolFailureCode.TOOL_UNAVAILABLE,
+        ),
+        (
+            (ToolFailureCode.FORMAT_UNRECOGNIZED, ToolFailureCode.SOURCE_NOT_FOUND),
+            ToolFailureCode.SOURCE_NOT_FOUND,
+        ),
+    ],
+)
+def test_mixed_recovery_sequence_uses_actual_terminal_failure(sequence, expected) -> None:
+    terminal = None
+    for failure in sequence:
+        terminal = _next_terminal_failure(terminal, failure)
+    assert terminal is expected
 
 
 def test_real_failure_switches_capability_member_without_repeating_fingerprint() -> None:

@@ -25,9 +25,12 @@ def get_decree_job_store() -> DecreeJobStore:
 JobStore = Annotated[DecreeJobStore, Depends(get_decree_job_store)]
 
 
-ErrorStage = Literal["queue", "execution", "side_effect"]
+ErrorStage = Literal[
+    "queue", "execution", "side_effect", "bureau_tool", "validation", "model", "artifact"
+]
 ErrorCategory = Literal[
-    "cancelled", "deadline", "budget", "provider", "retry", "internal"
+    "cancelled", "deadline", "budget", "provider", "retry", "internal",
+    "format", "tool", "data", "validation", "model", "artifact",
 ]
 PublicErrorCode = Literal[
     "cancelled",
@@ -35,6 +38,13 @@ PublicErrorCode = Literal[
     "provider_budget_exceeded",
     "provider_failed",
     "retry_exhausted",
+    "accounting_source_unavailable",
+    "format_unrecognized",
+    "tool_unavailable",
+    "source_not_found",
+    "validation_failed",
+    "model_failed",
+    "artifact_failed",
     "job_failed",
 ]
 
@@ -76,7 +86,20 @@ def _public_state(state: DecreeJobState) -> PublicJobState:
 
 
 def _safe_error_stage(job: DecreeJob) -> ErrorStage:
-    if job.error_stage in {"queue", "execution", "side_effect"}:
+    stable_stages: dict[str, ErrorStage] = {
+        "format_unrecognized": "bureau_tool",
+        "tool_unavailable": "bureau_tool",
+        "source_not_found": "bureau_tool",
+        "validation_failed": "validation",
+        "model_failed": "model",
+        "artifact_failed": "artifact",
+        "accounting_source_unavailable": "bureau_tool",
+    }
+    if job.error_code in stable_stages:
+        return stable_stages[job.error_code]
+    if job.error_stage in {
+        "queue", "execution", "side_effect", "bureau_tool", "validation", "model", "artifact"
+    }:
         return job.error_stage  # type: ignore[return-value]
     if job.error_stage is not None:
         raise ValueError("invalid job error stage")
@@ -92,16 +115,36 @@ def _safe_error_code(job: DecreeJob) -> PublicErrorCode:
         "deadline_exceeded",
         "provider_budget_exceeded",
         "retry_exhausted",
+        "accounting_source_unavailable",
+        "format_unrecognized",
+        "tool_unavailable",
+        "source_not_found",
+        "validation_failed",
+        "model_failed",
+        "artifact_failed",
     }:
         return code  # type: ignore[return-value]
     if code in {"provider_timeout", "provider_failed"}:
         return "provider_failed"
+    if code == "model_output_invalid":
+        return "retry_exhausted"
     return "job_failed"
 
 
 def _safe_error_category(
     job: DecreeJob, public_code: PublicErrorCode
 ) -> ErrorCategory:
+    stable_categories: dict[str, ErrorCategory] = {
+        "format_unrecognized": "format",
+        "tool_unavailable": "tool",
+        "source_not_found": "data",
+        "validation_failed": "validation",
+        "model_failed": "model",
+        "artifact_failed": "artifact",
+        "accounting_source_unavailable": "data",
+    }
+    if public_code in stable_categories:
+        return stable_categories[public_code]
     if job.error_category not in {
         "cancelled",
         "deadline",
@@ -109,6 +152,12 @@ def _safe_error_category(
         "provider",
         "retry",
         "internal",
+        "format",
+        "tool",
+        "data",
+        "validation",
+        "model",
+        "artifact",
         None,
     }:
         raise ValueError("invalid job error category")

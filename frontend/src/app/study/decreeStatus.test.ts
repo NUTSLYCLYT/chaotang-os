@@ -6,12 +6,47 @@ import {
   SUBMITTING_UI_STATE,
   getDecreeFormAvailability,
   mapSubmitDecreeResultToUiState,
+  mapDecreeJobFailure,
   parseChancellorSuccessResponse,
   resolveOwnerScopedDecreeUiState,
   type DecreeErrorKind,
   type DecreeUiState,
   type OwnerScopedDecreeUiState,
 } from "./decreeStatus.ts";
+
+test("async failures are mapped by truthful stable category", () => {
+  assert.deepEqual(
+    mapDecreeJobFailure({
+      errorStage: "bureau_tool",
+      errorCategory: "format",
+      errorCode: "format_unrecognized",
+    }),
+    {
+      phase: "error",
+      message: "会计司未能识别现有数据格式，已尝试替代读取策略。",
+    },
+  );
+  const artifactFailure = mapDecreeJobFailure({
+    errorStage: "artifact",
+    errorCategory: "artifact",
+    errorCode: "artifact_failed",
+  });
+  assert.equal(artifactFailure.phase, "error");
+  if (artifactFailure.phase === "error") {
+    assert.match(artifactFailure.message, /Excel/);
+  }
+});
+
+test("legacy unknown async failure keeps the generic fallback", () => {
+  assert.deepEqual(
+    mapDecreeJobFailure({
+      errorStage: "private-stage",
+      errorCategory: "private-category",
+      errorCode: "C:/private/raw-mcp-body",
+    }),
+    { phase: "error", message: "发生未知错误，请稍后重试。" },
+  );
+});
 
 test("IDLE_UI_STATE / SUBMITTING_UI_STATE：常量阶段字面量正确", () => {
   assert.deepEqual(IDLE_UI_STATE, { phase: "idle" });

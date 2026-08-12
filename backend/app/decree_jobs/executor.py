@@ -15,7 +15,9 @@ from app.agents.chancellor_draft.authority import (
 )
 from app.agents.chancellor_draft.routing import ApprovedRouteSnapshot
 from app.agents.evidence_protocol import AgentEvidenceSnapshot
+from app.agents.synthesis_failures import classify_synthesis_failure
 from app.api.decrees import (
+    AccountingReportPublicationError,
     ChancellorDecreeRequest,
     DeliveryKind,
     PreparedDecreeExecution,
@@ -138,6 +140,10 @@ def publish_prepared_decree(job: DecreeJob) -> str:
     authority = _decode_authority(job.approved_route_json)
     accounting = authority.accounting_context
     response = prepared.response
+    if response.status == "blocked":
+        if prepared.generated_artifact_id is not None or response.artifacts:
+            raise PermanentJobError("result_checkpoint_invalid")
+        return response.model_dump_json()
     if accounting is None:
         return response.model_dump_json()
     if job.reply_id != job.job_id:
@@ -184,8 +190,39 @@ def publish_prepared_decree(job: DecreeJob) -> str:
 def _raise_provider_failure(
     error: ChancellorGraphInvocationError,
 ) -> None:
+    from app.agents.runtime_skills.tool_failures import AccountingToolChainError
+
+    current: BaseException | None = error
+    seen: set[int] = set()
+    for _ in range(8):
+        if current is None or id(current) in seen:
+            break
+        seen.add(id(current))
+        if isinstance(current, AccountingToolChainError):
+            categories = {
+                "format_unrecognized": "format",
+                "tool_unavailable": "tool",
+                "source_not_found": "data",
+            }
+            raise PermanentJobError(
+                current.code,
+                stage="bureau_tool",
+                category=categories[current.code],
+            ) from error
+        current = current.__cause__
     stage, category, _provider_status, _retry_count = _model_failure_metadata(error)
     if stage != "provider_request":
+        if classify_synthesis_failure(error) in {
+            "schema_invalid",
+            "content_unsupported",
+        }:
+            # Structured stages already perform their governed, bounded local
+            # correction attempts.  Re-running the whole decree would repeat
+            # completed upstream nodes and consume the same frozen transport
+            # budget without a safe checkpoint to resume from.
+            raise PermanentJobError(
+                "validation_failed", stage="validation", category="validation"
+            ) from error
         raise PermanentJobError("execution_failed") from error
     if category == "budget_exhausted":
         raise PermanentJobError("provider_budget_exceeded") from error
@@ -195,7 +232,25 @@ def _raise_provider_failure(
         raise TransientJobError("provider_failed") from error
     if category == "provider_client":
         raise PermanentJobError("provider_failed") from error
-    raise PermanentJobError("execution_failed") from error
+    raise PermanentJobError(
+        "model_failed", stage="model", category="model"
+    ) from error
+
+
+def _raise_accounting_failure(error: AccountingReportPublicationError) -> None:
+    code = str(error).split(maxsplit=1)[0]
+    if code in {
+        "publication_failed",
+        "publication_identity_invalid",
+        "reply_archive_failed",
+        "reply_archive_required",
+    }:
+        raise PermanentJobError(
+            "artifact_failed", stage="artifact", category="artifact"
+        ) from error
+    raise PermanentJobError(
+        "validation_failed", stage="validation", category="validation"
+    ) from error
 
 
 class PersistentDecreeJobExecutor:
@@ -203,12 +258,6 @@ class PersistentDecreeJobExecutor:
 
     def execute(self, job: DecreeJob, control: DecreeJobControl) -> str:
         authority = _decode_authority(job.approved_route_json)
-        if authority.accounting_context is not None:
-            build_accounting_report_session(
-                owner_user_id=job.owner_user_id,
-                run_id=job.job_id,
-                accounting_context=authority.accounting_context,
-            ).abort()
         budget = _PersistentBudget(job, control)
         payload = ChancellorDecreeRequest(
             decree_text=job.decree_text,
@@ -227,6 +276,8 @@ class PersistentDecreeJobExecutor:
                 )
             except ChancellorGraphInvocationError as exc:
                 _raise_provider_failure(exc)
+            except AccountingReportPublicationError as exc:
+                _raise_accounting_failure(exc)
             except (ProviderBudgetExceeded, ProviderRequestLimitExceeded) as exc:
                 raise PermanentJobError("provider_budget_exceeded") from exc
         return response.model_dump_json()

@@ -26,15 +26,23 @@ class JobDeadlineExceeded(JobControlAbort):
 
 
 class TransientJobError(RuntimeError):
-    def __init__(self, code: str) -> None:
+    def __init__(
+        self, code: str, *, stage: str = "execution", category: str | None = None
+    ) -> None:
         super().__init__(code)
         self.code = code
+        self.stage = stage
+        self.category = category or _failure_category(code)
 
 
 class PermanentJobError(RuntimeError):
-    def __init__(self, code: str) -> None:
+    def __init__(
+        self, code: str, *, stage: str = "execution", category: str | None = None
+    ) -> None:
         super().__init__(code)
         self.code = code
+        self.stage = stage
+        self.category = category or _failure_category(code)
 
 
 def _failure_category(code: str) -> str:
@@ -45,6 +53,8 @@ def _failure_category(code: str) -> str:
     if code.startswith("provider_"):
         return "provider"
     if code == "retry_exhausted":
+        return "retry"
+    if code == "model_output_invalid":
         return "retry"
     return "internal"
 
@@ -219,7 +229,8 @@ class DecreeJobWorker:
                     job.job_id,
                     self.worker_id,
                     error_code=exc.code,
-                    error_category=_failure_category(exc.code),
+                    error_stage=exc.stage,
+                    error_category=exc.category,
                     transient=True,
                     retry_at=self.clock()
                     + timedelta(seconds=self.retry_delay_seconds),
@@ -230,7 +241,8 @@ class DecreeJobWorker:
                     job.job_id,
                     self.worker_id,
                     error_code=exc.code,
-                    error_category=_failure_category(exc.code),
+                    error_stage=exc.stage,
+                    error_category=exc.category,
                     transient=True,
                     now=self.clock(),
                 )
@@ -241,7 +253,8 @@ class DecreeJobWorker:
                     job.job_id,
                     self.worker_id,
                     error_code=exc.code,
-                    error_category=_failure_category(exc.code),
+                    error_stage=exc.stage,
+                    error_category=exc.category,
                     transient=False,
                     retry_at=self.clock(),
                     now=self.clock(),
@@ -251,7 +264,8 @@ class DecreeJobWorker:
                     job.job_id,
                     self.worker_id,
                     error_code=exc.code,
-                    error_category=_failure_category(exc.code),
+                    error_stage=exc.stage,
+                    error_category=exc.category,
                     transient=False,
                     now=self.clock(),
                 )
@@ -296,6 +310,9 @@ class DecreeJobWorker:
             daemon=True,
         )
         self._thread.start()
+
+    def is_alive(self) -> bool:
+        return self._thread is not None and self._thread.is_alive()
 
     def stop(self, timeout: float = 5) -> None:
         self._stop.set()

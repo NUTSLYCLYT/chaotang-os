@@ -364,7 +364,11 @@ def _invoke(handler: ToolHandler, context: ToolHandlerContext) -> tuple[bool, ob
         return False, None, "source_not_found"
     except ValueError as exc:
         code = str(exc)
-        return False, None, code if code == "format_unrecognized" else "tool_execution_failed"
+        return False, None, (
+            code
+            if code in {"format_unrecognized", "tool_unavailable"}
+            else "tool_execution_failed"
+        )
     except Exception:
         return False, None, "tool_execution_failed"
 

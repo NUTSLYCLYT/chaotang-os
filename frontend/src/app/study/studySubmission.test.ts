@@ -228,6 +228,89 @@ test("202 acceptance is polled sequentially through success", async () => {
   assert.equal(requests.length, 4);
 });
 
+test("accounting source blocker shows the missing input and next step", async () => {
+  const jobId = "b".repeat(32);
+  const states = [
+    Response.json({ jobId, state: "QUEUED", statusUrl: `/api/decree-jobs/${jobId}`, cancelUrl: `/api/decree-jobs/${jobId}/cancel`, acceptedAt: "2026-08-07T00:00:00Z", replayed: false }, { status: 202 }),
+    Response.json({
+      jobId,
+      state: "SUCCEEDED",
+      stage: "SUCCEEDED",
+      attemptCount: 1,
+      providerRequestCount: 0,
+      cancelRequested: false,
+      result: {
+        status: "blocked",
+        deliveryKind: "accounting_report",
+        departments: ["户部"],
+        finalVerdict: "系统内财务数据当前无法通过格式或主体身份校验。",
+        recommendations: ["请管理员修正受控财务数据源后重新下旨。"],
+        artifacts: [],
+      },
+      error: null,
+      createdAt: "2026-08-07T00:00:00Z",
+      updatedAt: "2026-08-07T00:00:01Z",
+    }),
+  ];
+
+  const state = await requestStudySubmission("accounting decree", {
+    fetchImpl: async () => states.shift()!,
+    scheduleRedirect: () => assert.fail("must not redirect"),
+    wait: async () => {},
+  });
+
+  assert.deepEqual(state, {
+    phase: "error",
+    message: "回奏受阻：系统内财务数据当前无法通过格式或主体身份校验。请管理员修正受控财务数据源后重新下旨；本次未生成 Excel 文件。",
+  });
+});
+
+test("failed format job does not claim a model failure", async () => {
+  const jobId = "c".repeat(32);
+  const states = [
+    Response.json({ jobId, state: "QUEUED", statusUrl: `/api/decree-jobs/${jobId}`, cancelUrl: `/api/decree-jobs/${jobId}/cancel`, acceptedAt: "2026-08-07T00:00:00Z", replayed: false }, { status: 202 }),
+    Response.json({
+      jobId,
+      state: "FAILED",
+      stage: "FAILED",
+      attemptCount: 1,
+      providerRequestCount: 0,
+      cancelRequested: false,
+      result: null,
+      error: { code: "format_unrecognized", stage: "bureau_tool", category: "format" },
+      createdAt: "2026-08-07T00:00:00Z",
+      updatedAt: "2026-08-07T00:00:01Z",
+    }),
+  ];
+
+  const state = await requestStudySubmission("accounting decree", {
+    fetchImpl: async () => states.shift()!,
+    scheduleRedirect: () => assert.fail("must not redirect"),
+    wait: async () => {},
+  });
+
+  assert.deepEqual(state, {
+    phase: "error",
+    message: "会计司未能识别现有数据格式，已尝试替代读取策略。",
+  });
+  assert.equal(state.message.includes("模型"), false);
+});
+
+test("malformed legacy failure uses unknown fallback rather than model", async () => {
+  const jobId = "d".repeat(32);
+  const states = [
+    Response.json({ jobId, state: "QUEUED", statusUrl: `/api/decree-jobs/${jobId}`, cancelUrl: `/api/decree-jobs/${jobId}/cancel`, acceptedAt: "2026-08-07T00:00:00Z", replayed: false }, { status: 202 }),
+    Response.json({ jobId, state: "FAILED", stage: "FAILED", attemptCount: 1,
+      providerRequestCount: 0, cancelRequested: false, result: null,
+      error: { code: "legacy-private" }, createdAt: "2026-08-07T00:00:00Z",
+      updatedAt: "2026-08-07T00:00:01Z" }),
+  ];
+  const state = await requestStudySubmission("accounting decree", {
+    fetchImpl: async () => states.shift()!, scheduleRedirect: () => {}, wait: async () => {},
+  });
+  assert.deepEqual(state, { phase: "error", message: "发生未知错误，请稍后重试。" });
+});
+
 test("polling retries bounded transient status failures and preserves sequencing", async () => {
   const jobId = "e".repeat(32);
   const waits: number[] = [];

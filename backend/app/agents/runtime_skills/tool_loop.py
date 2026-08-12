@@ -42,6 +42,12 @@ _RECOVERABLE_FAILURES = frozenset(
 )
 
 
+def _next_terminal_failure(
+    current: ToolFailureCode | None, failure: ToolFailureCode | None
+) -> ToolFailureCode | None:
+    return failure if failure in _RECOVERABLE_FAILURES else current
+
+
 def next_strategy(
     history: Sequence[RetryStrategy],
     result: ToolFailureCode,
@@ -62,6 +68,7 @@ class BureauToolLoopResult(BaseModel):
     audit_refs: tuple[str, ...]
     consumed_budget: ToolBudget
     degradation_reasons: tuple[str, ...]
+    terminal_failure_code: ToolFailureCode | None = None
 
 
 def _parse_envelope(raw: object) -> tuple[str, object]:
@@ -176,6 +183,7 @@ def run_bureau_tool_loop(
     retry_source: str | None = None
     failed_tool: ToolName | None = None
     failed_fingerprint: str | None = None
+    terminal_failure: ToolFailureCode | None = None
 
     while rounds < min(authorization_context.system_max_rounds, policy.max_tool_rounds):
         rounds += 1
@@ -335,6 +343,7 @@ def run_bureau_tool_loop(
                     failure = ToolFailureCode(exc.code)
                 except ValueError:
                     failure = None
+                terminal_failure = _next_terminal_failure(terminal_failure, failure)
                 strategy = (
                     next_strategy(recovery_history, failure, expected_descriptors)
                     if failure is not None
@@ -349,6 +358,7 @@ def run_bureau_tool_loop(
             retry_source = None
             failed_tool = None
             failed_fingerprint = None
+            terminal_failure = None
             accepted.append(result)
             audit_refs.append(result.audit_ref)
             returned = result.returned_records
@@ -401,4 +411,5 @@ def run_bureau_tool_loop(
         audit_refs=tuple(dict.fromkeys(audit_refs)),
         consumed_budget=consumed,
         degradation_reasons=tuple(dict.fromkeys(reasons)),
+        terminal_failure_code=terminal_failure,
     )

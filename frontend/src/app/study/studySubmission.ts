@@ -1,6 +1,7 @@
 import {
   SUBMITTING_UI_STATE,
   mapSubmitDecreeResultToUiState,
+  mapDecreeJobFailure,
   parseChancellorSuccessResponse,
   type DecreeErrorKind,
   type DecreeUiState,
@@ -43,6 +44,8 @@ const KNOWN_ERROR_KINDS: readonly DecreeErrorKind[] = [
   "network",
   "unknown",
 ];
+
+const ACCOUNTING_SOURCE_BLOCKED_MESSAGE = "回奏受阻：系统内财务数据当前无法通过格式或主体身份校验。请管理员修正受控财务数据源后重新下旨；本次未生成 Excel 文件。";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -156,6 +159,18 @@ async function pollDecreeJob(
       if (dependencies.storage && dependencies.userId) {
         clearActiveJob(dependencies.storage, dependencies.userId);
       }
+      if (
+        isRecord(body.result) &&
+        body.result.status === "blocked" &&
+        body.result.deliveryKind === "accounting_report" &&
+        Array.isArray(body.result.departments) &&
+        body.result.departments.length === 1 &&
+        body.result.departments[0] === "户部" &&
+        Array.isArray(body.result.artifacts) &&
+        body.result.artifacts.length === 0
+      ) {
+        return { phase: "error", message: ACCOUNTING_SOURCE_BLOCKED_MESSAGE };
+      }
       const success = parseChancellorSuccessResponse(body.result);
       return success === null
         ? mapSubmitDecreeResultToUiState({ ok: false, kind: "unknown", error: "" })
@@ -166,8 +181,24 @@ async function pollDecreeJob(
         clearActiveJob(dependencies.storage, dependencies.userId);
       }
       const failure = isRecord(body.error) ? body.error : {};
-      const kind: DecreeErrorKind = failure.code === "deadline_exceeded" ? "timeout" : "model";
-      return mapSubmitDecreeResultToUiState({ ok: false, kind, error: "" });
+      if (failure.code === "accounting_source_unavailable") {
+        return {
+          phase: "error",
+          message: ACCOUNTING_SOURCE_BLOCKED_MESSAGE,
+        };
+      }
+      if (
+        typeof failure.stage === "string" &&
+        typeof failure.category === "string" &&
+        typeof failure.code === "string"
+      ) {
+        return mapDecreeJobFailure({
+          errorStage: failure.stage,
+          errorCategory: failure.category,
+          errorCode: failure.code,
+        });
+      }
+      return mapSubmitDecreeResultToUiState({ ok: false, kind: "unknown", error: "" });
     }
     if (body.state !== "QUEUED" && body.state !== "RUNNING") {
       return mapSubmitDecreeResultToUiState({ ok: false, kind: "unknown", error: "" });

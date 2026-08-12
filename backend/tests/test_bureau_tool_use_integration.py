@@ -557,6 +557,98 @@ def test_accounting_artifact_requires_inspect_then_generate() -> None:
 
 
 @pytest.mark.parametrize(
+    ("failure_code", "failure_factory"),
+    [
+        ("format_unrecognized", lambda: ValueError("format_unrecognized")),
+        ("tool_unavailable", lambda: ValueError("tool_unavailable")),
+        ("source_not_found", FileNotFoundError),
+    ],
+)
+def test_accounting_required_inspect_failure_is_typed_and_not_degraded_success(
+    failure_code: str, failure_factory,
+) -> None:
+    from app.agents.runtime_skills.tool_failures import AccountingToolChainError
+
+    policy = bureau_tool_policy_for("hubu-accounting")
+    domain = next(iter(policy.allowed_data_domains))
+
+    class ReportSession:
+        dataset = None
+        run_id = f"run-{failure_code}"
+
+        def inspect_accounting_content(self, **_kwargs):
+            raise failure_factory()
+
+    turns = 0
+
+    def model(messages):
+        nonlocal turns
+        turns += 1
+        refs = messages[1]["content"].split("approved_data_refs=", 1)[1]
+        source_ref = next(
+            item for item in refs.splitlines()[0].split(",")
+            if item.endswith("accounting-source-root")
+        )
+        return {"status": "TOOL_CALLS", "calls": [{
+            "tool_call_id": f"inspect-{turns}",
+            "tool_name": "inspect_accounting_content",
+            "purpose": "inspect required accounting content",
+            "arguments": {
+                "operation": "inspect_content", "domain": domain,
+                "data_ref": source_ref,
+                "fields": ["finance.accounting.ledger_ref"],
+                "estimated_rows": 1, "estimated_bytes": 256,
+            },
+            "required_for": ["management workbook"],
+            "expected_result_schema": "accounting_content_result.v1",
+        }]}
+
+    with pytest.raises(AccountingToolChainError) as raised:
+        invoke_bureau_agent_with_report(
+            "户部", "会计司", "生成2025年管理层综合财务报表", "approved route",
+            model, report_session=ReportSession(),
+        )
+
+    assert raised.value.code == failure_code
+    assert str(raised.value) == failure_code
+    from app.agents.chancellor.graph import ChancellorGraphInvocationError
+    from app.decree_jobs import executor as executor_module
+    from app.decree_jobs.worker import PermanentJobError
+
+    graph = ChancellorGraphInvocationError("sanitized")
+    graph.failure_stage = "bureau"
+    graph.__cause__ = raised.value
+    with pytest.raises(PermanentJobError, match=failure_code) as job_failure:
+        executor_module._raise_provider_failure(graph)
+    assert job_failure.value.stage == "bureau_tool"
+
+
+@pytest.mark.parametrize(
+    ("department", "bureau", "report_session"),
+    [
+        ("户部", "会计司", SimpleNamespace(dataset=None, run_id="early-accounting")),
+        ("吏部", "任免司", None),
+    ],
+)
+def test_early_approved_data_error_keeps_sanitized_bureau_contract(
+    department: str, bureau: str, report_session,
+) -> None:
+    from app.agents.bureaus import BureauAgentInvocationError
+
+    with pytest.raises(BureauAgentInvocationError) as raised:
+        invoke_bureau_agent_with_report(
+            department, bureau, "approved decree", "approved route",
+            lambda _messages: {"status": "FINAL", "report": {"opinion": "unused"}},
+            report_session=report_session,
+            approved_data_inputs={"bad:key": {}},
+        )
+
+    assert type(raised.value) is BureauAgentInvocationError
+    assert str(raised.value) == "Bureau structured response failed."
+    assert isinstance(raised.value.__cause__, ValueError)
+
+
+@pytest.mark.parametrize(
     "invalid_ref_kind",
     ("source-root", "cross-run", "cross-case", "forged", "ordinary"),
 )

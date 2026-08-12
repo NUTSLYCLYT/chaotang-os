@@ -181,6 +181,31 @@ def test_permanent_archive_failure_is_terminal_not_reclaimed_forever(tmp_path) -
     assert worker.run_once() is False
 
 
+def test_worker_persists_typed_failure_metadata_without_raw_detail(tmp_path) -> None:
+    store = DecreeJobStore(tmp_path / "jobs.sqlite3")
+    job_id = _accept(store)
+
+    class FormatFailure(RecordingExecutor):
+        def execute(self, job: DecreeJob, control: DecreeJobControl) -> str:
+            raise PermanentJobError(
+                "format_unrecognized",
+                stage="bureau_tool",
+                category="format",
+            )
+
+    worker = DecreeJobWorker(
+        store, FormatFailure(), worker_id="worker-a", clock=lambda: NOW
+    )
+
+    assert worker.run_once() is True
+    failed = store.get_for_owner(job_id, "owner-a")
+    assert (failed.error_stage, failed.error_category, failed.error_code) == (
+        "bureau_tool",
+        "format",
+        "format_unrecognized",
+    )
+
+
 def test_cancel_exception_is_not_retried(tmp_path) -> None:
     store = DecreeJobStore(tmp_path / "jobs.sqlite3")
     job_id = _accept(store)

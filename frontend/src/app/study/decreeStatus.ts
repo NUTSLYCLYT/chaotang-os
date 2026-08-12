@@ -83,6 +83,29 @@ export type DecreeUiState =
     }
   | { phase: "error"; message: string };
 
+export interface DecreeJobFailure {
+  errorStage?: unknown;
+  errorCategory?: unknown;
+  errorCode?: unknown;
+}
+
+const ASYNC_FAILURE_MESSAGES: Readonly<Record<string, string>> = {
+  "format:format_unrecognized": "会计司未能识别现有数据格式，已尝试替代读取策略。",
+  "tool:tool_unavailable": "会计司所需读取工具暂时不可用，请稍后重试或联系管理员检查工具状态。",
+  "data:source_not_found": "系统内未找到可用的财务数据，请确认数据已接入后重新下旨。",
+  "validation:validation_failed": "财务数据校验未通过，请修正数据勾稽关系后重新下旨。",
+  "model:model_failed": "丞相模型调用失败，请稍后重试。",
+  "artifact:artifact_failed": "财务分析已办理，但 Excel 文件生成或发布失败，请稍后重试。",
+};
+
+export function mapDecreeJobFailure(failure: DecreeJobFailure): DecreeUiState {
+  const key = `${String(failure.errorCategory)}:${String(failure.errorCode)}`;
+  return {
+    phase: "error",
+    message: ASYNC_FAILURE_MESSAGES[key] ?? FRIENDLY_MESSAGE_BY_KIND.unknown,
+  };
+}
+
 export interface OwnerScopedDecreeUiState {
   ownerId: string;
   value: DecreeUiState;

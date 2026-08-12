@@ -377,6 +377,93 @@ def test_unknown_provider_prefixed_error_codes_are_not_publicly_classified(
     assert "provider_failed" not in cancelled.text
 
 
+@pytest.mark.parametrize(
+    ("code", "stage", "category"),
+    [
+        ("format_unrecognized", "bureau_tool", "format"),
+        ("tool_unavailable", "bureau_tool", "tool"),
+        ("source_not_found", "bureau_tool", "data"),
+        ("validation_failed", "validation", "validation"),
+        ("model_failed", "model", "model"),
+        ("artifact_failed", "artifact", "artifact"),
+    ],
+)
+def test_stable_failure_contract_is_returned_without_private_details(
+    tmp_path, code: str, stage: str, category: str
+) -> None:
+    store = DecreeJobStore(tmp_path / "jobs.sqlite3")
+    job_id = _accepted(store)
+    store.claim_next("worker-a", now=NOW)
+    store.fail_attempt(
+        job_id,
+        "worker-a",
+        error_code=code,
+        error_stage=stage,
+        error_category=category,
+        transient=False,
+        retry_at=NOW,
+        now=NOW,
+    )
+
+    response = _client(store, "owner-a").get(f"/api/v1/decree-jobs/{job_id}")
+
+    assert response.status_code == 200
+    assert response.json()["error"] == {
+        "code": code,
+        "stage": stage,
+        "category": category,
+    }
+    assert "C:\\private" not in response.text
+
+
+def test_public_failure_stage_is_derived_from_code_not_private_storage(tmp_path) -> None:
+    store = DecreeJobStore(tmp_path / "jobs.sqlite3")
+    job_id = _accepted(store)
+    store.claim_next("worker-a", now=NOW)
+    store.fail_attempt(
+        job_id,
+        "worker-a",
+        error_code="format_unrecognized",
+        error_stage="model",
+        error_category="private-category",
+        transient=False,
+        retry_at=NOW,
+        now=NOW,
+    )
+
+    response = _client(store, "owner-a").get(f"/api/v1/decree-jobs/{job_id}")
+
+    assert response.json()["error"] == {
+        "code": "format_unrecognized",
+        "stage": "bureau_tool",
+        "category": "format",
+    }
+
+
+def test_legacy_accounting_source_failure_has_canonical_public_mapping(tmp_path) -> None:
+    store = DecreeJobStore(tmp_path / "jobs.sqlite3")
+    job_id = _accepted(store)
+    store.claim_next("worker-a", now=NOW)
+    store.fail_attempt(
+        job_id,
+        "worker-a",
+        error_code="accounting_source_unavailable",
+        error_stage="private-stage",
+        error_category="private-category",
+        transient=False,
+        retry_at=NOW,
+        now=NOW,
+    )
+
+    response = _client(store, "owner-a").get(f"/api/v1/decree-jobs/{job_id}")
+
+    assert response.json()["error"] == {
+        "code": "accounting_source_unavailable",
+        "stage": "bureau_tool",
+        "category": "data",
+    }
+
+
 def test_success_result_is_returned_only_after_terminal_completion(tmp_path) -> None:
     store = DecreeJobStore(tmp_path / "jobs.sqlite3")
     job_id = _accepted(store)

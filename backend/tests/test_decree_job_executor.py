@@ -78,6 +78,42 @@ def test_executor_rebuilds_owner_snapshot_and_uses_job_as_execution_identity(
     assert seen["consumed_authority"].route_snapshot.departments[0].department == "户部"
 
 
+def test_accounting_job_reaches_agent_without_executor_source_preflight(monkeypatch) -> None:
+    executor_module = _executor_module()
+    authority = {
+        "approved_route": {
+            "departments": [{"department": "户部", "required_bureaus": ["会计司"]}]
+        },
+        "accounting_context": {
+            "request_kind": "ACCOUNTING_REPORT",
+            "period": {"start_year": 2025, "end_year": 2025},
+            "source_fingerprint": None,
+        },
+    }
+    job = replace(_job(), approved_route_json=json.dumps(authority))
+    called: list[str] = []
+    monkeypatch.setattr(
+        executor_module,
+        "build_accounting_report_session",
+        lambda **_kwargs: (_ for _ in ()).throw(AssertionError("preflight forbidden")),
+    )
+    monkeypatch.setattr(
+        executor_module,
+        "execute_decree_now",
+        lambda *_args, **_kwargs: (
+            called.append("agent")
+            or SimpleNamespace(model_dump_json=lambda: '{"status":"ok"}')
+        ),
+    )
+    control = SimpleNamespace(
+        record_provider_request=lambda: None,
+        raise_if_cancelled=lambda: None,
+    )
+
+    assert executor_module.PersistentDecreeJobExecutor().execute(job, control) == '{"status":"ok"}'
+    assert called == ["agent"]
+
+
 def test_executor_does_not_fake_archive_and_publish_checkpoints(monkeypatch) -> None:
     executor_module = _executor_module()
     calls: list[str] = []
@@ -319,7 +355,7 @@ def test_executor_charges_process_and_persistent_budget_once_per_dispatch(
         configure_provider_attempt_budget(None)
 
 
-def test_executor_aborts_stale_pending_run_before_reexecuting_after_crash(
+def test_executor_does_not_prepare_accounting_before_agent_execution(
     monkeypatch,
 ) -> None:
     executor_module = _executor_module()
@@ -357,7 +393,47 @@ def test_executor_aborts_stale_pending_run_before_reexecuting_after_crash(
 
     executor_module.PersistentDecreeJobExecutor().execute(job, control)
 
-    assert events == ["abort", "execute"]
+    assert events == ["execute"]
+
+
+def test_executor_does_not_turn_pre_agent_source_error_into_blocked_success(
+    monkeypatch,
+) -> None:
+    executor_module = _executor_module()
+    from app.api.decrees import SourceNotCurrentError
+    authority = {
+        "approved_route": {
+            "departments": [
+                {"department": "户部", "required_bureaus": ["会计司"]}
+            ]
+        },
+        "accounting_context": {
+            "request_kind": "ACCOUNTING_REPORT",
+            "period": {"start_year": 2025, "end_year": 2025},
+            "source_fingerprint": None,
+        },
+    }
+    job = replace(_job(), approved_route_json=json.dumps(authority))
+    monkeypatch.setattr(
+        executor_module,
+        "build_accounting_report_session",
+        lambda **_kwargs: (_ for _ in ()).throw(SourceNotCurrentError()),
+    )
+    monkeypatch.setattr(
+        executor_module,
+        "execute_decree_now",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            model_dump_json=lambda: '{"status":"ok"}'
+        ),
+    )
+    control = SimpleNamespace(
+        record_provider_request=lambda: None,
+        raise_if_cancelled=lambda: None,
+    )
+
+    result = executor_module.PersistentDecreeJobExecutor().execute(job, control)
+
+    assert result == '{"status":"ok"}'
 
 
 @pytest.mark.parametrize(
@@ -368,7 +444,7 @@ def test_executor_aborts_stale_pending_run_before_reexecuting_after_crash(
         ("rate_limit", TransientJobError, "provider_failed"),
         ("provider_server", TransientJobError, "provider_failed"),
         ("provider_client", PermanentJobError, "provider_failed"),
-        ("unexpected", PermanentJobError, "execution_failed"),
+        ("unexpected", PermanentJobError, "model_failed"),
         ("budget_exhausted", PermanentJobError, "provider_budget_exceeded"),
     ],
 )
@@ -400,6 +476,98 @@ def test_executor_maps_provider_failures_to_exact_public_allowlist(
     with pytest.raises(expected_type) as raised:
         executor_module.PersistentDecreeJobExecutor().execute(_job(), control)
     assert raised.value.code == expected_code
+    if expected_code == "model_failed":
+        assert (raised.value.stage, raised.value.category) == ("model", "model")
+
+
+def test_executor_reports_local_contract_failure_as_validation_not_model(monkeypatch) -> None:
+    executor_module = _executor_module()
+    from app.agents.chancellor.graph import ChancellorGraphInvocationError
+
+    graph = ChancellorGraphInvocationError("sanitized")
+    graph.failure_stage = "bureau"
+    graph.__cause__ = ValueError("malformed_model_envelope")
+    monkeypatch.setattr(
+        executor_module,
+        "execute_decree_now",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(graph),
+    )
+    control = SimpleNamespace(
+        record_provider_request=lambda: None,
+        raise_if_cancelled=lambda: None,
+    )
+
+    with pytest.raises(PermanentJobError, match="validation_failed") as raised:
+        executor_module.PersistentDecreeJobExecutor().execute(_job(), control)
+    assert (raised.value.stage, raised.value.category) == (
+        "validation",
+        "validation",
+    )
+
+
+@pytest.mark.parametrize(
+    ("tool_code", "category"),
+    [
+        ("format_unrecognized", "format"),
+        ("tool_unavailable", "tool"),
+        ("source_not_found", "data"),
+    ],
+)
+def test_executor_preserves_typed_accounting_tool_failure_from_graph_cause(
+    monkeypatch, tool_code: str, category: str
+) -> None:
+    executor_module = _executor_module()
+    from app.agents.chancellor.graph import ChancellorGraphInvocationError
+    from app.agents.runtime_skills.tool_failures import AccountingToolChainError
+    from app.agents.runtime_skills.tool_models import ToolFailureCode
+
+    graph = ChancellorGraphInvocationError("sanitized")
+    graph.failure_stage = "bureau"
+    graph.__cause__ = AccountingToolChainError(ToolFailureCode(tool_code))
+    monkeypatch.setattr(
+        executor_module,
+        "execute_decree_now",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(graph),
+    )
+    control = SimpleNamespace(
+        record_provider_request=lambda: None,
+        raise_if_cancelled=lambda: None,
+    )
+
+    with pytest.raises(PermanentJobError, match=tool_code) as raised:
+        executor_module.PersistentDecreeJobExecutor().execute(_job(), control)
+    assert (raised.value.stage, raised.value.category) == ("bureau_tool", category)
+
+
+@pytest.mark.parametrize(
+    ("private_code", "public_code", "stage", "category"),
+    [
+        ("report_generation_invalid", "validation_failed", "validation", "validation"),
+        ("publication_failed", "artifact_failed", "artifact", "artifact"),
+    ],
+)
+def test_executor_sanitizes_accounting_boundary_failures(
+    monkeypatch, private_code: str, public_code: str, stage: str, category: str
+) -> None:
+    executor_module = _executor_module()
+    from app.api.decrees import AccountingReportPublicationError
+
+    monkeypatch.setattr(
+        executor_module,
+        "execute_decree_now",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AccountingReportPublicationError(private_code + r" C:\private\ledger.xlsx A1")
+        ),
+    )
+    control = SimpleNamespace(
+        record_provider_request=lambda: None,
+        raise_if_cancelled=lambda: None,
+    )
+
+    with pytest.raises(PermanentJobError, match=public_code) as raised:
+        executor_module.PersistentDecreeJobExecutor().execute(_job(), control)
+    assert (raised.value.stage, raised.value.category) == (stage, category)
+    assert "private" not in str(raised.value)
 
 
 def test_executor_maps_frozen_provider_limit_to_typed_budget_failure(

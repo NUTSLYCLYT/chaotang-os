@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 from uuid import uuid4
 
 from app.agents.bureaus.prompts import bureau_runtime_skill_for, bureau_system_prompt
+from app.agents.runtime_skills.tool_failures import AccountingToolChainError
 from app.agents.structured_output import parse_strict_json_object
 from app.langgraph_runtime.deepseek_client import DeepSeekChatModel
 
@@ -278,7 +279,10 @@ def _invoke_bureau_agent_with_report_authorized(
             _issue_tool_authorization_context,
         )
         from app.agents.runtime_skills.tool_loop import run_bureau_tool_loop
-        from app.agents.runtime_skills.tool_models import ToolCallStatus, ToolName
+        from app.agents.runtime_skills.tool_models import (
+            ToolCallStatus,
+            ToolName,
+        )
         from app.agents.runtime_skills.tool_registry import (
             SYSTEM_MAX_RESULT_BYTES,
             SYSTEM_MAX_RESULT_ROWS,
@@ -674,6 +678,14 @@ def _invoke_bureau_agent_with_report_authorized(
                 **canonical_data,
             },
         )
+        if report_session is not None and runtime_skill.agent_id == "hubu-accounting":
+            artifact_ready = any(
+                result.result_schema == "accounting_workbook_result.v1"
+                for result in loop_result.accepted_results
+            )
+            if not artifact_ready:
+                if loop_result.terminal_failure_code is not None:
+                    raise AccountingToolChainError(loop_result.terminal_failure_code)
         if (
             evidence_session is not None
             and node_id is not None
@@ -729,6 +741,8 @@ def _invoke_bureau_agent_with_report_authorized(
             audit_refs=loop_result.audit_refs,
             artifact_manifest=artifact_manifest,
         )
+    except AccountingToolChainError:
+        raise
     except (TypeError, ValueError) as exc:
         raise BureauAgentInvocationError("Bureau structured response failed.") from exc
     except Exception as exc:
