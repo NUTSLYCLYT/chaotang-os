@@ -9,14 +9,17 @@
 | `node scripts/professional-agent-matrix.mjs --check` | 0 | PASS | professional asset matrix unchanged | 2026-08-12 |
 | `node scripts/harness-doctor.mjs` | 0 | 0 errors / 0 warnings | root + delegated harness | 2026-08-12 |
 | `git diff --check` | 0 | PASS | whitespace integrity | 2026-08-12 |
+| full backend pytest | 1 | 3492 PASS / 3 FAIL / 30 SKIP | full regression | 2026-08-12, disposable exact-H clone |
+| focused rerun of 3 failures | 1 | 2 PASS / 1 FAIL | failure triage | 2026-08-12 |
+| same focused tests on base `df6c82cf` | 1 | same 2 PASS / 1 FAIL | baseline comparison | 2026-08-12 |
 
 ## 结果
 
-Focused and harness gates pass on the live candidate worktree. Independent review: HIGH 0 / MEDIUM 0 / LOW 1 / GO.
+Focused and harness gates pass on the live candidate worktree. Independent review: HIGH 0 / MEDIUM 0 / LOW 1 / GO. Full-suite failures are baseline-identical or order-sensitive and outside the seven-file change: the two knowledge-router cases pass in isolation on candidate and base; the route-enumeration case fails identically on both.
 
 ## 未验证项
 
-- Full backend regression remains pending before exact-H review and promotion.
+- Repository baseline still has one independently reproducible route-enumeration failure unrelated to this candidate.
 
 ## Diff 与回滚复核
 
