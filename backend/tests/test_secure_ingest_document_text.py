@@ -2,13 +2,12 @@ from __future__ import annotations
 
 import io
 import zipfile
-from pathlib import Path
-
 from docx import Document
 
 from src.secure_ingest.document_text import (
     EXTRACTOR_POLICY_VERSION,
     extract_canonical_docx_text,
+    extractor_policy_for_format,
 )
 
 
@@ -60,7 +59,6 @@ def test_includes_comment_story() -> None:
 
 
 def test_upload_audit_binds_extractor_policy_version() -> None:
-    router = Path(__file__).parents[1] / "web" / "routers" / "secure_ingest.py"
-    source = router.read_text(encoding="utf-8")
-    assert "policy_version=(" in source
-    assert 'EXTRACTOR_POLICY_VERSION if detected_format == "DOCX" else None' in source
+    assert extractor_policy_for_format("DOCX_OOXML") == EXTRACTOR_POLICY_VERSION
+    assert extractor_policy_for_format("PDF") is None
+    assert extractor_policy_for_format("UNKNOWN") is None

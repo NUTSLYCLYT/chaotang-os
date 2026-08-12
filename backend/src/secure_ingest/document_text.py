@@ -10,6 +10,11 @@ from docx.oxml import parse_xml
 from docx.oxml.ns import qn
 
 EXTRACTOR_POLICY_VERSION = "docx-canonical-v1"
+
+
+def extractor_policy_for_format(detected_format: str) -> str | None:
+    """Return the canonical extraction policy recorded for an accepted format."""
+    return EXTRACTOR_POLICY_VERSION if detected_format == "DOCX_OOXML" else None
 _PARAGRAPH_TAG = qn("w:p")
 _TEXT_NODE_NAMES = {"t", "delText", "instrText", "delInstrText"}
 _AUXILIARY_STORY_PARTS = (

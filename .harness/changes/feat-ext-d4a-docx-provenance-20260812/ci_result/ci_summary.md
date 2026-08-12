@@ -12,10 +12,18 @@
 | full backend pytest | 1 | 3492 PASS / 3 FAIL / 30 SKIP | full regression | 2026-08-12, disposable exact-H clone |
 | focused rerun of 3 failures | 1 | 2 PASS / 1 FAIL | failure triage | 2026-08-12 |
 | same focused tests on base `df6c82cf` | 1 | same 2 PASS / 1 FAIL | baseline comparison | 2026-08-12 |
+| exact-H QA of P=`10dd07ac` / G=`7dcfa943` | 1 | NO_GO / HIGH 1 | real DOCX audit provenance | 2026-08-12, two fresh read-only reviewers |
+| focused secure-ingest pytest after P2 remediation | 0 | 25 PASS | behavioral format-to-policy binding + extraction/attack matrix | 2026-08-12 |
 
 ## 结果
 
-Focused and harness gates pass on the live candidate worktree. Independent review: HIGH 0 / MEDIUM 0 / LOW 1 / GO. Full-suite failures are baseline-identical or order-sensitive and outside the seven-file change: the two knowledge-router cases pass in isolation on candidate and base; the route-enumeration case fails identically on both.
+The original P=`10dd07ac` and its governance candidate G=`7dcfa943` are rejected: two
+fresh exact-H reviewers independently found that `detect_format()` returns
+`DOCX_OOXML` while the audit binding compared against `DOCX`, leaving
+`policy_version` null for real DOCX uploads. P2 replaces the source-text assertion
+with a behavioral format-to-policy contract and routes audit construction through
+that single mapping. Full-suite failures recorded above remain baseline-identical or
+order-sensitive and outside this seven-file change.
 
 ## 未验证项
 
@@ -32,6 +40,7 @@ Focused and harness gates pass on the live candidate worktree. Independent revie
 | DoD | 证据 | 状态 |
 | --- | --- | --- |
 | complete DOCX scan surface | 3 focused extraction tests | PASS |
+| DOCX audit binds canonical extractor policy | behavioral `DOCX_OOXML` mapping test | PASS |
 | no secure-ingest regression | 21 existing attack/format tests | PASS |
 | governance remains healthy | authority/matrix/doctor | PASS |
 

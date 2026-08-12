@@ -14,8 +14,8 @@ from fastapi.responses import StreamingResponse
 from src.secure_ingest.audit import build_audit_event
 from src.secure_ingest.digest import compute_sha256
 from src.secure_ingest.document_text import (
-    EXTRACTOR_POLICY_VERSION,
     extract_canonical_docx_text,
+    extractor_policy_for_format,
 )
 from src.secure_ingest.download_ticket import hash_token, issue_raw_token
 from src.secure_ingest.limits import DOWNLOAD_TICKET_TTL_SECONDS, MAX_DOCX_PAGES, MAX_UPLOAD_BYTES
@@ -157,9 +157,7 @@ async def upload_artifact(
             task_id=mission_contract_id,
             artifact_id=artifact_id,
             input_digest=digest_sha256,
-            policy_version=(
-                EXTRACTOR_POLICY_VERSION if detected_format == "DOCX" else None
-            ),
+            policy_version=extractor_policy_for_format(detected_format),
             purpose=purpose,
         )
         db.add(SecureIngestAuditEvent(id=str(uuid.uuid4()), created_at=_now_iso(), **event))
