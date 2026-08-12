@@ -14,6 +14,7 @@
 | same focused tests on base `df6c82cf` | 1 | same 2 PASS / 1 FAIL | baseline comparison | 2026-08-12 |
 | exact-H QA of P=`10dd07ac` / G=`7dcfa943` | 1 | NO_GO / HIGH 1 | real DOCX audit provenance | 2026-08-12, two fresh read-only reviewers |
 | focused secure-ingest pytest after P2 remediation | 0 | 25 PASS | behavioral format-to-policy binding + extraction/attack matrix | 2026-08-12 |
+| focused secure-ingest pytest after P3 integration-test remediation | 0 | 26 PASS | real DOCX upload + persisted audit policy, extraction/attack matrix | 2026-08-12 |
 
 ## 结果
 
@@ -24,6 +25,8 @@ fresh exact-H reviewers independently found that `detect_format()` returns
 with a behavioral format-to-policy contract and routes audit construction through
 that single mapping. Full-suite failures recorded above remain baseline-identical or
 order-sensitive and outside this seven-file change.
+P3 adds a real multipart upload through the application router and queries the
+isolated `SecureIngestAuditEvent` row, closing the remaining exact-H QA gap.
 
 ## 未验证项
 
@@ -40,7 +43,7 @@ order-sensitive and outside this seven-file change.
 | DoD | 证据 | 状态 |
 | --- | --- | --- |
 | complete DOCX scan surface | 3 focused extraction tests | PASS |
-| DOCX audit binds canonical extractor policy | behavioral `DOCX_OOXML` mapping test | PASS |
+| DOCX audit binds canonical extractor policy | real upload + isolated persisted audit-row assertion | PASS |
 | no secure-ingest regression | 21 existing attack/format tests | PASS |
 | governance remains healthy | authority/matrix/doctor | PASS |
 

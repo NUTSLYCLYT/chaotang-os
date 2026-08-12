@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import io
 import zipfile
+
 from docx import Document
+from fastapi.testclient import TestClient
 
 from src.secure_ingest.document_text import (
     EXTRACTOR_POLICY_VERSION,
@@ -62,3 +64,44 @@ def test_upload_audit_binds_extractor_policy_version() -> None:
     assert extractor_policy_for_format("DOCX_OOXML") == EXTRACTOR_POLICY_VERSION
     assert extractor_policy_for_format("PDF") is None
     assert extractor_policy_for_format("UNKNOWN") is None
+
+
+def test_real_docx_upload_persists_extractor_policy_version(
+    isolated_session_local,
+    monkeypatch,
+    tmp_path,
+) -> None:
+    import src.secure_ingest.storage as storage_module
+    from src.db.models import SecureIngestAuditEvent
+    from tests.fixtures.secure_ingest_fixtures import golden_docx_bytes
+    from web.main import app
+
+    monkeypatch.setattr(
+        storage_module,
+        "SECURE_INGEST_ROOT",
+        tmp_path / "secure-ingest",
+    )
+    response = TestClient(app).post(
+        "/api/secure-ingest/upload",
+        data={
+            "mission_contract_id": "mission-docx-policy",
+            "purpose": "contract_review",
+        },
+        files={
+            "file": (
+                "contract.docx",
+                golden_docx_bytes(),
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            )
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["detected_format"] == "DOCX_OOXML"
+    with isolated_session_local() as session:
+        audit = (
+            session.query(SecureIngestAuditEvent)
+            .filter_by(task_id="mission-docx-policy", event_type="upload")
+            .one()
+        )
+        assert audit.policy_version == EXTRACTOR_POLICY_VERSION
