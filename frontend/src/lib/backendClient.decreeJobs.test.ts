@@ -91,6 +91,41 @@ test("getDecreeJob maps authentication, ownership and availability errors", asyn
   assert.deepEqual(unavailable, { ok: false, kind: "unavailable" });
 });
 
+for (const [code, stage, category] of [
+  ["validation_failed", "validation", "validation"],
+  ["format_unrecognized", "bureau_tool", "format"],
+  ["tool_unavailable", "bureau_tool", "tool"],
+  ["source_not_found", "bureau_tool", "data"],
+  ["artifact_failed", "artifact", "artifact"],
+] as const) {
+  test(`getDecreeJob preserves public failure contract: ${code}`, async () => {
+    const result = await getDecreeJob("a".repeat(32), {
+      sessionId: "session",
+      fetchImpl: async () => Response.json({
+        ...QUEUED,
+        state: "FAILED",
+        stage: "FAILED",
+        error: { code, stage, category },
+      }),
+    });
+    assert.equal(result.ok, true);
+    if (result.ok) assert.deepEqual(result.data.error, { code, stage, category });
+  });
+}
+
+test("getDecreeJob rejects unknown public failure metadata", async () => {
+  const result = await getDecreeJob("a".repeat(32), {
+    sessionId: "session",
+    fetchImpl: async () => Response.json({
+      ...QUEUED,
+      state: "FAILED",
+      stage: "FAILED",
+      error: { code: "future_failure", stage: "future", category: "future" },
+    }),
+  });
+  assert.deepEqual(result, { ok: false, kind: "unknown" });
+});
+
 
 test("cancelDecreeJob posts to the owner-scoped cancellation endpoint", async () => {
   let method = "";

@@ -1,7 +1,12 @@
 from __future__ import annotations
 
+import base64
+import hashlib
 import importlib
+import json
 import os
+import re
+import subprocess
 import sys
 import threading
 import time
@@ -22,6 +27,134 @@ import app.main as main_module
 from app.shiguan import db as shiguan_db
 
 
+def test_accounting_stage_responder_is_stable_across_retry_and_out_of_order_calls(
+    synthetic_app: ModuleType,
+) -> None:
+    respond = synthetic_app._accounting_stage_response
+
+    first_route = json.loads(respond("ministry_route"))
+    extra_ministry = json.loads(respond("ministry_synthesis"))
+    retried_route = json.loads(respond("ministry_route"))
+    out_of_order_summary = json.loads(respond("chancellor_finalize"))
+
+    assert first_route == retried_route == {
+        "rationale": "synthetic accounting route",
+        "bureaus": ["会计司"],
+    }
+    assert "opinion" in extra_ministry
+    assert set(out_of_order_summary) == {"summary", "recommendations"}
+
+
+def test_accounting_ministry_route_wins_when_tool_context_is_also_present(
+    synthetic_app: ModuleType,
+) -> None:
+    rendered = (
+        'Return exactly {"rationale":"...","bureaus":["..."]}\n'
+        "approved_data_refs=approved-data:accounting-source-root"
+    )
+    assert "approved_data_refs=" in rendered
+    assert json.loads(
+        synthetic_app._accounting_stage_response("ministry_route")
+    )["bureaus"] == ["会计司"]
+
+
+def test_accounting_stage_responder_is_independent_of_post_tool_failure_injection(
+    synthetic_app: ModuleType,
+) -> None:
+    respond = synthetic_app._accounting_stage_response
+
+    route = json.loads(respond("ministry_route"))
+    assert route["bureaus"] == ["会计司"]
+    assert set(json.loads(respond("chancellor_finalize"))) == {
+        "summary",
+        "recommendations",
+    }
+
+
+def test_stage_aware_accounting_provider_keeps_second_dynamic_job_on_ministry_schema(
+    synthetic_app: ModuleType,
+) -> None:
+    provider = synthetic_app._SyntheticAccountingChatProvider()
+    first = [{"role": "user", "content": "job=a1 approved_ref=dynamic-111"}]
+    second = [{"role": "user", "content": "job=b2 approved_ref=dynamic-999"}]
+    assert len(first[0]["content"]) == len(second[0]["content"])
+
+    first_response = json.loads(
+        provider.invoke_structured(first, stage="ministry_synthesis")
+    )
+    second_response = json.loads(
+        provider.invoke_structured(second, stage="ministry_synthesis")
+    )
+
+    expected_keys = {
+        "opinion",
+        "shared_findings",
+        "conflicts",
+        "cross_bureau_impacts",
+        "ministry_position",
+    }
+    assert set(first_response) == expected_keys
+    assert set(second_response) == expected_keys
+
+
+def test_stage_aware_accounting_provider_fails_closed_for_unknown_stage(
+    synthetic_app: ModuleType,
+) -> None:
+    provider = synthetic_app._SyntheticAccountingChatProvider()
+
+    with pytest.raises(RuntimeError, match="unsupported synthetic structured stage"):
+        provider.invoke_structured([], stage="unknown")
+
+
+def test_synthetic_diagnostics_exposes_process_identity_and_stage_ring(
+    synthetic_app: ModuleType,
+) -> None:
+    provider = synthetic_app._SyntheticAccountingChatProvider()
+    provider.invoke_structured([], stage="ministry_route")
+
+    diagnostic = synthetic_app._synthetic_diagnostics(provider)
+
+    assert diagnostic["pid"] == os.getpid()
+    assert diagnostic["start_nonce"]
+    assert diagnostic["provider"]["class"] == "_SyntheticAccountingChatProvider"
+    assert diagnostic["provider"]["has_invoke_structured"] is True
+    assert diagnostic["stage_ring"][-1]["stage"] == "ministry_route"
+    assert diagnostic["stage_ring"][-1]["outcome"] == "returned"
+    assert set(diagnostic["modules"]) == {
+        "synthetic_app",
+        "structured_invocation",
+    }
+    assert all(
+        item["file"] and len(item["sha256"]) == 64
+        for item in diagnostic["modules"].values()
+    )
+
+
+def test_synthetic_post_tool_failure_is_one_shot_and_after_graph_invoke(
+    synthetic_app: ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls: list[str] = []
+
+    class FakeGraph:
+        def invoke(self, _payload):
+            calls.append("real-graph-completed-with-pending-artifact")
+            return {"prepared": True}
+
+    monkeypatch.setattr(synthetic_app, "build_chancellor_graph", lambda **_kwargs: FakeGraph())
+    session = type("Session", (), {"request_kind": object(), "owner_user_id": "owner"})()
+    synthetic_app._fail_next_execution = True
+    failing_graph = synthetic_app._build_graph(report_session=session)
+
+    with pytest.raises(RuntimeError, match="synthetic_post_tool_execution_failure"):
+        failing_graph.invoke({})
+
+    assert calls == ["real-graph-completed-with-pending-artifact"]
+    assert synthetic_app._fail_next_execution is False
+    assert synthetic_app._build_graph(report_session=session).invoke({}) == {
+        "prepared": True
+    }
+
+
 def _capture_synthetic_process_state() -> dict[str, object]:
     return {
         "dependency_overrides": dict(main_module.app.dependency_overrides),
@@ -30,9 +163,7 @@ def _capture_synthetic_process_state() -> dict[str, object]:
         "draft_graph": chancellor_drafts_api.get_chancellor_draft_graph,
         "decrees_report_session": decrees_api.build_accounting_report_session,
         "decrees_graph": decrees_api.get_chancellor_graph,
-        "executor_report_session": (
-            decree_job_executor.build_accounting_report_session
-        ),
+        "executor_report_session": (decree_job_executor.build_accounting_report_session),
         "load_ledger_rows": report_session_module.load_ledger_rows,
         "auth_db_path": auth_storage._configured_db_path,
         "artifact_db_path": report_artifacts_api._configured_db_path,
@@ -49,9 +180,7 @@ def _restore_synthetic_process_state(snapshot: dict[str, object]) -> None:
     chancellor_drafts_api.get_chancellor_draft_graph = snapshot["draft_graph"]
     decrees_api.build_accounting_report_session = snapshot["decrees_report_session"]
     decrees_api.get_chancellor_graph = snapshot["decrees_graph"]
-    decree_job_executor.build_accounting_report_session = snapshot[
-        "executor_report_session"
-    ]
+    decree_job_executor.build_accounting_report_session = snapshot["executor_report_session"]
     report_session_module.load_ledger_rows = snapshot["load_ledger_rows"]
     auth_storage._configured_db_path = snapshot["auth_db_path"]
     report_artifacts_api._configured_db_path = snapshot["artifact_db_path"]
@@ -82,22 +211,26 @@ def synthetic_app(tmp_path_factory: pytest.TempPathFactory) -> Iterator[ModuleTy
 
 
 def test_ordinary_prompt_builds_one_non_accounting_route(synthetic_app: ModuleType) -> None:
-    result = synthetic_app._build_draft_graph().invoke({
-        "messages": [{"role": "user", "content": synthetic_app.ORDINARY_REQUEST}],
-        "version": 1,
-    })
+    result = synthetic_app._build_draft_graph().invoke(
+        {
+            "messages": [{"role": "user", "content": synthetic_app.ORDINARY_REQUEST}],
+            "version": 1,
+        }
+    )
 
     response = result["response"]
     assert response["status"] == "DRAFT_READY"
     assert response["decree_text"] == synthetic_app.ORDINARY_DECREE
-    assert response["draft"]["departments"] == [{
-        "department": "礼部",
-        "bureaus": ["品牌司"],
-        "role": "主管",
-        "reason": "统一对外品牌表达",
-        "responsibility": "制定发布前检查清单",
-        "expected_output": "一页品牌表达检查清单",
-    }]
+    assert response["draft"]["departments"] == [
+        {
+            "department": "礼部",
+            "bureaus": ["品牌司"],
+            "role": "主管",
+            "reason": "统一对外品牌表达",
+            "responsibility": "制定发布前检查清单",
+            "expected_output": "一页品牌表达检查清单",
+        }
+    ]
     assert result.get("accounting_context") is None
 
 
@@ -138,10 +271,12 @@ def test_ordinary_api_job_executes_four_stage_route_and_archives_reply(
             "/api/v1/chancellor-drafts",
             headers=headers,
             json={
-                "messages": [{
-                    "role": "user",
-                    "content": synthetic_app.ORDINARY_REQUEST,
-                }],
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": synthetic_app.ORDINARY_REQUEST,
+                    }
+                ],
                 "version": 1,
             },
         )
@@ -186,14 +321,18 @@ def test_ordinary_api_job_executes_four_stage_route_and_archives_reply(
             "礼部（部级补充）",
             "丞相（最终汇总）",
         ]
-        assert result["ministry_opinions"] == [{
-            "department": "礼部",
-            "bureau_opinions": [{
-                "bureau": "品牌司",
-                "opinion": "建议统一品牌表达与视觉资产",
-            }],
-            "opinion": "礼部补充：对外口径须统一并完成发布门禁。",
-        }]
+        assert result["ministry_opinions"] == [
+            {
+                "department": "礼部",
+                "bureau_opinions": [
+                    {
+                        "bureau": "品牌司",
+                        "opinion": "建议统一品牌表达与视觉资产",
+                    }
+                ],
+                "opinion": "礼部补充：对外口径须统一并完成发布门禁。",
+            }
+        ]
         assert result["final_verdict"] == "丞相汇总：统一品牌表达并设置发布门禁。"
         assert result["recommendations"] == [
             "统一对外口径",
@@ -293,14 +432,8 @@ def test_synthetic_process_state_snapshot_restores_every_import_side_effect() ->
         assert main_module.app.dependency_overrides == snapshot["dependency_overrides"]
         assert tuple(main_module.app.router.routes) == snapshot["routes"]
         assert main_module.get_decree_job_store is snapshot["main_job_store"]
-        assert (
-            chancellor_drafts_api.get_chancellor_draft_graph
-            is snapshot["draft_graph"]
-        )
-        assert (
-            decrees_api.build_accounting_report_session
-            is snapshot["decrees_report_session"]
-        )
+        assert chancellor_drafts_api.get_chancellor_draft_graph is snapshot["draft_graph"]
+        assert decrees_api.build_accounting_report_session is snapshot["decrees_report_session"]
         assert decrees_api.get_chancellor_graph is snapshot["decrees_graph"]
         assert (
             decree_job_executor.build_accounting_report_session
@@ -313,3 +446,145 @@ def test_synthetic_process_state_snapshot_restores_every_import_side_effect() ->
         assert os.environ.get("CHAOTANG_SYNTHETIC_ACCEPTANCE_TMP") == snapshot["tmp_env"]
     finally:
         _restore_synthetic_process_state(snapshot)
+
+
+def test_dynamic_layout_fixtures_are_generated_only_under_requested_root(
+    synthetic_app: ModuleType,
+    tmp_path: Path,
+) -> None:
+    fixture_root = tmp_path / "generated-accounting"
+
+    manifest = synthetic_app._generate_dynamic_layout_fixtures(fixture_root)
+
+    assert set(manifest) == {
+        "renamed_file",
+        "multiple_sheets",
+        "merged_two_row_header",
+        "title_section_auxiliary",
+        "text_numbers",
+        "ambiguous_columns",
+        "validation_failure",
+        "malicious_cell_instruction",
+    }
+    assert all(path.is_file() and path.parent == fixture_root for path in manifest.values())
+    assert all(path.suffix == ".xlsx" for path in manifest.values())
+
+
+def test_dynamic_acceptance_matrix_proves_content_and_recovery_cases(
+    synthetic_app: ModuleType,
+    tmp_path: Path,
+) -> None:
+    matrix = synthetic_app._run_dynamic_layout_matrix(tmp_path / "matrix")
+
+    assert matrix["status"] == "PASS"
+    assert matrix["cases"] == {
+        "renamed_file": "PASS",
+        "multiple_sheets": "PASS",
+        "merged_two_row_header": "PASS",
+        "title_section_auxiliary": "PASS",
+        "text_numbers": "PASS",
+        "ambiguous_columns": "PASS",
+        "validation_failure": "PASS",
+        "malicious_cell_instruction": "PASS",
+        "primary_unavailable_alternate_success": "PASS",
+    }
+    assert matrix["validation_failure_readiness"] == "inferred_draft"
+    assert matrix["malicious_cell_treated_as_data"] is True
+    assert matrix["alternate_tool_audit_refs"]
+    assert matrix["proofs"]["renamed_file"]["basename"] == "完全任意名称-A.xlsx"
+    assert matrix["proofs"]["multiple_sheets"]["sheet_count"] == 2
+    assert matrix["proofs"]["multiple_sheets"]["target_sheet"] == "数据页"
+    assert matrix["proofs"]["merged_two_row_header"]["merged"] is True
+    assert matrix["proofs"]["merged_two_row_header"]["header_depth"] >= 2
+    assert matrix["proofs"]["title_section_auxiliary"]["region_count"] >= 2
+    assert matrix["proofs"]["text_numbers"]["semantic_amount"] == "100.00"
+    assert matrix["proofs"]["ambiguous_columns"]["candidate_count"] >= 2
+    assert matrix["proofs"]["ambiguous_columns"]["reason_codes"]
+    assert matrix["proofs"]["validation_failure"]["validation_passed"] is False
+    assert matrix["proofs"]["malicious_cell_instruction"]["authority_unchanged"] is True
+    assert matrix["proofs"]["primary_unavailable_alternate_success"]["strategy"] == "alternate_tool"
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        "renamed_file",
+        "multiple_sheets",
+        "merged_two_row_header",
+        "title_section_auxiliary",
+        "text_numbers",
+        "ambiguous_columns",
+        "validation_failure",
+        "malicious_cell_instruction",
+        "primary_unavailable_alternate_success",
+    ],
+)
+def test_dynamic_matrix_fails_closed_when_case_proof_is_corrupted(
+    synthetic_app: ModuleType, tmp_path: Path, case: str
+) -> None:
+    matrix = synthetic_app._run_dynamic_layout_matrix(tmp_path / case, corrupt_case=case)
+    assert matrix["status"] == "FAIL"
+    assert matrix["cases"][case] == "FAIL"
+
+
+def test_acceptance_runner_supports_frozen_decree_and_round_cli() -> None:
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "tests/run_accounting_synthetic_acceptance.py",
+            "--help",
+        ],
+        cwd=Path(__file__).resolve().parents[1],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    assert "--decree" in completed.stdout
+    assert "--rounds" in completed.stdout
+
+
+def test_acceptance_runner_records_external_formal_round_number() -> None:
+    source = (
+        Path(__file__).with_name("run_accounting_synthetic_acceptance.py")
+        .read_text(encoding="utf-8")
+    )
+    assert 'CHAOTANG_ACCEPTANCE_ROUND' in source
+    assert '"command"' in source
+    assert '"round": formal_round' in source
+    assert '"exit_code": 0' in source
+
+
+def test_formal_wrapper_constructs_decree_from_ascii_base64() -> None:
+    wrapper = (
+        Path(__file__).resolve().parents[2]
+        / ".superpowers"
+        / "sdd"
+        / "run_task8_formal_rounds.ps1"
+    ).read_text(encoding="utf-8")
+
+    assert "FromBase64String" in wrapper
+    assert "$decreeUtf8Base64" in wrapper
+    assert '$decree = "请' not in wrapper
+    assert '$evidence.exit_code -ne 0' in wrapper
+    assert 'failure-{0:D2}.json' in wrapper
+    assert all(ord(character) < 128 for character in wrapper)
+    encoded = re.search(r'\$decreeUtf8Base64 = "([A-Za-z0-9+/=]+)"', wrapper)
+    assert encoded is not None
+    decree = base64.b64decode(encoded.group(1)).decode("utf-8")
+    assert hashlib.sha256(decree.encode()).hexdigest() == (
+        "e0a1f1e76c4155c9c9d23ca1f96f93f8123453d3f14b0abc5c927286625b9a9c"
+    )
+
+
+def test_formal_round_summary_records_native_exit_code() -> None:
+    summary_path = (
+        Path(__file__).resolve().parents[2]
+        / ".superpowers"
+        / "sdd"
+        / "dynamic-bureau-task-8-rounds"
+        / "round-01.json"
+    )
+    summary = json.loads(summary_path.read_text(encoding="utf-8-sig"))
+
+    assert summary["exit_code"] == 0

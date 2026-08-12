@@ -38,6 +38,20 @@ class RaisingModel:
         raise self._exc
 
 
+class StageAwareModel:
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, list[dict[str, str]]]] = []
+
+    def __call__(self, _messages: list[dict[str, str]]) -> str:
+        raise AssertionError("stage-aware models must not use the untyped fallback")
+
+    def invoke_structured(
+        self, messages: list[dict[str, str]], *, stage: str
+    ) -> str:
+        self.calls.append((stage, messages))
+        return '{"opinion":"ok"}'
+
+
 def _validate_opinion(raw: object) -> str:
     if not isinstance(raw, str):
         raise ValueError("response is not text")
@@ -66,6 +80,20 @@ def test_retries_two_schema_failures_then_returns_validated_value() -> None:
     assert model.calls[1][:-1] == MESSAGES
     assert model.calls[1][-1]["role"] == "system"
     assert "not-json" not in model.calls[1][-1]["content"]
+
+
+def test_passes_explicit_stage_to_stage_aware_model() -> None:
+    model = StageAwareModel()
+
+    result = invoke_strict_structured(
+        model,
+        MESSAGES,
+        _validate_opinion,
+        stage="ministry_synthesis",
+    )
+
+    assert result == "ok"
+    assert model.calls == [("ministry_synthesis", MESSAGES)]
 
 
 def test_provider_failure_is_not_retried_or_leaked() -> None:

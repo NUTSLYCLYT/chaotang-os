@@ -57,6 +57,38 @@ Ready
 - 未运行项与原因：全部实施验证尚未运行。
 - 剩余风险：见 Technical Plan。
 
+## Final Implementation Evidence (2026-08-12)
+
+- Implemented task-scoped discovery, execution-time authorization, bounded recovery,
+  adaptive workbook probing, semantic mapping, deterministic validation, accounting
+  inspect/generate handlers, artifact disclosure, and truthful async failure classes.
+- Drafting binds route, request kind, period, and approved source-root capability without
+  reading workbook content; inspection occurs only inside the authorized bureau tool.
+- Final verification: Ruff PASS; focused backend `526 passed, 1 skipped`; related backend
+  `220 passed`; full backend `3757 passed, 4 skipped`; frontend `658 passed`; frontend
+  lint/typecheck/build PASS; governance checks and `git diff --check` PASS.
+- Frozen scope: 626 files. Earlier `dbbe235...` / 255-file and `4f5b7577...` evidence is
+  **Superseded** and counts as zero after the explicit `exit_code` evidence-schema reset.
+- The `75224fd4...` sequence is **Superseded** and counts as zero because its persisted
+  round summaries omitted `exit_code`.
+- Authoritative acceptance: 10/10 consecutive rounds PASS against 626-file fingerprint
+  `8f4ded1b946ad2e92bc7ba58235ce2babde87951b59635924bddd5891d7d8032` and BUILD_ID
+  `uYdu8Mzgcv5_A849-s2i1`. Every persisted round JSON has `exit_code: 0`, identical
+  start/end fingerprint and BUILD_ID, and artifact SHA-256
+  `58752ecc67f104263aadeb00f384b596c939fbd0db756ec0d633f0bae63b790c`.
+- Formal rounds 1-10: PASS. Each round opened the workbook, observed one final REPLY, two
+  linked audit refs, truthful `internal` failure classification, all dynamic cases PASS,
+  and artifact SHA-256 `58752ecc67f104263aadeb00f384b596c939fbd0db756ec0d633f0bae63b790c`.
+- No production data, external network, production write, deployment, staging, or commit
+  was used. Remaining risk: `.xls` parsing depends on pinned `xlrd`; medium/low-confidence
+  interpretations remain disclosed or draft-only by design.
+
+## Final Acceptance Review (2026-08-12)
+
+- Result: PASS.
+- Failed criteria: none.
+- Local evidence: `.superpowers/sdd/dynamic-bureau-task-8-rounds/`.
+
 ## Acceptance Review
 
 - 验收结果：Pending

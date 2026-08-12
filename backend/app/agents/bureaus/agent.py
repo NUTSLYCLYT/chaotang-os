@@ -250,7 +250,29 @@ def _invoke_bureau_agent_with_report_authorized(
     except ValueError as exc:
         raise BureauAgentInvocationError("Bureau identity validation failed.") from exc
 
+    accounting_tool_session = (
+        report_session is not None
+        and runtime_skill.agent_id == "hubu-accounting"
+        and isinstance(getattr(report_session, "run_id", None), str)
+    )
+    report_summary = None
+    if (
+        report_session is not None
+        and runtime_skill.agent_id == "hubu-accounting"
+        and not accounting_tool_session
+    ):
+        from app.accounting_reports.intent import detect_accounting_report_intent
+
+        if detect_accounting_report_intent(decree_text).requested:
+            generation = report_session.maybe_generate(department, bureau, decree_text)
+            if isinstance(generation, str):
+                report_summary = generation
+            elif generation is not None:
+                report_summary = generation.model_prompt
+
     user_content = f"旨意：{decree_text}\n\n部级路由判断：{rationale}"
+    if report_summary is not None:
+        user_content += f"\n\n会计司确定性报表摘要：\n{report_summary}"
     messages = [
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": user_content},
@@ -376,7 +398,7 @@ def _invoke_bureau_agent_with_report_authorized(
         accounting_source_ref = None
         accounting_content_ref = None
         accounting_content_holder: dict[str, object] | None = None
-        if report_session is not None and runtime_skill.agent_id == "hubu-accounting":
+        if accounting_tool_session:
             accounting_source_ref = (
                 f"approved-data:case:{case_id}:decree:{decree_id}:accounting-source-root"
             )
@@ -540,12 +562,12 @@ def _invoke_bureau_agent_with_report_authorized(
             evidence_requester=evidence_requester,
             accounting_workbook_generator=(
                 accounting_workbook_generator
-                if report_session is not None and runtime_skill.agent_id == "hubu-accounting"
+                if accounting_tool_session
                 else None
             ),
             accounting_content_inspector=(
                 inspect_accounting_content
-                if report_session is not None and runtime_skill.agent_id == "hubu-accounting"
+                if accounting_tool_session
                 else None
             ),
         )
@@ -678,7 +700,7 @@ def _invoke_bureau_agent_with_report_authorized(
                 **canonical_data,
             },
         )
-        if report_session is not None and runtime_skill.agent_id == "hubu-accounting":
+        if accounting_tool_session:
             artifact_ready = any(
                 result.result_schema == "accounting_workbook_result.v1"
                 for result in loop_result.accepted_results

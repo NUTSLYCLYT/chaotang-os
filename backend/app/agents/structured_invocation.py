@@ -62,7 +62,12 @@ def invoke_strict_structured(
                 }
             )
         try:
-            raw_response = chat_model(attempt_messages)
+            stage_invoker = getattr(chat_model, "invoke_structured", None)
+            raw_response = (
+                stage_invoker(attempt_messages, stage=stage)
+                if callable(stage_invoker)
+                else chat_model(attempt_messages)
+            )
         except Exception as exc:  # noqa: BLE001 - provider boundary
             raise StructuredInvocationError(
                 failure_stage=stage,

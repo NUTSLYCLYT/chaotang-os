@@ -286,12 +286,16 @@ def test_ready_analysis_registers_server_generated_accounting_context(
             "current_status": "DRAFT_READY",
         },
     }
+    source_loads = 0
+
+    def forbidden_source_load(*_args):
+        nonlocal source_loads
+        source_loads += 1
+        raise AssertionError("draft must not parse accounting workbooks")
+
     graph = build_chancellor_draft_graph(
         chat_model=lambda _messages: json.dumps(payload, ensure_ascii=False),
-        accounting_source_loader=lambda _source_dir, _period: SimpleNamespace(
-            manifest=SimpleNamespace(fingerprint="c" * 64),
-            subject_identity="synthetic-entity-2025",
-        ),
+        accounting_source_loader=forbidden_source_load,
     )
     monkeypatch.setattr(draft_api, "get_chancellor_draft_graph", lambda: graph)
     try:
@@ -316,7 +320,10 @@ def test_ready_analysis_registers_server_generated_accounting_context(
         assert consumed.accounting_context.request_kind.value == "ACCOUNTING_ANALYSIS"
         assert consumed.accounting_context.period.start_year == 2025
         assert consumed.accounting_context.period.end_year == 2025
-        assert consumed.accounting_context.source_fingerprint == "c" * 64
+        # Draft authority binds the approved period and capability only. Source
+        # bytes are inspected later by the authorized accounting bureau tool.
+        assert consumed.accounting_context.source_fingerprint is None
+        assert source_loads == 0
     finally:
         configure_auth_db(None)
 
@@ -398,143 +405,10 @@ def test_real_source_exact_analysis_needs_input_without_model(
         configure_auth_db(None)
 
 
-def test_exact_analysis_invalid_source_returns_200_before_provider_configuration(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    configure_auth_db(tmp_path / "auth.sqlite3")
-    user = create_user("lazy-provider", "lazy-provider@example.com", "six-or-more")
-    provider_factory_calls = 0
-    monkeypatch.setenv(
-        "CHAOTANG_ACCOUNTING_SOURCE_DIR", str(tmp_path / "missing-source")
-    )
-
-    def forbidden_provider_config():
-        nonlocal provider_factory_calls
-        provider_factory_calls += 1
-        raise AssertionError("provider configuration must not be loaded")
-
-    monkeypatch.setattr(
-        "app.agents.chancellor_draft.graph.load_deepseek_provider_config",
-        forbidden_provider_config,
-    )
-    try:
-        response = client.post(
-            URL,
-            headers={"Authorization": f"Bearer {create_session(user.id)}"},
-            json={"messages": [{
-                "role": "user",
-                "content": "我想用本地数据分析出2025年的财务数据分析一下",
-            }]},
-        )
-    finally:
-        configure_auth_db(None)
-
-    assert response.status_code == 200
-    assert response.json()["status"] == "NEEDS_INPUT"
-    assert response.json()["draft"] is None
-    assert response.json()["decree_text"] is None
-    assert provider_factory_calls == 0
-
-
-def test_identity_unresolved_analysis_returns_200_without_any_side_effect(
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-) -> None:
-    configure_auth_db(tmp_path / "auth.sqlite3")
-    user = create_user(
-        "identity-unresolved",
-        "identity-unresolved@example.com",
-        "six-or-more",
-    )
-    original_register = draft_authority_registry.register
-    original_revoke = draft_authority_registry.revoke
-    original_register(
-        owner_user_id=user.id,
-        version=9,
-        fingerprint="9" * 64,
-        decree_text="existing authorized draft",
-        route_snapshot=ApprovedRouteSnapshot(
-            departments=(ApprovedDepartmentRoute(
-                department="户部",
-                required_bureaus=("会计司",),
-            ),),
-        ),
-    )
-    before = draft_authority_registry.lookup(owner_user_id=user.id)
-    calls = {
-        "model": 0,
-        "provider": 0,
-        "register": 0,
-        "revoke": 0,
-        "consume": 0,
-        "consume_with_context": 0,
-        "route_snapshot": 0,
-    }
-
-    def forbidden(name: str):
-        def fail(*_args, **_kwargs):
-            calls[name] += 1
-            raise AssertionError(f"identity gate must precede {name}")
-
-        return fail
-
-    graph = build_chancellor_draft_graph(
-        chat_model=forbidden("model"),
-        accounting_source_dir=Path("synthetic-accounting-source"),
-        accounting_source_loader=lambda _source_dir, _period: SimpleNamespace(
-            manifest=SimpleNamespace(
-                fingerprint="b" * 64,
-                files=(SimpleNamespace(basename="guessed-entity-2025.xlsx"),),
-            ),
-            ledger_rows=(object(),),
-            statement_rows=(),
-            subject_identity=None,
-        ),
-    )
-    monkeypatch.setattr(draft_api, "get_chancellor_draft_graph", lambda: graph)
-    monkeypatch.setattr(
-        "app.agents.chancellor_draft.graph.load_deepseek_provider_config",
-        forbidden("provider"),
-    )
-    monkeypatch.setattr(draft_authority_registry, "register", forbidden("register"))
-    monkeypatch.setattr(draft_authority_registry, "revoke", forbidden("revoke"))
-    monkeypatch.setattr(draft_authority_registry, "consume", forbidden("consume"))
-    monkeypatch.setattr(
-        draft_authority_registry,
-        "consume_with_context",
-        forbidden("consume_with_context"),
-    )
-    monkeypatch.setattr(draft_api, "build_route_snapshot", forbidden("route_snapshot"))
-    try:
-        response = client.post(
-            URL,
-            headers={"Authorization": f"Bearer {create_session(user.id)}"},
-            json={"messages": [{
-                "role": "user",
-                "content": "我想用本地数据分析出2025年的财务数据分析一下",
-            }]},
-        )
-        assert response.status_code == 200
-        payload = response.json()
-        assert payload["status"] == "NEEDS_INPUT"
-        assert payload["decree_text"] is None
-        assert payload["draft"] is None
-        assert "accounting_context" not in payload
-        assert "artifacts" not in payload
-        assert calls == {name: 0 for name in calls}
-        assert draft_authority_registry.lookup(owner_user_id=user.id) == before
-    finally:
-        original_revoke(owner_user_id=user.id)
-        configure_auth_db(None)
-
-
 @pytest.mark.parametrize(
     ("request_text", "missing_fingerprint"),
     [
-        ("读取系统内既有财务数据并生成可下载财务报表", True),
         ("请生成2025-2024年财务报表并提供下载", False),
-        ("我想用本地数据分析出2025年的财务数据分析一下", False),
-        ("请使用本地财务数据生成2025年报表", True),
     ],
 )
 def test_preflight_needs_input_never_registers_or_replaces_authority(
@@ -718,7 +592,7 @@ def test_explicit_period_revision_registers_only_original_period_authority(
         assert consumed.accounting_context.request_kind.value == "ACCOUNTING_REPORT"
         assert consumed.accounting_context.period.start_year == 2024
         assert consumed.accounting_context.period.end_year == 2024
-        assert consumed.accounting_context.source_fingerprint == "e" * 64
+        assert consumed.accounting_context.source_fingerprint is None
     finally:
         configure_auth_db(None)
 
@@ -869,11 +743,6 @@ def test_cross_bureau_routing_gate_precedes_finance_and_api_side_effects(
             return SimpleNamespace(output=graph.invoke(kwargs["payload"]))
 
     monkeypatch.setattr(draft_api, "get_chancellor_agent", _FinanceRoutingGraphAgent)
-    monkeypatch.setattr(
-        draft_graph,
-        "resolve_accounting_report_period",
-        forbidden("artifact_preflight"),
-    )
     monkeypatch.setattr(
         draft_authority_registry,
         "register",

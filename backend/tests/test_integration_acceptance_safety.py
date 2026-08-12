@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import importlib
+import socket
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -88,10 +90,40 @@ def test_synthetic_acceptance_stops_backend_when_frontend_spawn_fails(
         raise OSError("frontend spawn failed")
 
     stopped: list[object] = []
-    monkeypatch.setattr(accounting_acceptance.subprocess, "Popen", popen)
+    monkeypatch.setattr(accounting_acceptance, "_tracked_popen", popen)
     monkeypatch.setattr(accounting_acceptance, "_stop", stopped.append)
 
     with pytest.raises(OSError, match="frontend spawn failed"):
         accounting_acceptance._start_servers(41001, 41002, {})
 
     assert stopped == [backend]
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows process-tree contract")
+def test_stop_terminates_spawned_child_and_releases_its_port() -> None:
+    port = accounting_acceptance._free_port(set())
+    child_code = (
+        "import socket,time; s=socket.socket(); "
+        f"s.bind(('127.0.0.1',{port})); s.listen(); time.sleep(60)"
+    )
+    parent_code = (
+        "import subprocess,sys,time; "
+        f"subprocess.Popen([sys.executable,'-c',{child_code!r}]); time.sleep(60)"
+    )
+    process = accounting_acceptance._tracked_popen([sys.executable, "-c", parent_code])
+    deadline = time.monotonic() + 5
+    while True:
+        probe = socket.socket()
+        try:
+            probe.bind(("127.0.0.1", port))
+        except OSError:
+            probe.close()
+            break
+        probe.close()
+        assert time.monotonic() < deadline
+        time.sleep(0.02)
+
+    accounting_acceptance._stop(process)
+
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", port))

@@ -1065,8 +1065,9 @@ export interface DecreeJobData {
 
 export interface DecreeJobErrorData {
   code: string;
-  stage: "queue" | "execution" | "side_effect";
-  category: "cancelled" | "deadline" | "budget" | "provider" | "retry" | "internal";
+  stage: "queue" | "execution" | "side_effect" | "bureau_tool" | "validation" | "model" | "artifact";
+  category: "cancelled" | "deadline" | "budget" | "provider" | "retry" | "internal" |
+    "format" | "tool" | "data" | "validation" | "model" | "artifact";
 }
 
 export type DecreeJobRequestResult =
@@ -1111,9 +1112,12 @@ function parseDecreeJob(value: unknown): DecreeJobData | null {
     record.error !== null && !Array.isArray(record.error)
     ? record.error as Record<string, unknown>
     : null;
-  const stages = ["queue", "execution", "side_effect"] as const;
+  const stages = [
+    "queue", "execution", "side_effect", "bureau_tool", "validation", "model", "artifact",
+  ] as const;
   const categories = [
     "cancelled", "deadline", "budget", "provider", "retry", "internal",
+    "format", "tool", "data", "validation", "model", "artifact",
   ] as const;
   const error = errorRecord !== null && Object.keys(errorRecord).length === 3 &&
     typeof errorRecord.code === "string" && errorRecord.code.length > 0 &&
