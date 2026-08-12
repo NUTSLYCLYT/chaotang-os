@@ -66,6 +66,8 @@ const REQUIRED_FILES = [
   ".agents/skills/product-flow/scripts/run-claude-delivery.mjs",
   ".agents/skills/codex-engineering-workflow/SKILL.md",
   ".agents/skills/codex-engineering-workflow/agents/openai.yaml",
+  ".agents/skills/deploy-chaotang-os/SKILL.md",
+  ".agents/skills/deploy-chaotang-os/agents/openai.yaml",
   ".claude/skills/record-decision/SKILL.md",
   ".claude/skills/record-failure/SKILL.md",
   ".claude/settings.json",
@@ -901,6 +903,44 @@ export function validateHarness(root) {
         "module-engineer",
         "test-engineer",
         "单独明确授权",
+      ],
+      errors,
+    );
+  }
+
+  const deploySkillPath = join(root, ".agents", "skills", "deploy-chaotang-os", "SKILL.md");
+  if (existsSync(deploySkillPath)) {
+    requireText(
+      ".agents/skills/deploy-chaotang-os/SKILL.md",
+      readFileSync(deploySkillPath, "utf8"),
+      [
+        "name: deploy-chaotang-os",
+        "docs/decisions/0028-decree-evidence-flow-governance-baseline.md",
+        "docs/decisions/0041-single-host-container-deployment.md",
+        "deploy/compose.yaml",
+        "scripts/check_deployment.mjs",
+        "release manifest",
+        "frontend image digest",
+        "backend image digest",
+        "health alone",
+        "ten consecutive",
+        "explicit authorization",
+        "missing capability",
+        "production-data restore",
+      ],
+      errors,
+    );
+  }
+
+  const deploySkillUiPath = join(root, ".agents", "skills", "deploy-chaotang-os", "agents", "openai.yaml");
+  if (existsSync(deploySkillUiPath)) {
+    requireText(
+      ".agents/skills/deploy-chaotang-os/agents/openai.yaml",
+      readFileSync(deploySkillUiPath, "utf8"),
+      [
+        'display_name: "Deploy chaotang-os"',
+        "short_description:",
+        "Use $deploy-chaotang-os",
       ],
       errors,
     );

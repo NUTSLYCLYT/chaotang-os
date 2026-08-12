@@ -1,0 +1,4 @@
+interface:
+  display_name: "Deploy chaotang-os"
+  short_description: "查找并正确应用 chaotang-os 当前部署流程"
+  default_prompt: "Use $deploy-chaotang-os to locate and correctly apply the current chaotang-os audit, release, deployment, verification, or rollback procedure."
