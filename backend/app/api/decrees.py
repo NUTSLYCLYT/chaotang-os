@@ -51,7 +51,6 @@ from app.accounting_reports.models import (
     ReportPeriod,
 )
 from app.accounting_reports.session import AccountingReportSession
-from app.accounting_reports.source_adapters import preflight_accounting_sources
 from app.accounting_reports.source_manifest import resolve_accounting_source_dir
 from app.accounting_reports.sources import AccountingSourceError
 from app.accounting_reports.storage import DEFAULT_ARTIFACT_DIR, DEFAULT_DB_PATH
@@ -220,15 +219,11 @@ def build_accounting_report_session(
     accounting_context: AccountingAuthorityContext | None = None,
 ) -> AccountingReportSession:
     source_dir = APPROVED_ACCOUNTING_SOURCE_DIR
-    dataset = None
     if accounting_context is not None:
         try:
             source_dir = resolve_accounting_source_dir()
-            dataset = preflight_accounting_sources(source_dir, accounting_context.period)
         except AccountingSourceError:
             raise SourceNotCurrentError from None
-        if dataset.manifest.fingerprint != accounting_context.source_fingerprint:
-            raise SourceNotCurrentError
     return AccountingReportSession(
         owner_user_id=owner_user_id,
         run_id=run_id,
@@ -237,7 +232,10 @@ def build_accounting_report_session(
         db_path=DEFAULT_DB_PATH,
         request_kind=(accounting_context.request_kind if accounting_context else None),
         period=(accounting_context.period if accounting_context else None),
-        dataset=dataset,
+        dataset=None,
+        expected_source_fingerprint=(
+            accounting_context.source_fingerprint if accounting_context else None
+        ),
     )
 
 

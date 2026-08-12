@@ -10,7 +10,12 @@ import pytest
 from openpyxl import load_workbook
 
 from app.accounting_reports.analysis import analyze_ledger, source_id_for_row
-from app.accounting_reports.models import NormalizedLedgerRow, ReportPeriod, SourceRef
+from app.accounting_reports.models import (
+    AccountingWorkbookDisclosure,
+    NormalizedLedgerRow,
+    ReportPeriod,
+    SourceRef,
+)
 from app.accounting_reports.workbook import (
     AccountingWorkbookError,
     _audit_generated_workbook,
@@ -144,6 +149,42 @@ def test_writer_creates_exact_auditable_seven_sheet_workbook(tmp_path: Path) -> 
                         for marker in ("#REF!", "#DIV/0!", "#VALUE!", "#NAME?")
                     )
                     assert str(tmp_path) not in formula
+    workbook.close()
+
+
+def test_writer_discloses_inferred_mapping_and_failed_validation(tmp_path: Path) -> None:
+    destination = tmp_path / "draft-report.xlsx"
+    disclosure = AccountingWorkbookDisclosure(
+        decree_id="decree-2025",
+        snapshot_fingerprint="a" * 64,
+        publication_readiness="inferred_draft",
+        mapping_candidates=("closing_balance:0.41",),
+        selected_reasons=("header_semantics",),
+        confidence_band="low",
+        validation_receipts=("balance_sheet_equation:failed",),
+        source_regions=("sheet:0:R2C1:R9C4",),
+        limitations=("mapping_draft_only",),
+        content_hash="b" * 64,
+    )
+
+    write_management_report(
+        _rows(),
+        analyze_ledger(_rows(), ReportPeriod(2024, 2025)),
+        destination,
+        disclosure=disclosure,
+    )
+
+    workbook = load_workbook(destination, data_only=False)
+    assert workbook["数据口径与自动判断"]["B2"].value == "推定草稿"
+    assert workbook["校验结果"]["B2"].value == "未通过"
+    labels = {
+        workbook["数据口径与自动判断"].cell(row, 1).value
+        for row in range(1, workbook["数据口径与自动判断"].max_row + 1)
+    }
+    assert {
+        "旨意 ID", "快照指纹", "映射候选", "选择理由", "置信度",
+        "校验回执", "来源区域", "局限", "内容哈希",
+    } <= labels
     workbook.close()
 
 

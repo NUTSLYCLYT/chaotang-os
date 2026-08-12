@@ -16,7 +16,11 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.worksheet.worksheet import Worksheet
 
 from .analysis import ACCOUNT_FAMILY_BY_CATEGORY, source_id_for_row
-from .models import AccountingReportSummary, NormalizedLedgerRow
+from .models import (
+    AccountingReportSummary,
+    AccountingWorkbookDisclosure,
+    NormalizedLedgerRow,
+)
 
 SHEET_NAMES: Final = (
     "管理摘要",
@@ -27,6 +31,7 @@ SHEET_NAMES: Final = (
     "校验结果",
     "数据来源",
 )
+DISCLOSURE_SHEET: Final = "数据口径与自动判断"
 MONEY_FORMAT: Final = '#,##0.00;[Red](#,##0.00);-'
 PERCENT_FORMAT: Final = "0.00%"
 _HEADER_FILL: Final = PatternFill("solid", fgColor="1F4E78")
@@ -315,9 +320,37 @@ def _write_sources(
     _finish_table(sheet)
 
 
+def _write_disclosure(
+    sheet: Worksheet, disclosure: AccountingWorkbookDisclosure
+) -> None:
+    readiness = {
+        "verified": "已验证",
+        "disclosed": "已披露",
+        "inferred_draft": "推定草稿",
+    }[disclosure.publication_readiness]
+    rows = (
+        ("字段", "披露值"),
+        ("发布状态", readiness),
+        ("旨意 ID", disclosure.decree_id),
+        ("快照指纹", disclosure.snapshot_fingerprint),
+        ("映射候选", " | ".join(disclosure.mapping_candidates)),
+        ("选择理由", " | ".join(disclosure.selected_reasons)),
+        ("置信度", disclosure.confidence_band),
+        ("校验回执", " | ".join(disclosure.validation_receipts)),
+        ("来源区域", " | ".join(disclosure.source_regions)),
+        ("局限", " | ".join(disclosure.limitations)),
+        ("内容哈希", disclosure.content_hash),
+    )
+    for row in rows:
+        sheet.append(row)
+    _style_header(sheet)
+    _finish_table(sheet)
+
+
 def _build_workbook(
     rows: tuple[NormalizedLedgerRow, ...],
     summary: AccountingReportSummary,
+    disclosure: AccountingWorkbookDisclosure | None = None,
 ) -> Workbook:
     workbook = Workbook()
     workbook.remove(workbook.active)
@@ -337,6 +370,14 @@ def _build_workbook(
     _write_exceptions(workbook["异常分析"], summary.exceptions)
     _write_checks(workbook["校验结果"], summary)
     _write_sources(workbook["数据来源"], summary, rows)
+    if disclosure is not None:
+        workbook.create_sheet(DISCLOSURE_SHEET)
+        _write_disclosure(workbook[DISCLOSURE_SHEET], disclosure)
+        workbook["校验结果"]["B2"] = (
+            "未通过"
+            if disclosure.publication_readiness == "inferred_draft"
+            else "已通过"
+        )
     return workbook
 
 
@@ -390,9 +431,12 @@ def _audit_generated_workbook(path: Path) -> None:
             raise ValueError("invalid_workbook_archive")
     workbook = load_workbook(path, data_only=False)
     try:
-        if tuple(workbook.sheetnames) != SHEET_NAMES:
+        if tuple(workbook.sheetnames) not in (
+            SHEET_NAMES,
+            (*SHEET_NAMES, DISCLOSURE_SHEET),
+        ):
             raise ValueError("invalid_workbook_sheets")
-        for sheet_name in SHEET_NAMES:
+        for sheet_name in workbook.sheetnames:
             sheet = workbook[sheet_name]
             if sheet.max_row < 2 or sheet.max_column < 2:
                 raise ValueError("missing_required_range")
@@ -404,7 +448,7 @@ def _audit_generated_workbook(path: Path) -> None:
                     if any(marker in formula for marker in _FORBIDDEN_FORMULA_MARKERS):
                         raise ValueError("unsafe_formula")
                     references = _SHEET_REFERENCE.findall(formula)
-                    if any(reference not in SHEET_NAMES for reference in references):
+                    if any(reference not in workbook.sheetnames for reference in references):
                         raise ValueError("unknown_formula_reference")
                     qualified = tuple(_QUALIFIED_REFERENCE.finditer(formula))
                     if len(qualified) != len(references):
@@ -422,7 +466,7 @@ def _audit_generated_workbook(path: Path) -> None:
                         _UNQUOTED_QUALIFIED_REFERENCE.finditer(formula)
                     )
                     for match in unquoted:
-                        if match.group(1) not in SHEET_NAMES:
+                        if match.group(1) not in workbook.sheetnames:
                             raise ValueError("unknown_formula_reference")
                         target = workbook[match.group(1)]
                         _validate_reference_bounds(
@@ -489,6 +533,8 @@ def write_management_report(
     rows: tuple[NormalizedLedgerRow, ...],
     summary: AccountingReportSummary,
     destination: Path,
+    *,
+    disclosure: AccountingWorkbookDisclosure | None = None,
 ) -> str:
     path = Path(destination)
     temporary_path: Path | None = None
@@ -501,7 +547,7 @@ def write_management_report(
         )
         os.close(descriptor)
         temporary_path = Path(temporary_name)
-        workbook = _build_workbook(tuple(rows), summary)
+        workbook = _build_workbook(tuple(rows), summary, disclosure)
         try:
             workbook.save(temporary_path)
         finally:

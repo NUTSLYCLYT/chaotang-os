@@ -398,6 +398,7 @@ class ToolHandlerContext(_FrozenToolContract):
     resolved_approved_inputs: dict[str, Any]
     restricted_adapters: dict[str, str]
     budget: ToolBudget
+    accepted_results: tuple[ToolResultEnvelope, ...] = ()
 
     _capability = field_validator("capability_id")(_require_nonblank)
 

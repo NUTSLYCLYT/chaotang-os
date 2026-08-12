@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from types import SimpleNamespace
 
 import pytest
 
@@ -344,7 +345,12 @@ def test_real_approved_data_payload_reaches_inspect_and_compute_with_exact_audit
         nonlocal turns
         turns += 1
         if turns == 1:
-            ref = messages[-1]["content"].split("approved_data_refs=", 1)[1].splitlines()[0]
+            ref = (
+                messages[-1]["content"]
+                .split("approved_data_refs=", 1)[1]
+                .splitlines()[0]
+                .split(",", 1)[0]
+            )
             return {"status": "TOOL_CALLS", "calls": [
                 {
                     "tool_call_id": "sk-private-inspect",
@@ -409,6 +415,242 @@ def test_real_approved_data_payload_reaches_inspect_and_compute_with_exact_audit
     assert "Bearer-private-compute" not in str(result.runtime_report)
     records_by_ref = {audit.audit_ref: audit for audit in tool_audit_snapshot()}
     assert all(ref in records_by_ref for ref in result.runtime_report.audit_refs)
+
+
+def test_accounting_artifact_direct_generate_fails_without_inspect() -> None:
+    policy = bureau_tool_policy_for("hubu-accounting")
+    domain = next(iter(policy.allowed_data_domains))
+    constraints = policy.tool_argument_constraints[
+        ToolName.GENERATE_ACCOUNTING_WORKBOOK
+    ]
+    generated = 0
+
+    class ReportSession:
+        dataset = None
+        run_id = "run-one"
+
+        def maybe_generate(self, department, bureau, decree_text, *, decree_id=None):
+            nonlocal generated
+            generated += 1
+            assert (department, bureau) == ("户部", "会计司")
+            assert decree_id and decree_id.startswith("decree-")
+            return SimpleNamespace(
+                artifact_id="artifact-one",
+                publication_readiness="inferred_draft",
+            )
+
+    turns = 0
+
+    def model(messages):
+        nonlocal turns
+        turns += 1
+        if turns == 1:
+            ref = (
+                messages[-1]["content"]
+                .split("approved_data_refs=", 1)[1]
+                .splitlines()[0]
+                .split(",", 1)[0]
+            )
+            return {"status": "TOOL_CALLS", "calls": [{
+                "tool_call_id": "generate-one",
+                "tool_name": "generate_accounting_workbook",
+                "purpose": "generate the authorized accounting artifact",
+                "arguments": {
+                    "operation": "generate_workbook",
+                    "domain": domain,
+                    "data_ref": ref,
+                    "fields": [constraints["allowed_fields"][0]],
+                    "estimated_rows": 1,
+                    "estimated_bytes": 256,
+                },
+                "required_for": ["management workbook"],
+                "expected_result_schema": "accounting_workbook_result.v1",
+            }]}
+        return {"status": "FINAL", "report": {"opinion": "draft disclosed"}}
+
+    result = invoke_bureau_agent_with_report(
+        "户部", "会计司", "生成2025年管理层综合财务报表", "approved route", model,
+        report_session=ReportSession(),
+        approved_data_inputs={
+            "accounting": {
+                "columns": ["amount"], "rows": [{"amount": 1}],
+                "values": [1], "unit": "CNY",
+            }
+        },
+    )
+
+    assert generated == 0
+    assert result.runtime_report.artifact_manifest == ()
+
+
+def test_accounting_artifact_requires_inspect_then_generate() -> None:
+    from tests.test_bureau_tool_handlers import _accounting_payload
+
+    policy = bureau_tool_policy_for("hubu-accounting")
+    domain = next(iter(policy.allowed_data_domains))
+    generated = 0
+
+    class ReportSession:
+        dataset = None
+        run_id = "run-inspected"
+
+        def inspect_accounting_content(self, **_kwargs):
+            return _accounting_payload("closing balance")
+
+        def maybe_generate(self, *_args, **_kwargs):
+            nonlocal generated
+            generated += 1
+            return SimpleNamespace(
+                artifact_id="artifact-inspected",
+                publication_readiness="verified",
+            )
+
+    turn = 0
+
+    def model(messages):
+        nonlocal turn
+        turn += 1
+        refs = messages[1]["content"].split("approved_data_refs=", 1)[1]
+        refs = refs.splitlines()[0].split(",")
+        if turn > 1:
+            return {"status": "FINAL", "report": {
+                "opinion": "verified", "analysis": [],
+                "professional_findings": [], "risks": [],
+                "recommendations": ["review workbook"],
+                "out_of_scope_items": [],
+            }}
+        source_ref = next(item for item in refs if item.endswith("accounting-source-root"))
+        content_ref = next(item for item in refs if ":accounting-content-" in item)
+        def call(call_id, tool, operation, schema, ref):
+            return {
+                "tool_call_id": call_id, "tool_name": tool,
+                "purpose": "authorized accounting workflow",
+                "arguments": {
+                    "operation": operation, "domain": domain, "data_ref": ref,
+                    "fields": ["finance.accounting.ledger_ref"],
+                    "estimated_rows": 1, "estimated_bytes": 256,
+                },
+                "required_for": ["management workbook"],
+                "expected_result_schema": schema,
+            }
+        return {"status": "TOOL_CALLS", "calls": [
+            call("accounting-inspect", "inspect_accounting_content", "inspect_content",
+                 "accounting_content_result.v1", source_ref),
+            call("accounting-generate", "generate_accounting_workbook", "generate_workbook",
+                 "accounting_workbook_result.v1", content_ref),
+        ]}
+
+    try:
+        result = invoke_bureau_agent_with_report(
+            "户部", "会计司", "生成2025年管理层综合财务报表", "approved route",
+            model, report_session=ReportSession(),
+        )
+    except Exception as error:
+        pytest.fail(f"unexpected boundary failure: {error.__cause__!r}")
+
+    assert generated == 1, [
+        (item.tool_name.value, item.status.value, item.reason_code)
+        for item in tool_audit_snapshot()
+    ]
+    assert len(result.runtime_report.audit_refs) == 2
+    assert result.runtime_report.artifact_manifest[0].artifact_id == "artifact-inspected"
+
+
+@pytest.mark.parametrize(
+    "invalid_ref_kind",
+    ("source-root", "cross-run", "cross-case", "forged", "ordinary"),
+)
+def test_accounting_artifact_rejects_unbound_generate_refs(
+    invalid_ref_kind: str,
+) -> None:
+    from tests.test_bureau_tool_handlers import _accounting_payload
+
+    policy = bureau_tool_policy_for("hubu-accounting")
+    domain = next(iter(policy.allowed_data_domains))
+    generated = 0
+
+    class ReportSession:
+        dataset = None
+        run_id = "run-boundary"
+
+        def inspect_accounting_content(self, **_kwargs):
+            return _accounting_payload("closing balance")
+
+        def maybe_generate(self, *_args, **_kwargs):
+            nonlocal generated
+            generated += 1
+            return SimpleNamespace(
+                artifact_id="artifact-forbidden",
+                publication_readiness="verified",
+            )
+
+    turns = 0
+
+    def model(messages):
+        nonlocal turns
+        turns += 1
+        refs = messages[1]["content"].split("approved_data_refs=", 1)[1]
+        refs = refs.splitlines()[0].split(",")
+        source_ref = next(item for item in refs if item.endswith("accounting-source-root"))
+        content_ref = next(item for item in refs if ":accounting-content-" in item)
+        if invalid_ref_kind == "source-root":
+            invalid_ref = source_ref
+        elif invalid_ref_kind == "cross-run":
+            invalid_ref = content_ref.replace("run-boundary", "run-other")
+        elif invalid_ref_kind == "cross-case":
+            invalid_ref = content_ref.replace("case:", "case:other-")
+        elif invalid_ref_kind == "forged":
+            invalid_ref = f"{content_ref}-forged"
+        else:
+            invalid_ref = "approved-data:accounting-content"
+        if turns > 1:
+            return {"status": "FINAL", "report": {"opinion": "generation rejected"}}
+
+        def call(call_id, tool, operation, schema, ref):
+            return {
+                "tool_call_id": call_id,
+                "tool_name": tool,
+                "purpose": "exercise accounting authorization boundary",
+                "arguments": {
+                    "operation": operation,
+                    "domain": domain,
+                    "data_ref": ref,
+                    "fields": ["finance.accounting.ledger_ref"],
+                    "estimated_rows": 1,
+                    "estimated_bytes": 256,
+                },
+                "required_for": ["management workbook"],
+                "expected_result_schema": schema,
+            }
+
+        return {"status": "TOOL_CALLS", "calls": [
+            call(
+                "accounting-inspect",
+                "inspect_accounting_content",
+                "inspect_content",
+                "accounting_content_result.v1",
+                source_ref,
+            ),
+            call(
+                "accounting-generate",
+                "generate_accounting_workbook",
+                "generate_workbook",
+                "accounting_workbook_result.v1",
+                invalid_ref,
+            ),
+        ]}
+
+    result = invoke_bureau_agent_with_report(
+        "户部",
+        "会计司",
+        "生成2025年管理层综合财务报表",
+        "approved route",
+        model,
+        report_session=ReportSession(),
+    )
+
+    assert generated == 0
+    assert result.runtime_report.artifact_manifest == ()
 
 
 def test_evidence_ready_still_enters_the_shared_bureau_tool_loop(monkeypatch) -> None:

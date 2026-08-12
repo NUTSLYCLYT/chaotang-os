@@ -496,6 +496,47 @@ class AccountingEvaluation:
 
 
 @dataclass(frozen=True, slots=True, repr=False)
+class AccountingWorkbookDisclosure:
+    """Sanitized deterministic mapping and validation disclosure for a workbook."""
+
+    decree_id: str
+    snapshot_fingerprint: str
+    publication_readiness: str
+    mapping_candidates: tuple[str, ...]
+    selected_reasons: tuple[str, ...]
+    confidence_band: str
+    validation_receipts: tuple[str, ...]
+    source_regions: tuple[str, ...]
+    limitations: tuple[str, ...]
+    content_hash: str
+
+    def __post_init__(self) -> None:
+        if self.publication_readiness not in {
+            "verified", "disclosed", "inferred_draft"
+        }:
+            raise ValueError("publication_readiness_invalid")
+        if self.confidence_band not in {"high", "medium", "low"}:
+            raise ValueError("confidence_band_invalid")
+        if _SHA256_HEX.fullmatch(self.snapshot_fingerprint) is None:
+            raise ValueError("snapshot_fingerprint_invalid")
+        if _SHA256_HEX.fullmatch(self.content_hash) is None:
+            raise ValueError("content_hash_invalid")
+        _require_nonblank(self.decree_id, "decree_id")
+        for field_name in (
+            "mapping_candidates", "selected_reasons", "validation_receipts",
+            "source_regions", "limitations",
+        ):
+            values = getattr(self, field_name)
+            if not isinstance(values, tuple) or any(
+                not isinstance(value, str) or not value.strip() for value in values
+            ):
+                raise ValueError(f"{field_name}_invalid")
+
+    def __repr__(self) -> str:
+        return "AccountingWorkbookDisclosure(<redacted>)"
+
+
+@dataclass(frozen=True, slots=True, repr=False)
 class PendingReportArtifact:
     artifact_id: str
     owner_user_id: str

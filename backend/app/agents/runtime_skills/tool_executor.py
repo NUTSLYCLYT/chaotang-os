@@ -456,6 +456,20 @@ def _validate_payload(
             raise ValueError("accounting_content_schema")
         AccountingContentProjection.model_validate(data)
         return
+    if tool is ToolName.GENERATE_ACCOUNTING_WORKBOOK:
+        if set(data) != {"artifact_id", "kind", "publication_readiness"}:
+            raise ValueError("accounting_workbook_schema")
+        if (
+            not data_refs
+            or not isinstance(data["artifact_id"], str)
+            or not data["artifact_id"].strip()
+            or data["kind"] != "ACCOUNTING_MANAGEMENT_REPORT_XLSX"
+            or data["publication_readiness"] not in {
+                "verified", "disclosed", "inferred_draft"
+            }
+        ):
+            raise ValueError("accounting_workbook_schema")
+        return
     if set(data) != {"algorithm_id", "algorithm_version", "values", "units"}:
         raise ValueError("analysis_schema")
     if (

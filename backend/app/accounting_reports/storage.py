@@ -634,6 +634,13 @@ class ArtifactStorage:
         with closing(connection):
             try:
                 connection.execute("BEGIN IMMEDIATE")
+                existing_run = connection.execute(
+                    "SELECT 1 FROM report_artifacts "
+                    "WHERE owner_user_id = ? AND run_id = ? LIMIT 1",
+                    (owner_user_id, run_id),
+                ).fetchone()
+                if existing_run is not None:
+                    raise ArtifactStorageError("artifact_unavailable")
                 path.replace(canonical_path)
                 moved = True
                 connection.execute(

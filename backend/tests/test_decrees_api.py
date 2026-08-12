@@ -36,7 +36,6 @@ from fastapi.testclient import TestClient
 
 import app.api.decrees as decrees_module
 from app.accounting_reports.models import AccountingRequestKind, ReportPeriod
-from app.accounting_reports.sources import AccountingSourceError
 from app.accounting_reports.storage import ArtifactStorage
 from app.agents.chancellor import (
     CHANCELLOR_IDENTITY,
@@ -421,9 +420,8 @@ def test_normal_decree_returns_empty_artifacts(fake_provider, report_session):
     assert len(builds[0]["run_id"]) == 32
 
 
-@pytest.mark.parametrize("preflight_outcome", ["fingerprint_drift", "parse_failure"])
-def test_execution_source_drift_is_409_after_authority_consumption_without_side_effects(
-    preflight_outcome, monkeypatch, fake_provider
+def test_execution_defers_source_access_to_bureau_and_fails_closed_without_artifact(
+    monkeypatch, fake_provider
 ):
     consumed = ConsumedDraftAuthority(
         _approved_route(
@@ -458,15 +456,10 @@ def test_execution_source_drift_is_409_after_authority_consumption_without_side_
         "build_accounting_report_session",
         _REAL_BUILD_ACCOUNTING_REPORT_SESSION,
     )
-    def changed_or_unreadable_source(*_args):
-        if preflight_outcome == "parse_failure":
-            raise AccountingSourceError("source_schema_invalid")
-        return SimpleNamespace(manifest=SimpleNamespace(fingerprint="b" * 64))
-
     monkeypatch.setattr(
         decrees_module,
         "preflight_accounting_sources",
-        changed_or_unreadable_source,
+        lambda *_args: pytest.fail("API boundary must not inspect accounting source data"),
         raising=False,
     )
     provider = fake_provider(
@@ -486,12 +479,12 @@ def test_execution_source_drift_is_409_after_authority_consumption_without_side_
         },
     )
 
-    assert response.status_code == 409, response.text
+    assert response.status_code == 502, response.text
     assert response.json()["status"] == "error"
-    assert response.json()["reason"] == "source_not_current"
+    assert response.json()["reason"] == "report_unavailable"
     assert response.json()["message"]
     assert len(consume_calls) == 1
-    assert provider.call_count == 0
+    assert provider.call_count == 1
     assert archive_calls == []
 
     retry = client.post(DECREE_URL, json={"decree_text": ACCOUNTING_DECREE})
@@ -499,7 +492,7 @@ def test_execution_source_drift_is_409_after_authority_consumption_without_side_
     assert retry.status_code == 409, retry.text
     assert retry.json()["reason"] == "draft_not_current"
     assert len(consume_calls) == 2
-    assert provider.call_count == 0
+    assert provider.call_count == 1
     assert archive_calls == []
 
 
@@ -517,14 +510,21 @@ def test_accounting_report_requires_one_generated_identity_before_archive(
         db_path=tmp_path / "report_artifacts.sqlite3",
     )
     generations = []
-    for index in range(generation_count):
+    persisted_generations = []
+    if generation_count:
         storage, generation = _pending_generation(
             tmp_path,
             owner_user_id=owner_user_id,
             run_id=run_id,
-            suffix=f"{index + 1:032x}",
+            suffix=f"{1:032x}",
         )
         generations.append(generation)
+        persisted_generations.append(generation)
+    if generation_count == 2:
+        generations.append(SimpleNamespace(**{
+            **vars(generations[0]),
+            "artifact_id": "synthetic-second-generation",
+        }))
     session = _FakeReportSession(
         generations=generations,
         storage=storage,
@@ -560,9 +560,9 @@ def test_accounting_report_requires_one_generated_identity_before_archive(
     assert response.json()["reason"] == "report_unavailable"
     assert archive_calls == 0
     assert session.events == ["abort"]
-    assert [storage.get_state(item.artifact_id) for item in generations] == [
+    assert [storage.get_state(item.artifact_id) for item in persisted_generations] == [
         "ABORTED"
-    ] * generation_count
+    ] * len(persisted_generations)
 
 
 def test_accounting_report_requires_intact_persistent_pending_before_archive(

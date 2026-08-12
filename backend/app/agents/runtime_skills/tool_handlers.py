@@ -22,6 +22,8 @@ from app.agents.runtime_skills.tool_models import ToolHandlerContext, ToolName
 ApprovedMaterialReader: TypeAlias = Callable[[ToolHandlerContext], Mapping[str, object]]
 ApprovedDataReader: TypeAlias = Callable[[ToolHandlerContext], Mapping[str, object]]
 EvidenceRequester: TypeAlias = Callable[[ToolHandlerContext], Mapping[str, object]]
+AccountingWorkbookGenerator: TypeAlias = Callable[[ToolHandlerContext], Mapping[str, object]]
+AccountingContentInspector: TypeAlias = Callable[[ToolHandlerContext], Mapping[str, object]]
 
 _INSPECT_OPERATIONS = frozenset({"describe", "filter", "aggregate", "compare", "top_n", "lookup"})
 _MAX_VALUES = 200
@@ -325,10 +327,14 @@ def build_bureau_tool_handlers(
     material_reader: ApprovedMaterialReader | None,
     data_reader: ApprovedDataReader | None,
     evidence_requester: EvidenceRequester | None,
+    accounting_workbook_generator: AccountingWorkbookGenerator | None = None,
+    accounting_content_inspector: AccountingContentInspector | None = None,
 ) -> object:
     adapters = {
         ToolName.COMPUTE_ANALYSIS: _compute_analysis,
-        ToolName.INSPECT_ACCOUNTING_CONTENT: _inspect_accounting_content,
+        ToolName.INSPECT_ACCOUNTING_CONTENT: (
+            accounting_content_inspector or _inspect_accounting_content
+        ),
     }
     if material_reader is not None:
         adapters[ToolName.READ_APPROVED_MATERIALS] = _adapter_handler(material_reader)
@@ -340,4 +346,6 @@ def build_bureau_tool_handlers(
         if not isinstance(evidence_requester, BureauEvidenceToolAdapter):
             raise ValueError("evidence_adapter_invalid")
         adapters[ToolName.REQUEST_EVIDENCE] = _adapter_handler(evidence_requester)
+    if accounting_workbook_generator is not None:
+        adapters[ToolName.GENERATE_ACCOUNTING_WORKBOOK] = accounting_workbook_generator
     return _authorize_tool_handlers_from_trusted_adapters(adapters)

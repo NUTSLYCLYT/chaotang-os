@@ -300,6 +300,7 @@ def run_bureau_tool_loop(
                 resolved_approved_inputs=dict(resolved_approved_inputs),
                 restricted_adapters={},
                 budget=execution_budget,
+                accepted_results=tuple(accepted),
             )
             try:
                 result = execute_approved_tool(

@@ -206,7 +206,10 @@ def test_supplied_adapters_are_selected_once_from_one_sealed_capability() -> Non
     hits = {"material": 0, "data": 0, "evidence": 0}
     def material(ctx: ToolHandlerContext) -> dict[str, object]:
         hits["material"] += 1
-        assert set(type(ctx).model_fields) == {"approved_call", "capability_id", "resolved_approved_inputs", "restricted_adapters", "budget"}
+        assert set(type(ctx).model_fields) == {
+            "approved_call", "capability_id", "resolved_approved_inputs",
+            "restricted_adapters", "budget", "accepted_results",
+        }
         return {"result_schema": "approved_materials_result.v1", "data": {"materials": [{"ref": INPUT, "summary": "brief", "projection": {"title": "brief"}}]}, "input_refs": [INPUT], "evidence_refs": [], "approved_data_refs": [], "data_quality": "SUFFICIENT", "limitations": [], "as_of": "2026-08-03T00:00:00Z"}
     def data(_: ToolHandlerContext) -> dict[str, object]:
         hits["data"] += 1

@@ -59,6 +59,7 @@ def _result_with_runtime_report(
     requirement_data_refs: Mapping[str, tuple[str, ...]] | None = None,
     result_refs: Sequence[str] = (),
     audit_refs: Sequence[str] = (),
+    artifact_manifest: Sequence[Mapping[str, str]] = (),
 ) -> BureauAgentInvocationResult:
     from app.agents.runtime_skills.models import (
         BureauReport,
@@ -123,6 +124,7 @@ def _result_with_runtime_report(
         input_refs=input_refs,
         evidence_refs=evidence_refs,
         audit_refs=tuple(dict.fromkeys(audit_refs)),
+        artifact_manifest=tuple(dict(item) for item in artifact_manifest),
         data_gaps=data_gaps,
         evidence_sufficiency=(
             EvidenceSufficiency.SUFFICIENT
@@ -247,27 +249,7 @@ def _invoke_bureau_agent_with_report_authorized(
     except ValueError as exc:
         raise BureauAgentInvocationError("Bureau identity validation failed.") from exc
 
-    report_summary = None
-    if report_session is not None and (department, bureau) == ("户部", "会计司"):
-        from app.accounting_reports.intent import detect_accounting_report_intent
-
-        if detect_accounting_report_intent(decree_text).requested:
-            try:
-                generation = report_session.maybe_generate(
-                    department, bureau, decree_text
-                )
-                if isinstance(generation, str):
-                    report_summary = generation
-                elif generation is not None:
-                    report_summary = generation.model_prompt
-            except Exception as exc:  # noqa: BLE001 - sanitized report boundary
-                error = BureauAgentInvocationError("Accounting report generation failed.")
-                error.failure_stage = "report"
-                raise error from exc
-
     user_content = f"旨意：{decree_text}\n\n部级路由判断：{rationale}"
-    if report_summary is not None:
-        user_content += f"\n\n会计司确定性报表摘要：\n{report_summary}"
     messages = [
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": user_content},
@@ -296,6 +278,7 @@ def _invoke_bureau_agent_with_report_authorized(
             _issue_tool_authorization_context,
         )
         from app.agents.runtime_skills.tool_loop import run_bureau_tool_loop
+        from app.agents.runtime_skills.tool_models import ToolCallStatus, ToolName
         from app.agents.runtime_skills.tool_registry import (
             SYSTEM_MAX_RESULT_BYTES,
             SYSTEM_MAX_RESULT_ROWS,
@@ -382,10 +365,28 @@ def _invoke_bureau_agent_with_report_authorized(
             ):
                 raise ValueError("approved_data_input_invalid")
             supplied_data[key] = copied
-        canonical_data = {
+        canonical_data: dict[str, object] = {
             f"approved-data:case:{case_id}:decree:{decree_id}:{key}": value
             for key, value in supplied_data.items()
         }
+        accounting_source_ref = None
+        accounting_content_ref = None
+        accounting_content_holder: dict[str, object] | None = None
+        if report_session is not None and runtime_skill.agent_id == "hubu-accounting":
+            accounting_source_ref = (
+                f"approved-data:case:{case_id}:decree:{decree_id}:accounting-source-root"
+            )
+            accounting_content_ref = (
+                f"approved-data:case:{case_id}:decree:{decree_id}:accounting-content-"
+                f"{report_session.run_id}"
+            )
+            canonical_data[accounting_source_ref] = {
+                "capability": "approved_accounting_source_root"
+            }
+            accounting_content_holder = {
+                "capability": "pending_accounting_content"
+            }
+            canonical_data[accounting_content_ref] = accounting_content_holder
         approved_refs = tuple(dict.fromkeys((*approved_data_refs, *canonical_data)))
         authorization_context = _issue_tool_authorization_context(
             request_id=f"bureau-tool-request:{operation_id}",
@@ -455,10 +456,94 @@ def _invoke_bureau_agent_with_report_authorized(
                 "as_of": datetime.now(UTC).isoformat(),
             }
 
+        def inspect_accounting_content(context):
+            if (
+                report_session is None
+                or accounting_source_ref is None
+                or accounting_content_ref is None
+                or context.approved_call.normalized_arguments["data_ref"]
+                != accounting_source_ref
+            ):
+                raise ValueError("accounting_source_capability_invalid")
+            projection = report_session.inspect_accounting_content(
+                case_id=context.approved_call.case_id,
+                decree_id=context.approved_call.decree_id,
+                approved_ref=accounting_content_ref,
+            )
+            accounting_content_holder.clear()
+            accounting_content_holder["projection"] = projection
+            return {
+                "result_schema": "accounting_content_result.v1",
+                "data": projection.model_dump(mode="json"),
+                "input_refs": [], "evidence_refs": [],
+                "approved_data_refs": [accounting_content_ref],
+                "data_quality": "SUFFICIENT", "limitations": [],
+                "as_of": "1970-01-01T00:00:00Z",
+            }
+
+        def accounting_workbook_generator(context):
+            if report_session is None:
+                raise ValueError("report_session_unavailable")
+            ref = context.approved_call.normalized_arguments["data_ref"]
+            accepted_inspection = any(
+                item.tool_name is ToolName.INSPECT_ACCOUNTING_CONTENT
+                and item.status is ToolCallStatus.SUCCEEDED
+                and item.approved_data_refs == (ref,)
+                for item in context.accepted_results
+            )
+            if (
+                ref != accounting_content_ref
+                or not accepted_inspection
+                or accounting_content_holder is None
+                or not getattr(
+                    accounting_content_holder.get("projection"),
+                    "system_issued",
+                    False,
+                )
+            ):
+                raise ValueError("accounting_inspection_required")
+            generation = report_session.maybe_generate(
+                department, bureau, decree_text, decree_id=context.approved_call.decree_id
+            )
+            if generation is None:
+                raise ValueError("report_intent_unavailable")
+            return {
+                "result_schema": "accounting_workbook_result.v1",
+                "data": {
+                    "artifact_id": generation.artifact_id,
+                    "kind": "ACCOUNTING_MANAGEMENT_REPORT_XLSX",
+                    "publication_readiness": generation.publication_readiness,
+                },
+                "input_refs": [],
+                "evidence_refs": [],
+                "approved_data_refs": [ref],
+                "data_quality": (
+                    "SUFFICIENT"
+                    if generation.publication_readiness == "verified"
+                    else "PARTIAL"
+                ),
+                "limitations": (
+                    []
+                    if generation.publication_readiness == "verified"
+                    else ["mapping_draft_only"]
+                ),
+                "as_of": "1970-01-01T00:00:00Z",
+            }
+
         handlers = build_bureau_tool_handlers(
             material_reader=material_reader,
             data_reader=data_reader if canonical_data else None,
             evidence_requester=evidence_requester,
+            accounting_workbook_generator=(
+                accounting_workbook_generator
+                if report_session is not None and runtime_skill.agent_id == "hubu-accounting"
+                else None
+            ),
+            accounting_content_inspector=(
+                inspect_accounting_content
+                if report_session is not None and runtime_skill.agent_id == "hubu-accounting"
+                else None
+            ),
         )
 
         def model_adapter(loop_messages: tuple[Mapping[str, object], ...]) -> object:
@@ -620,6 +705,18 @@ def _invoke_bureau_agent_with_report_authorized(
                 *result.approved_data_refs,
             )
         ))
+        from app.agents.runtime_skills.models import BureauArtifactManifestItem
+        artifact_manifest = tuple(
+            BureauArtifactManifestItem(
+                artifact_id=str(result.data["artifact_id"]),
+                kind=str(result.data["kind"]),
+                publication_readiness=str(result.data["publication_readiness"]),
+            )
+            for result in loop_result.accepted_results
+            if result.result_schema == "accounting_workbook_result.v1"
+        )
+        if len(artifact_manifest) > 1:
+            raise ValueError("multiple_accounting_artifacts_forbidden")
         return _result_with_runtime_report(
             synthesis,
             runtime_skill,
@@ -630,6 +727,7 @@ def _invoke_bureau_agent_with_report_authorized(
             requirement_data_refs=requirement_data_refs,
             result_refs=gated_refs,
             audit_refs=loop_result.audit_refs,
+            artifact_manifest=artifact_manifest,
         )
     except (TypeError, ValueError) as exc:
         raise BureauAgentInvocationError("Bureau structured response failed.") from exc

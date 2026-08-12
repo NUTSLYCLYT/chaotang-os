@@ -251,18 +251,58 @@ def test_required_accounting_bureau_alone_generates_and_publishes_excel(
         "app.accounting_reports.session.load_ledger_rows",
         lambda _source, _period: SYNTHETIC_ROWS,
     )
-    captured: list[list[dict[str, str]]] = []
-    responses = iter(
-        [
-            '{"rationale":"生成财务报表","bureaus":["会计司"]}',
-            '{"opinion":"会计司已生成管理报告"}',
-            '{"opinion":"户部确认会计管理报告"}',
-        ]
-    )
+    from tests.test_bureau_tool_handlers import _accounting_payload
 
-    def chat_model(messages: list[dict[str, str]]) -> str:
+    session.dataset = SimpleNamespace(ledger_rows=SYNTHETIC_ROWS, mapping_decisions=())
+    monkeypatch.setattr(
+        session,
+        "inspect_accounting_content",
+        lambda **_kwargs: _accounting_payload("closing balance"),
+    )
+    captured: list[list[dict[str, str]]] = []
+    call_count = 0
+
+    def chat_model(messages: list[dict[str, str]]):
+        nonlocal call_count
+        call_count += 1
         captured.append(messages)
-        return next(responses)
+        if call_count == 1:
+            return '{"rationale":"生成财务报表","bureaus":["会计司"]}'
+        if call_count in {2, 3}:
+            if call_count == 2:
+                refs = (
+                    messages[-1]["content"]
+                    .split("approved_data_refs=", 1)[1]
+                    .splitlines()[0]
+                    .split(",")
+                )
+                source_ref = next(ref for ref in refs if ref.endswith("accounting-source-root"))
+                content_ref = next(ref for ref in refs if ":accounting-content-" in ref)
+                return {"status": "TOOL_CALLS", "calls": [{
+                    "tool_call_id": "cross-layer-inspect",
+                    "tool_name": "inspect_accounting_content",
+                    "purpose": "inspect authorized accounting content",
+                    "arguments": {
+                        "operation": "inspect_content", "domain": "finance.accounting",
+                        "data_ref": source_ref, "fields": ["finance.accounting.ledger_ref"],
+                        "estimated_rows": 1, "estimated_bytes": 256,
+                    },
+                    "required_for": ["management workbook"],
+                    "expected_result_schema": "accounting_content_result.v1",
+                }, {
+                    "tool_call_id": "cross-layer-generate",
+                    "tool_name": "generate_accounting_workbook",
+                    "purpose": "generate authorized accounting workbook",
+                    "arguments": {
+                        "operation": "generate_workbook", "domain": "finance.accounting",
+                        "data_ref": content_ref, "fields": ["finance.accounting.ledger_ref"],
+                        "estimated_rows": 1, "estimated_bytes": 256,
+                    },
+                    "required_for": ["management workbook"],
+                    "expected_result_schema": "accounting_workbook_result.v1",
+                }]}
+            return {"status": "FINAL", "report": {"opinion": "会计司已生成管理报告"}}
+        return '{"opinion":"户部确认会计管理报告"}'
 
     result = invoke_ministry_agent(
         "户部",
@@ -274,9 +314,9 @@ def test_required_accounting_bureau_alone_generates_and_publishes_excel(
     )
     published = session.publish("reply-required-bureau")
 
-    assert len(captured) == 3
+    assert len(captured) == 4
     assert "你是户部下属的会计司" in captured[1][0]["content"]
-    assert "会计司确定性报表摘要" in captured[1][1]["content"]
+    assert "approved_data_refs=" in captured[1][1]["content"]
     assert [item["bureau"] for item in result["bureau_opinions"]] == ["会计司"]
     assert len(published) == 1
     assert published[0].display_name.endswith("会计管理报告.xlsx")
@@ -522,7 +562,9 @@ def test_real_authority_graph_report_archive_download_trust_chain(
     def build_session(
         *, owner_user_id: str, run_id: str, accounting_context
     ) -> AccountingReportSession:
-        return AccountingReportSession(
+        from tests.test_bureau_tool_handlers import _accounting_payload
+
+        session = AccountingReportSession(
             owner_user_id=owner_user_id,
             run_id=run_id,
             source_dir=tmp_path / "synthetic-source",
@@ -530,20 +572,62 @@ def test_real_authority_graph_report_archive_download_trust_chain(
             db_path=artifact_db,
             request_kind=accounting_context.request_kind,
             period=accounting_context.period,
-            dataset=SimpleNamespace(ledger_rows=two_year_rows),
+            dataset=SimpleNamespace(ledger_rows=two_year_rows, mapping_decisions=()),
         )
+        monkeypatch.setattr(
+            session,
+            "inspect_accounting_content",
+            lambda **_kwargs: _accounting_payload("closing balance"),
+        )
+        return session
 
-    responses = iter(
-        [
-            '{"rationale":"批准会计司办理","bureaus":["会计司"]}',
-            '{"opinion":"会计司已生成并核验管理报告"}',
-            '{"opinion":"户部确认会计管理报告"}',
-            (
-                '{"summary":"准予交付会计管理报告",'
-                '"recommendations":["核验来源","复核勾稽","审阅报告"]}'
-            ),
-        ]
-    )
+    call_count = 0
+
+    def graph_model(messages):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            return '{"rationale":"批准会计司办理","bureaus":["会计司"]}'
+        if call_count in {2, 3}:
+            if call_count == 2:
+                refs = (
+                    messages[-1]["content"]
+                    .split("approved_data_refs=", 1)[1]
+                    .splitlines()[0]
+                    .split(",")
+                )
+                source_ref = next(ref for ref in refs if ref.endswith("accounting-source-root"))
+                content_ref = next(ref for ref in refs if ":accounting-content-" in ref)
+                return {"status": "TOOL_CALLS", "calls": [{
+                    "tool_call_id": "trust-chain-inspect",
+                    "tool_name": "inspect_accounting_content",
+                    "purpose": "inspect authorized accounting content",
+                    "arguments": {
+                        "operation": "inspect_content", "domain": "finance.accounting",
+                        "data_ref": source_ref, "fields": ["finance.accounting.ledger_ref"],
+                        "estimated_rows": 1, "estimated_bytes": 256,
+                    },
+                    "required_for": ["management workbook"],
+                    "expected_result_schema": "accounting_content_result.v1",
+                }, {
+                    "tool_call_id": "trust-chain-generate",
+                    "tool_name": "generate_accounting_workbook",
+                    "purpose": "generate authorized accounting workbook",
+                    "arguments": {
+                        "operation": "generate_workbook", "domain": "finance.accounting",
+                        "data_ref": content_ref, "fields": ["finance.accounting.ledger_ref"],
+                        "estimated_rows": 1, "estimated_bytes": 256,
+                    },
+                    "required_for": ["management workbook"],
+                    "expected_result_schema": "accounting_workbook_result.v1",
+                }]}
+            return {"status": "FINAL", "report": {"opinion": "会计司已生成并核验管理报告"}}
+        if call_count == 4:
+            return '{"opinion":"户部确认会计管理报告"}'
+        return (
+            '{"summary":"准予交付会计管理报告",'
+            '"recommendations":["核验来源","复核勾稽","审阅报告"]}'
+        )
     monkeypatch.setattr(
         decrees_api, "build_accounting_report_session", build_session
     )
@@ -552,7 +636,7 @@ def test_real_authority_graph_report_archive_download_trust_chain(
         "get_chancellor_graph",
         lambda *, report_session: build_chancellor_graph(
             owner_user_id=report_session.owner_user_id,
-            chat_model=lambda _messages: next(responses),
+            chat_model=graph_model,
             lifecycle_observer=decrees_api._lifecycle_observer_context.get(),
             report_session=report_session,
         ),

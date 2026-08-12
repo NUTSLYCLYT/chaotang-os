@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
+from types import SimpleNamespace
 from uuid import uuid4
 
 from app.work_products import (
@@ -28,6 +29,7 @@ from .models import (
     AccountingReportSummary,
     AccountingRequestKind,
     AccountingSourceReceipt,
+    AccountingWorkbookDisclosure,
     NormalizedLedgerRow,
     PublishedReportArtifact,
     ReportAnalysis,
@@ -94,19 +96,21 @@ class AccountingReportSession:
         request_kind: AccountingRequestKind | None = None,
         period: ReportPeriod | None = None,
         dataset: object | None = None,
+        expected_source_fingerprint: str | None = None,
     ) -> None:
         if not owner_user_id.strip() or not run_id.strip():
             raise ValueError("owner_user_id and run_id are required")
         self.owner_user_id = owner_user_id
         self.run_id = run_id
         self.source_dir = Path(source_dir)
-        if (request_kind is None) != (period is None) or (period is None) != (dataset is None):
-            raise ValueError("request_kind, period and dataset must be bound together")
+        if (request_kind is None) != (period is None):
+            raise ValueError("request_kind and period must be bound together")
         if request_kind is AccountingRequestKind.NOT_REQUESTED:
             raise ValueError("bound session requires an accounting request kind")
         self.request_kind = request_kind
         self.period = period
         self.dataset = dataset
+        self.expected_source_fingerprint = expected_source_fingerprint
         self.accounting_department = "户部"
         self.accounting_bureau = "会计司"
         self.storage = ArtifactStorage(
@@ -127,8 +131,52 @@ class AccountingReportSession:
     def generations(self) -> tuple[AccountingReportGeneration, ...]:
         return (() if self._generation is None else (self._generation,))
 
+    def inspect_accounting_content(
+        self, *, case_id: str, decree_id: str, approved_ref: str
+    ):
+        """Probe and map the approved root only inside the authorized bureau tool."""
+        from .content_probe import probe_accounting_sources
+        from .semantic_mapping import (
+            build_accounting_content_projection,
+            derive_mapping_decisions,
+        )
+        from .source_adapters import preflight_accounting_sources
+
+        if not case_id.strip() or not decree_id.strip():
+            raise AccountingReportIntentError("report_context_invalid")
+        if self.period is None:
+            raise AccountingReportIntentError("report_period_unresolved")
+        probes = probe_accounting_sources(self.source_dir, self.period)
+        decisions = tuple(
+            decision
+            for probe in probes
+            for decision in derive_mapping_decisions(probe, approved_ref)
+        )
+        if not decisions:
+            raise AccountingReportIntentError("report_mapping_unavailable")
+        dataset = preflight_accounting_sources(self.source_dir, self.period)
+        if (
+            self.expected_source_fingerprint is not None
+            and dataset.manifest.fingerprint != self.expected_source_fingerprint
+        ):
+            raise AccountingReportIntentError("source_not_current")
+        self.dataset = SimpleNamespace(
+            ledger_rows=dataset.ledger_rows,
+            statement_rows=dataset.statement_rows,
+            manifest=dataset.manifest,
+            mapping_decisions=decisions,
+        )
+        cells = [
+            cell.value
+            for probe in probes for sheet in probe.sheets for region in sheet.regions
+            for cell in region.cells
+        ][:200]
+        return build_accounting_content_projection(
+            cell_values=cells, decisions=decisions
+        )
+
     def maybe_generate(
-        self, department: str, bureau: str, decree_text: str
+        self, department: str, bureau: str, decree_text: str, *, decree_id: str | None = None
     ) -> AccountingReportGeneration | None:
         if (department, bureau) != (self.accounting_department, self.accounting_bureau):
             return None
@@ -165,7 +213,16 @@ class AccountingReportSession:
         summary = analyze_ledger(rows, period)
         temporary_path = self.storage.artifact_dir / f".{uuid4().hex}.xlsx"
         try:
-            file_hash = write_management_report(rows, summary, temporary_path)
+            disclosure = self._mapping_disclosure(
+                decree_id=decree_id, rows=rows, publication_readiness=publication_readiness
+            )
+            file_hash = (
+                write_management_report(rows, summary, temporary_path)
+                if disclosure is None
+                else write_management_report(
+                    rows, summary, temporary_path, disclosure=disclosure
+                )
+            )
             source_hashes = tuple(sorted({row.source.file_sha256 for row in rows}))
             pending = self.storage.create_pending(
                 owner_user_id=self.owner_user_id,
@@ -214,6 +271,62 @@ class AccountingReportSession:
             publication_readiness=publication_readiness,
         )
         return self._generation
+
+    def _mapping_disclosure(
+        self,
+        *,
+        decree_id: str | None,
+        rows: tuple[NormalizedLedgerRow, ...],
+        publication_readiness: str,
+    ) -> AccountingWorkbookDisclosure | None:
+        decisions = tuple(getattr(self.dataset, "mapping_decisions", ()))
+        if not decisions:
+            return None
+        selected = tuple(item.selected for item in decisions)
+        receipts = tuple(item.validation_receipt for item in decisions)
+        source_hashes = tuple(sorted({row.source.file_sha256 for row in rows}))
+        snapshot = semantic_digest({"source_hashes": source_hashes})
+        content_hash = semantic_digest({
+            "selected": tuple(item.candidate_id for item in selected),
+            "receipts": tuple(item.check_inputs_digest for item in receipts),
+        })
+        confidence_order = {"high": 2, "medium": 1, "low": 0}
+        confidence_band = min(
+            (item.band.value for item in decisions),
+            key=confidence_order.__getitem__,
+        )
+        return AccountingWorkbookDisclosure(
+            decree_id=decree_id or "decree-unavailable",
+            snapshot_fingerprint=snapshot,
+            publication_readiness=publication_readiness,
+            mapping_candidates=tuple(
+                f"{candidate.semantic_role}:{candidate.confidence:.6f}"
+                for decision in decisions for candidate in decision.candidates
+            ),
+            selected_reasons=tuple(
+                reason for decision in decisions for reason in decision.reason_codes
+            ),
+            confidence_band=confidence_band,
+            validation_receipts=tuple(
+                f"{receipt.candidate_id}:{'passed' if receipt.passed else 'failed'}"
+                for receipt in receipts
+            ),
+            source_regions=tuple(
+                f"sheet:{item.sheet_index}:R{item.region[0]}C{item.region[2]}:"
+                f"R{item.region[1]}C{item.region[3]}"
+                for item in selected
+            ),
+            limitations=(
+                ("mapping_draft_only",)
+                if publication_readiness == "inferred_draft"
+                else (
+                    ()
+                    if publication_readiness == "verified"
+                    else ("mapping_confidence_disclosed",)
+                )
+            ),
+            content_hash=content_hash,
+        )
 
     @staticmethod
     def _source_ref(row: NormalizedLedgerRow) -> str:

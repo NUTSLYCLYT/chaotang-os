@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from datetime import UTC, datetime
 from enum import StrEnum
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -183,6 +184,19 @@ class _ReportBase(_FrozenContract):
         return self
 
 
+class BureauArtifactManifestItem(_FrozenContract):
+    artifact_id: str
+    kind: Literal["ACCOUNTING_MANAGEMENT_REPORT_XLSX"]
+    publication_readiness: Literal["verified", "disclosed", "inferred_draft"]
+
+    @field_validator("artifact_id")
+    @classmethod
+    def require_artifact_id(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("artifact_id_required")
+        return value
+
+
 class BureauReport(_ReportBase):
     analysis: tuple[str, ...]
     professional_findings: tuple[str, ...]
@@ -190,6 +204,9 @@ class BureauReport(_ReportBase):
     recommendations: tuple[str, ...]
     evidence_requests: tuple[str, ...] = ()
     out_of_scope_items: tuple[str, ...] = ()
+    artifact_manifest: tuple[BureauArtifactManifestItem, ...] = Field(
+        default=(), max_length=1
+    )
 
     @model_validator(mode="after")
     def reject_completed_report_with_evidence_requests(self) -> BureauReport:

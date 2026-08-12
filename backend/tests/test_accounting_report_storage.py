@@ -79,6 +79,19 @@ def test_new_artifact_is_pending_and_requires_complete_metadata(tmp_path: Path) 
         )
 
 
+def test_create_pending_rejects_second_artifact_for_same_owner_run(tmp_path: Path) -> None:
+    storage = _storage(tmp_path)
+    _create_pending(storage, tmp_path)
+    with pytest.raises(ArtifactStorageError, match="artifact_unavailable"):
+        _create_pending(storage, tmp_path)
+
+    with sqlite3.connect(storage.db_path) as connection:
+        assert connection.execute(
+            "SELECT COUNT(*) FROM report_artifacts WHERE owner_user_id=? AND run_id=?",
+            ("owner-a", "run-a"),
+        ).fetchone()[0] == 1
+
+
 def test_publish_moves_to_opaque_final_path_and_is_idempotent(tmp_path: Path) -> None:
     storage = _storage(tmp_path)
     pending = _create_pending(storage, tmp_path)
