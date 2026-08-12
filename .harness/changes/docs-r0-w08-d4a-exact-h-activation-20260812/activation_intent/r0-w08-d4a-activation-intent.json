@@ -1,20 +1,16 @@
 {
-  "schemaVersion": "execution-authority.v2",
-  "authorityId": "r0-execution-authority-20260721-v2",
-  "amendment": {
-    "id": "R0-TRUSTED-KERNEL-AMENDMENT-01",
-    "path": ".harness/changes/docs-r0-trusted-kernel-amendment-20260720/amendment.md",
-    "approvedSourceDigest": "2ba59cbe4d4032d8f372d1dd757e03edb78038b38de6d657380f357100a83e38"
-  },
+  "schemaVersion": "execution-authority.v2.activation-intent.v1",
+  "kind": "activation-intent",
+  "trackedManifestPath": ".harness/manifest/execution-authority.v2.json",
+  "reviewPackagePath": ".harness/changes/docs-r0-w08-d4a-exact-h-activation-20260812/review_inputs/product-candidate.diff",
+  "reviewPackageSha256": "9e5ff0c70dbafc96700ea2479fec886b21e9926263f6406e435adc92b9a9002d",
   "effectiveBase": {
     "ref": "refs/heads/feature-chaotang-ext",
     "sha": "e25706c0c5d689354d2424f483446a1e243b58ec"
   },
   "approvalEvidence": {
     "ownerApprovalPath": ".harness/changes/docs-r0-w08-d4a-exact-h-activation-20260812/owner_approval/exact-h-approval.md",
-    "ownerApprovalSha256": "92bbc2b81b5015fbb06e251e213f3942c33d9cb8330bf3ef8397ffcc5bf874d2",
     "reviewPath": ".harness/changes/docs-r0-w08-d4a-exact-h-activation-20260812/codex_review/exact-h-final.md",
-    "reviewSha256": "e22b6c4e8cc2eefd1db15cc34361024fe942b2cc3716c29383ad4a6b6ac2c24e",
     "reviewVerdict": "GO",
     "approver": "lyt",
     "candidateH": "e25706c0c5d689354d2424f483446a1e243b58ec",
@@ -32,15 +28,5 @@
     { "id": "R0-W06", "status": "MERGED_AND_VERIFIED" },
     { "id": "R0-W07", "status": "MERGED_AND_VERIFIED" },
     { "id": "R0-W08", "status": "ACTIVE" }
-  ],
-  "professionalReassignment": {
-    "requiredBefore": ["REAL_CUSTOMER_DATA", "R0-W08", "R0-W09"],
-    "rolesRequired": ["security", "legal", "release"],
-    "assignments": {
-      "security": "r0-security-owner",
-      "legal": "r0-legal-owner",
-      "release": "r0-release-owner"
-    },
-    "defaultOwner": "lyt"
-  }
+  ]
 }

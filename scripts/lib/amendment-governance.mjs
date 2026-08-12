@@ -9,6 +9,7 @@ import {
   effectiveReviewerSuccessorW08,
   validateReviewerSuccessorW08,
 } from './reviewer-successor-w08.mjs';
+import { validateReviewerSuccessorW08D4A } from './reviewer-successor-w08-d4a.mjs';
 
 const rawExecFileAsync = promisify(execFile);
 const AUTHORITY_GIT_EXECUTABLE = '/usr/bin/git';
@@ -1310,6 +1311,9 @@ export function validateAmendmentGovernanceRegistration(amendment) {
       ...(amendment.reviewerSuccessorW08 === undefined
         ? []
         : validateReviewerSuccessorW08(amendment.reviewerSuccessorW08)),
+      ...(amendment.reviewerSuccessorW08D4A === undefined
+        ? []
+        : validateReviewerSuccessorW08D4A(amendment.reviewerSuccessorW08D4A)),
     ];
   }
   return [`amendment governance has invalid status: ${amendment.status}`];

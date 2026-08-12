@@ -4,17 +4,19 @@ query(照抄 `web/routers/chaotang.py::_shiguan_archive_projection` 的租户隔
 
 from __future__ import annotations
 
-import io
 import json
 import uuid
 from datetime import datetime, timedelta, timezone
 
-import docx
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 
 from src.secure_ingest.audit import build_audit_event
 from src.secure_ingest.digest import compute_sha256
+from src.secure_ingest.document_text import (
+    extract_canonical_docx_text,
+    extractor_policy_for_format,
+)
 from src.secure_ingest.download_ticket import hash_token, issue_raw_token
 from src.secure_ingest.limits import DOWNLOAD_TICKET_TTL_SECONDS, MAX_DOCX_PAGES, MAX_UPLOAD_BYTES
 from src.secure_ingest.mime_sniff import detect_format
@@ -106,8 +108,7 @@ async def upload_artifact(
                 # 只有确认是真 DOCX、结构安全时才抽文本做注入扫描——避免对可疑 zip 内容
                 # 做更多不必要的处理。抽取文本本身不落库、不落日志，只保留命中的类别名。
                 try:
-                    document = docx.Document(io.BytesIO(raw_bytes))
-                    extracted_text = "\n".join(p.text for p in document.paragraphs)
+                    extracted_text = extract_canonical_docx_text(raw_bytes)
                 except Exception:  # noqa: BLE001 — 解析失败按结构损坏处理，不让异常穿透成 500
                     extracted_text = ""
                     if reject_reason is None:
@@ -156,6 +157,7 @@ async def upload_artifact(
             task_id=mission_contract_id,
             artifact_id=artifact_id,
             input_digest=digest_sha256,
+            policy_version=extractor_policy_for_format(detected_format),
             purpose=purpose,
         )
         db.add(SecureIngestAuditEvent(id=str(uuid.uuid4()), created_at=_now_iso(), **event))

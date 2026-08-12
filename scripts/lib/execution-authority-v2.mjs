@@ -17,6 +17,10 @@ import {
   validateReviewerSuccessorW08,
   verifyReviewerSuccessorW08,
 } from './reviewer-successor-w08.mjs';
+import {
+  validateReviewerSuccessorW08D4A,
+  verifyReviewerSuccessorW08D4A,
+} from './reviewer-successor-w08-d4a.mjs';
 
 const rawExecFileAsync = promisify(execFile);
 const AUTHORITY_GIT_EXECUTABLE = '/usr/bin/git';
@@ -85,6 +89,17 @@ const W07_CHANGE_ROOT =
   '.harness/changes/docs-r0-w07-exact-h-activation-b0df777a-20260727';
 const W08_CHANGE_ROOT =
   '.harness/changes/docs-r0-w08-codex-reviewer-successor-20260810';
+const W08_D4A_CHANGE_ROOT =
+  '.harness/changes/docs-r0-w08-d4a-exact-h-activation-20260812';
+const W08_D4A_CHANGED_PATHS = Object.freeze([
+  '.harness/changes/feat-ext-d4a-docx-provenance-20260812/ci_result/ci_summary.md',
+  '.harness/changes/feat-ext-d4a-docx-provenance-20260812/request_analysis/spec.md',
+  '.harness/changes/feat-ext-d4a-docx-provenance-20260812/request_analysis/tasks.md',
+  '.harness/changes/feat-ext-d4a-docx-provenance-20260812/summary.md',
+  'backend/src/secure_ingest/document_text.py',
+  'backend/tests/test_secure_ingest_document_text.py',
+  'backend/web/routers/secure_ingest.py',
+]);
 const ACTIVE_PACKET_PROFILES = Object.freeze({
   'R0-W06': Object.freeze({
     effectiveBaseRef: 'origin/feature-chaotang-ext',
@@ -220,7 +235,23 @@ const ACTIVE_PACKET_PROFILES = Object.freeze({
   }),
 });
 
-function activePacketProfile(manifest, errors) {
+function activePacketProfile(manifest, errors, amendmentGovernance = null) {
+  if (
+    manifest.activeWorkPackage === 'R0-W08' &&
+    amendmentGovernance?.reviewerSuccessorW08D4A !== undefined
+  ) {
+    const legacy = ACTIVE_PACKET_PROFILES['R0-W08'];
+    return Object.freeze({
+      ...legacy,
+      reviewBaseH: 'df6c82cfa3f3b449da7c5a4500c643c3f45501fd',
+      ownerApprovalPath: `${W08_D4A_CHANGE_ROOT}/owner_approval/exact-h-approval.md`,
+      reviewPath: `${W08_D4A_CHANGE_ROOT}/codex_review/exact-h-final.md`,
+      activationIntentPath:
+        `${W08_D4A_CHANGE_ROOT}/activation_intent/r0-w08-d4a-activation-intent.json`,
+      reviewPackagePath: `${W08_D4A_CHANGE_ROOT}/review_inputs/product-candidate.diff`,
+      allowedChangedPaths: new Set(W08_D4A_CHANGED_PATHS),
+    });
+  }
   const profile = ACTIVE_PACKET_PROFILES[manifest.activeWorkPackage];
   if (profile === undefined) {
     errors.push(`no active-packet profile for ${manifest.activeWorkPackage}`);
@@ -528,8 +559,9 @@ async function verifyActivePacketGitIdentity(
   reviewPackageSource,
   pinnedCommitH,
   errors,
+  amendmentGovernance = null,
 ) {
-  const profile = ACTIVE_PACKET_PROFILES[manifest.activeWorkPackage];
+  const profile = activePacketProfile(manifest, errors, amendmentGovernance);
   if (profile?.exactGitRange !== true) return;
   try {
     const integrityEnvironmentErrors =
@@ -880,13 +912,18 @@ function evidenceMatchesManifestIdentity(evidence, manifest, label, errors) {
   }
 }
 
-export function validateExecutionAuthorityV2ActivationIntent(manifest, activationIntent) {
+export function validateExecutionAuthorityV2ActivationIntent(
+  manifest,
+  activationIntent,
+  amendmentGovernance = null,
+) {
   const errors = [];
   const manifestErrors = validateExecutionAuthorityV2Manifest(manifest);
   if (manifestErrors.length > 0) return manifestErrors;
   if (manifest.activeWorkPackage === null) return errors;
-  const profile = activePacketProfile(manifest, errors);
+  const profile = activePacketProfile(manifest, errors, amendmentGovernance);
   if (profile === null) return errors;
+  const d4a = amendmentGovernance?.reviewerSuccessorW08D4A;
   if (
     !exactKeys(activationIntent, [
       'schemaVersion',
@@ -914,8 +951,14 @@ export function validateExecutionAuthorityV2ActivationIntent(manifest, activatio
   if (activationIntent.reviewPackagePath !== profile.reviewPackagePath) {
     errors.push('activation intent reviewPackagePath must match active-packet profile');
   }
+  if (d4a !== undefined && activationIntent.reviewPackagePath !== d4a.productReviewPackagePath) {
+    errors.push('D4A activation intent package must equal reviewer successor product package');
+  }
   if (!HEX64_PATTERN.test(activationIntent.reviewPackageSha256 ?? '')) {
     errors.push('activation intent reviewPackageSha256 must be a sha256 hex digest');
+  }
+  if (d4a !== undefined && activationIntent.reviewPackageSha256 !== d4a.productReviewPackageSha256) {
+    errors.push('D4A activation intent digest must equal reviewer successor product package digest');
   }
   if (
     !exactKeys(activationIntent.effectiveBase, ['ref', 'sha']) ||
@@ -972,8 +1015,17 @@ export function validateExecutionAuthorityV2Evidence(
   const manifestErrors = validateExecutionAuthorityV2Manifest(manifest);
   if (manifestErrors.length > 0) return manifestErrors;
   if (manifest.activeWorkPackage === null) return errors;
-  const profile = activePacketProfile(manifest, errors);
+  const profile = activePacketProfile(manifest, errors, amendmentGovernance);
   if (profile === null) return errors;
+  const d4a = amendmentGovernance?.reviewerSuccessorW08D4A;
+  if (d4a !== undefined) {
+    if (manifest.approvalEvidence.candidateH !== d4a.productCandidateH) {
+      errors.push('D4A manifest candidateH must equal reviewer successor productCandidateH');
+    }
+    if (manifest.approvalEvidence.tree !== d4a.productTree) {
+      errors.push('D4A manifest tree must equal reviewer successor productTree');
+    }
+  }
 
   const ownerValid = evidenceHasExactKeys(
     ownerEvidence,
@@ -1096,6 +1148,14 @@ export function validateExecutionAuthorityV2Evidence(
   }
   if (!HEX64_PATTERN.test(reviewEvidence.diffSha256 ?? '')) {
     errors.push('review diffSha256 must be a sha256 hex digest');
+  }
+  if (d4a !== undefined) {
+    if (reviewEvidence.reviewPackagePath !== d4a.productReviewPackagePath) {
+      errors.push('D4A review package path must equal reviewer successor product package');
+    }
+    if (reviewEvidence.diffSha256 !== d4a.productReviewPackageSha256) {
+      errors.push('D4A review diff must equal reviewer successor product package digest');
+    }
   }
   if (
     !Array.isArray(reviewEvidence.changedPaths) ||
@@ -1621,9 +1681,18 @@ export async function loadExecutionAuthorityV2(root) {
         const w08Successor = amendmentGovernance?.reviewerSuccessorW08;
         if (w08Successor !== undefined) {
           errors.push(...validateReviewerSuccessorW08(w08Successor));
+        }
+        const w08D4A = amendmentGovernance?.reviewerSuccessorW08D4A;
+        if (w08D4A !== undefined) {
+          errors.push(...validateReviewerSuccessorW08D4A(w08D4A));
           if (manifest?.activeWorkPackage === 'R0-W08') {
-            errors.push(...(await verifyReviewerSuccessorW08(root, w08Successor)));
+            errors.push(...(await verifyReviewerSuccessorW08D4A(root, w08D4A, w08Successor)));
           }
+        } else if (
+          w08Successor !== undefined &&
+          manifest?.activeWorkPackage === 'R0-W08'
+        ) {
+          errors.push(...(await verifyReviewerSuccessorW08(root, w08Successor)));
         }
       }
     } catch (cause) {
@@ -1756,6 +1825,7 @@ export async function loadExecutionAuthorityV2(root) {
           reviewPackageSource,
           pinnedCommitH,
           errors,
+          amendmentGovernance,
         );
       }
       if (reviewPackagePaths === null) {
@@ -1790,7 +1860,11 @@ export async function loadExecutionAuthorityV2(root) {
     if (activationIntent === null) {
       errors.push('active execution authority requires parseable activation intent JSON');
     } else {
-      errors.push(...validateExecutionAuthorityV2ActivationIntent(manifest, activationIntent));
+      errors.push(...validateExecutionAuthorityV2ActivationIntent(
+        manifest,
+        activationIntent,
+        amendmentGovernance,
+      ));
       if (reviewEvidence !== null) {
         if (activationIntent.reviewPackagePath !== reviewEvidence.reviewPackagePath) {
           errors.push('activation intent reviewPackagePath must match review reviewPackagePath');

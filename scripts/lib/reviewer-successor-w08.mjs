@@ -121,6 +121,26 @@ const ACTIVATION_CARRIER_PATHS = Object.freeze([
   `${REVIEWER_SUCCESSOR_W08_ROOT}/review_inputs/reviewer-successor.diff`,
 ]);
 
+const DEFAULT_PROFILE = Object.freeze({
+  schemaVersion: 'reviewer-successor.w08.v1',
+  evidenceSchemaVersion: 'reviewer-successor.w08.evidence.v1',
+  marker: 'reviewer-successor-w08-evidence',
+  root: REVIEWER_SUCCESSOR_W08_ROOT,
+  productBaseH: REVIEWER_SUCCESSOR_W08_PRODUCT_BASE,
+  productCandidateH: REVIEWER_SUCCESSOR_W08_PRODUCT_H,
+  productTree: REVIEWER_SUCCESSOR_W08_PRODUCT_TREE,
+  productDiffSha256: REVIEWER_SUCCESSOR_W08_PRODUCT_DIFF_SHA256,
+  expiresAfter: 'R0-W08_MERGED_AND_VERIFIED',
+  activationCarrierPaths: ACTIVATION_CARRIER_PATHS,
+  protectedPaths: PROTECTED_PATHS,
+  overlayKeys: OVERLAY_KEYS,
+  reviewEvidenceKeys: REVIEW_EVIDENCE_KEYS,
+  ownerEvidenceKeys: OWNER_EVIDENCE_KEYS,
+  extraExactValues: Object.freeze([]),
+  extraReviewEvidence: () => ({}),
+  extraOwnerEvidence: () => ({}),
+});
+
 function exactKeys(value, keys) {
   return (
     value !== null &&
@@ -449,10 +469,11 @@ async function gitBlob(root, commit, path) {
   return Buffer.isBuffer(stdout) ? stdout : Buffer.from(stdout);
 }
 
-export function parseReviewerSuccessorW08Evidence(source, label = 'W08 reviewer evidence') {
+export function parseReviewerSuccessorW08Evidence(source, label = 'W08 reviewer evidence', profile = DEFAULT_PROFILE) {
+  const marker = profile.marker ?? DEFAULT_PROFILE.marker;
   const matches = [
     ...String(source).matchAll(
-      /<!-- reviewer-successor-w08-evidence:start -->\r?\n```json\r?\n([\s\S]*?)\r?\n```\r?\n<!-- reviewer-successor-w08-evidence:end -->/gu,
+      new RegExp(`<!-- ${marker}:start -->\\r?\\n\`\`\`json\\r?\\n([\\s\\S]*?)\\r?\\n\`\`\`\\r?\\n<!-- ${marker}:end -->`, 'gu'),
     ),
   ];
   if (matches.length !== 1) {
@@ -469,13 +490,13 @@ export function parseReviewerSuccessorW08Evidence(source, label = 'W08 reviewer 
   return value;
 }
 
-export function validateReviewerSuccessorW08(overlay) {
+export function validateReviewerSuccessorW08(overlay, profile = DEFAULT_PROFILE) {
   const errors = [];
-  if (!exactKeys(overlay, OVERLAY_KEYS)) {
+  if (!exactKeys(overlay, profile.overlayKeys)) {
     return ['reviewerSuccessorW08 has missing or unsupported fields'];
   }
   const exactValues = [
-    ['schemaVersion', 'reviewer-successor.w08.v1'],
+    ['schemaVersion', profile.schemaVersion],
     ['status', 'APPROVED'],
     ['fromReviewer', 'Claude Code'],
     ['toReviewer', 'Codex Independent QA'],
@@ -484,13 +505,14 @@ export function validateReviewerSuccessorW08(overlay) {
     ['sessionIsolation', 'FRESH_NO_FORK_CONTEXT'],
     ['writeAccess', 'DENIED'],
     ['candidateMutation', 'FORBIDDEN'],
-    ['expiresAfter', 'R0-W08_MERGED_AND_VERIFIED'],
-    ['productBaseH', REVIEWER_SUCCESSOR_W08_PRODUCT_BASE],
-    ['productCandidateH', REVIEWER_SUCCESSOR_W08_PRODUCT_H],
-    ['productTree', REVIEWER_SUCCESSOR_W08_PRODUCT_TREE],
-    ['productReviewPackageSha256', REVIEWER_SUCCESSOR_W08_PRODUCT_DIFF_SHA256],
-    ['governanceBaseH', REVIEWER_SUCCESSOR_W08_PRODUCT_H],
+    ['expiresAfter', profile.expiresAfter],
+    ['productBaseH', profile.productBaseH],
+    ['productCandidateH', profile.productCandidateH],
+    ['productTree', profile.productTree],
+    ['productReviewPackageSha256', profile.productDiffSha256],
+    ['governanceBaseH', profile.productCandidateH],
     ['approvedBy', 'lyt'],
+    ...profile.extraExactValues,
   ];
   for (const [field, expected] of exactValues) {
     if (overlay[field] !== expected) errors.push(`reviewerSuccessorW08 ${field} mismatch`);
@@ -505,9 +527,9 @@ export function validateReviewerSuccessorW08(overlay) {
     if (!HEX40.test(overlay[field] ?? '')) errors.push(`reviewerSuccessorW08 ${field} must be 40-hex`);
   }
   const canonicalPaths = {
-    productReviewPackagePath: `${REVIEWER_SUCCESSOR_W08_ROOT}/review_inputs/product-candidate.diff`,
-    governanceReviewPackagePath: `${REVIEWER_SUCCESSOR_W08_ROOT}/review_inputs/reviewer-successor.diff`,
-    ownerApprovalPath: `${REVIEWER_SUCCESSOR_W08_ROOT}/owner_approval/reviewer-successor-approval.md`,
+    productReviewPackagePath: `${profile.root}/review_inputs/product-candidate.diff`,
+    governanceReviewPackagePath: `${profile.root}/review_inputs/${profile.governanceReviewFile ?? 'reviewer-successor.diff'}`,
+    ownerApprovalPath: `${profile.root}/owner_approval/${profile.ownerApprovalFile ?? 'reviewer-successor-approval.md'}`,
   };
   for (const [field, expected] of Object.entries(canonicalPaths)) {
     if (overlay[field] !== expected) errors.push(`reviewerSuccessorW08 ${field} must be canonical`);
@@ -529,7 +551,7 @@ export function validateReviewerSuccessorW08(overlay) {
         errors.push(`reviewerSuccessorW08 review ${index + 1} has missing or unsupported fields`);
         continue;
       }
-      const expectedPath = `${REVIEWER_SUCCESSOR_W08_ROOT}/codex_review/${index === 0 ? 'pass-1.md' : 'exact-h-final.md'}`;
+      const expectedPath = `${profile.root}/codex_review/${index === 0 ? 'pass-1.md' : 'exact-h-final.md'}`;
       if (review.path !== expectedPath) errors.push(`reviewerSuccessorW08 review ${index + 1} path must be canonical`);
       if (!IDENTITY.test(review.identity ?? '')) errors.push(`reviewerSuccessorW08 review ${index + 1} identity is invalid`);
       if (identities.has(review.identity)) errors.push('reviewerSuccessorW08 review identities must be unique');
@@ -544,18 +566,18 @@ export function validateReviewerSuccessorW08(overlay) {
   return [...new Set(errors)];
 }
 
-export function effectiveReviewerSuccessorW08(amendmentGovernance, workPackage, ledger = []) {
+export function effectiveReviewerSuccessorW08(amendmentGovernance, workPackage, ledger = [], profile = DEFAULT_PROFILE) {
   const overlay = amendmentGovernance?.reviewerSuccessorW08;
-  if (validateReviewerSuccessorW08(overlay).length > 0) return null;
+  if (validateReviewerSuccessorW08(overlay, profile).length > 0) return null;
   const active = ledger.some((entry) => entry.id === workPackage && entry.status === 'ACTIVE');
   return active && workPackage === 'R0-W08' ? overlay.toReviewer : null;
 }
 
-function validateReviewEvidence(evidence, overlay, review, index) {
+function validateReviewEvidence(evidence, overlay, review, index, profile = DEFAULT_PROFILE) {
   const errors = [];
-  if (!exactKeys(evidence, REVIEW_EVIDENCE_KEYS)) return [`reviewerSuccessorW08 review ${index + 1} evidence shape mismatch`];
+  if (!exactKeys(evidence, profile.reviewEvidenceKeys)) return [`reviewerSuccessorW08 review ${index + 1} evidence shape mismatch`];
   const expected = {
-    schemaVersion: 'reviewer-successor.w08.evidence.v1',
+    schemaVersion: profile.evidenceSchemaVersion,
     kind: 'independent-review',
     reviewer: overlay.toReviewer,
     identity: review.identity,
@@ -575,6 +597,7 @@ function validateReviewEvidence(evidence, overlay, review, index) {
     medium: 0,
     writeAccess: 'DENIED',
     candidateMutation: 'FORBIDDEN',
+    ...profile.extraReviewEvidence(overlay),
   };
   for (const [field, value] of Object.entries(expected)) {
     if (evidence[field] !== value) errors.push(`reviewerSuccessorW08 review ${index + 1} evidence ${field} mismatch`);
@@ -583,11 +606,11 @@ function validateReviewEvidence(evidence, overlay, review, index) {
   return errors;
 }
 
-function validateOwnerEvidence(evidence, overlay) {
+function validateOwnerEvidence(evidence, overlay, profile = DEFAULT_PROFILE) {
   const errors = [];
-  if (!exactKeys(evidence, OWNER_EVIDENCE_KEYS)) return ['reviewerSuccessorW08 owner evidence shape mismatch'];
+  if (!exactKeys(evidence, profile.ownerEvidenceKeys)) return ['reviewerSuccessorW08 owner evidence shape mismatch'];
   const expected = {
-    schemaVersion: 'reviewer-successor.w08.evidence.v1',
+    schemaVersion: profile.evidenceSchemaVersion,
     kind: 'owner-approval',
     decision: 'APPROVED',
     approver: overlay.approvedBy,
@@ -601,6 +624,7 @@ function validateOwnerEvidence(evidence, overlay) {
     governanceTree: overlay.governanceTree,
     governanceReviewPackagePath: overlay.governanceReviewPackagePath,
     governanceReviewPackageSha256: overlay.governanceReviewPackageSha256,
+    ...profile.extraOwnerEvidence(overlay),
   };
   for (const [field, value] of Object.entries(expected)) {
     if (evidence[field] !== value) errors.push(`reviewerSuccessorW08 owner evidence ${field} mismatch`);
@@ -624,13 +648,22 @@ function validateOwnerEvidence(evidence, overlay) {
   return errors;
 }
 
-export async function verifyReviewerSuccessorW08(root, overlay) {
-  const errors = validateReviewerSuccessorW08(overlay);
+export async function verifyReviewerSuccessorW08(
+  root,
+  overlay,
+  profile = DEFAULT_PROFILE,
+  { headOverride = null, bindWorkingTree = true } = {},
+) {
+  const errors = validateReviewerSuccessorW08(overlay, profile);
   if (errors.length > 0) return errors;
   errors.push(...(await verifyReviewerSuccessorW08GitEnvironment(root)));
   let head = null;
   try {
-    head = (await execFileAsync(GIT, gitArgs('rev-parse', 'HEAD^{commit}'), gitOptions(root))).stdout.trim();
+    head = (await execFileAsync(
+      GIT,
+      gitArgs('rev-parse', `${headOverride ?? 'HEAD'}^{commit}`),
+      gitOptions(root),
+    )).stdout.trim();
   } catch (cause) {
     errors.push(`reviewerSuccessorW08 HEAD is unverifiable: ${cause.code ?? cause.message}`);
   }
@@ -646,7 +679,7 @@ export async function verifyReviewerSuccessorW08(root, overlay) {
       if (head === null) throw new Error('pinned HEAD unavailable');
       const [pinned, working] = await Promise.all([
         gitBlob(root, head, path),
-        readRegularFile(root, path),
+        bindWorkingTree ? readRegularFile(root, path) : gitBlob(root, head, path),
       ]);
       if (!pinned.equals(working)) errors.push(`reviewerSuccessorW08 evidence working tree drift: ${path}`);
       sources.set(path, pinned);
@@ -662,10 +695,11 @@ export async function verifyReviewerSuccessorW08(root, overlay) {
     if (!source) continue;
     try {
       errors.push(...validateReviewEvidence(
-        parseReviewerSuccessorW08Evidence(source.toString('utf8'), overlay.reviews[index].path),
+        parseReviewerSuccessorW08Evidence(source.toString('utf8'), overlay.reviews[index].path, profile),
         overlay,
         overlay.reviews[index],
         index,
+        profile,
       ));
     } catch (cause) {
       errors.push(cause.message);
@@ -675,8 +709,9 @@ export async function verifyReviewerSuccessorW08(root, overlay) {
   if (ownerSource) {
     try {
       errors.push(...validateOwnerEvidence(
-        parseReviewerSuccessorW08Evidence(ownerSource.toString('utf8'), overlay.ownerApprovalPath),
+        parseReviewerSuccessorW08Evidence(ownerSource.toString('utf8'), overlay.ownerApprovalPath, profile),
         overlay,
+        profile,
       ));
     } catch (cause) {
       errors.push(cause.message);
@@ -720,6 +755,12 @@ export async function verifyReviewerSuccessorW08(root, overlay) {
       if (sources.has(path) && !sources.get(path).equals(stdout)) {
         errors.push(`reviewerSuccessorW08 review package differs from exact git diff: ${path}`);
       }
+      const expectedPaths = base === overlay.productBaseH
+        ? profile.productPaths
+        : profile.governancePaths;
+      if (expectedPaths !== undefined && !sameArray(binaryDiffPaths(stdout), [...expectedPaths].sort())) {
+        errors.push(`reviewerSuccessorW08 changed paths mismatch: ${base}..${candidate}`);
+      }
     }
     if (head === null) throw new Error('pinned HEAD unavailable');
     await execFileAsync(GIT, gitArgs('merge-base', '--is-ancestor', overlay.governanceCandidateH, head), gitOptions(root));
@@ -740,13 +781,13 @@ export async function verifyReviewerSuccessorW08(root, overlay) {
     if (carrierCount.trim() !== '1') {
       errors.push('reviewerSuccessorW08 activation carrier must contain exactly one commit');
     }
-    if (!sameArray(binaryDiffPaths(carrierDiff), [...ACTIVATION_CARRIER_PATHS].sort())) {
+    if (!sameArray(binaryDiffPaths(carrierDiff), [...profile.activationCarrierPaths].sort())) {
       errors.push('reviewerSuccessorW08 activation carrier changed paths must be exactly canonical evidence and manifests');
     }
-    for (const path of PROTECTED_PATHS) {
+    for (const path of profile.protectedPaths) {
       const [reviewed, current] = await Promise.all([
         gitBlob(root, overlay.governanceCandidateH, path),
-        readRegularFile(root, path),
+        bindWorkingTree ? readRegularFile(root, path) : gitBlob(root, head, path),
       ]);
       if (!reviewed.equals(current)) errors.push(`reviewerSuccessorW08 protected path drift: ${path}`);
     }

@@ -42,6 +42,7 @@ import {
   validateExecutionAuthorityV2Manifest,
   validateExecutionAuthorityV2Schema,
 } from './lib/execution-authority-v2.mjs';
+import { validateReviewerSuccessorW08D4A } from './lib/reviewer-successor-w08-d4a.mjs';
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const cliPath = join(root, 'scripts/execution-authority-v2.mjs');
@@ -92,6 +93,26 @@ const W08_PROFESSIONAL_CHANGED_PATHS = Object.freeze([
   'scripts/professional-agent-matrix.nodetest.mjs',
   'scripts/professional_agent_matrix_schema_check.py',
 ]);
+
+test('execution authority exposes the independent D4A continuation validator', () => {
+  assert.ok(
+    validateReviewerSuccessorW08D4A(null).some((error) =>
+      error.includes('missing or unsupported fields'),
+    ),
+  );
+});
+
+test('active-packet Git identity verification receives D4A governance for profile selection', async () => {
+  const source = await readFile(join(root, 'scripts/lib/execution-authority-v2.mjs'), 'utf8');
+  assert.match(
+    source,
+    /verifyActivePacketGitIdentity\([\s\S]*?amendmentGovernance,[\s\S]*?\);/u,
+  );
+  assert.match(
+    source,
+    /const profile = activePacketProfile\(manifest, errors, amendmentGovernance\);/u,
+  );
+});
 const liveAmendmentGovernance = JSON.parse(
   await readFile(join(root, '.harness/manifest/project-harness.json'), 'utf8'),
 ).amendmentGovernance;
@@ -282,6 +303,17 @@ function validReviewerSuccessorW08() {
       },
     ],
     approvedBy: 'lyt',
+  };
+}
+
+function d4aProductBinding() {
+  return {
+    productCandidateH: 'e25706c0c5d689354d2424f483446a1e243b58ec',
+    productTree: '1bc77790d7327b364a6e972620de456aa913f699',
+    productReviewPackagePath:
+      '.harness/changes/docs-r0-w08-d4a-exact-h-activation-20260812/review_inputs/product-candidate.diff',
+    productReviewPackageSha256:
+      '9e5ff0c70dbafc96700ea2479fec886b21e9926263f6406e435adc92b9a9002d',
   };
 }
 
@@ -921,6 +953,11 @@ test('W07 Codex evidence authorizes end to end only after registration and activ
       temporaryRoot,
       'scripts/lib/reviewer-successor-w08.mjs',
       await readFile(join(root, 'scripts/lib/reviewer-successor-w08.mjs')),
+    );
+    await writeRepositoryFile(
+      temporaryRoot,
+      'scripts/lib/reviewer-successor-w08-d4a.mjs',
+      await readFile(join(root, 'scripts/lib/reviewer-successor-w08-d4a.mjs')),
     );
     await execFileAsync(
       'git',
@@ -1571,6 +1608,34 @@ test('W08 profile accepts the professional reassignment candidate path set', () 
   );
 });
 
+test('D4A execution evidence rejects candidate identity split from the reviewer successor product', () => {
+  const fixture = w08EvidenceDocuments();
+  const governance = validGovernance();
+  governance.reviewerSuccessorW08D4A = d4aProductBinding();
+  const errors = validateExecutionAuthorityV2Evidence(
+    fixture.manifest,
+    governance,
+    fixture.owner,
+    fixture.review,
+  );
+  assert.ok(errors.some((error) => error.includes('manifest candidateH')));
+  assert.ok(errors.some((error) => error.includes('manifest tree')));
+  assert.ok(errors.some((error) => error.includes('review diff')));
+});
+
+test('D4A activation intent binds the reviewer successor product package digest', () => {
+  const fixture = w08EvidenceDocuments();
+  const governance = validGovernance();
+  governance.reviewerSuccessorW08D4A = d4aProductBinding();
+  const errors = validateExecutionAuthorityV2ActivationIntent(
+    fixture.manifest,
+    fixture.activationIntent,
+    governance,
+  );
+  assert.ok(errors.some((error) => error.includes('activation intent package')));
+  assert.ok(errors.some((error) => error.includes('activation intent digest')));
+});
+
 test('active temporary root authorizes only after loading the exact independent review and activation intent', async () => {
   const { temporaryRoot } = await createActiveAuthorityFixture();
   try {
@@ -1641,6 +1706,7 @@ test('copied CLI nested under a parent Git repository cannot replay mutable auth
       'scripts/lib/amendment-governance.mjs',
       'scripts/lib/execution-authority-v2.mjs',
       'scripts/lib/reviewer-successor-w08.mjs',
+      'scripts/lib/reviewer-successor-w08-d4a.mjs',
     ]) {
       await writeRepositoryFile(
         temporaryRoot,
@@ -1751,6 +1817,7 @@ test('authority Git executable cannot be substituted through inherited PATH', as
       'scripts/lib/amendment-governance.mjs',
       'scripts/lib/execution-authority-v2.mjs',
       'scripts/lib/reviewer-successor-w08.mjs',
+      'scripts/lib/reviewer-successor-w08-d4a.mjs',
     ]) {
       await writeRepositoryFile(
         temporaryRoot,
@@ -2668,7 +2735,13 @@ async function assertRealRepositoryAuthorityPhase(loaded) {
     ]);
     return 'PENDING_W08_REVIEWER_SUCCESSOR';
   }
-  assert.deepEqual(loaded.errors, ['active-packet EXT ref must equal pinned HEAD']);
+  const expectedPreIntegrationErrors = [
+    ...(loaded.manifest.activeWorkPackage === 'R0-W08'
+      ? ['reviewerSuccessorW08 git identity unverifiable: activation carrier must be a direct child or one transparent promotion merge']
+      : []),
+    'active-packet EXT ref must equal pinned HEAD',
+  ];
+  assert.deepEqual(loaded.errors, expectedPreIntegrationErrors);
   return `PRE_INTEGRATION_${loaded.manifest.activeWorkPackage}`;
 }
 
@@ -2709,11 +2782,16 @@ test('CLI subprocess matches the real repository authority phase', async () => {
       }),
       (error) => {
         const output = JSON.parse(error.stdout);
+        const expectedErrors = [
+          ...(activePackage === 'R0-W08'
+            ? ['reviewerSuccessorW08 git identity unverifiable: activation carrier must be a direct child or one transparent promotion merge']
+            : []),
+          'active-packet EXT ref must equal pinned HEAD',
+        ];
         return (
           output.decision === 'STOP' &&
           output.reason === 'INVALID_EXECUTION_AUTHORITY' &&
-          output.errors.length === 1 &&
-          output.errors[0] === 'active-packet EXT ref must equal pinned HEAD'
+          JSON.stringify(output.errors) === JSON.stringify(expectedErrors)
         );
       },
     );
