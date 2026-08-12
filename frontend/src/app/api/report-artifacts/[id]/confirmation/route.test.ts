@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createPostHandler } from "./route.ts";
+import { createPostHandler } from "./handler.ts";
 
 const context = (id: string) => ({ params: Promise.resolve({ id }) });
 const request = (body: string, session = "opaque-session") =>

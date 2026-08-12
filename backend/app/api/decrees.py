@@ -113,6 +113,7 @@ _RUN_ID_LENGTH = 32
 
 _MIN_DECREE_LENGTH = 1
 _MAX_DECREE_LENGTH = 2000
+_MAX_PROVIDER_REQUEST_LIMIT = 256
 _FIXED_FAILURE_REASON = "processing_failed"
 _FAILURE_STAGES = frozenset(
     {"route", "bureau", "ministry", "council", "finalize", "archive", "report"}
@@ -180,6 +181,34 @@ class DeliveryKind(StrEnum):
     NONE = "none"
     ACCOUNTING_REPORT = "accounting_report"
     ACCOUNTING_ANALYSIS = "accounting_analysis"
+
+
+def provider_request_limit_for_route(route: ApprovedRouteSnapshot) -> int:
+    """Freeze a bounded transport-attempt budget for an approved route.
+
+    Each ministry can spend three structured attempts selecting its route and
+    three synthesizing its opinion.  Each approved bureau has a two-round
+    governed tool loop.  Chancellor finalization and, for multi-ministry
+    routes, Grand Council synthesis can each spend three attempts.  The
+    transport adapter may retry every model call once, so the frozen limit is
+    twice that model-level bound.
+    """
+
+    validated = validate_route_snapshot(route)
+    department_count = len(validated.departments)
+    bureau_count = sum(
+        len(department.required_bureaus) for department in validated.departments
+    )
+    model_attempts = (
+        department_count * 6
+        + bureau_count * 2
+        + 3
+        + (3 if department_count > 1 else 0)
+    )
+    request_limit = model_attempts * 2
+    if request_limit > _MAX_PROVIDER_REQUEST_LIMIT:
+        raise ValueError("approved route exceeds provider request safety limit")
+    return request_limit
 
 
 def _generated_report_identity(
@@ -858,6 +887,9 @@ def accept_decree(
                 decree_text=payload.decree_text,
                 approved_route_json=_authority_snapshot(consumed),
                 deadline_at=datetime.now(UTC) + timedelta(minutes=30),
+                provider_request_limit=provider_request_limit_for_route(
+                    approved_route
+                ),
                 acceptance_committed=False,
             )
         )

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createListHandler } from "./route.ts";
+import { createListHandler } from "./handler.ts";
 
 test("list BFF rejects unknown, repeated, blank and noncanonical values before backend",async()=>{
   let calls=0;

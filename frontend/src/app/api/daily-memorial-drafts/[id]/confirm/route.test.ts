@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createConfirmHandler } from "./route.ts";
+import { createConfirmHandler } from "./handler.ts";
 
 const draftId = "1".repeat(32);
 const fingerprint = "a".repeat(64);

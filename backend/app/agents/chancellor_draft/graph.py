@@ -15,16 +15,12 @@ from langgraph.graph.state import CompiledStateGraph
 from pydantic import ValidationError
 
 from app.accounting_reports import (
-    APPROVED_ACCOUNTING_SOURCE_DIR,
     AccountingPeriodResolution,
-    AccountingSourceError,
     PeriodResolutionStatus,
     ReportIntentKind,
     ReportPeriod,
     detect_accounting_report_intent,
     preflight_accounting_sources,
-    resolve_accounting_report_period,
-    resolve_accounting_source_dir,
 )
 from app.accounting_reports.period_policy import LedgerLoader
 from app.agents.bureaus.profiles import BUREAU_PROFILES
@@ -616,54 +612,25 @@ def build_chancellor_draft_graph(
         )
         reference_date = today_provider()
         accounting_intent = detect_accounting_report_intent(user_text)
-        resolved_source_dir = accounting_source_dir
-        source_loader = accounting_source_loader
-        if (
-            accounting_intent.kind
-            in {ReportIntentKind.EXPLICIT_PERIOD, ReportIntentKind.MISSING_PERIOD}
-            and resolved_source_dir is None
-            and (
-                accounting_source_dir_resolver is not None
-                or accounting_source_loader is preflight_accounting_sources
-            )
-        ):
-            try:
-                source_resolver = (
-                    accounting_source_dir_resolver or resolve_accounting_source_dir
-                )
-                resolved_source_dir = source_resolver()
-            except AccountingSourceError:
-                resolved_source_dir = APPROVED_ACCOUNTING_SOURCE_DIR
-
-                def _unavailable_source(_source_dir: Path, _period: ReportPeriod):
-                    raise AccountingSourceError("source_path_invalid")
-
-                source_loader = _unavailable_source
-        resolution = resolve_accounting_report_period(
-            accounting_intent,
-            reference_date=reference_date,
-            source_dir=resolved_source_dir or APPROVED_ACCOUNTING_SOURCE_DIR,
-            loader=source_loader,
-        )
-        if (
-            resolution.status is PeriodResolutionStatus.RESOLVED
-            and accounting_intent.requested
-            and not (
-                isinstance(resolution.source_fingerprint, str)
-                and re.fullmatch(
-                    r"[0-9a-f]{64}", resolution.source_fingerprint
-                )
-            )
-        ):
+        if accounting_intent.kind is ReportIntentKind.INVALID_PERIOD:
             resolution = AccountingPeriodResolution(
-                status=PeriodResolutionStatus.NEEDS_INPUT,
-                period=resolution.period,
-                used_default=resolution.used_default,
-                reason=(
-                    "previous_complete_year_unavailable"
-                    if resolution.used_default
-                    else "requested_period_unavailable"
-                ),
+                PeriodResolutionStatus.NEEDS_INPUT, None, False, "invalid_period"
+            )
+        elif accounting_intent.kind is ReportIntentKind.MISSING_PERIOD:
+            resolution = AccountingPeriodResolution(
+                PeriodResolutionStatus.RESOLVED,
+                ReportPeriod(reference_date.year - 1, reference_date.year - 1),
+                True,
+            )
+        elif accounting_intent.kind is ReportIntentKind.EXPLICIT_PERIOD:
+            resolution = AccountingPeriodResolution(
+                PeriodResolutionStatus.RESOLVED,
+                accounting_intent.period,
+                False,
+            )
+        else:
+            resolution = AccountingPeriodResolution(
+                PeriodResolutionStatus.NOT_REQUESTED, None, False
             )
         if resolution.status is PeriodResolutionStatus.NEEDS_INPUT:
             response = _deterministic_needs_input_response(
@@ -802,18 +769,13 @@ def build_chancellor_draft_graph(
             response.status.value == "DRAFT_READY"
             and accounting_intent.requested
             and resolution.period is not None
-            and isinstance(resolution.source_fingerprint, str)
         ):
             result["accounting_context"] = {
                 "request_kind": accounting_intent.request_kind.value,
                 "period_start": resolution.period.start_year,
                 "period_end": resolution.period.end_year,
-                "source_fingerprint": resolution.source_fingerprint,
+                "source_fingerprint": None,
             }
-        elif response.status.value == "DRAFT_READY" and accounting_intent.requested:
-            raise ChancellorDraftGraphInvocationError(
-                "Accounting work requires a bound source fingerprint."
-            )
         return result
 
     builder = StateGraph(ChancellorDraftGraphState)

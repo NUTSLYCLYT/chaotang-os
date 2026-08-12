@@ -475,7 +475,7 @@ def test_periodless_accounting_draft_defaults_to_previous_complete_year() -> Non
         "version": 7,
     })["response"]
 
-    assert loader_calls == [(source_dir, ReportPeriod(2025, 2025))]
+    assert loader_calls == []
     assert len(calls) == 1
     assert "2025" in calls[0][0]["content"]
     assert response["status"] == "DRAFT_READY"
@@ -531,16 +531,16 @@ def test_periodless_accounting_draft_revises_tampered_default_year() -> None:
     assert "2024" not in response["decree_text"]
 
 
-def test_periodless_accounting_draft_needs_input_without_available_source() -> None:
+def test_periodless_accounting_draft_is_ready_without_available_source() -> None:
     model_calls = 0
 
-    def forbidden_model(_messages: list[dict[str, str]]) -> str:
+    def ready_model(_messages: list[dict[str, str]]) -> str:
         nonlocal model_calls
         model_calls += 1
-        raise AssertionError("model must not be called")
+        return json.dumps(_ready_accounting_payload(2025), ensure_ascii=False)
 
     graph = build_chancellor_draft_graph(
-        chat_model=forbidden_model,
+        chat_model=ready_model,
         today_provider=_fixed_today,
         accounting_source_dir=Path("private-source-path"),
         accounting_source_loader=lambda _source_dir, _period: [],
@@ -558,44 +558,32 @@ def test_periodless_accounting_draft_needs_input_without_available_source() -> N
     first = graph.invoke(state)["response"]
     second = graph.invoke(state)["response"]
 
-    assert model_calls == 0
+    assert model_calls == 2
     assert first == second
-    assert first["status"] == "NEEDS_INPUT"
-    assert first["decree_text"] is None
-    assert first["draft"] is None
+    assert first["status"] == "DRAFT_READY"
+    assert first["decree_text"]
+    assert first["draft"] is not None
     assert len(first["fingerprint"]) == 64
     assert first["fingerprint"] == first["fingerprint"].lower()
     int(first["fingerprint"], 16)
-    guidance = " ".join(
-        (
-            first["understanding"],
-            first["expert_example"],
-            first["recommendation_reason"],
-            first["revision_prompt"],
-        )
-    )
-    assert "上一完整年度" in guidance
-    assert "2025" in guidance
-    assert "提供" in guidance
-    assert "明确" in guidance
     assert "private-source-path" not in json.dumps(first, ensure_ascii=False)
 
 
-def test_exact_local_2025_analysis_needs_input_before_model() -> None:
+def test_exact_local_2025_analysis_is_ready_without_preflight() -> None:
     model_calls = 0
     preflight_calls: list[tuple[Path, ReportPeriod]] = []
 
-    def forbidden_model(_messages: list[dict[str, str]]) -> str:
+    def ready_model(_messages: list[dict[str, str]]) -> str:
         nonlocal model_calls
         model_calls += 1
-        raise AssertionError("model must not be called")
+        return json.dumps(_ready_accounting_payload(2025), ensure_ascii=False)
 
     def invalid_preflight(source_dir: Path, period: ReportPeriod):
         preflight_calls.append((source_dir, period))
         raise AccountingSourceError("source_schema_invalid")
 
     result = build_chancellor_draft_graph(
-        chat_model=forbidden_model,
+        chat_model=ready_model,
         accounting_source_dir=Path("synthetic-accounting-source"),
         accounting_source_loader=invalid_preflight,
     ).invoke({
@@ -606,19 +594,15 @@ def test_exact_local_2025_analysis_needs_input_before_model() -> None:
         "version": 1,
     })
 
-    assert model_calls == 0
-    assert preflight_calls == [
-        (Path("synthetic-accounting-source"), ReportPeriod(2025, 2025))
-    ]
-    assert result["response"]["status"] == "NEEDS_INPUT"
-    assert result["response"]["draft"] is None
-    assert result["response"]["decree_text"] is None
-    assert "无法安全解析" in result["response"]["understanding"]
-    assert result["preserve_authority"] is True
-    assert "accounting_context" not in result
+    assert model_calls == 1
+    assert preflight_calls == []
+    assert result["response"]["status"] == "DRAFT_READY"
+    assert result["response"]["draft"] is not None
+    assert result["response"]["decree_text"]
+    assert result["accounting_context"]["source_fingerprint"] is None
 
 
-def test_schema_valid_local_2025_analysis_without_subject_needs_input_before_model(
+def test_schema_valid_local_2025_analysis_without_subject_is_ready_before_execution(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     provider_factory_calls = 0
@@ -644,6 +628,9 @@ def test_schema_valid_local_2025_analysis_without_subject_needs_input_before_mod
     )
 
     result = draft_graph.build_chancellor_draft_graph(
+        chat_model=lambda _messages: json.dumps(
+            _ready_accounting_payload(2025), ensure_ascii=False
+        ),
         accounting_source_dir=Path("synthetic-accounting-source"),
         accounting_source_loader=lambda _source_dir, _period: dataset,
     ).invoke({
@@ -655,14 +642,13 @@ def test_schema_valid_local_2025_analysis_without_subject_needs_input_before_mod
     })
 
     assert provider_factory_calls == 0
-    assert result["response"]["status"] == "NEEDS_INPUT"
-    assert result["response"]["draft"] is None
-    assert result["response"]["decree_text"] is None
-    assert result["preserve_authority"] is True
-    assert "accounting_context" not in result
+    assert result["response"]["status"] == "DRAFT_READY"
+    assert result["response"]["draft"] is not None
+    assert result["response"]["decree_text"]
+    assert result["accounting_context"]["source_fingerprint"] is None
 
 
-def test_production_accounting_graph_resolves_process_source_override_lazily(
+def test_draft_does_not_resolve_process_source_override(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     resolved_sources: list[Path] = []
@@ -681,7 +667,9 @@ def test_production_accounting_graph_resolves_process_source_override_lazily(
         raise AccountingSourceError("source_schema_invalid")
 
     graph = draft_graph.build_chancellor_draft_graph(
-        chat_model=lambda _messages: pytest.fail("model must not run"),
+        chat_model=lambda _messages: json.dumps(
+            _ready_accounting_payload(2025), ensure_ascii=False
+        ),
         accounting_source_dir_resolver=resolve_source,
         accounting_source_loader=invalid_preflight,
     )
@@ -693,14 +681,12 @@ def test_production_accounting_graph_resolves_process_source_override_lazily(
         "version": 1,
     })["response"]
 
-    assert resolved_sources == [configured_source.resolve()]
-    assert preflight_calls == [
-        (configured_source.resolve(), ReportPeriod(2025, 2025))
-    ]
-    assert response["status"] == "NEEDS_INPUT"
+    assert resolved_sources == []
+    assert preflight_calls == []
+    assert response["status"] == "DRAFT_READY"
 
 
-def test_invalid_process_source_fails_closed_before_provider_configuration(
+def test_invalid_process_source_is_deferred_until_execution(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     provider_factory_calls = 0
@@ -716,7 +702,11 @@ def test_invalid_process_source_fails_closed_before_provider_configuration(
     monkeypatch.setattr(
         draft_graph, "load_deepseek_provider_config", forbidden_provider_config
     )
-    graph = draft_graph.build_chancellor_draft_graph()
+    graph = draft_graph.build_chancellor_draft_graph(
+        chat_model=lambda _messages: json.dumps(
+            _ready_accounting_payload(2025), ensure_ascii=False
+        )
+    )
     response = graph.invoke({
         "messages": [{
             "role": "user",
@@ -725,9 +715,9 @@ def test_invalid_process_source_fails_closed_before_provider_configuration(
         "version": 1,
     })["response"]
 
-    assert response["status"] == "NEEDS_INPUT"
-    assert response["draft"] is None
-    assert response["decree_text"] is None
+    assert response["status"] == "DRAFT_READY"
+    assert response["draft"] is not None
+    assert response["decree_text"]
     assert provider_factory_calls == 0
 
 
@@ -755,7 +745,7 @@ def test_ready_accounting_analysis_binds_server_source_context() -> None:
         "request_kind": "ACCOUNTING_ANALYSIS",
         "period_start": 2025,
         "period_end": 2025,
-        "source_fingerprint": "b" * 64,
+        "source_fingerprint": None,
     }
 
 
@@ -823,9 +813,37 @@ def test_explicit_2024_accounting_draft_preflights_once_without_defaulting() -> 
     })["response"]
 
     assert len(calls) == 1
-    assert preflight_calls == [ReportPeriod(2024, 2024)]
+    assert preflight_calls == []
     _assert_exact_report_year(response["decree_text"], 2024)
     assert not any("上一完整年度" in item for item in response["assumptions"])
+
+
+def test_explicit_2025_accounting_draft_does_not_preflight_unavailable_source() -> None:
+    decree = (
+        "请户部会计司根据系统内既有财务数据，生成2025年管理层综合财务报表，"
+        "并交付可下载的 Excel 文件。"
+    )
+    loader_calls = 0
+
+    def unavailable_source(_source_dir: Path, _period: ReportPeriod):
+        nonlocal loader_calls
+        loader_calls += 1
+        raise AccountingSourceError("source_schema_invalid")
+
+    response = build_chancellor_draft_graph(
+        chat_model=lambda _messages: json.dumps(
+            _ready_accounting_payload(2025), ensure_ascii=False
+        ),
+        accounting_source_dir=Path("synthetic-accounting-source"),
+        accounting_source_loader=unavailable_source,
+    ).invoke({
+        "messages": [{"role": "user", "content": decree}],
+        "version": 8,
+    })["response"]
+
+    assert loader_calls == 0
+    assert response["status"] == "DRAFT_READY"
+    assert response["decree_text"]
 
 
 def test_explicit_2024_accounting_draft_corrects_model_period_drift() -> None:

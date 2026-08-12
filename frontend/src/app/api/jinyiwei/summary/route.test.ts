@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createSummaryHandler } from "./route.ts";
+import { createSummaryHandler } from "./handler.ts";
 
 const EMPTY_SUMMARY = {
   totalInvestigations: 0,

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createCasesHandler } from "./route.ts";
+import { createCasesHandler } from "./handler.ts";
 
 test("cases BFF returns 401 before consulting the backend when session is absent", async () => {
   let calls = 0;

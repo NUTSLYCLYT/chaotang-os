@@ -1,5 +1,17 @@
 # Bureau Agent Controlled Tool Use SDD Progress
 
+# Dynamic Bureau Tool Discovery SDD Progress
+
+Plan: `docs/superpowers/plans/2026-08-11-dynamic-bureau-tool-discovery.md`
+
+- Task 1: complete (commit 07caff51; review approved after authoritative Skill identity binding; 109 focused tests)
+- Task 2: complete (commit 960dfc71; review approved after exact descriptor authority metadata validation; 254 focused tests)
+- Task 3: complete (commit 69d1f350; review approved after sealed authorization context and truthful recovery binding; 658 focused/integration tests)
+- Task 4: complete (commit f0a65b14; review approved after bounded content-probe, workbook-container, BIFF, and resource-lifecycle hardening; 102 focused tests in review and 10/10 final implementation rounds at 102 passed, 2 skipped)
+- Task 5: complete (commit e17141d1; review approved after content-integrity sealing, exact candidate-region validation, deterministic financial receipts, and honest draft disclosure; 278 combined tests, 10/10 final rounds)
+- Task 6: complete (commit bec54624; review approved after moving source inspection into the bureau Tool Loop, binding generation to same-loop opaque inspect results, and enforcing one typed artifact; final complete suite 291 tests, 10/10 rounds)
+- Task 7: complete (commit 366dac9b; review approved after real required-tool failure propagation, exact terminal-code selection, canonical API mapping, and actionable UI messages; final 209 backend + 54 frontend tests, 10/10 rounds)
+
 # DeepSeek v4 Flash Model Refresh SDD Progress
 
 Plan: `docs/superpowers/plans/2026-08-04-deepseek-v4-flash-model-refresh.md`

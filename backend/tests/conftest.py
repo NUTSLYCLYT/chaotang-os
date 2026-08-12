@@ -20,6 +20,12 @@ from app.shiguan import db as shiguan_db
 
 
 @pytest.fixture(autouse=True)
+def disable_decree_worker_for_isolated_tests(monkeypatch):
+    """Keep generic TestClient lifespans away from the runtime decree queue."""
+    monkeypatch.setenv("CHAOTANG_DECREE_JOB_WORKER_ENABLED", "false")
+
+
+@pytest.fixture(autouse=True)
 def isolate_deepseek_dotenv_fallback(tmp_path, monkeypatch):
     """Point the DeepSeek dotenv fallback default path at a nonexistent file.
 

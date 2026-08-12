@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createConsultHandler } from "./consult/route.ts";
-import { createForecastsGetHandler, createForecastsPostHandler } from "./forecasts/route.ts";
-import { createForecastGetHandler } from "./forecasts/[id]/route.ts";
-import { createReviewHandler } from "./forecasts/[id]/reviews/route.ts";
-import { createPendingTriggersHandler } from "./triggers/pending/route.ts";
+import { createConsultHandler } from "./consult/handler.ts";
+import { createForecastsGetHandler, createForecastsPostHandler } from "./forecasts/handler.ts";
+import { createForecastGetHandler } from "./forecasts/[id]/handler.ts";
+import { createReviewHandler } from "./forecasts/[id]/reviews/handler.ts";
+import { createPendingTriggersHandler } from "./triggers/pending/handler.ts";
 
 const authenticated = (path: string, method = "GET", body?: unknown) => new Request(`http://local${path}`, {
   method,

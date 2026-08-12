@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createGetHandler } from "./route.ts";
+import { createGetHandler } from "./handler.ts";
 
 const XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 const context = (id: string) => ({ params: Promise.resolve({ id }) });

@@ -50,7 +50,10 @@ configure_provider_attempt_budget_from_environment()
 
 
 def _worker_enabled() -> bool:
-    return os.environ.get("CHAOTANG_DECREE_JOB_WORKER_ENABLED", "").strip().lower() in {
+    configured = os.environ.get("CHAOTANG_DECREE_JOB_WORKER_ENABLED")
+    if configured is None:
+        return True
+    return configured.strip().lower() in {
         "1",
         "true",
         "yes",
@@ -92,6 +95,11 @@ def readiness() -> JSONResponse:
     except Exception:
         return JSONResponse(status_code=503, content={"codes": ["readiness_check_failed"]})
     if result.ready:
+        worker = getattr(app.state, "decree_job_worker", None)
+        if worker is None or not worker.is_alive():
+            return JSONResponse(
+                status_code=503, content={"codes": ["worker_not_running"]}
+            )
         return JSONResponse(status_code=200, content={"codes": ["ready"]})
     return JSONResponse(status_code=503, content={"codes": list(result.codes)})
 

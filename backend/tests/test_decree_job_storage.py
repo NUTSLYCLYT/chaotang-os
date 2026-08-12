@@ -363,6 +363,16 @@ def test_provider_limit_is_frozen_and_atomically_enforced_across_reopen(tmp_path
     assert reopened.get_for_owner(job_id, "owner-a").provider_request_count == 8
 
 
+def test_provider_limit_rejects_values_above_route_safety_ceiling(tmp_path) -> None:
+    store = DecreeJobStore(tmp_path / "jobs.sqlite3")
+
+    with pytest.raises(ValueError, match="between 1 and 256"):
+        store.accept(
+            replace(_command(), provider_request_limit=257),
+            now=NOW,
+        )
+
+
 def test_existing_legacy_job_schema_is_altered_without_losing_rows(tmp_path) -> None:
     path = tmp_path / "legacy-jobs.sqlite3"
     with closing(sqlite3.connect(path)) as connection:

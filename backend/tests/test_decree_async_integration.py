@@ -403,7 +403,9 @@ def test_worker_executes_archives_and_publishes_one_owner_reply(
     assert replies[0].id == accepted.job_id
 
 
-def test_application_lifespan_starts_and_stops_exactly_one_worker(monkeypatch) -> None:
+def test_application_lifespan_starts_and_stops_exactly_one_worker_by_default(
+    monkeypatch,
+) -> None:
     import app.main as main
 
     events: list[str] = []
@@ -418,7 +420,7 @@ def test_application_lifespan_starts_and_stops_exactly_one_worker(monkeypatch) -
         def stop(self) -> None:
             events.append("stopped")
 
-    monkeypatch.setenv("CHAOTANG_DECREE_JOB_WORKER_ENABLED", "true")
+    monkeypatch.delenv("CHAOTANG_DECREE_JOB_WORKER_ENABLED", raising=False)
     monkeypatch.setattr(main, "DecreeJobWorker", FakeWorker)
     monkeypatch.setattr(main, "get_decree_job_store", lambda: object())
     monkeypatch.setattr(main, "PersistentDecreeJobExecutor", lambda: object())

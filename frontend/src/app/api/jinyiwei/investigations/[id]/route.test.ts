@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { getJinyiweiInvestigation } from "../../../../../lib/backendClient.ts";
-import { createDetailHandler } from "./route.ts";
+import { createDetailHandler } from "./handler.ts";
 
 test("detail BFF accepts an injected read client",async()=>{
   let seen:unknown;

@@ -41,6 +41,12 @@ def test_readyz_is_additive_and_preserves_all_existing_routes(monkeypatch) -> No
     import app.main as main
 
     monkeypatch.setattr(main, "run_readiness_preflight", lambda: ReadinessResult(()))
+    monkeypatch.setattr(
+        main.app.state,
+        "decree_job_worker",
+        SimpleNamespace(is_alive=lambda: True),
+        raising=False,
+    )
     client = TestClient(app)
 
     assert client.get("/health").status_code == 200
@@ -64,6 +70,30 @@ def test_readyz_is_additive_and_preserves_all_existing_routes(monkeypatch) -> No
         "/api/v1/report-artifacts/{artifact_id}/download",
         "/api/v1/shiguan/archives",
     } <= set(app.openapi()["paths"])
+
+
+def test_readyz_rejects_a_missing_or_stopped_decree_worker(monkeypatch) -> None:
+    import app.main as main
+
+    monkeypatch.setattr(main, "run_readiness_preflight", lambda: ReadinessResult(()))
+    monkeypatch.delattr(main.app.state, "decree_job_worker", raising=False)
+
+    missing_response = TestClient(app).get("/readyz")
+
+    assert missing_response.status_code == 503
+    assert missing_response.json() == {"codes": ["worker_not_running"]}
+
+    monkeypatch.setattr(
+        main.app.state,
+        "decree_job_worker",
+        SimpleNamespace(is_alive=lambda: False),
+        raising=False,
+    )
+
+    response = TestClient(app).get("/readyz")
+
+    assert response.status_code == 503
+    assert response.json() == {"codes": ["worker_not_running"]}
 
 
 def test_readyz_reports_stable_unready_and_exception_codes(monkeypatch) -> None:

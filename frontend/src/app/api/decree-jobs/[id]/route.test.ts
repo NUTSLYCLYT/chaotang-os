@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createGetHandler, dynamic, revalidate } from "./route.ts";
+import { createGetHandler } from "./handler.ts";
+import { dynamic, revalidate } from "./route.ts";
 
 
 const JOB_ID = "a".repeat(32);

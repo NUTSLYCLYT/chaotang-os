@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createLatestHandler } from "./route.ts";
+import { createLatestHandler } from "./handler.ts";
 import { getLatestDailyMemorialDraft } from "../../../../lib/backendClient.ts";
 
 const request = (query = "", session = "opaque-session") => new Request(`http://local/api/daily-memorial-drafts/latest${query}`, {

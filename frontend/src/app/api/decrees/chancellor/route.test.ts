@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import type { SubmitDecreeResult } from "../../../../lib/backendClient.ts";
-import { createPostHandler } from "./route.ts";
+import { createPostHandler } from "./handler.ts";
 
 function makeRequest(body: unknown, authenticated = true): Request {
   const normalizedBody =

@@ -195,8 +195,8 @@ class DecreeJobStore:
             raise ValueError("idempotency_key is too long")
         if len(command.draft_fingerprint) != 64:
             raise ValueError("draft_fingerprint must be a SHA-256 value")
-        if command.provider_request_limit < 1 or command.provider_request_limit > 8:
-            raise ValueError("provider_request_limit must be between 1 and 8")
+        if command.provider_request_limit < 1 or command.provider_request_limit > 256:
+            raise ValueError("provider_request_limit must be between 1 and 256")
         _iso(command.deadline_at)
 
     def accept(

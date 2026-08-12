@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createPostHandler } from "./route.ts";
+import { createPostHandler } from "./handler.ts";
 
 
 const JOB_ID = "a".repeat(32);

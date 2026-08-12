@@ -14,12 +14,14 @@ from app.agents.chancellor_draft.routing import ApprovedRouteSnapshot
 class AccountingAuthorityContext:
     request_kind: AccountingRequestKind
     period: ReportPeriod
-    source_fingerprint: str
+    source_fingerprint: str | None = None
 
     def __post_init__(self) -> None:
         if self.request_kind is AccountingRequestKind.NOT_REQUESTED:
             raise ValueError("accounting context requires a requested kind")
-        if not re.fullmatch(r"[0-9a-f]{64}", self.source_fingerprint):
+        if self.source_fingerprint is not None and not re.fullmatch(
+            r"[0-9a-f]{64}", self.source_fingerprint
+        ):
             raise ValueError("source_fingerprint must be lowercase hexadecimal")
 
 
