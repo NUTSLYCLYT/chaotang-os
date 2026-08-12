@@ -8,6 +8,7 @@
 | 能力入口清算与遥测契约 | `node --test scripts/capability-entry-governance.nodetest.mjs` | 验证功能清算表、统一调用事件、14 天零调用与 replacement 证据删除门 | 2026-07-14，OBSERVE；尚无统一 runtime sink，不得删除入口 |
 | K0B 知识质量 rubric | `node --test scripts/knowledge-quality-rubric.nodetest.mjs` | 验证合同/检索/outcome/成本/时效阈值、逐run门和 fail-closed 状态 | 2026-07-14，FROZEN_LOCAL / NO_DATA；门已冻结，真实黄金案例与 outcome 未到 |
 | EXT 99 分支能力融合台账 | `node --test scripts/ext-branch-convergence.nodetest.mjs && node scripts/ext-branch-convergence.mjs --check` | 验证 99 个冻结 ref、唯一能力归属、唯一 canonical donor、处置/authority/checkpoint 契约和 ref tip 未漂移；CLI 全部只读 | 2026-08-03，DRAFT_OBSERVE_ONLY；不授权 merge、cherry-pick、代码实施或删除分支 |
+| EXT 专业 Agent K0 资产矩阵 | `node --test scripts/professional-agent-matrix.nodetest.mjs && node scripts/professional-agent-matrix.mjs --check` | 验证 Draft 2020-12、exact donor、当前 EXT 能力/契约/测试路径、35 个设计契约与 71 个运行 Prompt；阻止无测试集合标成 VERIFIED | 2026-08-10，REVIEW_GO_PENDING_PROMOTION；6 个能力域 VERIFIED，2 个集合资产 PARTIAL |
 | Packet 独立复核本地反馈门 | `node --test scripts/packet-review-local-feedback.nodetest.mjs && node scripts/packet-review-pre-push.mjs --status` | 验证 B→H→R→M、唯一 change/approval、报告 digest、终态 GO、安装/卸载与 bypass 诚实声明 | 2026-07-16，`LOCAL_FEEDBACK_ONLY`；无外部签名/required check，不得称 ENFORCED |
 | 前端工程 harness | `cd frontend && pnpm harness:doctor` | 验证前端 `.harness` 结构、模板、skills 和变更记录 | 由根 doctor 委托；2026-07-09 通过 |
 | 后端 harness 架构 | `cd backend && python scripts/harness_doctor.py` | 验证后端 harness manifest、共享契约、主 harness、实现包和变更记录 | 由根 doctor 委托；2026-07-09 通过 |

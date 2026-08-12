@@ -22,6 +22,10 @@ import {
   verifyAmendmentApprovalEvidenceFiles,
 } from './lib/amendment-governance.mjs';
 import { validateRepositoryStructure } from './lib/repository-structure.mjs';
+import {
+  EXPECTED_PROFESSIONAL_AGENT_REGISTRATION,
+  validateProfessionalAgentRegistration,
+} from './lib/professional-agent-matrix.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, '..');
@@ -96,6 +100,13 @@ const required = [
   '.harness/wiki/ext-branch-capability-convergence.md',
   'scripts/ext-branch-convergence.mjs',
   'scripts/ext-branch-convergence.nodetest.mjs',
+  '.harness/contracts/professional-agent-asset-matrix.v1.schema.json',
+  '.harness/manifest/professional-agent-asset-matrix.v1.json',
+  '.harness/wiki/professional-agent-asset-matrix.md',
+  'scripts/lib/professional-agent-matrix.mjs',
+  'scripts/professional-agent-matrix.mjs',
+  'scripts/professional-agent-matrix.nodetest.mjs',
+  'scripts/professional_agent_matrix_schema_check.py',
   '.harness/templates/change-template/summary.md',
   '.harness/templates/change-template/request_analysis/spec.md',
   '.harness/templates/change-template/request_analysis/tasks.md',
@@ -308,6 +319,31 @@ if (manifest) {
     }
   } else {
     error('manifest missing extBranchConvergence');
+  }
+
+  if (manifest.professionalAgentAssets) {
+    const registrationErrors = validateProfessionalAgentRegistration(
+      manifest.professionalAgentAssets,
+    );
+    if (registrationErrors.length > 0) {
+      for (const message of registrationErrors) error(message);
+    } else {
+      for (const key of ['manifest', 'contract', 'evaluator', 'schemaChecker', 'test', 'documentation']) {
+        checkExists(
+          EXPECTED_PROFESSIONAL_AGENT_REGISTRATION[key],
+          `manifest professional Agent assets ${key}`,
+        );
+      }
+      const result = spawnSync(
+        process.execPath,
+        [join(root, EXPECTED_PROFESSIONAL_AGENT_REGISTRATION.evaluator), '--check'],
+        { cwd: root, encoding: 'utf8' },
+      );
+      if (result.status === 0) ok('professional Agent asset matrix is registered and valid');
+      else error(`professional Agent asset matrix failed: ${(result.stdout || result.stderr).trim()}`);
+    }
+  } else {
+    error('manifest missing professionalAgentAssets');
   }
 
   if (manifest.controlPlane) {

@@ -1,0 +1,1786 @@
+diff --git a/.harness/changes/docs-r0-w08-codex-reviewer-successor-20260810/ci_result/governance-candidate.md b/.harness/changes/docs-r0-w08-codex-reviewer-successor-20260810/ci_result/governance-candidate.md
+new file mode 100644
+index 00000000..14a1dccd
+--- /dev/null
++++ b/.harness/changes/docs-r0-w08-codex-reviewer-successor-20260810/ci_result/governance-candidate.md
+@@ -0,0 +1,47 @@
++# Governance candidate verification
++
++Candidate identity is pending commit.
++
++- `node --test scripts/reviewer-successor-w08.nodetest.mjs`: PASS, 14/14.
++- `node --test scripts/r0-amendment-check.nodetest.mjs`: PASS, 30/30.
++- `node --test scripts/execution-authority-v2.nodetest.mjs`: PASS, 75/75.
++- Historical W06/W07 reviewer and authority behavior remains green.
++- No product candidate files were changed in the frozen product worktree.
++
++The first governance candidate was rejected during security review because the
++CLI entrypoint was not protected and the new exact verifier lacked direct
++adversarial coverage. The successor candidate now protects the CLI and authority
++schema, rejects unsafe repository-local Git state, pins committed evidence bytes,
++uses candidate-scoped attributes for both diffs, and directly tests CLI drift,
++mutable evidence, symlinks, hard links, and hostile local Git configuration.
++Marked JSON evidence also rejects duplicate keys before parsing.
++
++The next governance candidate was also rejected during exact-H review because
++`info/grafts` could forge ancestry independently of replace refs. The verifier
++now rejects graft files and shallow repositories, with direct negative tests.
++
++Fresh pre-freeze verification after those corrections:
++
++- execution-authority-v2: 75/75 PASS
++- successor + amendment + professional matrix: 58/58 PASS
++- professional-agent matrix CLI: PASS (8 assets; 6 VERIFIED; 2 PARTIAL)
++- working-tree and product-to-governance `git diff --check`: PASS
++
++G4 was rejected during exact-H review because a descendant activation commit
++could still carry unreviewed non-authority product changes. The verifier now
++requires one direct, single-parent carrier commit and an exact canonical path set
++containing only the two manifests and the W08 evidence files.
++
++Fresh pre-freeze verification after the G4 carrier fix repeated the complete
++75/75 authority suite, 58/58 combined suite, matrix CLI, and both diff checks;
++all passed.
++
++The first activation carrier was rejected before EXT ref movement because the
++root doctor found the change summary lacked its canonical Change ID row. G6 adds
++that root-harness metadata before any successor evidence is activated.
++
++The direct push path then exposed the repository's prospective packet-review
++feedback gate, while Gitee itself promotes reviewed branches with a transparent
++two-parent merge. G7 accepts only that exact no-content-change promotion shape:
++the second parent is the direct activation carrier, the first parent is its
++ancestor, and the merge tree equals the carrier tree.
+diff --git a/.harness/changes/docs-r0-w08-codex-reviewer-successor-20260810/request_analysis/spec.md b/.harness/changes/docs-r0-w08-codex-reviewer-successor-20260810/request_analysis/spec.md
+new file mode 100644
+index 00000000..5d348742
+--- /dev/null
++++ b/.harness/changes/docs-r0-w08-codex-reviewer-successor-20260810/request_analysis/spec.md
+@@ -0,0 +1,26 @@
++# Specification
++
++## Goal
++
++Permit an exact-H R0-W08 review by two independent Codex QA sessions when Claude
++Code is unavailable, while preserving the existing product candidate and all
++historical reviewer evidence.
++
++## Required properties
++
++- Applies only while `R0-W08` is `ACTIVE`.
++- Keeps global `independentReviewer: Claude Code` unchanged.
++- Keeps `reviewerReassignment` for W07 byte-for-byte unchanged.
++- Requires two distinct canonical agent identities, no fork context, no writes,
++  no candidate mutation, `GO`, `HIGH=0`, and `MEDIUM=0`.
++- Binds the product base, product H, product tree, and exact binary diff.
++- Separately binds this governance candidate H, tree, and exact binary diff.
++- Rejects missing, altered, unsafe, duplicated, or post-review-drifted evidence.
++- Expires after `R0-W08_MERGED_AND_VERIFIED` and never authorizes W09.
++
++## Non-goals
++
++- No product runtime, API, frontend, database, deployment, or provider changes.
++- No global reviewer replacement.
++- No rewrite of W07 history.
++- No production-readiness claim.
+diff --git a/.harness/changes/docs-r0-w08-codex-reviewer-successor-20260810/request_analysis/tasks.md b/.harness/changes/docs-r0-w08-codex-reviewer-successor-20260810/request_analysis/tasks.md
+new file mode 100644
+index 00000000..5cc3a47e
+--- /dev/null
++++ b/.harness/changes/docs-r0-w08-codex-reviewer-successor-20260810/request_analysis/tasks.md
+@@ -0,0 +1,13 @@
++# Tasks
++
++- [x] Freeze product candidate H/tree/diff.
++- [x] Add W08-only reviewer successor validator and exact evidence verifier.
++- [x] Route the effective reviewer only for active W08.
++- [x] Add fail-closed negative tests.
++- [x] Preserve W06/W07 authority regression behavior.
++- [x] Reject the first governance candidate after security review findings.
++- [x] Protect the CLI/schema and add end-to-end adversarial verifier tests.
++- [ ] Commit and freeze the governance candidate.
++- [ ] Obtain two fresh read-only Codex Independent QA reviews.
++- [ ] Register owner/review evidence and activate exact-H authority.
++- [ ] Fast-forward EXT, rerun all gates, and push Gitee.
+diff --git a/.harness/changes/docs-r0-w08-codex-reviewer-successor-20260810/summary.md b/.harness/changes/docs-r0-w08-codex-reviewer-successor-20260810/summary.md
+new file mode 100644
+index 00000000..0bf95d56
+--- /dev/null
++++ b/.harness/changes/docs-r0-w08-codex-reviewer-successor-20260810/summary.md
+@@ -0,0 +1,17 @@
++# R0-W08 Codex reviewer successor
++
++| Field | Value |
++| --- | --- |
++| Change ID | docs-r0-w08-codex-reviewer-successor-20260810 |
++
++Status: `GOVERNANCE_CANDIDATE_PENDING_INDEPENDENT_REVIEW`
++
++Claude Code is unavailable because its OAuth token was revoked. The Product Owner
++authorized replacing that unavailable reviewer. This change adds a W08-only,
++fail-closed successor named `Codex Independent QA` without changing the global
++reviewer or the historical W07 reassignment.
++
++The product candidate remains frozen at
++`24071c2f9a5cd19952ece17a8dc172a297a1dc09` with tree
++`9d1bdc08dbbd4a6198907976508c956c86cfffff`. This governance candidate is a
++separate commit and must receive two fresh, read-only reviews before activation.
+diff --git a/scripts/execution-authority-v2.nodetest.mjs b/scripts/execution-authority-v2.nodetest.mjs
+index 7df47077..6f41b9fb 100644
+--- a/scripts/execution-authority-v2.nodetest.mjs
++++ b/scripts/execution-authority-v2.nodetest.mjs
+@@ -71,14 +71,26 @@ const W07_EVENT1_CHANGED_PATHS = Object.freeze([
+   'scripts/r0-amendment-check.nodetest.mjs',
+ ]);
+ const W08_PROFESSIONAL_CHANGED_PATHS = Object.freeze([
+-  '.harness/changes/docs-r0-w08-professional-reassignment-20260728-20260728/ci_result/ci_summary.md',
+-  '.harness/changes/docs-r0-w08-professional-reassignment-20260728-20260728/codex_review/professional-reassignment.md',
+-  '.harness/changes/docs-r0-w08-professional-reassignment-20260728-20260728/owner_evidence/professional-reassignment.md',
+-  '.harness/changes/docs-r0-w08-professional-reassignment-20260728-20260728/request_analysis/spec.md',
+-  '.harness/changes/docs-r0-w08-professional-reassignment-20260728-20260728/request_analysis/tasks.md',
+-  '.harness/changes/docs-r0-w08-professional-reassignment-20260728-20260728/summary.md',
+-  '.harness/manifest/execution-authority.v2.json',
+-  'scripts/execution-authority-v2.nodetest.mjs',
++  '.harness/changes/chore-professional-agent-k0-ext-convergence-20260810/ci_result/ci_summary.md',
++  '.harness/changes/chore-professional-agent-k0-ext-convergence-20260810/codex_review/candidate-review.md',
++  '.harness/changes/chore-professional-agent-k0-ext-convergence-20260810/request_analysis/spec.md',
++  '.harness/changes/chore-professional-agent-k0-ext-convergence-20260810/request_analysis/tasks.md',
++  '.harness/changes/chore-professional-agent-k0-ext-convergence-20260810/summary.md',
++  '.harness/changes/fix-professional-agent-k0-root-registration-20260810/ci_result/ci_summary.md',
++  '.harness/changes/fix-professional-agent-k0-root-registration-20260810/request_analysis/spec.md',
++  '.harness/changes/fix-professional-agent-k0-root-registration-20260810/request_analysis/tasks.md',
++  '.harness/changes/fix-professional-agent-k0-root-registration-20260810/summary.md',
++  '.harness/contracts/professional-agent-asset-matrix.v1.schema.json',
++  '.harness/manifest/professional-agent-asset-matrix.v1.json',
++  '.harness/manifest/project-harness.json',
++  '.harness/wiki/harness-inventory.md',
++  '.harness/wiki/professional-agent-asset-matrix.md',
++  '.harness/wiki/verification-matrix.md',
++  'scripts/harness-doctor.mjs',
++  'scripts/lib/professional-agent-matrix.mjs',
++  'scripts/professional-agent-matrix.mjs',
++  'scripts/professional-agent-matrix.nodetest.mjs',
++  'scripts/professional_agent_matrix_schema_check.py',
+ ]);
+ const liveAmendmentGovernance = JSON.parse(
+   await readFile(join(root, '.harness/manifest/project-harness.json'), 'utf8'),
+@@ -221,6 +233,58 @@ function validReviewerReassignment() {
+   };
+ }
+ 
++function validReviewerSuccessorW08() {
++  const changeRoot =
++    '.harness/changes/docs-r0-w08-codex-reviewer-successor-20260810';
++  return {
++    schemaVersion: 'reviewer-successor.w08.v1',
++    status: 'APPROVED',
++    scope: ['R0-W08'],
++    fromReviewer: 'Claude Code',
++    toReviewer: 'Codex Independent QA',
++    executionOwner: 'Codex',
++    reviewPassesRequired: 2,
++    sessionIsolation: 'FRESH_NO_FORK_CONTEXT',
++    writeAccess: 'DENIED',
++    candidateMutation: 'FORBIDDEN',
++    expiresAfter: 'R0-W08_MERGED_AND_VERIFIED',
++    productBaseH: '4c543209333fa14f3a296ff1ff917642153ffc30',
++    productCandidateH: '24071c2f9a5cd19952ece17a8dc172a297a1dc09',
++    productTree: '9d1bdc08dbbd4a6198907976508c956c86cfffff',
++    productReviewPackagePath: `${changeRoot}/review_inputs/product-candidate.diff`,
++    productReviewPackageSha256:
++      '432082345d18230fcaff22e36602a5274b68b25562b3772736e6ad5685e05044',
++    governanceBaseH: '24071c2f9a5cd19952ece17a8dc172a297a1dc09',
++    governanceCandidateH: '1'.repeat(40),
++    governanceTree: '2'.repeat(40),
++    governanceReviewPackagePath: `${changeRoot}/review_inputs/reviewer-successor.diff`,
++    governanceReviewPackageSha256: '3'.repeat(64),
++    ownerApprovalPath: `${changeRoot}/owner_approval/reviewer-successor-approval.md`,
++    ownerApprovalSha256: '4'.repeat(64),
++    reviews: [
++      {
++        identity: '/root/w08_successor_qa_pass1',
++        path: `${changeRoot}/codex_review/pass-1.md`,
++        sha256: '5'.repeat(64),
++        verdict: 'GO',
++        high: 0,
++        medium: 0,
++        writeAccess: 'DENIED',
++      },
++      {
++        identity: '/root/w08_successor_qa_pass2',
++        path: `${changeRoot}/codex_review/exact-h-final.md`,
++        sha256: '6'.repeat(64),
++        verdict: 'GO',
++        high: 0,
++        medium: 0,
++        writeAccess: 'DENIED',
++      },
++    ],
++    approvedBy: 'lyt',
++  };
++}
++
+ function w06ActivationManifest() {
+   const manifest = validManifest();
+   return {
+@@ -443,11 +507,11 @@ function w07EvidenceDocuments() {
+ function w08EvidenceDocuments() {
+   const fixture = w07EvidenceDocuments();
+   const changeRoot =
+-    '.harness/changes/docs-r0-w08-exact-h-activation-20260728-20260728';
++    '.harness/changes/docs-r0-w08-codex-reviewer-successor-20260810';
+   const manifest = structuredClone(fixture.manifest);
+   manifest.effectiveBase = {
+     ref: 'refs/heads/feature-chaotang-ext',
+-    sha: '80940d237a39f176b458763fd70e2c33d4ccac07',
++    sha: '24071c2f9a5cd19952ece17a8dc172a297a1dc09',
+   };
+   manifest.approvalEvidence = {
+     ownerApprovalPath: `${changeRoot}/owner_approval/exact-h-approval.md`,
+@@ -457,7 +521,7 @@ function w08EvidenceDocuments() {
+     reviewVerdict: 'GO',
+     approver: 'lyt',
+     candidateH: manifest.effectiveBase.sha,
+-    tree: '6477274dbb6e6d8a8472ccf17875102f356e5675',
++    tree: '9d1bdc08dbbd4a6198907976508c956c86cfffff',
+     approvedScope: ['R0-W08'],
+   };
+   manifest.activeWorkPackage = 'R0-W08';
+@@ -495,7 +559,7 @@ function w08EvidenceDocuments() {
+   };
+   const activationIntent = {
+     ...structuredClone(fixture.activationIntent),
+-    reviewPackagePath: `${changeRoot}/review_inputs/activation-candidate.diff`,
++    reviewPackagePath: `${changeRoot}/review_inputs/product-candidate.diff`,
+     effectiveBase: manifest.effectiveBase,
+     approvalEvidence: structuredClone(manifest.approvalEvidence),
+     activeWorkPackage: 'R0-W08',
+@@ -505,7 +569,7 @@ function w08EvidenceDocuments() {
+   delete activationIntent.approvalEvidence.reviewSha256;
+   const review = {
+     ...structuredClone(fixture.review),
+-    reviewer: 'Claude Code',
++    reviewer: 'Codex Independent QA',
+     workPackage: 'R0-W08',
+     effectiveBase: manifest.effectiveBase,
+     candidateH: manifest.approvalEvidence.candidateH,
+@@ -516,12 +580,13 @@ function w08EvidenceDocuments() {
+     reviewPackagePath: activationIntent.reviewPackagePath,
+     changedPaths: [...W08_PROFESSIONAL_CHANGED_PATHS],
+     commands: [
+-      'node --test scripts/execution-authority-v2.nodetest.mjs',
++      'node --test scripts/reviewer-successor-w08.nodetest.mjs scripts/r0-amendment-check.nodetest.mjs scripts/execution-authority-v2.nodetest.mjs scripts/professional-agent-matrix.nodetest.mjs',
++      'node scripts/professional-agent-matrix.mjs --check',
+       'node scripts/execution-authority.mjs --check',
+       'node scripts/execution-authority-v2.mjs --check',
+       'node scripts/execution-authority-v2.mjs --authorize --work-package R0-W08',
+       'node scripts/harness-doctor.mjs',
+-      "git diff --check -- . ':(exclude).harness/changes/docs-r0-w08-exact-h-activation-20260728-20260728/review_inputs/activation-candidate.diff'",
++      "git diff --check -- . ':(exclude).harness/changes/docs-r0-w08-codex-reviewer-successor-20260810/review_inputs/product-candidate.diff' ':(exclude).harness/changes/docs-r0-w08-codex-reviewer-successor-20260810/review_inputs/reviewer-successor.diff'",
+     ],
+   };
+   return { manifest, owner, activationIntent, review };
+@@ -852,6 +917,11 @@ test('W07 Codex evidence authorizes end to end only after registration and activ
+     const candidateTree = (
+       await execFileAsync('git', ['rev-parse', 'HEAD^{tree}'], { cwd: temporaryRoot })
+     ).stdout.trim();
++    await writeRepositoryFile(
++      temporaryRoot,
++      'scripts/lib/reviewer-successor-w08.mjs',
++      await readFile(join(root, 'scripts/lib/reviewer-successor-w08.mjs')),
++    );
+     await execFileAsync(
+       'git',
+       ['branch', '-f', 'feature-chaotang-ext', candidateH],
+@@ -1488,10 +1558,12 @@ test('W07 profile rejects paths outside the exact Event 1 candidate', () => {
+ 
+ test('W08 profile accepts the professional reassignment candidate path set', () => {
+   const fixture = w08EvidenceDocuments();
++  const governance = validGovernance();
++  governance.reviewerSuccessorW08 = validReviewerSuccessorW08();
+   assert.deepEqual(
+     validateExecutionAuthorityV2Evidence(
+       fixture.manifest,
+-      validGovernance(),
++      governance,
+       fixture.owner,
+       fixture.review,
+     ),
+@@ -1568,6 +1640,7 @@ test('copied CLI nested under a parent Git repository cannot replay mutable auth
+       'scripts/execution-authority-v2.mjs',
+       'scripts/lib/amendment-governance.mjs',
+       'scripts/lib/execution-authority-v2.mjs',
++      'scripts/lib/reviewer-successor-w08.mjs',
+     ]) {
+       await writeRepositoryFile(
+         temporaryRoot,
+@@ -1677,6 +1750,7 @@ test('authority Git executable cannot be substituted through inherited PATH', as
+       'scripts/execution-authority-v2.mjs',
+       'scripts/lib/amendment-governance.mjs',
+       'scripts/lib/execution-authority-v2.mjs',
++      'scripts/lib/reviewer-successor-w08.mjs',
+     ]) {
+       await writeRepositoryFile(
+         temporaryRoot,
+@@ -1723,6 +1797,7 @@ test('authority Git commands disable the mutable commit-graph acceleration', asy
+   for (const path of [
+     'scripts/lib/amendment-governance.mjs',
+     'scripts/lib/execution-authority-v2.mjs',
++    'scripts/lib/reviewer-successor-w08.mjs',
+   ]) {
+     const source = await readFile(join(root, path), 'utf8');
+     assert.match(source, /'core\.commitGraph=false'/u);
+@@ -2396,6 +2471,7 @@ test('authority readers bind an opened file descriptor to its in-repository targ
+   for (const path of [
+     'scripts/lib/amendment-governance.mjs',
+     'scripts/lib/execution-authority-v2.mjs',
++    'scripts/lib/reviewer-successor-w08.mjs',
+   ]) {
+     const source = await readFile(join(root, path), 'utf8');
+     assert.match(source, /open\(current,/u);
+@@ -2574,6 +2650,24 @@ async function assertRealRepositoryAuthorityPhase(loaded) {
+     assert.deepEqual(loaded.errors, []);
+     return `INTEGRATED_${loaded.manifest.activeWorkPackage}`;
+   }
++  if (
++    loaded.manifest.activeWorkPackage === 'R0-W08' &&
++    loaded.amendmentGovernance?.reviewerSuccessorW08 === undefined &&
++    loaded.errors.includes('manifest ownerApprovalPath must match active-packet profile')
++  ) {
++    assert.deepEqual(loaded.errors, [
++      'manifest ownerApprovalPath must match active-packet profile',
++      'manifest reviewPath must match active-packet profile',
++      'owner activationIntentPath must match active-packet profile',
++      'review reviewPackagePath must match active-packet profile',
++      'review changedPaths must exactly match the Event 1 candidate',
++      'review commands must exactly match the required authority verification commands',
++      'active-packet EXT ref must equal pinned HEAD',
++      'active-packet git identity is unverifiable: 1',
++      'activation intent reviewPackagePath must match active-packet profile',
++    ]);
++    return 'PENDING_W08_REVIEWER_SUCCESSOR';
++  }
+   assert.deepEqual(loaded.errors, ['active-packet EXT ref must equal pinned HEAD']);
+   return `PRE_INTEGRATION_${loaded.manifest.activeWorkPackage}`;
+ }
+@@ -2595,6 +2689,18 @@ test('CLI subprocess matches the real repository authority phase', async () => {
+     }
+     return;
+   }
++  if (phase === 'PENDING_W08_REVIEWER_SUCCESSOR') {
++    await assert.rejects(
++      execFileAsync(process.execPath, [cliPath, '--authorize', '--work-package', 'R0-W08'], {
++        cwd: root,
++      }),
++      (error) => {
++        const output = JSON.parse(error.stdout);
++        return output.decision === 'STOP' && output.reason === 'INVALID_EXECUTION_AUTHORITY';
++      },
++    );
++    return;
++  }
+   if (phase.startsWith('PRE_INTEGRATION_')) {
+     const activePackage = phase.replace('PRE_INTEGRATION_', '');
+     await assert.rejects(
+@@ -2638,7 +2744,7 @@ test('CLI subprocess against the real repo keeps predecessor and successor packa
+   const expectedReasons =
+     phase === 'QUIESCENT'
+       ? stoppedPackages.map(() => 'NO_ACTIVE_WORK_PACKAGE')
+-      : phase.startsWith('PRE_INTEGRATION_')
++      : phase.startsWith('PRE_INTEGRATION_') || phase === 'PENDING_W08_REVIEWER_SUCCESSOR'
+         ? stoppedPackages.map(() => 'INVALID_EXECUTION_AUTHORITY')
+         : phase === 'INTEGRATED_R0-W07'
+           ? ['WORK_PACKAGE_MISMATCH', 'BLOCKED_DEPENDENCY', 'BLOCKED_DEPENDENCY']
+diff --git a/scripts/lib/amendment-governance.mjs b/scripts/lib/amendment-governance.mjs
+index ed17c8a2..c679177e 100644
+--- a/scripts/lib/amendment-governance.mjs
++++ b/scripts/lib/amendment-governance.mjs
+@@ -5,6 +5,11 @@ import { lstat, open, readdir, realpath } from 'node:fs/promises';
+ import { isAbsolute, join } from 'node:path';
+ import { promisify } from 'node:util';
+ 
++import {
++  effectiveReviewerSuccessorW08,
++  validateReviewerSuccessorW08,
++} from './reviewer-successor-w08.mjs';
++
+ const rawExecFileAsync = promisify(execFile);
+ const AUTHORITY_GIT_EXECUTABLE = '/usr/bin/git';
+ const execFileAsync = (executable, args, options) =>
+@@ -778,6 +783,12 @@ export function effectiveIndependentReviewer(
+   workPackage,
+   workPackageLedger = [],
+ ) {
++  const w08Successor = effectiveReviewerSuccessorW08(
++    amendmentGovernance,
++    workPackage,
++    workPackageLedger,
++  );
++  if (w08Successor !== null) return w08Successor;
+   const overlay = amendmentGovernance?.reviewerReassignment;
+   if (overlay === undefined || overlay === null) {
+     return amendmentGovernance?.independentReviewer ?? null;
+@@ -1294,7 +1305,12 @@ export function validateAmendmentGovernanceRegistration(amendment) {
+     return validateProposedNotAuthority(amendment);
+   }
+   if (amendment.status === 'APPROVED_FOR_W01') {
+-    return validateApprovedForW01(amendment);
++    return [
++      ...validateApprovedForW01(amendment),
++      ...(amendment.reviewerSuccessorW08 === undefined
++        ? []
++        : validateReviewerSuccessorW08(amendment.reviewerSuccessorW08)),
++    ];
+   }
+   return [`amendment governance has invalid status: ${amendment.status}`];
+ }
+diff --git a/scripts/lib/execution-authority-v2.mjs b/scripts/lib/execution-authority-v2.mjs
+index ef0b6db5..81096441 100644
+--- a/scripts/lib/execution-authority-v2.mjs
++++ b/scripts/lib/execution-authority-v2.mjs
+@@ -13,6 +13,10 @@ import {
+   verifyRepositoryLocalGitDiffEnvironment,
+   verifyReviewerReassignmentActivationHistory,
+ } from './amendment-governance.mjs';
++import {
++  validateReviewerSuccessorW08,
++  verifyReviewerSuccessorW08,
++} from './reviewer-successor-w08.mjs';
+ 
+ const rawExecFileAsync = promisify(execFile);
+ const AUTHORITY_GIT_EXECUTABLE = '/usr/bin/git';
+@@ -80,7 +84,7 @@ const RECOVERY_CHANGE_ROOT = '.harness/changes/fix-ext-g0-authority-recovery-202
+ const W07_CHANGE_ROOT =
+   '.harness/changes/docs-r0-w07-exact-h-activation-b0df777a-20260727';
+ const W08_CHANGE_ROOT =
+-  '.harness/changes/docs-r0-w08-exact-h-activation-20260728-20260728';
++  '.harness/changes/docs-r0-w08-codex-reviewer-successor-20260810';
+ const ACTIVE_PACKET_PROFILES = Object.freeze({
+   'R0-W06': Object.freeze({
+     effectiveBaseRef: 'origin/feature-chaotang-ext',
+@@ -166,11 +170,11 @@ const ACTIVE_PACKET_PROFILES = Object.freeze({
+   }),
+   'R0-W08': Object.freeze({
+     effectiveBaseRef: 'refs/heads/feature-chaotang-ext',
+-    reviewBaseH: '39bd654b4cac8ee0fa59ddcbd7ad6a79f5ee9097',
++    reviewBaseH: '4c543209333fa14f3a296ff1ff917642153ffc30',
+     ownerApprovalPath: `${W08_CHANGE_ROOT}/owner_approval/exact-h-approval.md`,
+     reviewPath: `${W08_CHANGE_ROOT}/codex_review/exact-h-final.md`,
+     activationIntentPath: `${W08_CHANGE_ROOT}/activation_intent/r0-w08-activation-intent.json`,
+-    reviewPackagePath: `${W08_CHANGE_ROOT}/review_inputs/activation-candidate.diff`,
++    reviewPackagePath: `${W08_CHANGE_ROOT}/review_inputs/product-candidate.diff`,
+     exclusions: Object.freeze([
+       'NO_DEPLOYMENT',
+       'NO_REAL_CUSTOMER_DATA',
+@@ -181,23 +185,37 @@ const ACTIVE_PACKET_PROFILES = Object.freeze({
+       'NO_PRODUCTION_CLAIM',
+     ]),
+     allowedChangedPaths: new Set([
+-      '.harness/changes/docs-r0-w08-professional-reassignment-20260728-20260728/ci_result/ci_summary.md',
+-      '.harness/changes/docs-r0-w08-professional-reassignment-20260728-20260728/codex_review/professional-reassignment.md',
+-      '.harness/changes/docs-r0-w08-professional-reassignment-20260728-20260728/owner_evidence/professional-reassignment.md',
+-      '.harness/changes/docs-r0-w08-professional-reassignment-20260728-20260728/request_analysis/spec.md',
+-      '.harness/changes/docs-r0-w08-professional-reassignment-20260728-20260728/request_analysis/tasks.md',
+-      '.harness/changes/docs-r0-w08-professional-reassignment-20260728-20260728/summary.md',
+-      '.harness/manifest/execution-authority.v2.json',
+-      'scripts/execution-authority-v2.nodetest.mjs',
++      '.harness/changes/chore-professional-agent-k0-ext-convergence-20260810/ci_result/ci_summary.md',
++      '.harness/changes/chore-professional-agent-k0-ext-convergence-20260810/codex_review/candidate-review.md',
++      '.harness/changes/chore-professional-agent-k0-ext-convergence-20260810/request_analysis/spec.md',
++      '.harness/changes/chore-professional-agent-k0-ext-convergence-20260810/request_analysis/tasks.md',
++      '.harness/changes/chore-professional-agent-k0-ext-convergence-20260810/summary.md',
++      '.harness/changes/fix-professional-agent-k0-root-registration-20260810/ci_result/ci_summary.md',
++      '.harness/changes/fix-professional-agent-k0-root-registration-20260810/request_analysis/spec.md',
++      '.harness/changes/fix-professional-agent-k0-root-registration-20260810/request_analysis/tasks.md',
++      '.harness/changes/fix-professional-agent-k0-root-registration-20260810/summary.md',
++      '.harness/contracts/professional-agent-asset-matrix.v1.schema.json',
++      '.harness/manifest/professional-agent-asset-matrix.v1.json',
++      '.harness/manifest/project-harness.json',
++      '.harness/wiki/harness-inventory.md',
++      '.harness/wiki/professional-agent-asset-matrix.md',
++      '.harness/wiki/verification-matrix.md',
++      'scripts/harness-doctor.mjs',
++      'scripts/lib/professional-agent-matrix.mjs',
++      'scripts/professional-agent-matrix.mjs',
++      'scripts/professional-agent-matrix.nodetest.mjs',
++      'scripts/professional_agent_matrix_schema_check.py',
+     ]),
++    exactChangedPaths: true,
+     exactGitRange: true,
+     requiredCommands: Object.freeze([
+-      'node --test scripts/execution-authority-v2.nodetest.mjs',
++      'node --test scripts/reviewer-successor-w08.nodetest.mjs scripts/r0-amendment-check.nodetest.mjs scripts/execution-authority-v2.nodetest.mjs scripts/professional-agent-matrix.nodetest.mjs',
++      'node scripts/professional-agent-matrix.mjs --check',
+       'node scripts/execution-authority.mjs --check',
+       'node scripts/execution-authority-v2.mjs --check',
+       'node scripts/execution-authority-v2.mjs --authorize --work-package R0-W08',
+       'node scripts/harness-doctor.mjs',
+-      "git diff --check -- . ':(exclude).harness/changes/docs-r0-w08-exact-h-activation-20260728-20260728/review_inputs/activation-candidate.diff'",
++      "git diff --check -- . ':(exclude).harness/changes/docs-r0-w08-codex-reviewer-successor-20260810/review_inputs/product-candidate.diff' ':(exclude).harness/changes/docs-r0-w08-codex-reviewer-successor-20260810/review_inputs/reviewer-successor.diff'",
+     ]),
+   }),
+ });
+@@ -1600,6 +1618,13 @@ export async function loadExecutionAuthorityV2(root) {
+             },
+           )),
+         );
++        const w08Successor = amendmentGovernance?.reviewerSuccessorW08;
++        if (w08Successor !== undefined) {
++          errors.push(...validateReviewerSuccessorW08(w08Successor));
++          if (manifest?.activeWorkPackage === 'R0-W08') {
++            errors.push(...(await verifyReviewerSuccessorW08(root, w08Successor)));
++          }
++        }
+       }
+     } catch (cause) {
+       errors.push(cause.message);
+diff --git a/scripts/lib/reviewer-successor-w08.mjs b/scripts/lib/reviewer-successor-w08.mjs
+new file mode 100644
+index 00000000..0b8f8682
+--- /dev/null
++++ b/scripts/lib/reviewer-successor-w08.mjs
+@@ -0,0 +1,757 @@
++import { createHash } from 'node:crypto';
++import { execFile } from 'node:child_process';
++import { constants as fsConstants } from 'node:fs';
++import { lstat, open, readdir, realpath } from 'node:fs/promises';
++import { isAbsolute, join } from 'node:path';
++import { promisify } from 'node:util';
++
++const execFileAsync = promisify(execFile);
++const GIT = '/usr/bin/git';
++const HEX40 = /^[0-9a-f]{40}$/u;
++const HEX64 = /^[0-9a-f]{64}$/u;
++const IDENTITY = /^\/root\/[a-z0-9][a-z0-9_\/-]*$/u;
++
++export const REVIEWER_SUCCESSOR_W08_ROOT =
++  '.harness/changes/docs-r0-w08-codex-reviewer-successor-20260810';
++export const REVIEWER_SUCCESSOR_W08_PRODUCT_BASE =
++  '4c543209333fa14f3a296ff1ff917642153ffc30';
++export const REVIEWER_SUCCESSOR_W08_PRODUCT_H =
++  '24071c2f9a5cd19952ece17a8dc172a297a1dc09';
++export const REVIEWER_SUCCESSOR_W08_PRODUCT_TREE =
++  '9d1bdc08dbbd4a6198907976508c956c86cfffff';
++export const REVIEWER_SUCCESSOR_W08_PRODUCT_DIFF_SHA256 =
++  '432082345d18230fcaff22e36602a5274b68b25562b3772736e6ad5685e05044';
++
++const OVERLAY_KEYS = Object.freeze([
++  'approvedBy',
++  'candidateMutation',
++  'executionOwner',
++  'expiresAfter',
++  'fromReviewer',
++  'governanceBaseH',
++  'governanceCandidateH',
++  'governanceReviewPackagePath',
++  'governanceReviewPackageSha256',
++  'governanceTree',
++  'ownerApprovalPath',
++  'ownerApprovalSha256',
++  'productBaseH',
++  'productCandidateH',
++  'productReviewPackagePath',
++  'productReviewPackageSha256',
++  'productTree',
++  'reviewPassesRequired',
++  'reviews',
++  'schemaVersion',
++  'scope',
++  'sessionIsolation',
++  'status',
++  'toReviewer',
++  'writeAccess',
++]);
++const REVIEW_KEYS = Object.freeze([
++  'high',
++  'identity',
++  'medium',
++  'path',
++  'sha256',
++  'verdict',
++  'writeAccess',
++]);
++const REVIEW_EVIDENCE_KEYS = Object.freeze([
++  'candidateMutation',
++  'governanceBaseH',
++  'governanceCandidateH',
++  'governanceReviewPackagePath',
++  'governanceReviewPackageSha256',
++  'governanceTree',
++  'high',
++  'identity',
++  'kind',
++  'medium',
++  'pass',
++  'productBaseH',
++  'productCandidateH',
++  'productReviewPackagePath',
++  'productReviewPackageSha256',
++  'productTree',
++  'reviewer',
++  'schemaVersion',
++  'scope',
++  'verdict',
++  'writeAccess',
++]);
++const OWNER_EVIDENCE_KEYS = Object.freeze([
++  'approver',
++  'decision',
++  'governanceBaseH',
++  'governanceCandidateH',
++  'governanceReviewPackagePath',
++  'governanceReviewPackageSha256',
++  'governanceTree',
++  'kind',
++  'productBaseH',
++  'productCandidateH',
++  'productReviewPackagePath',
++  'productReviewPackageSha256',
++  'productTree',
++  'reviews',
++  'schemaVersion',
++  'scope',
++]);
++const OWNER_REVIEW_KEYS = Object.freeze(['identity', 'path', 'sha256']);
++const PROTECTED_PATHS = Object.freeze([
++  '.harness/contracts/execution-authority-v2.schema.json',
++  'scripts/execution-authority-v2.mjs',
++  'scripts/lib/reviewer-successor-w08.mjs',
++  'scripts/lib/amendment-governance.mjs',
++  'scripts/lib/execution-authority-v2.mjs',
++  'scripts/reviewer-successor-w08.nodetest.mjs',
++  'scripts/execution-authority-v2.nodetest.mjs',
++]);
++const ACTIVATION_CARRIER_PATHS = Object.freeze([
++  '.harness/manifest/execution-authority.v2.json',
++  '.harness/manifest/project-harness.json',
++  `${REVIEWER_SUCCESSOR_W08_ROOT}/activation_intent/r0-w08-activation-intent.json`,
++  `${REVIEWER_SUCCESSOR_W08_ROOT}/codex_review/exact-h-final.md`,
++  `${REVIEWER_SUCCESSOR_W08_ROOT}/codex_review/pass-1.md`,
++  `${REVIEWER_SUCCESSOR_W08_ROOT}/owner_approval/exact-h-approval.md`,
++  `${REVIEWER_SUCCESSOR_W08_ROOT}/owner_approval/reviewer-successor-approval.md`,
++  `${REVIEWER_SUCCESSOR_W08_ROOT}/review_inputs/product-candidate.diff`,
++  `${REVIEWER_SUCCESSOR_W08_ROOT}/review_inputs/reviewer-successor.diff`,
++]);
++
++function exactKeys(value, keys) {
++  return (
++    value !== null &&
++    typeof value === 'object' &&
++    !Array.isArray(value) &&
++    JSON.stringify(Object.keys(value).sort()) === JSON.stringify([...keys].sort())
++  );
++}
++
++function sameArray(left, right) {
++  return (
++    Array.isArray(left) &&
++    left.length === right.length &&
++    left.every((value, index) => value === right[index])
++  );
++}
++
++function binaryDiffPaths(source) {
++  const paths = [];
++  for (const line of source.toString('utf8').split(/\r?\n/u)) {
++    if (!line.startsWith('diff --git ')) continue;
++    const match = /^diff --git a\/([^\t ]+) b\/([^\t ]+)$/u.exec(line);
++    if (match === null || match[1] !== match[2] || !safePath(match?.[1])) {
++      throw new Error(`unsafe activation carrier diff header: ${line}`);
++    }
++    paths.push(match[1]);
++  }
++  return paths.sort();
++}
++
++async function activationCarrierCommit(root, governanceCandidateH, head) {
++  const { stdout: headHistory } = await execFileAsync(
++    GIT,
++    gitArgs('rev-list', '--parents', '-n', '1', head),
++    gitOptions(root),
++  );
++  const headIdentity = headHistory.trim().split(/\s+/u);
++  if (
++    headIdentity.length === 2 &&
++    headIdentity[0] === head &&
++    headIdentity[1] === governanceCandidateH
++  ) {
++    return head;
++  }
++  if (headIdentity.length !== 3 || headIdentity[0] !== head) {
++    throw new Error('activation carrier must be a direct child or one transparent promotion merge');
++  }
++  const [, predecessor, promotedCarrier] = headIdentity;
++  const { stdout: promotedHistory } = await execFileAsync(
++    GIT,
++    gitArgs('rev-list', '--parents', '-n', '1', promotedCarrier),
++    gitOptions(root),
++  );
++  const promotedIdentity = promotedHistory.trim().split(/\s+/u);
++  if (
++    promotedIdentity.length !== 2 ||
++    promotedIdentity[0] !== promotedCarrier ||
++    promotedIdentity[1] !== governanceCandidateH
++  ) {
++    throw new Error('transparent promotion second parent must be the direct activation carrier');
++  }
++  try {
++    await execFileAsync(
++      GIT,
++      gitArgs('merge-base', '--is-ancestor', predecessor, promotedCarrier),
++      gitOptions(root),
++    );
++  } catch {
++    throw new Error('transparent promotion first parent must be an ancestor of the activation carrier');
++  }
++  const [mergeTree, carrierTree] = await Promise.all([
++    execFileAsync(GIT, gitArgs('rev-parse', `${head}^{tree}`), gitOptions(root)),
++    execFileAsync(GIT, gitArgs('rev-parse', `${promotedCarrier}^{tree}`), gitOptions(root)),
++  ]);
++  if (mergeTree.stdout.trim() !== carrierTree.stdout.trim()) {
++    throw new Error('transparent promotion tree must equal the reviewed activation carrier tree');
++  }
++  return promotedCarrier;
++}
++
++function findDuplicateJsonKeys(source) {
++  let cursor = 0;
++  const duplicates = [];
++  const skipWhitespace = () => {
++    while (/\s/u.test(source[cursor] ?? '')) cursor += 1;
++  };
++  const scanString = () => {
++    const start = cursor;
++    cursor += 1;
++    while (cursor < source.length) {
++      if (source[cursor] === '\\') cursor += 2;
++      else if (source[cursor] === '"') {
++        cursor += 1;
++        return JSON.parse(source.slice(start, cursor));
++      } else cursor += 1;
++    }
++    throw new SyntaxError('unterminated JSON string');
++  };
++  const scanValue = (path, depth = 0) => {
++    if (depth > 64) throw new SyntaxError('JSON nesting depth exceeds 64');
++    skipWhitespace();
++    if (source[cursor] === '{') return scanObject(path, depth);
++    if (source[cursor] === '[') return scanArray(path, depth);
++    if (source[cursor] === '"') return scanString();
++    while (cursor < source.length && !/[,\]}]/u.test(source[cursor])) cursor += 1;
++    return undefined;
++  };
++  const scanObject = (path, depth) => {
++    const keys = new Set();
++    cursor += 1;
++    skipWhitespace();
++    if (source[cursor] === '}') {
++      cursor += 1;
++      return;
++    }
++    while (cursor < source.length) {
++      skipWhitespace();
++      const key = scanString();
++      const keyPath = `${path}[${JSON.stringify(key)}]`;
++      if (keys.has(key)) duplicates.push(keyPath);
++      keys.add(key);
++      skipWhitespace();
++      if (source[cursor] !== ':') throw new SyntaxError(`missing colon at ${keyPath}`);
++      cursor += 1;
++      scanValue(keyPath, depth + 1);
++      skipWhitespace();
++      if (source[cursor] === '}') {
++        cursor += 1;
++        return;
++      }
++      if (source[cursor] !== ',') throw new SyntaxError(`missing comma at ${keyPath}`);
++      cursor += 1;
++    }
++    throw new SyntaxError(`unterminated object at ${path}`);
++  };
++  const scanArray = (path, depth) => {
++    cursor += 1;
++    skipWhitespace();
++    if (source[cursor] === ']') {
++      cursor += 1;
++      return;
++    }
++    let index = 0;
++    while (cursor < source.length) {
++      scanValue(`${path}[${index}]`, depth + 1);
++      index += 1;
++      skipWhitespace();
++      if (source[cursor] === ']') {
++        cursor += 1;
++        return;
++      }
++      if (source[cursor] !== ',') throw new SyntaxError(`missing comma at ${path}`);
++      cursor += 1;
++    }
++    throw new SyntaxError(`unterminated array at ${path}`);
++  };
++  scanValue('$');
++  return [...new Set(duplicates)];
++}
++
++function safePath(path) {
++  return (
++    typeof path === 'string' &&
++    path.length > 0 &&
++    !isAbsolute(path) &&
++    !path.includes('\\') &&
++    !path.includes('\0') &&
++    !path.split('/').includes('..')
++  );
++}
++
++function gitArgs(...args) {
++  return [
++    '--no-replace-objects',
++    '-c',
++    'core.attributesFile=/dev/null',
++    '-c',
++    'core.commitGraph=false',
++    ...args,
++  ];
++}
++
++function gitOptions(root, extra = {}) {
++  const { attributeSource, ...execExtra } = extra;
++  const env = Object.fromEntries(
++    Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_')),
++  );
++  return {
++    cwd: root,
++    env: {
++      ...env,
++      GIT_CONFIG_NOSYSTEM: '1',
++      GIT_CONFIG_GLOBAL: '/dev/null',
++      GIT_ATTR_NOSYSTEM: '1',
++      GIT_OPTIONAL_LOCKS: '0',
++      LC_ALL: 'C',
++      ...(attributeSource === undefined ? {} : { GIT_ATTR_SOURCE: attributeSource }),
++    },
++    ...execExtra,
++  };
++}
++
++const ALLOWED_LOCAL_CORE_CONFIG = new Set([
++  'core.repositoryformatversion',
++  'core.filemode',
++  'core.bare',
++  'core.logallrefupdates',
++  'core.worktree',
++]);
++
++function localGitConfigAffectsDiff(key) {
++  const normalized = key.toLowerCase();
++  return (
++    normalized.startsWith('diff.') ||
++    normalized.startsWith('fsck.') ||
++    normalized.startsWith('include.') ||
++    normalized.startsWith('includeif.') ||
++    normalized === 'extensions.worktreeconfig' ||
++    normalized === 'extensions.partialclone' ||
++    normalized === 'color.ui' ||
++    normalized === 'color.diff' ||
++    /^remote\..+\.(promisor|partialclonefilter)$/u.test(normalized) ||
++    /^submodule\..+\.ignore$/u.test(normalized) ||
++    (normalized.startsWith('core.') && !ALLOWED_LOCAL_CORE_CONFIG.has(normalized))
++  );
++}
++
++async function firstObjectSymlink(objectRoot) {
++  const pending = [{ path: objectRoot, relative: 'objects' }];
++  while (pending.length > 0) {
++    const current = pending.pop();
++    let metadata;
++    try {
++      metadata = await lstat(current.path);
++    } catch (cause) {
++      if (cause.code === 'ENOENT') continue;
++      throw cause;
++    }
++    if (metadata.isSymbolicLink()) return current.relative;
++    if (!metadata.isDirectory()) continue;
++    for (const entry of await readdir(current.path, { withFileTypes: true })) {
++      const relative = `${current.relative}/${entry.name}`;
++      if (entry.isSymbolicLink()) return relative;
++      if (entry.isDirectory()) pending.push({ path: join(current.path, entry.name), relative });
++    }
++  }
++  return null;
++}
++
++export async function verifyReviewerSuccessorW08GitEnvironment(root) {
++  const errors = [];
++  try {
++    const [{ stdout: config }, { stdout: gitDir }, { stdout: commonDir }] =
++      await Promise.all([
++        execFileAsync(GIT, gitArgs('config', '--local', '--name-only', '--null', '--list'), gitOptions(root)),
++        execFileAsync(GIT, gitArgs('rev-parse', '--git-dir'), gitOptions(root)),
++        execFileAsync(GIT, gitArgs('rev-parse', '--git-common-dir'), gitOptions(root)),
++      ]);
++    const unsafe = config.split('\0').filter(Boolean).filter(localGitConfigAffectsDiff);
++    if (unsafe.length > 0) {
++      errors.push(`reviewerSuccessorW08: repository-local Git config affects authority diff: ${unsafe.join(', ')}`);
++    }
++    for (const metadataRoot of new Set([gitDir.trim(), commonDir.trim()])) {
++      const resolved = isAbsolute(metadataRoot) ? metadataRoot : join(root, metadataRoot);
++      const symlink = await firstObjectSymlink(join(resolved, 'objects'));
++      if (symlink !== null) errors.push(`reviewerSuccessorW08: Git object database symbolic links are forbidden: ${symlink}`);
++      for (const [relative, message] of [
++        ['info/attributes', 'Git info attributes affect authority diff'],
++        ['info/grafts', 'Git grafts can forge authority ancestry'],
++        ['shallow', 'shallow Git history is forbidden'],
++        ['objects/info/alternates', 'Git object alternates are forbidden'],
++        ['objects/info/http-alternates', 'Git HTTP object alternates are forbidden'],
++      ]) {
++        try {
++          await lstat(join(resolved, ...relative.split('/')));
++          errors.push(`reviewerSuccessorW08: ${message}`);
++        } catch (cause) {
++          if (cause.code !== 'ENOENT') throw cause;
++        }
++      }
++      try {
++        const packs = await readdir(join(resolved, 'objects', 'pack'));
++        if (packs.some((entry) => entry.endsWith('.promisor'))) {
++          errors.push('reviewerSuccessorW08: Git promisor pack markers are forbidden');
++        }
++      } catch (cause) {
++        if (cause.code !== 'ENOENT') throw cause;
++      }
++    }
++  } catch (cause) {
++    errors.push(`reviewerSuccessorW08: Git diff environment is unverifiable: ${cause.code ?? cause.message}`);
++  }
++  return [...new Set(errors)];
++}
++
++async function readRegularFile(root, path) {
++  if (!safePath(path)) throw new Error(`unsafe path: ${path}`);
++  let current = root;
++  for (const component of path.split('/')) {
++    current = join(current, component);
++    const stat = await lstat(current);
++    if (stat.isSymbolicLink()) throw new Error(`symbolic links are forbidden: ${path}`);
++  }
++  const expected = join(await realpath(root), path);
++  const handle = await open(current, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
++  try {
++    const [stat, opened] = await Promise.all([
++      handle.stat(),
++      realpath(`/proc/self/fd/${handle.fd}`),
++    ]);
++    if (!stat.isFile() || stat.nlink !== 1 || opened !== expected) {
++      throw new Error(`evidence path is not a unique regular file: ${path}`);
++    }
++    return await handle.readFile();
++  } finally {
++    await handle.close();
++  }
++}
++
++async function gitBlob(root, commit, path) {
++  const { stdout } = await execFileAsync(
++    GIT,
++    gitArgs('show', `${commit}:${path}`),
++    gitOptions(root, { encoding: 'buffer', maxBuffer: 10 * 1024 * 1024 }),
++  );
++  return Buffer.isBuffer(stdout) ? stdout : Buffer.from(stdout);
++}
++
++export function parseReviewerSuccessorW08Evidence(source, label = 'W08 reviewer evidence') {
++  const matches = [
++    ...String(source).matchAll(
++      /<!-- reviewer-successor-w08-evidence:start -->\r?\n```json\r?\n([\s\S]*?)\r?\n```\r?\n<!-- reviewer-successor-w08-evidence:end -->/gu,
++    ),
++  ];
++  if (matches.length !== 1) {
++    throw new SyntaxError(`${label}: require exactly one marked JSON evidence block`);
++  }
++  const duplicates = findDuplicateJsonKeys(matches[0][1]);
++  if (duplicates.length > 0) {
++    throw new SyntaxError(`${label}: duplicate object key(s): ${duplicates.join(', ')}`);
++  }
++  const value = JSON.parse(matches[0][1]);
++  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
++    throw new TypeError(`${label}: evidence root must be an object`);
++  }
++  return value;
++}
++
++export function validateReviewerSuccessorW08(overlay) {
++  const errors = [];
++  if (!exactKeys(overlay, OVERLAY_KEYS)) {
++    return ['reviewerSuccessorW08 has missing or unsupported fields'];
++  }
++  const exactValues = [
++    ['schemaVersion', 'reviewer-successor.w08.v1'],
++    ['status', 'APPROVED'],
++    ['fromReviewer', 'Claude Code'],
++    ['toReviewer', 'Codex Independent QA'],
++    ['executionOwner', 'Codex'],
++    ['reviewPassesRequired', 2],
++    ['sessionIsolation', 'FRESH_NO_FORK_CONTEXT'],
++    ['writeAccess', 'DENIED'],
++    ['candidateMutation', 'FORBIDDEN'],
++    ['expiresAfter', 'R0-W08_MERGED_AND_VERIFIED'],
++    ['productBaseH', REVIEWER_SUCCESSOR_W08_PRODUCT_BASE],
++    ['productCandidateH', REVIEWER_SUCCESSOR_W08_PRODUCT_H],
++    ['productTree', REVIEWER_SUCCESSOR_W08_PRODUCT_TREE],
++    ['productReviewPackageSha256', REVIEWER_SUCCESSOR_W08_PRODUCT_DIFF_SHA256],
++    ['governanceBaseH', REVIEWER_SUCCESSOR_W08_PRODUCT_H],
++    ['approvedBy', 'lyt'],
++  ];
++  for (const [field, expected] of exactValues) {
++    if (overlay[field] !== expected) errors.push(`reviewerSuccessorW08 ${field} mismatch`);
++  }
++  if (!sameArray(overlay.scope, ['R0-W08'])) {
++    errors.push('reviewerSuccessorW08 scope must be exactly R0-W08');
++  }
++  if (overlay.toReviewer === overlay.executionOwner) {
++    errors.push('reviewerSuccessorW08 reviewer must differ from execution owner');
++  }
++  for (const field of ['governanceCandidateH', 'governanceTree']) {
++    if (!HEX40.test(overlay[field] ?? '')) errors.push(`reviewerSuccessorW08 ${field} must be 40-hex`);
++  }
++  const canonicalPaths = {
++    productReviewPackagePath: `${REVIEWER_SUCCESSOR_W08_ROOT}/review_inputs/product-candidate.diff`,
++    governanceReviewPackagePath: `${REVIEWER_SUCCESSOR_W08_ROOT}/review_inputs/reviewer-successor.diff`,
++    ownerApprovalPath: `${REVIEWER_SUCCESSOR_W08_ROOT}/owner_approval/reviewer-successor-approval.md`,
++  };
++  for (const [field, expected] of Object.entries(canonicalPaths)) {
++    if (overlay[field] !== expected) errors.push(`reviewerSuccessorW08 ${field} must be canonical`);
++  }
++  for (const field of [
++    'productReviewPackageSha256',
++    'governanceReviewPackageSha256',
++    'ownerApprovalSha256',
++  ]) {
++    if (!HEX64.test(overlay[field] ?? '')) errors.push(`reviewerSuccessorW08 ${field} must be sha256`);
++  }
++  if (!Array.isArray(overlay.reviews) || overlay.reviews.length !== 2) {
++    errors.push('reviewerSuccessorW08 requires exactly two reviews');
++  } else {
++    const identities = new Set();
++    for (let index = 0; index < overlay.reviews.length; index += 1) {
++      const review = overlay.reviews[index];
++      if (!exactKeys(review, REVIEW_KEYS)) {
++        errors.push(`reviewerSuccessorW08 review ${index + 1} has missing or unsupported fields`);
++        continue;
++      }
++      const expectedPath = `${REVIEWER_SUCCESSOR_W08_ROOT}/codex_review/${index === 0 ? 'pass-1.md' : 'exact-h-final.md'}`;
++      if (review.path !== expectedPath) errors.push(`reviewerSuccessorW08 review ${index + 1} path must be canonical`);
++      if (!IDENTITY.test(review.identity ?? '')) errors.push(`reviewerSuccessorW08 review ${index + 1} identity is invalid`);
++      if (identities.has(review.identity)) errors.push('reviewerSuccessorW08 review identities must be unique');
++      identities.add(review.identity);
++      if (!HEX64.test(review.sha256 ?? '')) errors.push(`reviewerSuccessorW08 review ${index + 1} sha256 is invalid`);
++      if (review.verdict !== 'GO' || review.high !== 0 || review.medium !== 0) {
++        errors.push(`reviewerSuccessorW08 review ${index + 1} must be GO with zero HIGH/MEDIUM`);
++      }
++      if (review.writeAccess !== 'DENIED') errors.push(`reviewerSuccessorW08 review ${index + 1} must deny writes`);
++    }
++  }
++  return [...new Set(errors)];
++}
++
++export function effectiveReviewerSuccessorW08(amendmentGovernance, workPackage, ledger = []) {
++  const overlay = amendmentGovernance?.reviewerSuccessorW08;
++  if (validateReviewerSuccessorW08(overlay).length > 0) return null;
++  const active = ledger.some((entry) => entry.id === workPackage && entry.status === 'ACTIVE');
++  return active && workPackage === 'R0-W08' ? overlay.toReviewer : null;
++}
++
++function validateReviewEvidence(evidence, overlay, review, index) {
++  const errors = [];
++  if (!exactKeys(evidence, REVIEW_EVIDENCE_KEYS)) return [`reviewerSuccessorW08 review ${index + 1} evidence shape mismatch`];
++  const expected = {
++    schemaVersion: 'reviewer-successor.w08.evidence.v1',
++    kind: 'independent-review',
++    reviewer: overlay.toReviewer,
++    identity: review.identity,
++    pass: index + 1,
++    productBaseH: overlay.productBaseH,
++    productCandidateH: overlay.productCandidateH,
++    productTree: overlay.productTree,
++    productReviewPackagePath: overlay.productReviewPackagePath,
++    productReviewPackageSha256: overlay.productReviewPackageSha256,
++    governanceBaseH: overlay.governanceBaseH,
++    governanceCandidateH: overlay.governanceCandidateH,
++    governanceTree: overlay.governanceTree,
++    governanceReviewPackagePath: overlay.governanceReviewPackagePath,
++    governanceReviewPackageSha256: overlay.governanceReviewPackageSha256,
++    verdict: 'GO',
++    high: 0,
++    medium: 0,
++    writeAccess: 'DENIED',
++    candidateMutation: 'FORBIDDEN',
++  };
++  for (const [field, value] of Object.entries(expected)) {
++    if (evidence[field] !== value) errors.push(`reviewerSuccessorW08 review ${index + 1} evidence ${field} mismatch`);
++  }
++  if (!sameArray(evidence.scope, ['R0-W08'])) errors.push(`reviewerSuccessorW08 review ${index + 1} evidence scope mismatch`);
++  return errors;
++}
++
++function validateOwnerEvidence(evidence, overlay) {
++  const errors = [];
++  if (!exactKeys(evidence, OWNER_EVIDENCE_KEYS)) return ['reviewerSuccessorW08 owner evidence shape mismatch'];
++  const expected = {
++    schemaVersion: 'reviewer-successor.w08.evidence.v1',
++    kind: 'owner-approval',
++    decision: 'APPROVED',
++    approver: overlay.approvedBy,
++    productBaseH: overlay.productBaseH,
++    productCandidateH: overlay.productCandidateH,
++    productTree: overlay.productTree,
++    productReviewPackagePath: overlay.productReviewPackagePath,
++    productReviewPackageSha256: overlay.productReviewPackageSha256,
++    governanceBaseH: overlay.governanceBaseH,
++    governanceCandidateH: overlay.governanceCandidateH,
++    governanceTree: overlay.governanceTree,
++    governanceReviewPackagePath: overlay.governanceReviewPackagePath,
++    governanceReviewPackageSha256: overlay.governanceReviewPackageSha256,
++  };
++  for (const [field, value] of Object.entries(expected)) {
++    if (evidence[field] !== value) errors.push(`reviewerSuccessorW08 owner evidence ${field} mismatch`);
++  }
++  if (!sameArray(evidence.scope, ['R0-W08'])) errors.push('reviewerSuccessorW08 owner evidence scope mismatch');
++  if (!Array.isArray(evidence.reviews) || evidence.reviews.length !== 2) {
++    errors.push('reviewerSuccessorW08 owner evidence must bind two reviews');
++  } else {
++    for (let index = 0; index < 2; index += 1) {
++      if (!exactKeys(evidence.reviews[index], OWNER_REVIEW_KEYS)) {
++        errors.push(`reviewerSuccessorW08 owner review ${index + 1} shape mismatch`);
++      } else {
++        for (const field of OWNER_REVIEW_KEYS) {
++          if (evidence.reviews[index][field] !== overlay.reviews[index][field]) {
++            errors.push(`reviewerSuccessorW08 owner review ${index + 1} ${field} mismatch`);
++          }
++        }
++      }
++    }
++  }
++  return errors;
++}
++
++export async function verifyReviewerSuccessorW08(root, overlay) {
++  const errors = validateReviewerSuccessorW08(overlay);
++  if (errors.length > 0) return errors;
++  errors.push(...(await verifyReviewerSuccessorW08GitEnvironment(root)));
++  let head = null;
++  try {
++    head = (await execFileAsync(GIT, gitArgs('rev-parse', 'HEAD^{commit}'), gitOptions(root))).stdout.trim();
++  } catch (cause) {
++    errors.push(`reviewerSuccessorW08 HEAD is unverifiable: ${cause.code ?? cause.message}`);
++  }
++  const evidencePaths = [
++    [overlay.productReviewPackagePath, overlay.productReviewPackageSha256],
++    [overlay.governanceReviewPackagePath, overlay.governanceReviewPackageSha256],
++    [overlay.ownerApprovalPath, overlay.ownerApprovalSha256],
++    ...overlay.reviews.map((review) => [review.path, review.sha256]),
++  ];
++  const sources = new Map();
++  for (const [path, digest] of evidencePaths) {
++    try {
++      if (head === null) throw new Error('pinned HEAD unavailable');
++      const [pinned, working] = await Promise.all([
++        gitBlob(root, head, path),
++        readRegularFile(root, path),
++      ]);
++      if (!pinned.equals(working)) errors.push(`reviewerSuccessorW08 evidence working tree drift: ${path}`);
++      sources.set(path, pinned);
++      if (createHash('sha256').update(pinned).digest('hex') !== digest) {
++        errors.push(`reviewerSuccessorW08 evidence digest mismatch: ${path}`);
++      }
++    } catch (cause) {
++      errors.push(`reviewerSuccessorW08 evidence unreadable: ${path}: ${cause.code ?? cause.message}`);
++    }
++  }
++  for (let index = 0; index < overlay.reviews.length; index += 1) {
++    const source = sources.get(overlay.reviews[index].path);
++    if (!source) continue;
++    try {
++      errors.push(...validateReviewEvidence(
++        parseReviewerSuccessorW08Evidence(source.toString('utf8'), overlay.reviews[index].path),
++        overlay,
++        overlay.reviews[index],
++        index,
++      ));
++    } catch (cause) {
++      errors.push(cause.message);
++    }
++  }
++  const ownerSource = sources.get(overlay.ownerApprovalPath);
++  if (ownerSource) {
++    try {
++      errors.push(...validateOwnerEvidence(
++        parseReviewerSuccessorW08Evidence(ownerSource.toString('utf8'), overlay.ownerApprovalPath),
++        overlay,
++      ));
++    } catch (cause) {
++      errors.push(cause.message);
++    }
++  }
++  try {
++    const identities = await Promise.all([
++      overlay.productBaseH,
++      overlay.productCandidateH,
++      overlay.governanceBaseH,
++      overlay.governanceCandidateH,
++    ].map(async (commit) => (await execFileAsync(GIT, gitArgs('rev-parse', `${commit}^{commit}`), gitOptions(root))).stdout.trim()));
++    if (identities.some((identity, index) => identity !== [
++      overlay.productBaseH,
++      overlay.productCandidateH,
++      overlay.governanceBaseH,
++      overlay.governanceCandidateH,
++    ][index])) errors.push('reviewerSuccessorW08 git commit identity mismatch');
++    for (const [candidate, tree] of [
++      [overlay.productCandidateH, overlay.productTree],
++      [overlay.governanceCandidateH, overlay.governanceTree],
++    ]) {
++      const actual = (await execFileAsync(GIT, gitArgs('rev-parse', `${candidate}^{tree}`), gitOptions(root))).stdout.trim();
++      if (actual !== tree) errors.push(`reviewerSuccessorW08 tree mismatch: ${candidate}`);
++    }
++    const ranges = [
++      [overlay.productBaseH, overlay.productCandidateH, overlay.productReviewPackagePath],
++      [overlay.governanceBaseH, overlay.governanceCandidateH, overlay.governanceReviewPackagePath],
++    ];
++    for (const [base, candidate, path] of ranges) {
++      await execFileAsync(GIT, gitArgs('merge-base', '--is-ancestor', base, candidate), gitOptions(root));
++      const { stdout } = await execFileAsync(
++        GIT,
++        gitArgs('diff', '--no-ext-diff', '--no-textconv', '--binary', `${base}..${candidate}`),
++        gitOptions(root, {
++          attributeSource: candidate,
++          encoding: 'buffer',
++          maxBuffer: 10 * 1024 * 1024,
++        }),
++      );
++      if (sources.has(path) && !sources.get(path).equals(stdout)) {
++        errors.push(`reviewerSuccessorW08 review package differs from exact git diff: ${path}`);
++      }
++    }
++    if (head === null) throw new Error('pinned HEAD unavailable');
++    await execFileAsync(GIT, gitArgs('merge-base', '--is-ancestor', overlay.governanceCandidateH, head), gitOptions(root));
++    const carrierHead = await activationCarrierCommit(root, overlay.governanceCandidateH, head);
++    const [{ stdout: carrierCount }, { stdout: carrierDiff }] =
++      await Promise.all([
++        execFileAsync(GIT, gitArgs('rev-list', '--count', `${overlay.governanceCandidateH}..${carrierHead}`), gitOptions(root)),
++        execFileAsync(
++          GIT,
++          gitArgs('diff', '--no-ext-diff', '--no-textconv', '--binary', `${overlay.governanceCandidateH}..${carrierHead}`),
++          gitOptions(root, {
++            attributeSource: carrierHead,
++            encoding: 'buffer',
++            maxBuffer: 10 * 1024 * 1024,
++          }),
++        ),
++      ]);
++    if (carrierCount.trim() !== '1') {
++      errors.push('reviewerSuccessorW08 activation carrier must contain exactly one commit');
++    }
++    if (!sameArray(binaryDiffPaths(carrierDiff), [...ACTIVATION_CARRIER_PATHS].sort())) {
++      errors.push('reviewerSuccessorW08 activation carrier changed paths must be exactly canonical evidence and manifests');
++    }
++    for (const path of PROTECTED_PATHS) {
++      const [reviewed, current] = await Promise.all([
++        gitBlob(root, overlay.governanceCandidateH, path),
++        readRegularFile(root, path),
++      ]);
++      if (!reviewed.equals(current)) errors.push(`reviewerSuccessorW08 protected path drift: ${path}`);
++    }
++  } catch (cause) {
++    errors.push(`reviewerSuccessorW08 git identity unverifiable: ${cause.code ?? cause.message}`);
++  }
++  return [...new Set(errors)];
++}
+diff --git a/scripts/reviewer-successor-w08.nodetest.mjs b/scripts/reviewer-successor-w08.nodetest.mjs
+new file mode 100644
+index 00000000..48d29236
+--- /dev/null
++++ b/scripts/reviewer-successor-w08.nodetest.mjs
+@@ -0,0 +1,481 @@
++import assert from 'node:assert/strict';
++import { createHash } from 'node:crypto';
++import { execFile } from 'node:child_process';
++import { link, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
++import { tmpdir } from 'node:os';
++import { dirname, join } from 'node:path';
++import { fileURLToPath } from 'node:url';
++import { promisify } from 'node:util';
++import test from 'node:test';
++
++import {
++  REVIEWER_SUCCESSOR_W08_PRODUCT_BASE,
++  REVIEWER_SUCCESSOR_W08_PRODUCT_DIFF_SHA256,
++  REVIEWER_SUCCESSOR_W08_PRODUCT_H,
++  REVIEWER_SUCCESSOR_W08_PRODUCT_TREE,
++  REVIEWER_SUCCESSOR_W08_ROOT,
++  effectiveReviewerSuccessorW08,
++  parseReviewerSuccessorW08Evidence,
++  validateReviewerSuccessorW08,
++  verifyReviewerSuccessorW08,
++  verifyReviewerSuccessorW08GitEnvironment,
++} from './lib/reviewer-successor-w08.mjs';
++
++const root = dirname(dirname(fileURLToPath(import.meta.url)));
++const execFileAsync = promisify(execFile);
++
++function sha256(source) {
++  return createHash('sha256').update(source).digest('hex');
++}
++
++async function writeRepositoryFile(repository, path, source) {
++  await mkdir(join(repository, dirname(path)), { recursive: true });
++  await writeFile(join(repository, path), source);
++}
++
++function evidenceDocument(value) {
++  return [
++    '<!-- reviewer-successor-w08-evidence:start -->',
++    '```json',
++    JSON.stringify(value, null, 2),
++    '```',
++    '<!-- reviewer-successor-w08-evidence:end -->',
++    '',
++  ].join('\n');
++}
++
++function validOverlay() {
++  return {
++    schemaVersion: 'reviewer-successor.w08.v1',
++    status: 'APPROVED',
++    scope: ['R0-W08'],
++    fromReviewer: 'Claude Code',
++    toReviewer: 'Codex Independent QA',
++    executionOwner: 'Codex',
++    reviewPassesRequired: 2,
++    sessionIsolation: 'FRESH_NO_FORK_CONTEXT',
++    writeAccess: 'DENIED',
++    candidateMutation: 'FORBIDDEN',
++    expiresAfter: 'R0-W08_MERGED_AND_VERIFIED',
++    productBaseH: REVIEWER_SUCCESSOR_W08_PRODUCT_BASE,
++    productCandidateH: REVIEWER_SUCCESSOR_W08_PRODUCT_H,
++    productTree: REVIEWER_SUCCESSOR_W08_PRODUCT_TREE,
++    productReviewPackagePath: `${REVIEWER_SUCCESSOR_W08_ROOT}/review_inputs/product-candidate.diff`,
++    productReviewPackageSha256: REVIEWER_SUCCESSOR_W08_PRODUCT_DIFF_SHA256,
++    governanceBaseH: REVIEWER_SUCCESSOR_W08_PRODUCT_H,
++    governanceCandidateH: '1'.repeat(40),
++    governanceTree: '2'.repeat(40),
++    governanceReviewPackagePath: `${REVIEWER_SUCCESSOR_W08_ROOT}/review_inputs/reviewer-successor.diff`,
++    governanceReviewPackageSha256: '3'.repeat(64),
++    ownerApprovalPath: `${REVIEWER_SUCCESSOR_W08_ROOT}/owner_approval/reviewer-successor-approval.md`,
++    ownerApprovalSha256: '4'.repeat(64),
++    reviews: [
++      {
++        identity: '/root/w08_successor_qa_pass1',
++        path: `${REVIEWER_SUCCESSOR_W08_ROOT}/codex_review/pass-1.md`,
++        sha256: '5'.repeat(64),
++        verdict: 'GO',
++        high: 0,
++        medium: 0,
++        writeAccess: 'DENIED',
++      },
++      {
++        identity: '/root/w08_successor_qa_pass2',
++        path: `${REVIEWER_SUCCESSOR_W08_ROOT}/codex_review/exact-h-final.md`,
++        sha256: '6'.repeat(64),
++        verdict: 'GO',
++        high: 0,
++        medium: 0,
++        writeAccess: 'DENIED',
++      },
++    ],
++    approvedBy: 'lyt',
++  };
++}
++
++test('valid W08 reviewer successor selects Codex Independent QA only for active W08', () => {
++  const governance = { reviewerSuccessorW08: validOverlay() };
++  assert.deepEqual(validateReviewerSuccessorW08(governance.reviewerSuccessorW08), []);
++  assert.equal(
++    effectiveReviewerSuccessorW08(governance, 'R0-W08', [
++      { id: 'R0-W08', status: 'ACTIVE' },
++    ]),
++    'Codex Independent QA',
++  );
++  assert.equal(
++    effectiveReviewerSuccessorW08(governance, 'R0-W08', [
++      { id: 'R0-W08', status: 'MERGED_AND_VERIFIED' },
++    ]),
++    null,
++  );
++  assert.equal(
++    effectiveReviewerSuccessorW08(governance, 'R0-W09', [
++      { id: 'R0-W09', status: 'ACTIVE' },
++    ]),
++    null,
++  );
++});
++
++for (const [name, mutate, message] of [
++  ['scope expansion', (overlay) => { overlay.scope = ['R0-W08', 'R0-W09']; }, 'scope'],
++  ['owner self-review', (overlay) => { overlay.toReviewer = 'Codex'; }, 'execution owner'],
++  ['single pass', (overlay) => { overlay.reviews.pop(); }, 'exactly two'],
++  ['shared identity', (overlay) => { overlay.reviews[1].identity = overlay.reviews[0].identity; }, 'identities'],
++  ['write access', (overlay) => { overlay.reviews[0].writeAccess = 'ALLOWED'; }, 'deny writes'],
++  ['candidate mutation', (overlay) => { overlay.candidateMutation = 'ALLOWED'; }, 'candidateMutation'],
++  ['product H drift', (overlay) => { overlay.productCandidateH = '7'.repeat(40); }, 'productCandidateH'],
++  ['product tree drift', (overlay) => { overlay.productTree = '8'.repeat(40); }, 'productTree'],
++  ['product diff digest drift', (overlay) => { overlay.productReviewPackageSha256 = '9'.repeat(64); }, 'productReviewPackageSha256'],
++  ['shared activation approval path', (overlay) => { overlay.ownerApprovalPath = `${REVIEWER_SUCCESSOR_W08_ROOT}/owner_approval/exact-h-approval.md`; }, 'canonical'],
++  ['unsafe evidence path', (overlay) => { overlay.ownerApprovalPath = '../approval.md'; }, 'ownerApprovalPath'],
++]) {
++  test(`W08 reviewer successor fails closed for ${name}`, () => {
++    const overlay = validOverlay();
++    mutate(overlay);
++    const errors = validateReviewerSuccessorW08(overlay);
++    assert.ok(errors.some((error) => error.includes(message)), errors.join('\n'));
++  });
++}
++
++test('review evidence requires one marked block', () => {
++  assert.throws(
++    () => parseReviewerSuccessorW08Evidence('{}'),
++    /require exactly one marked JSON evidence block/u,
++  );
++});
++
++test('review evidence rejects duplicate JSON keys', () => {
++  assert.throws(
++    () => parseReviewerSuccessorW08Evidence([
++      '<!-- reviewer-successor-w08-evidence:start -->',
++      '```json',
++      '{"verdict":"GO","verdict":"NO_GO"}',
++      '```',
++      '<!-- reviewer-successor-w08-evidence:end -->',
++    ].join('\n')),
++    /duplicate object key/u,
++  );
++});
++
++test('exact verifier binds committed evidence, hardened Git diff, and protected authority files', async () => {
++  const temporaryParent = await mkdtemp(join(tmpdir(), 'w08-reviewer-successor-'));
++  const repository = join(temporaryParent, 'repo');
++  try {
++    await execFileAsync('git', ['clone', '-q', '--no-hardlinks', root, repository]);
++    await execFileAsync('git', ['config', 'user.name', 'W08 Test'], { cwd: repository });
++    await execFileAsync('git', ['config', 'user.email', 'w08@example.invalid'], { cwd: repository });
++    await execFileAsync(
++      'git',
++      ['checkout', '-q', '--detach', REVIEWER_SUCCESSOR_W08_PRODUCT_H],
++      { cwd: repository },
++    );
++    for (const path of [
++      '.harness/changes/docs-r0-w08-codex-reviewer-successor-20260810/ci_result/governance-candidate.md',
++      '.harness/changes/docs-r0-w08-codex-reviewer-successor-20260810/request_analysis/spec.md',
++      '.harness/changes/docs-r0-w08-codex-reviewer-successor-20260810/request_analysis/tasks.md',
++      '.harness/changes/docs-r0-w08-codex-reviewer-successor-20260810/summary.md',
++      'scripts/execution-authority-v2.nodetest.mjs',
++      'scripts/lib/amendment-governance.mjs',
++      'scripts/lib/execution-authority-v2.mjs',
++      'scripts/lib/reviewer-successor-w08.mjs',
++      'scripts/reviewer-successor-w08.nodetest.mjs',
++    ]) {
++      await writeRepositoryFile(repository, path, await readFile(join(root, path)));
++    }
++    await execFileAsync('git', ['add', '.'], { cwd: repository });
++    await execFileAsync('git', ['commit', '-qm', 'reviewed W08 successor candidate'], {
++      cwd: repository,
++    });
++    const governanceCandidateH = (
++      await execFileAsync('git', ['rev-parse', 'HEAD^{commit}'], { cwd: repository })
++    ).stdout.trim();
++    const governanceTree = (
++      await execFileAsync('git', ['rev-parse', 'HEAD^{tree}'], { cwd: repository })
++    ).stdout.trim();
++    const gitDiff = async (base, candidate) => (
++      await execFileAsync(
++        '/usr/bin/git',
++        [
++          '--no-replace-objects',
++          '-c',
++          'core.attributesFile=/dev/null',
++          '-c',
++          'core.commitGraph=false',
++          'diff',
++          '--no-ext-diff',
++          '--no-textconv',
++          '--binary',
++          `${base}..${candidate}`,
++        ],
++        {
++          cwd: repository,
++          encoding: 'buffer',
++          env: {
++            ...Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_'))),
++            GIT_CONFIG_NOSYSTEM: '1',
++            GIT_CONFIG_GLOBAL: '/dev/null',
++            GIT_ATTR_NOSYSTEM: '1',
++            GIT_ATTR_SOURCE: candidate,
++            GIT_OPTIONAL_LOCKS: '0',
++            LC_ALL: 'C',
++          },
++        },
++      )
++    ).stdout;
++    const productPackage = await gitDiff(
++      REVIEWER_SUCCESSOR_W08_PRODUCT_BASE,
++      REVIEWER_SUCCESSOR_W08_PRODUCT_H,
++    );
++    const governancePackage = await gitDiff(
++      REVIEWER_SUCCESSOR_W08_PRODUCT_H,
++      governanceCandidateH,
++    );
++    const overlay = validOverlay();
++    overlay.governanceCandidateH = governanceCandidateH;
++    overlay.governanceTree = governanceTree;
++    overlay.governanceReviewPackageSha256 = sha256(governancePackage);
++    const reviewSources = overlay.reviews.map((review, index) => evidenceDocument({
++      schemaVersion: 'reviewer-successor.w08.evidence.v1',
++      kind: 'independent-review',
++      reviewer: 'Codex Independent QA',
++      identity: review.identity,
++      pass: index + 1,
++      scope: ['R0-W08'],
++      productBaseH: overlay.productBaseH,
++      productCandidateH: overlay.productCandidateH,
++      productTree: overlay.productTree,
++      productReviewPackagePath: overlay.productReviewPackagePath,
++      productReviewPackageSha256: overlay.productReviewPackageSha256,
++      governanceBaseH: overlay.governanceBaseH,
++      governanceCandidateH: overlay.governanceCandidateH,
++      governanceTree: overlay.governanceTree,
++      governanceReviewPackagePath: overlay.governanceReviewPackagePath,
++      governanceReviewPackageSha256: overlay.governanceReviewPackageSha256,
++      verdict: 'GO',
++      high: 0,
++      medium: 0,
++      writeAccess: 'DENIED',
++      candidateMutation: 'FORBIDDEN',
++    }));
++    for (let index = 0; index < overlay.reviews.length; index += 1) {
++      overlay.reviews[index].sha256 = sha256(reviewSources[index]);
++    }
++    const ownerSource = evidenceDocument({
++      schemaVersion: 'reviewer-successor.w08.evidence.v1',
++      kind: 'owner-approval',
++      decision: 'APPROVED',
++      approver: 'lyt',
++      scope: ['R0-W08'],
++      productBaseH: overlay.productBaseH,
++      productCandidateH: overlay.productCandidateH,
++      productTree: overlay.productTree,
++      productReviewPackagePath: overlay.productReviewPackagePath,
++      productReviewPackageSha256: overlay.productReviewPackageSha256,
++      governanceBaseH: overlay.governanceBaseH,
++      governanceCandidateH: overlay.governanceCandidateH,
++      governanceTree: overlay.governanceTree,
++      governanceReviewPackagePath: overlay.governanceReviewPackagePath,
++      governanceReviewPackageSha256: overlay.governanceReviewPackageSha256,
++      reviews: overlay.reviews.map(({ identity, path, sha256: digest }) => ({
++        identity,
++        path,
++        sha256: digest,
++      })),
++    });
++    overlay.ownerApprovalSha256 = sha256(ownerSource);
++    await writeRepositoryFile(repository, overlay.productReviewPackagePath, productPackage);
++    await writeRepositoryFile(repository, overlay.governanceReviewPackagePath, governancePackage);
++    await writeRepositoryFile(repository, overlay.ownerApprovalPath, ownerSource);
++    for (let index = 0; index < overlay.reviews.length; index += 1) {
++      await writeRepositoryFile(repository, overlay.reviews[index].path, reviewSources[index]);
++    }
++    const activationCarrierPaths = [
++      '.harness/manifest/execution-authority.v2.json',
++      '.harness/manifest/project-harness.json',
++      `${REVIEWER_SUCCESSOR_W08_ROOT}/activation_intent/r0-w08-activation-intent.json`,
++      `${REVIEWER_SUCCESSOR_W08_ROOT}/codex_review/exact-h-final.md`,
++      `${REVIEWER_SUCCESSOR_W08_ROOT}/codex_review/pass-1.md`,
++      `${REVIEWER_SUCCESSOR_W08_ROOT}/owner_approval/exact-h-approval.md`,
++      overlay.ownerApprovalPath,
++      overlay.productReviewPackagePath,
++      overlay.governanceReviewPackagePath,
++    ];
++    await writeRepositoryFile(
++      repository,
++      '.harness/manifest/project-harness.json',
++      '{"activationCarrierFixture":true}\n',
++    );
++    await writeRepositoryFile(
++      repository,
++      '.harness/manifest/execution-authority.v2.json',
++      '{"activationCarrierFixture":true}\n',
++    );
++    await writeRepositoryFile(
++      repository,
++      `${REVIEWER_SUCCESSOR_W08_ROOT}/activation_intent/r0-w08-activation-intent.json`,
++      '{"activationCarrierFixture":true}\n',
++    );
++    await writeRepositoryFile(
++      repository,
++      `${REVIEWER_SUCCESSOR_W08_ROOT}/owner_approval/exact-h-approval.md`,
++      'activation owner fixture\n',
++    );
++    await execFileAsync('git', ['add', '.'], { cwd: repository });
++    await execFileAsync('git', ['commit', '-qm', 'pin W08 successor evidence'], {
++      cwd: repository,
++    });
++    const activationCarrierH = (
++      await execFileAsync('git', ['rev-parse', 'HEAD^{commit}'], { cwd: repository })
++    ).stdout.trim();
++
++    assert.deepEqual(await verifyReviewerSuccessorW08(repository, overlay), []);
++
++    await execFileAsync(
++      'git',
++      ['checkout', '-q', '--detach', REVIEWER_SUCCESSOR_W08_PRODUCT_H],
++      { cwd: repository },
++    );
++    await execFileAsync(
++      'git',
++      ['merge', '-q', '--no-ff', activationCarrierH, '-m', 'transparent Gitee promotion'],
++      { cwd: repository },
++    );
++    assert.deepEqual(await verifyReviewerSuccessorW08(repository, overlay), []);
++
++    await execFileAsync(
++      'git',
++      ['checkout', '-q', '--detach', REVIEWER_SUCCESSOR_W08_PRODUCT_H],
++      { cwd: repository },
++    );
++    await execFileAsync(
++      'git',
++      ['merge', '-q', '--no-ff', '-s', 'ours', activationCarrierH, '-m', 'rewritten promotion'],
++      { cwd: repository },
++    );
++    assert.ok(
++      (await verifyReviewerSuccessorW08(repository, overlay)).some((error) =>
++        error.includes('transparent promotion tree must equal'),
++      ),
++    );
++    await execFileAsync('git', ['checkout', '-q', '--detach', activationCarrierH], {
++      cwd: repository,
++    });
++
++    await execFileAsync('git', ['checkout', '-q', '--detach', governanceCandidateH], {
++      cwd: repository,
++    });
++    await execFileAsync('git', ['checkout', activationCarrierH, '--', ...activationCarrierPaths], {
++      cwd: repository,
++    });
++    await writeRepositoryFile(repository, 'backend/unreviewed-runtime.js', 'export const bypass = true;\n');
++    await execFileAsync('git', ['add', '.'], { cwd: repository });
++    await execFileAsync('git', ['commit', '-qm', 'smuggle unreviewed runtime'], { cwd: repository });
++    assert.ok(
++      (await verifyReviewerSuccessorW08(repository, overlay)).some((error) =>
++        error.includes('activation carrier changed paths must be exactly canonical'),
++      ),
++    );
++
++    await execFileAsync('git', ['checkout', '-q', '--detach', activationCarrierH], {
++      cwd: repository,
++    });
++    await execFileAsync('git', ['commit', '--allow-empty', '-qm', 'extra empty carrier'], {
++      cwd: repository,
++    });
++    assert.ok(
++      (await verifyReviewerSuccessorW08(repository, overlay)).some((error) =>
++        error.includes('activation carrier must be a direct child or one transparent promotion'),
++      ),
++    );
++
++    await execFileAsync('git', ['checkout', '-q', '-b', 'carrier-merge-side', governanceCandidateH], {
++      cwd: repository,
++    });
++    await execFileAsync('git', ['commit', '--allow-empty', '-qm', 'merge side'], {
++      cwd: repository,
++    });
++    const mergeSideH = (
++      await execFileAsync('git', ['rev-parse', 'HEAD^{commit}'], { cwd: repository })
++    ).stdout.trim();
++    await execFileAsync('git', ['checkout', '-q', '--detach', activationCarrierH], {
++      cwd: repository,
++    });
++    await execFileAsync('git', ['merge', '-q', '--no-ff', mergeSideH, '-m', 'merge carrier'], {
++      cwd: repository,
++    });
++    assert.ok(
++      (await verifyReviewerSuccessorW08(repository, overlay)).some((error) =>
++        error.includes('transparent promotion first parent must be an ancestor'),
++      ),
++    );
++    await execFileAsync('git', ['checkout', '-q', '--detach', activationCarrierH], {
++      cwd: repository,
++    });
++
++    const cliPath = join(repository, 'scripts/execution-authority-v2.mjs');
++    const cliSource = await readFile(cliPath);
++    await writeFile(cliPath, 'process.stdout.write("unconditional GO")\n');
++    assert.ok(
++      (await verifyReviewerSuccessorW08(repository, overlay)).some((error) =>
++        error.includes('protected path drift: scripts/execution-authority-v2.mjs'),
++      ),
++    );
++    await writeFile(cliPath, cliSource);
++
++    await execFileAsync('git', ['config', '--local', 'diff.external', '/bin/true'], {
++      cwd: repository,
++    });
++    assert.ok(
++      (await verifyReviewerSuccessorW08(repository, overlay)).some((error) =>
++        error.includes('repository-local Git config affects authority diff'),
++      ),
++    );
++    await execFileAsync('git', ['config', '--local', '--unset', 'diff.external'], {
++      cwd: repository,
++    });
++
++    const graftPath = join(repository, '.git/info/grafts');
++    await writeFile(graftPath, `${REVIEWER_SUCCESSOR_W08_PRODUCT_H}\n`);
++    assert.ok(
++      (await verifyReviewerSuccessorW08GitEnvironment(repository)).some((error) =>
++        error.includes('Git grafts can forge authority ancestry'),
++      ),
++    );
++    await rm(graftPath);
++    const shallowPath = join(repository, '.git/shallow');
++    await writeFile(shallowPath, `${REVIEWER_SUCCESSOR_W08_PRODUCT_H}\n`);
++    assert.ok(
++      (await verifyReviewerSuccessorW08GitEnvironment(repository)).some((error) =>
++        error.includes('shallow Git history is forbidden'),
++      ),
++    );
++    await rm(shallowPath);
++
++    const reviewPath = join(repository, overlay.reviews[0].path);
++    const reviewSource = await readFile(reviewPath);
++    await writeFile(reviewPath, `${reviewSource.toString('utf8')}drift\n`);
++    assert.ok(
++      (await verifyReviewerSuccessorW08(repository, overlay)).some((error) =>
++        error.includes(`evidence working tree drift: ${overlay.reviews[0].path}`),
++      ),
++    );
++    await rm(reviewPath);
++    await symlink('/etc/hosts', reviewPath);
++    assert.ok(
++      (await verifyReviewerSuccessorW08(repository, overlay)).some((error) =>
++        error.includes(`evidence unreadable: ${overlay.reviews[0].path}`),
++      ),
++    );
++    await rm(reviewPath);
++    const externalReviewPath = join(temporaryParent, 'external-review.md');
++    await writeFile(externalReviewPath, reviewSource);
++    await link(externalReviewPath, reviewPath);
++    assert.ok(
++      (await verifyReviewerSuccessorW08(repository, overlay)).some((error) =>
++        error.includes(`evidence unreadable: ${overlay.reviews[0].path}`),
++      ),
++    );
++  } finally {
++    await rm(temporaryParent, { recursive: true, force: true });
++  }
++});

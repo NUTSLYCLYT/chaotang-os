@@ -13,6 +13,10 @@ import {
   verifyRepositoryLocalGitDiffEnvironment,
   verifyReviewerReassignmentActivationHistory,
 } from './amendment-governance.mjs';
+import {
+  validateReviewerSuccessorW08,
+  verifyReviewerSuccessorW08,
+} from './reviewer-successor-w08.mjs';
 
 const rawExecFileAsync = promisify(execFile);
 const AUTHORITY_GIT_EXECUTABLE = '/usr/bin/git';
@@ -80,7 +84,7 @@ const RECOVERY_CHANGE_ROOT = '.harness/changes/fix-ext-g0-authority-recovery-202
 const W07_CHANGE_ROOT =
   '.harness/changes/docs-r0-w07-exact-h-activation-b0df777a-20260727';
 const W08_CHANGE_ROOT =
-  '.harness/changes/docs-r0-w08-exact-h-activation-20260728-20260728';
+  '.harness/changes/docs-r0-w08-codex-reviewer-successor-20260810';
 const ACTIVE_PACKET_PROFILES = Object.freeze({
   'R0-W06': Object.freeze({
     effectiveBaseRef: 'origin/feature-chaotang-ext',
@@ -166,11 +170,11 @@ const ACTIVE_PACKET_PROFILES = Object.freeze({
   }),
   'R0-W08': Object.freeze({
     effectiveBaseRef: 'refs/heads/feature-chaotang-ext',
-    reviewBaseH: '39bd654b4cac8ee0fa59ddcbd7ad6a79f5ee9097',
+    reviewBaseH: '4c543209333fa14f3a296ff1ff917642153ffc30',
     ownerApprovalPath: `${W08_CHANGE_ROOT}/owner_approval/exact-h-approval.md`,
     reviewPath: `${W08_CHANGE_ROOT}/codex_review/exact-h-final.md`,
     activationIntentPath: `${W08_CHANGE_ROOT}/activation_intent/r0-w08-activation-intent.json`,
-    reviewPackagePath: `${W08_CHANGE_ROOT}/review_inputs/activation-candidate.diff`,
+    reviewPackagePath: `${W08_CHANGE_ROOT}/review_inputs/product-candidate.diff`,
     exclusions: Object.freeze([
       'NO_DEPLOYMENT',
       'NO_REAL_CUSTOMER_DATA',
@@ -181,23 +185,37 @@ const ACTIVE_PACKET_PROFILES = Object.freeze({
       'NO_PRODUCTION_CLAIM',
     ]),
     allowedChangedPaths: new Set([
-      '.harness/changes/docs-r0-w08-professional-reassignment-20260728-20260728/ci_result/ci_summary.md',
-      '.harness/changes/docs-r0-w08-professional-reassignment-20260728-20260728/codex_review/professional-reassignment.md',
-      '.harness/changes/docs-r0-w08-professional-reassignment-20260728-20260728/owner_evidence/professional-reassignment.md',
-      '.harness/changes/docs-r0-w08-professional-reassignment-20260728-20260728/request_analysis/spec.md',
-      '.harness/changes/docs-r0-w08-professional-reassignment-20260728-20260728/request_analysis/tasks.md',
-      '.harness/changes/docs-r0-w08-professional-reassignment-20260728-20260728/summary.md',
-      '.harness/manifest/execution-authority.v2.json',
-      'scripts/execution-authority-v2.nodetest.mjs',
+      '.harness/changes/chore-professional-agent-k0-ext-convergence-20260810/ci_result/ci_summary.md',
+      '.harness/changes/chore-professional-agent-k0-ext-convergence-20260810/codex_review/candidate-review.md',
+      '.harness/changes/chore-professional-agent-k0-ext-convergence-20260810/request_analysis/spec.md',
+      '.harness/changes/chore-professional-agent-k0-ext-convergence-20260810/request_analysis/tasks.md',
+      '.harness/changes/chore-professional-agent-k0-ext-convergence-20260810/summary.md',
+      '.harness/changes/fix-professional-agent-k0-root-registration-20260810/ci_result/ci_summary.md',
+      '.harness/changes/fix-professional-agent-k0-root-registration-20260810/request_analysis/spec.md',
+      '.harness/changes/fix-professional-agent-k0-root-registration-20260810/request_analysis/tasks.md',
+      '.harness/changes/fix-professional-agent-k0-root-registration-20260810/summary.md',
+      '.harness/contracts/professional-agent-asset-matrix.v1.schema.json',
+      '.harness/manifest/professional-agent-asset-matrix.v1.json',
+      '.harness/manifest/project-harness.json',
+      '.harness/wiki/harness-inventory.md',
+      '.harness/wiki/professional-agent-asset-matrix.md',
+      '.harness/wiki/verification-matrix.md',
+      'scripts/harness-doctor.mjs',
+      'scripts/lib/professional-agent-matrix.mjs',
+      'scripts/professional-agent-matrix.mjs',
+      'scripts/professional-agent-matrix.nodetest.mjs',
+      'scripts/professional_agent_matrix_schema_check.py',
     ]),
+    exactChangedPaths: true,
     exactGitRange: true,
     requiredCommands: Object.freeze([
-      'node --test scripts/execution-authority-v2.nodetest.mjs',
+      'node --test scripts/reviewer-successor-w08.nodetest.mjs scripts/r0-amendment-check.nodetest.mjs scripts/execution-authority-v2.nodetest.mjs scripts/professional-agent-matrix.nodetest.mjs',
+      'node scripts/professional-agent-matrix.mjs --check',
       'node scripts/execution-authority.mjs --check',
       'node scripts/execution-authority-v2.mjs --check',
       'node scripts/execution-authority-v2.mjs --authorize --work-package R0-W08',
       'node scripts/harness-doctor.mjs',
-      "git diff --check -- . ':(exclude).harness/changes/docs-r0-w08-exact-h-activation-20260728-20260728/review_inputs/activation-candidate.diff'",
+      "git diff --check -- . ':(exclude).harness/changes/docs-r0-w08-codex-reviewer-successor-20260810/review_inputs/product-candidate.diff' ':(exclude).harness/changes/docs-r0-w08-codex-reviewer-successor-20260810/review_inputs/reviewer-successor.diff'",
     ]),
   }),
 });
@@ -1600,6 +1618,13 @@ export async function loadExecutionAuthorityV2(root) {
             },
           )),
         );
+        const w08Successor = amendmentGovernance?.reviewerSuccessorW08;
+        if (w08Successor !== undefined) {
+          errors.push(...validateReviewerSuccessorW08(w08Successor));
+          if (manifest?.activeWorkPackage === 'R0-W08') {
+            errors.push(...(await verifyReviewerSuccessorW08(root, w08Successor)));
+          }
+        }
       }
     } catch (cause) {
       errors.push(cause.message);

@@ -61,3 +61,11 @@
 - `.harness/contracts/ext-branch-convergence.schema.json`：分支、能力族、处置、状态、checkpoint 和回执字段契约。
 - `scripts/ext-branch-convergence.mjs`：只读 `--check`、`--status`、`--family` CLI；不提供 ref、工作树或 manifest 写入口。
 - `.harness/wiki/ext-branch-capability-convergence.md`：99/99 清算、失败关闭和后续 Packet 权威边界。
+
+## 专业 Agent 资产矩阵
+
+- `.harness/manifest/professional-agent-asset-matrix.v1.json`：当前 EXT 的专业 Agent 能力、契约、入口、测试与覆盖缺口事实源。
+- `.harness/contracts/professional-agent-asset-matrix.v1.schema.json`：Draft 2020-12 字段、成熟度、覆盖状态与安全路径契约。
+- `scripts/professional-agent-matrix.mjs`：只读检查器；验证登记路径、exact donor、35 个设计契约和 71 个运行 Prompt。
+- `scripts/professional_agent_matrix_schema_check.py`：Draft 2020-12 完整校验；缺少校验依赖时失效关闭。
+- `.harness/wiki/professional-agent-asset-matrix.md`：旧 K0 donor 到当前 EXT 的适配边界；`PARTIAL` 不等于可运行或已验收。
