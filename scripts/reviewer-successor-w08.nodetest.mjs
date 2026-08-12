@@ -116,6 +116,19 @@ test('valid W08 reviewer successor selects Codex Independent QA only for active 
   );
 });
 
+test('historical W08 verifier API keeps its default profile semantics', () => {
+  const overlay = validOverlay();
+  assert.deepEqual(validateReviewerSuccessorW08(overlay), []);
+  assert.equal(
+    effectiveReviewerSuccessorW08(
+      { reviewerSuccessorW08: overlay },
+      'R0-W08',
+      [{ id: 'R0-W08', status: 'ACTIVE' }],
+    ),
+    'Codex Independent QA',
+  );
+});
+
 for (const [name, mutate, message] of [
   ['scope expansion', (overlay) => { overlay.scope = ['R0-W08', 'R0-W09']; }, 'scope'],
   ['owner self-review', (overlay) => { overlay.toReviewer = 'Codex'; }, 'execution owner'],
