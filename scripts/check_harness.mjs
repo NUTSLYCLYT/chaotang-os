@@ -1650,6 +1650,7 @@ Escalation: name observable evidence
   validAdaptiveRouting.guide = `## 场景矩阵\n\n${ADAPTIVE_ROUTING_START}\n${ADAPTIVE_ROUTING_CANONICAL_BODIES.guide}\n${ADAPTIVE_ROUTING_END}\n\n## Codex-only 模式`;
   validAdaptiveRouting.skill = `${ADAPTIVE_ROUTING_START}\n${ADAPTIVE_ROUTING_CANONICAL_BODIES.skill}\n${ADAPTIVE_ROUTING_END}\n\n## 执行门禁`;
   const selfTestRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+  const normalizeAdaptiveRoutingSelfTestFixture = normalizeAdaptiveRoutingBody;
   for (const [entry, path] of [
     ["agents", "AGENTS.md"],
     ["guide", "docs/codex-engineering-workflow.md"],
@@ -1657,7 +1658,9 @@ Escalation: name observable evidence
     ["prompt", ".agents/skills/codex-engineering-workflow/agents/openai.yaml"],
     ["plan", "docs/superpowers/plans/2026-08-13-adaptive-skill-routing.md"],
   ]) {
-    validAdaptiveRouting[entry] = readFileSync(join(selfTestRoot, path), "utf8");
+    validAdaptiveRouting[entry] = normalizeAdaptiveRoutingSelfTestFixture(
+      readFileSync(join(selfTestRoot, path), "utf8"),
+    );
   }
   const canonicalTemplateBlock = (entry) => `${ADAPTIVE_ROUTING_START}${ADAPTIVE_ROUTING_CANONICAL_BODIES[entry]}${ADAPTIVE_ROUTING_END}`;
   const movePlanBlocksBeforeTask3 = (entries) => {
@@ -2126,6 +2129,20 @@ def render_mainland_last_price(pack):
       adaptiveRoutingEntryHash(validAdaptiveRouting.plan),
       ADAPTIVE_ROUTING_WHOLE_ENTRY_SHA256.plan,
     ],
+    ...[
+      ["CRLF", "\r\n"],
+      ["bare CR", "\r"],
+    ].map(([label, newline]) => {
+      const plan = normalizeAdaptiveRoutingSelfTestFixture(
+        normalizeAdaptiveRoutingBody(validAdaptiveRouting.plan).replace(/\n/gu, newline),
+      );
+      const target = canonicalTemplateBlock("agents");
+      return [
+        `${label} self-test fixture 可应用 canonical template mutation`,
+        plan.replace(target, "[agents canonical template removed]") !== plan,
+        true,
+      ];
+    }),
     [
       "旧 approved plan canonical hash 已作废",
       adaptiveRoutingEntryHash(validAdaptiveRouting.plan) === "a3b696b8cbb1061247aefe7f3da6fc81b00f5216685ecfd8ae5351b9d0462305",
