@@ -16,15 +16,31 @@ chaotang-os 的项目工作流。它是选择规则和安全门禁，不是第�
 
 ## 场景矩阵
 
-| 任务类型 | 最小流程 | 何时增加 gstack | 完成门禁 |
-| --- | --- | --- | --- |
-| 新需求、方案、跨模块设计 | `brainstorming` → `writing-plans` | 需要正式规格或多视角计划审查时用 `gstack-spec`、`gstack-plan-*` | 用户确认范围；计划引用验收标准 |
-| 功能实现、回归修复 | 计划 → `test-driven-development` → 实现 | 仅在对应模块有直接工具价值时增加 | 自审；相关测试；`verification-before-completion` |
-| 故障、异常、未知根因 | `systematic-debugging` | 需要更广调查或运行态证据时用 `gstack-investigate` | 复现证据、根因、回归验证 |
-| UI、浏览器行为、交付检查 | 先确定验收路径 | 设计用 `gstack-design-review`，浏览器用 `gstack-browse`，只报告用 `gstack-qa-only`，用户授权修复时用 `gstack-qa`，代码只读审查用 `gstack-review` | 正常/边界/失败状态证据；完成前验证 |
-| 纯解释、状态查询、只读审查、微小文档修正 | 仓库基线 | 通常不用 | 只运行与风险相称的最小检查 |
+<!-- adaptive-routing-contract:start -->
+所有实质任务先进入盘问与退出条件，再由 Codex 自动分流。`using-superpowers` 是元级 preflight，不等于已经启用完整 Superpowers 工作流。
 
-已经安装不代表必须调用。每次只选择对当前问题有直接价值的 skill，避免流程膨胀和上下文浪费。
+| 路线 | 典型条件 | 执行要求 |
+| --- | --- | --- |
+| 直接执行 | 目标明确、局部、可逆、低风险、不改变业务行为且容易验证 | 执行最小相关检查并报告证据 |
+| Matt Skills | 局部功能或缺陷，存在受控不确定性，需要针对性澄清、实现或审查 | 只加载直接有用的 Matt Skills，同时满足仓库质量门禁 |
+| Superpowers | 跨模块、架构或契约变化、未知根因、难回滚、高风险或验证链较长 | 使用适用的规划、调试、TDD、审查和完成验证流程 |
+
+## 盘问与退出条件
+
+Codex 先检查代码、文档、命令与当前证据，不要求用户复述可发现事实。只询问会实质改变目标、范围、验收、风险或授权的问题；信息足够即停止。关键歧义无法消除时标记 `Blocked`，不猜测业务决定。
+
+## 自动分流
+
+任务画像由需求明确度、影响范围、可逆性、失败后果、根因或实现路径确定性、验证难度组成。Codex 自动选择最小够用路线，并在实现前说明 `Task profile`、`Selected route`、`Reason`、`Quality gates` 与 `Escalation`。
+
+质量门禁与 Skill 品牌解耦：Bug 必须有可复现证据和根因，行为修改在可行时必须有测试保护，完成声明必须有最终改动后的新鲜验证。
+
+## 升级与阻塞
+
+执行可按 `直接执行 → Matt Skills → Superpowers` 升级。范围扩大、根因不明、风险上升或连续验证失败时必须说明证据并升级到 Superpowers；范围实质变化时重新盘问。安全、权限、支付、隐私、数据迁移、生产配置、不可逆操作和架构边界变化是硬升级事项：已有明确授权的高风险事项进入 Superpowers；缺少授权或未解决歧义时进入 `Blocked`。
+
+Matt Skills 缺失时不自动安装；优先使用等价 Codex 原生步骤，仍无法满足质量门禁时升级。升级复用仍有效的证据与工作，不机械重复已完成步骤。
+<!-- adaptive-routing-contract:end -->
 
 ## Codex-only 模式
 

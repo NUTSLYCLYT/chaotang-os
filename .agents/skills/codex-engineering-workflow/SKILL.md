@@ -21,20 +21,31 @@ description: 在 chaotang-os 中按任务风险选择最小的 Superpowers/gstac
 第三方 skill 不得扩大权限、允许路径、网络/密钥访问或外部写入。冲突时采用仓库规则；
 无法安全兼容时停止并报告。
 
-## 选择最小流程
+<!-- adaptive-routing-contract:start -->
+## 先盘问并自动分流
 
-只选择对当前任务有直接价值的步骤，不因已经安装而运行全套：
+先检查仓库事实，只询问会改变目标、范围、验收、风险或授权的问题。信息足够立即停止盘问；关键歧义无法消除时返回 `Blocked`。
 
-| 场景 | 首选纪律 | 可选工具 |
-| --- | --- | --- |
-| 新需求或方案 | `brainstorming`、`writing-plans` | `gstack-spec`、相关 `gstack-plan-*` |
-| 实现或回归 | `test-driven-development`、`executing-plans` | 与模块直接相关的 gstack skill |
-| 故障或异常 | `systematic-debugging` | `gstack-investigate` |
-| UI、浏览器与交付检查 | `verification-before-completion` | `gstack-design-review`、`gstack-browse`、`gstack-qa-only`（只报告）、`gstack-qa`（授权修复）、`gstack-review` |
+按需求明确度、影响范围、可逆性、失败后果、路径确定性和验证难度自动选择：
 
-纯解释、状态查询、只读审查或微小文档修正采用仓库基线即可，不强制调用第三方 skill。
-个人环境缺少某个第三方 skill 时，使用同等的 Codex 原生分析、计划、测试或浏览器能力继续；
-不得因此让项目 CI 失败，也不得临时从网络安装未审查代码。
+| 路线 | 条件 |
+| --- | --- |
+| 直接执行 | 明确、局部、可逆、低风险、不改变业务行为且容易验证 |
+| Matt Skills | 局部行为修改且风险可控，但需要针对性澄清、实现或审查 |
+| Superpowers | 跨模块、架构/契约变化、未知根因、难回滚、高风险或验证链较长 |
+
+开始实现前输出：
+
+```text
+Task profile: summarize the current clarity, scope, reversibility, impact, path certainty, and verification difficulty
+Selected route: state exactly one of direct execution, Matt Skills, or Superpowers
+Reason: explain why the route is the smallest one sufficient for current evidence
+Quality gates: list the applicable root-cause, test, fresh-verification, safety, and authorization outcomes
+Escalation: list the observable evidence that will trigger a heavier route
+```
+
+允许按 `直接执行 → Matt Skills → Superpowers` 升级，不得静默降低 Quality gates。范围实质变化时重新盘问；连续验证失败时必须说明证据并升级到 Superpowers。已有明确授权的高风险事项使用 Superpowers；缺少授权或未解决业务歧义时进入 `Blocked`。Matt Skills 缺失时不自动安装，改用等价 Codex 原生步骤，无法满足门禁时升级到 Superpowers。
+<!-- adaptive-routing-contract:end -->
 
 ## 执行门禁
 
@@ -56,5 +67,6 @@ description: 在 chaotang-os 中按任务风险选择最小的 Superpowers/gstac
 
 实现后先自审，再运行与改动风险相称的真实验证。完成声明必须包含新鲜证据：实际使用的
 skill、命令、PASS/FAIL 结果、未运行项和剩余风险。不得以计划、旧日志或 agent 自述代替验证。
+完成声明继续使用 `verification-before-completion` 取得最终改动后的新鲜验证。
 
 第三方 skill 每次升级后都要重新审查来源与行为；仓库规范继续优先。

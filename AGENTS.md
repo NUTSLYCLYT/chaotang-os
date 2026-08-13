@@ -10,13 +10,14 @@
   `using-superpowers/SKILL.md`，根据当前用户意图重新匹配并完整读取适用 skill；不得沿用
   上一回合的 skill 判断。
 - 在第一次工具调用前，通过 commentary 明确声明“使用 `<skill>`，用于 `<目的>`”。
-- 确定性映射：
-  - Bug、异常和诊断：`systematic-debugging`。
-  - 用户可见故障、假绿、错误记忆和复盘：`record-failure`。
-  - 功能或行为修改：`brainstorming`、`test-driven-development`。
-  - 提交或宣称完成：`verification-before-completion`。
-  - worktree 操作：`using-git-worktrees`。
-  - 本仓库实质工程任务：`codex-engineering-workflow`。
+<!-- adaptive-routing-contract:start -->
+- 先盘问：优先检查现有证据，只询问会实质改变目标、范围、验收、风险或授权的问题；信息足够即停止，关键歧义无法消除则标记 `Blocked`。
+- Codex 自动选择并说明理由：直接执行仅用于明确、局部、可逆、低风险、不改变业务行为且容易验证的工作；局部行为修改在足够时使用 Matt Skills；跨模块、未知根因、高风险或验证链较长时使用 Superpowers。
+- 允许按证据 `直接执行 → Matt Skills → Superpowers` 升级；连续验证失败时必须说明证据并升级到 Superpowers；已有明确授权的高风险事项使用 Superpowers，缺少授权或未解决歧义时进入 `Blocked`。
+- 质量门禁包括根因、测试和新鲜验证，不因所选 Skill 降低；范围实质变化时重新盘问。
+- Matt Skills 缺失时不自动安装；使用等价 Codex 原生步骤，无法满足门禁时升级到 Superpowers。
+- worktree 操作继续使用 `using-git-worktrees`；本仓库实质工程任务继续使用 `codex-engineering-workflow` 统一路由。
+<!-- adaptive-routing-contract:end -->
 - 任何 Git 写操作前必须输出并核对绝对工作区路径、当前分支、HEAD 和 `git status`；不得从
   上一回合或相邻 worktree 推断目标。
 
@@ -73,7 +74,6 @@
 - 所有 AI、自动化和实现任务必须先阅读并遵循 `docs/decisions/0028-decree-evidence-flow-governance-baseline.md`。
 - 未经当前用户明确授权，不得修改、绕过或以旧 `dev` 代码替代该基线；harness 会校验其完整性。
 
-前后端 setup、lint、typecheck、test、build/run 命令见 `frontend/AGENTS.md`、
-`backend/AGENTS.md`；CI（`.github/workflows/harness.yml`）已新增对应的
+前后端 setup、lint、typecheck、test、build/run 命令见 `frontend/AGENTS.md`、`backend/AGENTS.md`；CI（`.github/workflows/harness.yml`）已新增对应的
 `backend`、`frontend`、`integration` job 执行同一批真实命令。再次改变技术栈或
 命令时必须在同一变更中同步更新对应文档与 CI，禁止复制不存在的命令。

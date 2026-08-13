@@ -17,6 +17,10 @@ const REQUIRED_FILES = [
   "docs/README.md",
   "docs/agentic-engineering.md",
   "docs/codex-engineering-workflow.md",
+  "docs/decisions/0043-adaptive-skill-routing.md",
+  "docs/superpowers/specs/2026-08-13-adaptive-skill-routing-design.md",
+  "docs/superpowers/plans/2026-08-13-adaptive-skill-routing.md",
+  "docs/failures/2026-08-13-adaptive-routing-validator-false-green.md",
   "docs/product-collaboration.md",
   "docs/product/tasks/TEMPLATE.md",
   "docs/tooling-compatibility.md",
@@ -424,6 +428,191 @@ export function codexWorkflowPolicyErrors({
   }
   if (ciDependsOnPersonalSkills) {
     errors.push("CI 不得安装或依赖个人环境中的 gstack/Superpowers skill");
+  }
+  return errors;
+}
+
+const ADAPTIVE_ROUTING_START = "<!-- adaptive-routing-contract:start -->";
+const ADAPTIVE_ROUTING_END = "<!-- adaptive-routing-contract:end -->";
+const normalizeAdaptiveRoutingBody = (value) => value
+  .replace(/\r\n?/gu, "\n");
+
+const ADAPTIVE_ROUTING_WHOLE_ENTRY_SHA256 = {
+  agents: "d2b08a22d00e191120bfb2e99a3ece6f1523ee417af9ed8764e930484b6b6e9b",
+  guide: "c9dc6bec7917b4ae1441fa2df9c2b36cbc105d6946102c40d34add2c3194fa18",
+  skill: "3a40fd5cfc75f4643b39f57e6471a79b9019a6418e4faf048ee4842a8ad17a06",
+  prompt: "fe285fa01758c6f005cce119c6e63eb389f0f9f84a02cc33fee353cfde0d79bd",
+  plan: "bdec95ecc1cf03d14660581123b2c19b7f5995695f792bd5e79a8b5b3b9eb3d4",
+};
+
+const ADAPTIVE_ROUTING_CANONICAL_BODIES = {
+  agents: normalizeAdaptiveRoutingBody(`
+- 先盘问：优先检查现有证据，只询问会实质改变目标、范围、验收、风险或授权的问题；信息足够即停止，关键歧义无法消除则标记 \`Blocked\`。
+- Codex 自动选择并说明理由：直接执行仅用于明确、局部、可逆、低风险、不改变业务行为且容易验证的工作；局部行为修改在足够时使用 Matt Skills；跨模块、未知根因、高风险或验证链较长时使用 Superpowers。
+- 允许按证据 \`直接执行 → Matt Skills → Superpowers\` 升级；连续验证失败时必须说明证据并升级到 Superpowers；已有明确授权的高风险事项使用 Superpowers，缺少授权或未解决歧义时进入 \`Blocked\`。
+- 质量门禁包括根因、测试和新鲜验证，不因所选 Skill 降低；范围实质变化时重新盘问。
+- Matt Skills 缺失时不自动安装；使用等价 Codex 原生步骤，无法满足门禁时升级到 Superpowers。
+- worktree 操作继续使用 \`using-git-worktrees\`；本仓库实质工程任务继续使用 \`codex-engineering-workflow\` 统一路由。
+`),
+  guide: normalizeAdaptiveRoutingBody(`
+所有实质任务先进入盘问与退出条件，再由 Codex 自动分流。\`using-superpowers\` 是元级 preflight，不等于已经启用完整 Superpowers 工作流。
+
+| 路线 | 典型条件 | 执行要求 |
+| --- | --- | --- |
+| 直接执行 | 目标明确、局部、可逆、低风险、不改变业务行为且容易验证 | 执行最小相关检查并报告证据 |
+| Matt Skills | 局部功能或缺陷，存在受控不确定性，需要针对性澄清、实现或审查 | 只加载直接有用的 Matt Skills，同时满足仓库质量门禁 |
+| Superpowers | 跨模块、架构或契约变化、未知根因、难回滚、高风险或验证链较长 | 使用适用的规划、调试、TDD、审查和完成验证流程 |
+
+## 盘问与退出条件
+
+Codex 先检查代码、文档、命令与当前证据，不要求用户复述可发现事实。只询问会实质改变目标、范围、验收、风险或授权的问题；信息足够即停止。关键歧义无法消除时标记 \`Blocked\`，不猜测业务决定。
+
+## 自动分流
+
+任务画像由需求明确度、影响范围、可逆性、失败后果、根因或实现路径确定性、验证难度组成。Codex 自动选择最小够用路线，并在实现前说明 \`Task profile\`、\`Selected route\`、\`Reason\`、\`Quality gates\` 与 \`Escalation\`。
+
+质量门禁与 Skill 品牌解耦：Bug 必须有可复现证据和根因，行为修改在可行时必须有测试保护，完成声明必须有最终改动后的新鲜验证。
+
+## 升级与阻塞
+
+执行可按 \`直接执行 → Matt Skills → Superpowers\` 升级。范围扩大、根因不明、风险上升或连续验证失败时必须说明证据并升级到 Superpowers；范围实质变化时重新盘问。安全、权限、支付、隐私、数据迁移、生产配置、不可逆操作和架构边界变化是硬升级事项：已有明确授权的高风险事项进入 Superpowers；缺少授权或未解决歧义时进入 \`Blocked\`。
+
+Matt Skills 缺失时不自动安装；优先使用等价 Codex 原生步骤，仍无法满足质量门禁时升级。升级复用仍有效的证据与工作，不机械重复已完成步骤。
+`),
+  skill: normalizeAdaptiveRoutingBody(`
+## 先盘问并自动分流
+
+先检查仓库事实，只询问会改变目标、范围、验收、风险或授权的问题。信息足够立即停止盘问；关键歧义无法消除时返回 \`Blocked\`。
+
+按需求明确度、影响范围、可逆性、失败后果、路径确定性和验证难度自动选择：
+
+| 路线 | 条件 |
+| --- | --- |
+| 直接执行 | 明确、局部、可逆、低风险、不改变业务行为且容易验证 |
+| Matt Skills | 局部行为修改且风险可控，但需要针对性澄清、实现或审查 |
+| Superpowers | 跨模块、架构/契约变化、未知根因、难回滚、高风险或验证链较长 |
+
+开始实现前输出：
+
+\`\`\`text
+Task profile: summarize the current clarity, scope, reversibility, impact, path certainty, and verification difficulty
+Selected route: state exactly one of direct execution, Matt Skills, or Superpowers
+Reason: explain why the route is the smallest one sufficient for current evidence
+Quality gates: list the applicable root-cause, test, fresh-verification, safety, and authorization outcomes
+Escalation: list the observable evidence that will trigger a heavier route
+\`\`\`
+
+允许按 \`直接执行 → Matt Skills → Superpowers\` 升级，不得静默降低 Quality gates。范围实质变化时重新盘问；连续验证失败时必须说明证据并升级到 Superpowers。已有明确授权的高风险事项使用 Superpowers；缺少授权或未解决业务歧义时进入 \`Blocked\`。Matt Skills 缺失时不自动安装，改用等价 Codex 原生步骤，无法满足门禁时升级到 Superpowers。
+`),
+};
+
+function sealedAdaptiveRoutingBody(content) {
+  const startCount = content.split(ADAPTIVE_ROUTING_START).length - 1;
+  const endCount = content.split(ADAPTIVE_ROUTING_END).length - 1;
+  const start = content.indexOf(ADAPTIVE_ROUTING_START);
+  const end = content.indexOf(ADAPTIVE_ROUTING_END);
+  if (startCount !== 1 || endCount !== 1 || start >= end) return null;
+  return normalizeAdaptiveRoutingBody(content.slice(start + ADAPTIVE_ROUTING_START.length, end));
+}
+
+function adaptiveRoutingEntryHash(content) {
+  return createHash("sha256").update(normalizeAdaptiveRoutingBody(content)).digest("hex");
+}
+
+function adaptivePlanStructure(plan) {
+  const normalized = normalizeAdaptiveRoutingBody(plan);
+  const taskHeadings = { 2: [], 3: [] };
+  const steps = { 1: [], 2: [], 3: [], 4: [] };
+  let fence = null;
+  let inHtmlComment = false;
+  let offset = 0;
+  for (const rawLine of normalized.split("\n")) {
+    if (fence) {
+      const close = rawLine.match(/^ {0,3}(`{3,}|~{3,})[ \t]*$/u);
+      if (close && close[1][0] === fence.character && close[1].length >= fence.length) fence = null;
+      offset += rawLine.length + 1;
+      continue;
+    }
+    let line = "";
+    let cursor = 0;
+    while (cursor <= rawLine.length) {
+      if (inHtmlComment) {
+        const commentEnd = rawLine.indexOf("-->", cursor);
+        if (commentEnd < 0) break;
+        inHtmlComment = false;
+        cursor = commentEnd + 3;
+        continue;
+      }
+      const commentStart = rawLine.indexOf("<!--", cursor);
+      if (commentStart < 0) {
+        line += rawLine.slice(cursor);
+        break;
+      }
+      line += rawLine.slice(cursor, commentStart);
+      inHtmlComment = true;
+      cursor = commentStart + 4;
+    }
+    const open = line.match(/^ {0,3}(`{3,})([^`]*)$/u)
+      || line.match(/^ {0,3}(~{3,})(.*)$/u);
+    if (open) {
+      fence = { character: open[1][0], length: open[1].length };
+      offset += rawLine.length + 1;
+      continue;
+    }
+    const heading = line.match(/^ {0,3}### Task ([23]):(?: .*)?$/u);
+    if (heading) taskHeadings[Number(heading[1])].push(offset);
+    const step = line.match(/^ {0,3}- \[ \] \*\*Step ([1-4]):.*\*\*[ \t]*$/u);
+    if (step) steps[Number(step[1])].push(offset);
+    offset += rawLine.length + 1;
+  }
+  return { normalized, taskHeadings, steps };
+}
+
+function planContainsCanonicalAdaptiveTemplate(plan, entry, path) {
+  const { normalized, taskHeadings, steps } = adaptivePlanStructure(plan);
+  if (taskHeadings[2].length !== 1 || taskHeadings[3].length !== 1) return false;
+  const task2Start = taskHeadings[2][0];
+  const task3Start = taskHeadings[3][0];
+  if (task2Start >= task3Start) return false;
+  const task2Steps = {};
+  for (const number of [1, 2, 3, 4]) {
+    task2Steps[number] = steps[number].filter((offset) => offset > task2Start && offset < task3Start);
+    if (task2Steps[number].length !== 1) return false;
+  }
+  const orderedStepOffsets = [1, 2, 3, 4].map((number) => task2Steps[number][0]);
+  if (!orderedStepOffsets.every((offset, index) => index === 0 || orderedStepOffsets[index - 1] < offset)) return false;
+  const stepNumber = { agents: 1, guide: 2, skill: 3 }[entry];
+  const stepStart = task2Steps[stepNumber][0];
+  const nextStepStart = task2Steps[stepNumber + 1][0];
+  const step = normalized.slice(stepStart, nextStepStart);
+  const block = `${ADAPTIVE_ROUTING_START}${ADAPTIVE_ROUTING_CANONICAL_BODIES[entry]}${ADAPTIVE_ROUTING_END}`;
+  const blockIndex = step.indexOf(block);
+  return blockIndex >= 0
+    && normalized.split(block).length - 1 === 1
+    && step.slice(0, blockIndex).includes(path);
+}
+
+export function adaptiveRoutingPolicyErrors({ agents = "", guide = "", skill = "", prompt = "", plan = "" } = {}) {
+  const errors = [];
+  const planHashMatches = adaptiveRoutingEntryHash(plan) === ADAPTIVE_ROUTING_WHOLE_ENTRY_SHA256.plan;
+  for (const [entry, path] of [
+    ["agents", "AGENTS.md"],
+    ["guide", "docs/codex-engineering-workflow.md"],
+    ["skill", ".agents/skills/codex-engineering-workflow/SKILL.md"],
+  ]) {
+    const content = { agents, guide, skill }[entry];
+    const body = sealedAdaptiveRoutingBody(content);
+    if (
+      adaptiveRoutingEntryHash(content) !== ADAPTIVE_ROUTING_WHOLE_ENTRY_SHA256[entry]
+      || body !== ADAPTIVE_ROUTING_CANONICAL_BODIES[entry]
+      || !planHashMatches
+      || !planContainsCanonicalAdaptiveTemplate(plan, entry, path)
+    ) {
+      errors.push(`${path} 的整文件 canonical hash、sentinel 正文或 Task 2 计划模板不同步`);
+    }
+  }
+  if (adaptiveRoutingEntryHash(prompt) !== ADAPTIVE_ROUTING_WHOLE_ENTRY_SHA256.prompt) {
+    errors.push(".agents/skills/codex-engineering-workflow/agents/openai.yaml 整文件 canonical hash 漂移");
   }
   return errors;
 }
@@ -885,18 +1074,30 @@ export function validateHarness(root) {
     ciDependsOnPersonalSkills,
   }));
 
+  const codexWorkflowGuidePath = join(root, "docs", "codex-engineering-workflow.md");
   const codexWorkflowSkillPath = join(root, ".agents", "skills", "codex-engineering-workflow", "SKILL.md");
+  const codexWorkflowPromptPath = join(root, ".agents", "skills", "codex-engineering-workflow", "agents", "openai.yaml");
+  const adaptiveRoutingPlanPath = join(root, "docs", "superpowers", "plans", "2026-08-13-adaptive-skill-routing.md");
+  const agentsPath = join(root, "AGENTS.md");
+  errors.push(...adaptiveRoutingPolicyErrors({
+    agents: existsSync(agentsPath) ? readFileSync(agentsPath, "utf8") : "",
+    guide: existsSync(codexWorkflowGuidePath) ? readFileSync(codexWorkflowGuidePath, "utf8") : "",
+    skill: existsSync(codexWorkflowSkillPath) ? readFileSync(codexWorkflowSkillPath, "utf8") : "",
+    prompt: existsSync(codexWorkflowPromptPath) ? readFileSync(codexWorkflowPromptPath, "utf8") : "",
+    plan: existsSync(adaptiveRoutingPlanPath) ? readFileSync(adaptiveRoutingPlanPath, "utf8") : "",
+  }));
+
   if (existsSync(codexWorkflowSkillPath)) {
     requireText(
       ".agents/skills/codex-engineering-workflow/SKILL.md",
       readFileSync(codexWorkflowSkillPath, "utf8"),
       [
         "name: codex-engineering-workflow",
-        "brainstorming",
-        "systematic-debugging",
+        "Selected route",
+        "Quality gates",
+        "Escalation",
+        "Blocked",
         "verification-before-completion",
-        "gstack-qa-only",
-        "gstack-review",
         "gstack-claude",
         "run-claude-delivery.mjs",
         "solution-architect",
@@ -1027,7 +1228,6 @@ export function validateHarness(root) {
     errors.push(...codexAgentErrors(relativePath, readFileSync(absolutePath, "utf8"), expected));
   }
 
-  const agentsPath = join(root, "AGENTS.md");
   if (existsSync(agentsPath)) {
     const content = readFileSync(agentsPath, "utf8");
     const lines = content.split(/\r?\n/).length;
@@ -1043,6 +1243,10 @@ export function validateHarness(root) {
       "node scripts/check_harness.mjs",
       "node .agents/hooks/check-harness.mjs --self-test",
       "事实冲突",
+      "先盘问",
+      "Codex 自动选择并说明理由",
+      "直接执行 → Matt Skills → Superpowers",
+      "质量门禁",
       "Codex 客户端中，默认担任产品经理",
       "Claude Code 主会话默认担任程序团队负责人",
       "$product-flow",
@@ -1118,11 +1322,14 @@ export function validateHarness(root) {
     ], errors);
   }
 
-  const codexWorkflowGuidePath = join(root, "docs", "codex-engineering-workflow.md");
   if (existsSync(codexWorkflowGuidePath)) {
     requireText("docs/codex-engineering-workflow.md", readFileSync(codexWorkflowGuidePath, "utf8"), [
       "规则优先级",
       "场景矩阵",
+      "盘问与退出条件",
+      "自动分流",
+      "升级与阻塞",
+      "不自动安装",
       "Codex-only 模式",
       "gstack-ship",
       "gstack-land-and-deploy",
@@ -1380,7 +1587,180 @@ def render_mainland_last_price(pack):
       "backend/app/agents/market_fact_plan.py": validMarketPlan,
     },
   };
+  const validAdaptiveRouting = {
+    agents: `## 强制 Skill Preflight
+
+<!-- adaptive-routing-contract:start -->
+- 先盘问：信息足够即停止；未解决歧义进入 \`Blocked\`。
+- Codex 自动选择并说明理由：选择直接执行、Matt Skills 或 Superpowers；跨模块、未知根因、高风险或验证链较长时使用 Superpowers。
+- 直接执行仅用于不改变业务行为的低风险工作；局部行为修改在足够时使用 Matt Skills。
+- 允许按 \`直接执行 → Matt Skills → Superpowers\` 升级；连续验证失败时说明证据并升级到 Superpowers。
+- 已有明确授权的高风险事项使用 Superpowers；缺少授权时进入 \`Blocked\`。
+- 质量门禁包括根因、测试和新鲜验证，不因路线降低。
+- Matt Skills 缺失时不自动安装；使用等价 Codex 原生步骤，仍不足时升级到 Superpowers。
+<!-- adaptive-routing-contract:end -->`,
+    guide: `## 场景矩阵
+
+<!-- adaptive-routing-contract:start -->
+
+| 路线 | 典型条件 |
+| --- | --- |
+| 直接执行 | 明确、局部、可逆、低风险、不改变业务行为且容易验证 |
+| Matt Skills | 局部功能或缺陷，存在受控不确定性 |
+| Superpowers | 跨模块、未知根因、难回滚、高风险或验证链较长 |
+
+## 盘问与退出条件
+
+关键歧义无法消除时标记 \`Blocked\`。
+
+## 自动分流
+
+任务画像决定路线。输出 Selected route、Quality gates 与 Escalation。质量门禁包括根因、测试和新鲜验证。
+
+## 升级与阻塞
+
+连续验证失败时必须说明证据并升级到 Superpowers。已有明确授权的高风险事项进入 Superpowers；缺少授权或未解决歧义时进入 \`Blocked\`。Matt Skills 缺失时不自动安装，使用等价 Codex 原生步骤，仍不足时升级。
+
+## 外部动作与安全门禁
+
+生产写入必须获得当前任务的单独明确授权。
+<!-- adaptive-routing-contract:end -->`,
+    skill: `<!-- adaptive-routing-contract:start -->
+## 先盘问并自动分流
+
+先盘问；关键歧义无法消除时返回 \`Blocked\`。
+
+| 路线 | 条件 |
+| --- | --- |
+| 直接执行 | 明确、局部、可逆、低风险、不改变业务行为且容易验证 |
+| Matt Skills | 局部行为修改且风险可控，需要针对性实现或审查 |
+| Superpowers | 跨模块、未知根因、难回滚、高风险或验证链较长 |
+
+Selected route: choose one route
+Quality gates: root-cause, test, and fresh-verification outcomes
+Escalation: name observable evidence
+
+连续验证失败时说明证据并升级到 Superpowers。已有明确授权的高风险事项使用 Superpowers；缺少授权或未解决歧义时进入 \`Blocked\`。Matt Skills 缺失时不自动安装，改用等价 Codex 原生步骤，仍不足时升级到 Superpowers。
+<!-- adaptive-routing-contract:end -->`,
+    prompt: `default_prompt: "clarify first, choose direct execution, Matt Skills, or Superpowers, explain the smallest sufficient route, and escalate when evidence raises scope, uncertainty, or risk while preserving fresh verification."`,
+  };
+  // Self-tests consume the same sealed bodies as production validation so the
+  // fixture cannot silently drift into a weaker, test-only policy dialect.
+  validAdaptiveRouting.agents = `## 强制 Skill Preflight\n\n${ADAPTIVE_ROUTING_START}\n${ADAPTIVE_ROUTING_CANONICAL_BODIES.agents}\n${ADAPTIVE_ROUTING_END}`;
+  validAdaptiveRouting.guide = `## 场景矩阵\n\n${ADAPTIVE_ROUTING_START}\n${ADAPTIVE_ROUTING_CANONICAL_BODIES.guide}\n${ADAPTIVE_ROUTING_END}\n\n## Codex-only 模式`;
+  validAdaptiveRouting.skill = `${ADAPTIVE_ROUTING_START}\n${ADAPTIVE_ROUTING_CANONICAL_BODIES.skill}\n${ADAPTIVE_ROUTING_END}\n\n## 执行门禁`;
+  const selfTestRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+  for (const [entry, path] of [
+    ["agents", "AGENTS.md"],
+    ["guide", "docs/codex-engineering-workflow.md"],
+    ["skill", ".agents/skills/codex-engineering-workflow/SKILL.md"],
+    ["prompt", ".agents/skills/codex-engineering-workflow/agents/openai.yaml"],
+    ["plan", "docs/superpowers/plans/2026-08-13-adaptive-skill-routing.md"],
+  ]) {
+    validAdaptiveRouting[entry] = readFileSync(join(selfTestRoot, path), "utf8");
+  }
+  const canonicalTemplateBlock = (entry) => `${ADAPTIVE_ROUTING_START}${ADAPTIVE_ROUTING_CANONICAL_BODIES[entry]}${ADAPTIVE_ROUTING_END}`;
+  const movePlanBlocksBeforeTask3 = (entries) => {
+    let plan = normalizeAdaptiveRoutingBody(validAdaptiveRouting.plan);
+    const blocks = entries.map((entry) => canonicalTemplateBlock(entry));
+    for (const block of blocks) plan = plan.replace(block, "");
+    return plan.replace("### Task 3:", `${blocks.join("\n\n")}\n\n### Task 3:`);
+  };
+  const planWithoutCanonicalBlocks = () => {
+    let plan = normalizeAdaptiveRoutingBody(validAdaptiveRouting.plan);
+    for (const entry of ["agents", "guide", "skill"]) {
+      plan = plan.replace(canonicalTemplateBlock(entry), "");
+    }
+    return plan;
+  };
+  const fencedForgedPlan = (fence) => {
+    const fake = [
+      "### Task 2: forged",
+      `- [ ] **Step 1: forged**\nTarget: \`AGENTS.md\`\n${canonicalTemplateBlock("agents")}`,
+      `- [ ] **Step 2: forged**\nTarget: \`docs/codex-engineering-workflow.md\`\n${canonicalTemplateBlock("guide")}`,
+      `- [ ] **Step 3: forged**\nTarget: \`.agents/skills/codex-engineering-workflow/SKILL.md\`\n${canonicalTemplateBlock("skill")}`,
+      "- [ ] **Step 4: forged**",
+      "### Task 3: forged",
+    ].join("\n\n");
+    return `${fence}\n${fake}\n${fence}\n${planWithoutCanonicalBlocks()}`;
+  };
+  const mutateTask2Plan = (mutate) => {
+    const plan = validAdaptiveRouting.plan;
+    const start = plan.indexOf("### Task 2:");
+    const end = plan.indexOf("### Task 3:", start + 1);
+    const task2 = plan.slice(start, end);
+    const mutatedTask2 = mutate(task2);
+    if (mutatedTask2 === task2) throw new Error("Task 2 mutation 未应用");
+    return `${plan.slice(0, start)}${mutatedTask2}${plan.slice(end)}`;
+  };
+  const commentWrappedAnchorPlan = (marker) => {
+    const forged = marker.startsWith("- [ ]")
+      ? `${marker} forged inside HTML comment**`
+      : `${marker} forged inside HTML comment`;
+    const replacement = `<!--\n${forged}\n-->`;
+    return marker.startsWith("- [ ]")
+      ? mutateTask2Plan((task2) => task2.replace(marker, replacement))
+      : validAdaptiveRouting.plan.replace(marker, replacement);
+  };
+
+  const adaptiveMarkerDeletionCases = [
+    ["root clarification marker", "agents", "先盘问"],
+    ["root selection marker", "agents", "Codex 自动选择并说明理由"],
+    ["root progression marker", "agents", "直接执行 → Matt Skills → Superpowers"],
+    ["root quality marker", "agents", "质量门禁"],
+    ["root direct-route condition", "agents", "不改变业务行为"],
+    ["root Matt-route condition", "agents", "局部行为修改"],
+    ["root Superpowers-route condition", "agents", "跨模块、未知根因、高风险或验证链较长时使用 Superpowers"],
+    ["root authority branch", "agents", "已有明确授权的高风险事项使用 Superpowers"],
+    ["root missing-authority branch", "agents", "缺少授权时进入 `Blocked`"],
+    ["root repeated-failure escalation", "agents", "连续验证失败时说明证据并升级到 Superpowers"],
+    ["root quality outcomes", "agents", "根因、测试和新鲜验证"],
+    ["root Matt fallback", "agents", "Matt Skills 缺失时不自动安装"],
+    ["guide route section", "guide", "## 场景矩阵"],
+    ["guide clarification section", "guide", "## 盘问与退出条件"],
+    ["guide routing section", "guide", "## 自动分流"],
+    ["guide escalation section", "guide", "## 升级与阻塞"],
+    ["guide direct-route condition", "guide", "不改变业务行为且容易验证"],
+    ["guide Matt-route condition", "guide", "局部功能或缺陷，存在受控不确定性"],
+    ["guide Superpowers-route condition", "guide", "跨模块、未知根因、难回滚、高风险或验证链较长"],
+    ["guide quality outcomes", "guide", "根因、测试和新鲜验证"],
+    ["guide repeated-failure escalation", "guide", "连续验证失败时必须说明证据并升级到 Superpowers"],
+    ["guide authority branch", "guide", "已有明确授权的高风险事项进入 Superpowers"],
+    ["guide missing-authority branch", "guide", "缺少授权或未解决歧义时进入 `Blocked`"],
+    ["guide Matt fallback", "guide", "Matt Skills 缺失时不自动安装"],
+    ["skill routing section", "skill", "## 先盘问并自动分流"],
+    ["skill selected-route marker", "skill", "Selected route"],
+    ["skill quality-gates marker", "skill", "Quality gates"],
+    ["skill escalation marker", "skill", "Escalation"],
+    ["skill direct-route condition", "skill", "不改变业务行为且容易验证"],
+    ["skill Matt-route condition", "skill", "局部行为修改且风险可控"],
+    ["skill Superpowers-route condition", "skill", "跨模块、未知根因、难回滚、高风险或验证链较长"],
+    ["skill authority branch", "skill", "已有明确授权的高风险事项使用 Superpowers"],
+    ["skill missing-authority branch", "skill", "缺少授权或未解决歧义时进入 `Blocked`"],
+    ["skill repeated-failure escalation", "skill", "连续验证失败时说明证据并升级到 Superpowers"],
+    ["skill quality outcomes", "skill", "root-cause, test, and fresh-verification outcomes"],
+    ["skill Matt fallback", "skill", "Matt Skills 缺失时不自动安装"],
+    ["prompt clarification marker", "prompt", "clarify first"],
+    ["prompt direct-route marker", "prompt", "direct execution"],
+    ["prompt Matt marker", "prompt", "Matt Skills"],
+    ["prompt Superpowers marker", "prompt", "Superpowers"],
+    ["prompt explanation marker", "prompt", "explain"],
+    ["prompt escalation marker", "prompt", "escalate"],
+  ];
+  const mutateAdaptiveEntry = (entry, target, replacement) => {
+    const content = validAdaptiveRouting[entry];
+    const mutated = content.includes(target)
+      ? content.replaceAll(target, replacement)
+      : content.replace(ADAPTIVE_ROUTING_END, `${replacement}\n${ADAPTIVE_ROUTING_END}`);
+    if (mutated === content) throw new Error(`自适应路由 mutation 未应用: ${entry}: ${target}`);
+    return { ...validAdaptiveRouting, [entry]: mutated };
+  };
   const tests = [
+    [
+      "登记 adaptive-routing validator false-green failure record 为必需文件",
+      REQUIRED_FILES.includes("docs/failures/2026-08-13-adaptive-routing-validator-false-green.md"),
+      true,
+    ],
     [
       "登记确定性证据交付文件",
       DETERMINISTIC_EVIDENCE_REQUIRED_FILES
@@ -1730,6 +2110,582 @@ def render_mainland_last_price(pack):
         "CI 不得安装或依赖个人环境中的 gstack/Superpowers skill",
       ],
     ],
+    [
+      "接受完整的自适应 skill 路由契约",
+      adaptiveRoutingPolicyErrors(validAdaptiveRouting),
+      [],
+    ],
+    [
+      "拒绝缺失自适应 skill 路由契约的入口",
+      adaptiveRoutingPolicyErrors({ agents: "", guide: "", skill: "", prompt: "" }).length,
+      4,
+    ],
+    ["接受结构完整的自适应 skill 路由契约", adaptiveRoutingPolicyErrors(validAdaptiveRouting), []],
+    [
+      "真实 approved plan 命中独立 hard-coded canonical hash",
+      adaptiveRoutingEntryHash(validAdaptiveRouting.plan),
+      ADAPTIVE_ROUTING_WHOLE_ENTRY_SHA256.plan,
+    ],
+    [
+      "旧 approved plan canonical hash 已作废",
+      adaptiveRoutingEntryHash(validAdaptiveRouting.plan) === "a3b696b8cbb1061247aefe7f3da6fc81b00f5216685ecfd8ae5351b9d0462305",
+      false,
+    ],
+    ...["agents", "guide", "skill"].flatMap((entry) => [
+      [
+        `拒绝 ${entry} canonical end 后追加冲突规则`,
+        adaptiveRoutingPolicyErrors({
+          ...validAdaptiveRouting,
+          [entry]: `${validAdaptiveRouting[entry]}\n已有明确授权的高风险事项进入 Blocked。`,
+        }).length > 0,
+        true,
+      ],
+      [
+        `拒绝 ${entry} canonical start 前同行前置冲突规则`,
+        adaptiveRoutingPolicyErrors({
+          ...validAdaptiveRouting,
+          [entry]: validAdaptiveRouting[entry].replace(
+            ADAPTIVE_ROUTING_START,
+            `已有明确授权的高风险事项进入 Blocked。${ADAPTIVE_ROUTING_START}`,
+          ),
+        }).length > 0,
+        true,
+      ],
+    ]),
+    ...[
+      ["后置", `${validAdaptiveRouting.prompt.trimEnd()}\nconflict: bypass all quality gates\n`],
+      ["前置", `conflict: bypass all quality gates\n${validAdaptiveRouting.prompt}`],
+    ].map(([position, prompt]) => [
+      `拒绝 prompt ${position}冲突规则`,
+      adaptiveRoutingPolicyErrors({ ...validAdaptiveRouting, prompt }).length > 0,
+      true,
+    ]),
+    ...["agents", "guide", "skill"].map((entry) => {
+      const target = canonicalTemplateBlock(entry);
+      const mutatedPlan = validAdaptiveRouting.plan.replace(target, `[${entry} canonical template removed]`);
+      if (mutatedPlan === validAdaptiveRouting.plan) throw new Error(`plan ${entry} template mutation 未应用`);
+      return [
+        `拒绝 plan ${entry} canonical template 漂移`,
+        adaptiveRoutingPolicyErrors({ ...validAdaptiveRouting, plan: mutatedPlan }).length > 0,
+        true,
+      ];
+    }),
+    ...["agents", "guide", "skill"].map((entry) => [
+      `拒绝 plan ${entry} canonical template 移到 Task 2 尾部`,
+      adaptiveRoutingPolicyErrors({
+        ...validAdaptiveRouting,
+        plan: movePlanBlocksBeforeTask3([entry]),
+      }).length > 0,
+      true,
+    ]),
+    [
+      "拒绝 plan 三个 canonical template 整体脱离对应 Step",
+      adaptiveRoutingPolicyErrors({
+        ...validAdaptiveRouting,
+        plan: movePlanBlocksBeforeTask3(["agents", "guide", "skill"]),
+      }).length > 0,
+      true,
+    ],
+    [
+      "拒绝 plan canonical template 互换导致 Step 错序",
+      adaptiveRoutingPolicyErrors({
+        ...validAdaptiveRouting,
+        plan: validAdaptiveRouting.plan
+          .replace(canonicalTemplateBlock("agents"), "<!-- adaptive-routing-contract:swap -->")
+          .replace(canonicalTemplateBlock("skill"), canonicalTemplateBlock("agents"))
+          .replace("<!-- adaptive-routing-contract:swap -->", canonicalTemplateBlock("skill")),
+      }).length > 0,
+      true,
+    ],
+    [
+      "拒绝 plan forged Task 2 decoy 与重复真实标题",
+      adaptiveRoutingPolicyErrors({
+        ...validAdaptiveRouting,
+        plan: validAdaptiveRouting.plan.replace(
+          "### Task 2:",
+          "### Task 2: forged decoy\n\n### Task 2:",
+        ),
+      }).length > 0,
+      true,
+    ],
+    ...[1, 2, 3, 4].map((step) => [
+      `拒绝 plan 重复 Step ${step}`,
+      adaptiveRoutingPolicyErrors({
+        ...validAdaptiveRouting,
+        plan: mutateTask2Plan((task2) => task2.replace(
+          `- [ ] **Step ${step}:`,
+          `- [ ] **Step ${step}: duplicate**\n\n- [ ] **Step ${step}:`,
+        )),
+      }).length > 0,
+      true,
+    ]),
+    [
+      "拒绝 plan 重复 Task 3",
+      adaptiveRoutingPolicyErrors({
+        ...validAdaptiveRouting,
+        plan: `${validAdaptiveRouting.plan}\n### Task 3: duplicate\n`,
+      }).length > 0,
+      true,
+    ],
+    ...["```", "````", "~~~"].map((fence) => [
+      `拒绝 ${fence.length} 字符 ${fence[0]} fence 内伪造完整 Task 2 结构`,
+      adaptiveRoutingPolicyErrors({
+        ...validAdaptiveRouting,
+        plan: fencedForgedPlan(fence),
+      }).length > 0,
+      true,
+    ]),
+    [
+      "拒绝 plan Task 2 与 Task 3 标题错序",
+      adaptiveRoutingPolicyErrors({
+        ...validAdaptiveRouting,
+        plan: validAdaptiveRouting.plan
+          .replace("### Task 2:", "### Task swap:")
+          .replace("### Task 3:", "### Task 2:")
+          .replace("### Task swap:", "### Task 3:"),
+      }).length > 0,
+      true,
+    ],
+    ...["- [ ] **Step 1:", "- [ ] **Step 2:", "- [ ] **Step 3:", "- [ ] **Step 4:"].map((marker) => [
+      `拒绝 plan 缺失结构锚点 ${marker}`,
+      adaptiveRoutingPolicyErrors({
+        ...validAdaptiveRouting,
+        plan: mutateTask2Plan((task2) => task2.replace(marker, "[removed structure anchor]")),
+      }).length > 0,
+      true,
+    ]),
+    ...["### Task 2:", "### Task 3:"].map((marker) => [
+      `拒绝 plan 缺失结构锚点 ${marker}`,
+      adaptiveRoutingPolicyErrors({
+        ...validAdaptiveRouting,
+        plan: validAdaptiveRouting.plan.replace(marker, "[removed structure anchor]"),
+      }).length > 0,
+      true,
+    ]),
+    ...["### Task 2:", "### Task 3:", "- [ ] **Step 1:", "- [ ] **Step 2:", "- [ ] **Step 3:", "- [ ] **Step 4:"].map((marker) => [
+      `拒绝 HTML comment 内伪造结构锚点 ${marker}`,
+      adaptiveRoutingPolicyErrors({
+        ...validAdaptiveRouting,
+        plan: commentWrappedAnchorPlan(marker),
+      }).length > 0,
+      true,
+    ]),
+    [
+      "拒绝 HTML comment 内伪造全部 Task 2 结构锚点",
+      adaptiveRoutingPolicyErrors({
+        ...validAdaptiveRouting,
+        plan: ["### Task 2:", "- [ ] **Step 1:", "- [ ] **Step 2:", "- [ ] **Step 3:", "- [ ] **Step 4:", "### Task 3:"]
+          .reduce((plan, marker) => {
+            const forged = marker.startsWith("- [ ]") ? `${marker} forged**` : `${marker} forged`;
+            return plan.replace(marker, `<!--\n${forged}\n-->`);
+          }, validAdaptiveRouting.plan),
+      }).length > 0,
+      true,
+    ],
+    [
+      "拒绝单行 HTML comment，即使结构诊断忽略其伪锚点",
+      adaptiveRoutingPolicyErrors({
+        ...validAdaptiveRouting,
+        plan: `<!-- ### Task 2: ignored -->\n${validAdaptiveRouting.plan}`,
+      }).length > 0,
+      true,
+    ],
+    [
+      "拒绝同一行 HTML comment 后的 plan 漂移，即使结构诊断识别合法 heading",
+      adaptiveRoutingPolicyErrors({
+        ...validAdaptiveRouting,
+        plan: validAdaptiveRouting.plan.replace("### Task 2:", "<!-- ignored -->### Task 2:"),
+      }).length > 0,
+      true,
+    ],
+    [
+      "拒绝未闭合 HTML comment 吞没真实 plan 结构",
+      adaptiveRoutingPolicyErrors({
+        ...validAdaptiveRouting,
+        plan: validAdaptiveRouting.plan.replace("### Task 2:", "<!--\n### Task 2:"),
+      }).length > 0,
+      true,
+    ],
+    ...[
+      ["Task 2 token 中段", "### Task 2:", "### Ta<!-- -->sk 2:"],
+      ["Task 2 token 边界", "### Task 2:", "### Task<!-- --> 2:"],
+      ...[1, 2, 3, 4].map((step) => [
+        `Step ${step} token 中段`,
+        `- [ ] **Step ${step}:`,
+        `- [ ] **St<!-- -->ep ${step}:`,
+      ]),
+    ].map(([label, marker, replacement]) => [
+      `拒绝 plan HTML comment token-splicing ${label}`,
+      adaptiveRoutingPolicyErrors({
+        ...validAdaptiveRouting,
+        plan: marker.startsWith("- [ ]")
+          ? mutateTask2Plan((task2) => task2.replace(marker, replacement))
+          : validAdaptiveRouting.plan.replace(marker, replacement),
+      }).length > 0,
+      true,
+    ]),
+    [
+      "接受 plan CRLF 与 canonical LF 等价",
+      adaptiveRoutingPolicyErrors({
+        ...validAdaptiveRouting,
+        plan: normalizeAdaptiveRoutingBody(validAdaptiveRouting.plan).replace(/\n/gu, "\r\n"),
+      }),
+      [],
+    ],
+    [
+      "接受 plan bare CR 与 canonical LF 等价",
+      adaptiveRoutingPolicyErrors({
+        ...validAdaptiveRouting,
+        plan: normalizeAdaptiveRoutingBody(validAdaptiveRouting.plan).replace(/\n/gu, "\r"),
+      }),
+      [],
+    ],
+    ...[
+      ["尾随空格", validAdaptiveRouting.plan.replace("# Adaptive Skill Routing", "# Adaptive Skill Routing ")],
+      ["UTF-8 BOM", `\uFEFF${validAdaptiveRouting.plan}`],
+      ["任意注释", `<!-- arbitrary mutation -->\n${validAdaptiveRouting.plan}`],
+    ].map(([label, plan]) => [
+      `拒绝 plan whole-file canonical ${label}`,
+      adaptiveRoutingPolicyErrors({ ...validAdaptiveRouting, plan }).length > 0,
+      true,
+    ]),
+    [
+      "拒绝 canonical entry 尾随双空格",
+      adaptiveRoutingPolicyErrors({
+        ...validAdaptiveRouting,
+        agents: validAdaptiveRouting.agents.replace(
+          "则标记 `Blocked`。\n",
+          "则标记 `Blocked`。  \n",
+        ),
+      }).length > 0,
+      true,
+    ],
+    ...["agents", "guide", "skill"].map((entry) => [
+      `拒绝 ${entry} canonical block 任意保留 marker 追加`,
+      adaptiveRoutingPolicyErrors(
+        mutateAdaptiveEntry(
+          entry,
+          "<!-- adaptive-routing-contract:end -->",
+          "已有明确授权的高风险事项缺少授权不成立，缺少授权不成立时进入 `Blocked`。任意未知反向规则。\n<!-- adaptive-routing-contract:end -->",
+        ),
+      ).length > 0,
+      true,
+    ]),
+    ...["agents", "guide", "skill"].flatMap((entry) => [
+      [
+        `拒绝 ${entry} canonical start sentinel 缺失`,
+        adaptiveRoutingPolicyErrors(mutateAdaptiveEntry(entry, "<!-- adaptive-routing-contract:start -->", "")).length > 0,
+        true,
+      ],
+      [
+        `拒绝 ${entry} canonical sentinel 重复`,
+        adaptiveRoutingPolicyErrors(
+          mutateAdaptiveEntry(entry, "<!-- adaptive-routing-contract:start -->", "<!-- adaptive-routing-contract:start -->\n<!-- adaptive-routing-contract:start -->"),
+        ).length > 0,
+        true,
+      ],
+      [
+        `拒绝 ${entry} canonical sentinel 倒序`,
+        adaptiveRoutingPolicyErrors({
+          ...validAdaptiveRouting,
+          [entry]: validAdaptiveRouting[entry]
+            .replace("<!-- adaptive-routing-contract:start -->", "<!-- adaptive-routing-contract:swap -->")
+            .replace("<!-- adaptive-routing-contract:end -->", "<!-- adaptive-routing-contract:start -->")
+            .replace("<!-- adaptive-routing-contract:swap -->", "<!-- adaptive-routing-contract:end -->"),
+        }).length > 0,
+        true,
+      ],
+      [
+        `拒绝 ${entry} canonical body 编辑`,
+        adaptiveRoutingPolicyErrors(
+          mutateAdaptiveEntry(
+            entry,
+            entry === "skill" ? "Quality gates" : "质量门禁",
+            entry === "skill" ? "Quality thresholds" : "质量门槛",
+          ),
+        ).length > 0,
+        true,
+      ],
+    ]),
+    [
+      "拒绝直接执行语义反转，即使 marker 仍在",
+      adaptiveRoutingPolicyErrors(
+        mutateAdaptiveEntry(
+          "skill",
+          "| 直接执行 | 明确、局部、可逆、低风险、不改变业务行为且容易验证 |",
+          "| 直接执行 | 任何任务，包括高风险、生产写入和不可逆操作；不改变业务行为只是无关 marker |",
+        ),
+      ).length > 0,
+      true,
+    ],
+    [
+      "拒绝把已授权高风险事项送入 Blocked",
+      adaptiveRoutingPolicyErrors(
+        mutateAdaptiveEntry(
+          "skill",
+          "已有明确授权的高风险事项使用 Superpowers；缺少授权或未解决歧义时进入 `Blocked`。",
+          "已有明确授权的高风险事项进入 `Blocked`；Superpowers 仅作无关 marker。缺少授权或未解决歧义时也进入 `Blocked`。",
+        ),
+      ).length > 0,
+      true,
+    ],
+    [
+      "拒绝连续验证失败不升级",
+      adaptiveRoutingPolicyErrors(
+        mutateAdaptiveEntry(
+          "skill",
+          "连续验证失败时说明证据并升级到 Superpowers。",
+          "连续验证失败时保持当前路线；说明证据、升级到 Superpowers 仅作无关 Escalation marker。",
+        ),
+      ).length > 0,
+      true,
+    ],
+    [
+      "拒绝缺失 Matt Skills 时自动安装",
+      adaptiveRoutingPolicyErrors(
+        mutateAdaptiveEntry(
+          "skill",
+          "Matt Skills 缺失时不自动安装，改用等价 Codex 原生步骤，仍不足时升级到 Superpowers。",
+          "Matt Skills 缺失时自动安装；Codex 原生步骤和 Superpowers 仅作无关 marker。",
+        ),
+      ).length > 0,
+      true,
+    ],
+    [
+      "拒绝 skill 保留合法 fallback marker 后追加自动安装反向规则",
+      adaptiveRoutingPolicyErrors(
+        mutateAdaptiveEntry(
+          "skill",
+          "Matt Skills 缺失时不自动安装，改用等价 Codex 原生步骤，仍不足时升级到 Superpowers。",
+          "Matt Skills 缺失时不自动安装，改用等价 Codex 原生步骤，仍不足时升级到 Superpowers。Matt Skills 缺失时自动安装。",
+        ),
+      ).length > 0,
+      true,
+    ],
+    [
+      "拒绝取消品牌无关质量门禁",
+      adaptiveRoutingPolicyErrors(
+        mutateAdaptiveEntry(
+          "skill",
+          "Quality gates: root-cause, test, and fresh-verification outcomes",
+          "Quality gates: selected route may omit root-cause, test, and fresh-verification outcomes",
+        ),
+      ).length > 0,
+      true,
+    ],
+    [
+      "拒绝 guide 把已授权高风险事项送入 Blocked，即使 marker 仍在",
+      adaptiveRoutingPolicyErrors(
+        mutateAdaptiveEntry(
+          "guide",
+          "已有明确授权的高风险事项进入 Superpowers；缺少授权或未解决歧义时进入 `Blocked`。",
+          "已有明确授权的高风险事项进入 `Blocked`；Superpowers 仅作无关 marker。缺少授权或未解决歧义时也进入 `Blocked`。",
+        ),
+      ).length > 0,
+      true,
+    ],
+    [
+      "拒绝 guide 直接执行语义反转，即使 marker 仍在",
+      adaptiveRoutingPolicyErrors(
+        mutateAdaptiveEntry(
+          "guide",
+          "| 直接执行 | 明确、局部、可逆、低风险、不改变业务行为且容易验证 |",
+          "| 直接执行 | 任何任务，包括高风险、生产写入和不可逆操作；不改变业务行为只是 marker |",
+        ),
+      ).length > 0,
+      true,
+    ],
+    [
+      "拒绝 guide 连续验证失败不升级，即使 marker 仍在",
+      adaptiveRoutingPolicyErrors(
+        mutateAdaptiveEntry(
+          "guide",
+          "连续验证失败时必须说明证据并升级到 Superpowers。",
+          "连续验证失败时保持当前路线；说明证据并升级到 Superpowers 只是 marker。",
+        ),
+      ).length > 0,
+      true,
+    ],
+    [
+      "拒绝 guide 缺失 Matt 时自动安装，即使 marker 仍在",
+      adaptiveRoutingPolicyErrors(
+        mutateAdaptiveEntry(
+          "guide",
+          "Matt Skills 缺失时不自动安装，使用等价 Codex 原生步骤，仍不足时升级。",
+          "Matt Skills 缺失时自动安装；不自动安装、Codex 原生步骤和升级只是 marker。",
+        ),
+      ).length > 0,
+      true,
+    ],
+    [
+      "拒绝 guide 取消质量门禁，即使 marker 仍在",
+      adaptiveRoutingPolicyErrors(
+        mutateAdaptiveEntry(
+          "guide",
+          "质量门禁包括根因、测试和新鲜验证。",
+          "所选路线可以省略质量门禁；根因、测试和新鲜验证只是 marker。",
+        ),
+      ).length > 0,
+      true,
+    ],
+    [
+      "拒绝 root 把已授权高风险事项送入 Blocked，即使 marker 仍在",
+      adaptiveRoutingPolicyErrors(
+        mutateAdaptiveEntry(
+          "agents",
+          "已有明确授权的高风险事项使用 Superpowers；缺少授权时进入 `Blocked`。",
+          "已有明确授权的高风险事项进入 `Blocked`；Superpowers 仅作无关 marker。缺少授权时也进入 `Blocked`。",
+        ),
+      ).length > 0,
+      true,
+    ],
+    [
+      "拒绝 root 保留正确授权规则后追加已授权进入 Blocked",
+      adaptiveRoutingPolicyErrors(
+        mutateAdaptiveEntry(
+          "agents",
+          "已有明确授权的高风险事项使用 Superpowers；缺少授权时进入 `Blocked`。",
+          "已有明确授权的高风险事项使用 Superpowers；缺少授权时进入 `Blocked`。已有明确授权的高风险事项进入 `Blocked`。",
+        ),
+      ).length > 0,
+      true,
+    ],
+    [
+      "拒绝 guide 保留正确授权规则后追加已授权进入 Blocked",
+      adaptiveRoutingPolicyErrors(
+        mutateAdaptiveEntry(
+          "guide",
+          "已有明确授权的高风险事项进入 Superpowers；缺少授权或未解决歧义时进入 `Blocked`。",
+          "已有明确授权的高风险事项进入 Superpowers；缺少授权或未解决歧义时进入 `Blocked`。已有明确授权的高风险事项使用 `Blocked`。",
+        ),
+      ).length > 0,
+      true,
+    ],
+    [
+      "拒绝 skill 保留正确授权规则后追加已授权进入 Blocked",
+      adaptiveRoutingPolicyErrors(
+        mutateAdaptiveEntry(
+          "skill",
+          "已有明确授权的高风险事项使用 Superpowers；缺少授权或未解决歧义时进入 `Blocked`。",
+          "已有明确授权的高风险事项使用 Superpowers；缺少授权或未解决歧义时进入 `Blocked`。已有明确授权的高风险事项选择 `Blocked`。",
+        ),
+      ).length > 0,
+      true,
+    ],
+    [
+      "拒绝 root 在 canonical block 追加旁路规则",
+      adaptiveRoutingPolicyErrors(
+        mutateAdaptiveEntry(
+          "agents",
+          "已有明确授权的高风险事项使用 Superpowers；缺少授权时进入 `Blocked`。",
+          "已有明确授权的高风险事项使用 Superpowers；缺少授权时进入 `Blocked`。已有明确授权的高风险事项不得进入 `Blocked`。",
+        ),
+      ).length > 0,
+      true,
+    ],
+    [
+      "拒绝 guide 在 canonical block 追加旁路规则",
+      adaptiveRoutingPolicyErrors(
+        mutateAdaptiveEntry(
+          "guide",
+          "已有明确授权的高风险事项进入 Superpowers；缺少授权或未解决歧义时进入 `Blocked`。",
+          "已有明确授权的高风险事项进入 Superpowers；缺少授权或未解决歧义时进入 `Blocked`。已有明确授权的高风险事项不得进入 `Blocked`。",
+        ),
+      ).length > 0,
+      true,
+    ],
+    [
+      "拒绝 skill 在 canonical block 追加旁路规则",
+      adaptiveRoutingPolicyErrors(
+        mutateAdaptiveEntry(
+          "skill",
+          "已有明确授权的高风险事项使用 Superpowers；缺少授权或未解决歧义时进入 `Blocked`。",
+          "已有明确授权的高风险事项使用 Superpowers；缺少授权或未解决歧义时进入 `Blocked`。已有明确授权的高风险事项不得进入 `Blocked`。",
+        ),
+      ).length > 0,
+      true,
+    ],
+    [
+      "拒绝 root 无关否定后通过逗号进入 Blocked",
+      adaptiveRoutingPolicyErrors(
+        mutateAdaptiveEntry(
+          "agents",
+          "已有明确授权的高风险事项使用 Superpowers；缺少授权时进入 `Blocked`。",
+          "已有明确授权的高风险事项使用 Superpowers；缺少授权时进入 `Blocked`。已有明确授权的高风险事项不得延迟，进入 `Blocked`。",
+        ),
+      ).length > 0,
+      true,
+    ],
+    [
+      "拒绝 guide 无关否定后通过逗号进入 Blocked",
+      adaptiveRoutingPolicyErrors(
+        mutateAdaptiveEntry(
+          "guide",
+          "已有明确授权的高风险事项进入 Superpowers；缺少授权或未解决歧义时进入 `Blocked`。",
+          "已有明确授权的高风险事项进入 Superpowers；缺少授权或未解决歧义时进入 `Blocked`。已有明确授权的高风险事项不得延迟，进入 `Blocked`。",
+        ),
+      ).length > 0,
+      true,
+    ],
+    [
+      "拒绝 skill 无关否定后通过逗号进入 Blocked",
+      adaptiveRoutingPolicyErrors(
+        mutateAdaptiveEntry(
+          "skill",
+          "已有明确授权的高风险事项使用 Superpowers；缺少授权或未解决歧义时进入 `Blocked`。",
+          "已有明确授权的高风险事项使用 Superpowers；缺少授权或未解决歧义时进入 `Blocked`。已有明确授权的高风险事项不得延迟，进入 `Blocked`。",
+        ),
+      ).length > 0,
+      true,
+    ],
+    [
+      "拒绝 root 直接执行语义反转，即使 marker 仍在",
+      adaptiveRoutingPolicyErrors(
+        mutateAdaptiveEntry(
+          "agents",
+          "直接执行仅用于不改变业务行为的低风险工作",
+          "直接执行可用于高风险、生产写入和不可逆操作；不改变业务行为只是 marker",
+        ),
+      ).length > 0,
+      true,
+    ],
+    [
+      "拒绝 root 连续验证失败不升级，即使 marker 仍在",
+      adaptiveRoutingPolicyErrors(
+        mutateAdaptiveEntry(
+          "agents",
+          "连续验证失败时说明证据并升级到 Superpowers",
+          "连续验证失败时保持当前路线；说明证据并升级到 Superpowers 只是 marker",
+        ),
+      ).length > 0,
+      true,
+    ],
+    [
+      "拒绝 root 缺失 Matt 时自动安装，即使 marker 仍在",
+      adaptiveRoutingPolicyErrors(
+        mutateAdaptiveEntry(
+          "agents",
+          "Matt Skills 缺失时不自动安装；使用等价 Codex 原生步骤，仍不足时升级到 Superpowers。",
+          "Matt Skills 缺失时自动安装；不自动安装、Codex 原生步骤和升级到 Superpowers 只是 marker。",
+        ),
+      ).length > 0,
+      true,
+    ],
+    [
+      "拒绝 root 取消质量门禁，即使 marker 仍在",
+      adaptiveRoutingPolicyErrors(
+        mutateAdaptiveEntry(
+          "agents",
+          "质量门禁包括根因、测试和新鲜验证，不因路线降低。",
+          "所选路线可以省略质量门禁；根因、测试和新鲜验证只是 marker。",
+        ),
+      ).length > 0,
+      true,
+    ],
+    ...adaptiveMarkerDeletionCases.filter(([, entry]) => entry === "prompt").map(([label, entry, marker]) => {
+      const mutated = mutateAdaptiveEntry(entry, marker, "");
+      return [`拒绝单独删除 ${label}`, adaptiveRoutingPolicyErrors(mutated).length > 0, true];
+    }),
     [
       "提取 Markdown 章节正文",
       sectionBody("## Status\n\nReady\n\n## Next\n内容\n", "Status"),
