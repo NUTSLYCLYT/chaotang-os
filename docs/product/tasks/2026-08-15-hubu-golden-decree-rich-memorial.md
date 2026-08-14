@@ -57,9 +57,10 @@ Blocked
 
 ## Implementation Report
 
-- 改动摘要：产品实现未开始。预备治理阶段已在隔离分支吸收 `origin/dev` 的自包含主流程验收修复；未改产品运行代码。
+- 改动摘要：产品实现未开始。预备治理阶段已在隔离分支吸收 `origin/dev` 的自包含主流程验收修复；后续只读对账还识别并阻断了将 root v2/W06 脏树 GO 误用为 ext 授权的路径，已收敛为两阶段外部签名 successor-authority 草案；未改产品运行代码。
 - 自审：军机处、史馆、锦衣卫、46 个 RuntimeSkill 与旧 EXT Flow 均不迁移；新边界仅是富奏折投影。
 - 验证：预备合并 `34248ae2df2da7496f63934291e62dc8a5f68fb7` 的父提交为 `2e6fea337a50c316e748b7e65f03da52905e3394` 和 `2d29614137391c699615c0d84370db42ae217813`；吸收源为 `5f2a6e9f3e402313ada0f4477795da3e193feec1` 与 `e1c2dd42144e14914f5d0ec3905d26d404695b12`。专项 `110 passed, 1 skipped`，后端全量 `4006 passed, 4 skipped`，Ruff/compileall 和 Harness 133/167/3/25 通过。
+- 根脏树只读诊断（不是候选验收）：v2 authority nodetest `27/27`、v1 `9/9`、amendment `10/10`、人工确认/史馆租户隔离聚焦后端 `66/66` 通过；根 `harness-doctor` 仍为 `1 error / 1 warning`（缺 W06 integrity-remediation `summary.md`，且未登记 `r0_w08_contract_quality`）。根工作树没有本地虚拟环境，66 项使用系统 Python 仅证明当前差异自洽，不证明 lock/candidate 可复现。
 - 实际使用的 skill：`codex-pro-workflows`、`codex-mastery-coach`、仓库 `codex-engineering-workflow`、`expert-perspective`、`blueprint`、`security-review`、`resolving-merge-conflicts`。
 - 验证命令与结果：见本轮提交与最终验收记录；上述结果仅证明测试/治理吸收，不证明本任务产品闭环完成。
 - 未运行项与原因：successor authority、产品实现、真实浏览器闭环、真实数据、网络、provider、生产写入和外部副作用均未运行；机器权威 v1 当前且按设计永久为 `STOP`。根仓已有 v2 的未提交 manifest 对 W06 返回 `GO`，但该范围仅为 R0 ArtifactManifest/PDF/DOCX/JSON，批准基线 `8feae838...` 不是当前根 HEAD `b20e2c78...` 的祖先，且证据路径依赖未跟踪文件；该脏树结果明确不授权本任务。验证只使用隔离临时数据库写入。

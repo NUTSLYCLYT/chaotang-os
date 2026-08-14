@@ -86,6 +86,27 @@ Task 0 治理差距调查与 successor-authority 草案（当前可执行）
 
 回滚：revert 独立治理提交即可恢复上一版 STOP；不得删除或覆盖根目录用户改动。
 
+#### Task 0 当前设计草案（非授权）
+
+推荐的独立 namespace 为 `execution-authority.ext.v1`；这个名称只是后续治理任务的候选，不得在本蓝图中直接创建或激活。它与 root `execution-authority.v2` 的 R0 ledger 无继承、无隐式状态转换，也不共用 approval digest。
+
+| 阶段 | 受信输入 | 唯一允许输出 | 失效关闭条件 |
+| --- | --- | --- | --- |
+| G：治理内核 | 独立治理提交中的 schema/resolver/CLI/tests 和外部公钥 commitment | 只能解析/验签，默认 `STOP` | 内核与受批准 digest 不一致、公钥缺失或 required check 未配置 |
+| S：开工 grant | 仓库外 signer 签名的 canonical payload | 只授权在干净 base B 上修改 exact path list | 任务/base/repository/worktree/holder/expiry/path digest 任一不符 |
+| C：产品候选 | 以 B 为精确 parent 的不可变 commit/tree/path diff | 只可进入验证，不自动合入 | 越界路径、多 parent、可移动 ref、脏工作树或 grant 过期 |
+| A：候选 attestation | 独立 signer 对 C 的 parent/tree/commit/name-status-z diff 与验收摘要签名 | 供 integration/CI required check 消费 | 提交者可读私钥、签名不匹配、checkpoint 不可达或平台未强制 |
+
+S 的 canonical payload 至少包含：`schema_version`、`authority_id`、`task_id`、`repository_identity`、`base_commit`、`base_tree`、`allowed_paths` 的排序数组与 digest、`non_goals_digest`、`holder_identity`、`lease_id`、`fencing_epoch`、`sequence`、`issued_at`、`not_before`、`expires_at`、`key_id`、`nonce`。禁止 glob、目录级通配、`HEAD`、分支名、缺省 owner/tenant 或“必要文件”语义。`allowed_paths` 必须是 UTF-8、斜杠分隔、大小写精确、已排序且无重复的仓库相对文件路径，拒绝绝对路径、`..`、NUL、符号链接及目录条目。
+
+签名协议必须冻结算法与 domain separation（推荐 Ed25519 + `chaotang-ext-authority-grant-v1\0`），对 RFC 8785 canonical JSON 的精确 UTF-8 字节签名。私钥不得进入仓库、环境变量、worker 进程或日志；公钥 commitment、key status/revocation 和最小 `sequence` 必须由 CI/宿主 trust root 而不是候选提交持有。grant 必须是短 TTL、单次 nonce，由外部 checkpoint 防重放和时钟回拨；只检查本机系统时钟不足以证明未过期。
+
+A 的 canonical payload 至少包含：S digest、C commit/tree/parent、在禁用 replace refs 的 fresh clone 中重算的 `git diff-tree -r -z --name-status` digest、lockfile digest、命令矩阵 digest、每轮摘要 digest、egress policy identity/digest、review verdict digest 和原始证据索引。A 是 C 之后的证据包装，不能声称 A 自身是被测候选。
+
+未来 CLI 只允许三种模式：`--status` 仅显示、`--check` 仅校验结构、`--authorize --task <exact-id>` 才能返回 `GO`。grant 路径必须来自宿主受管配置，不允许 worker 通过 CLI 选择任意文件；loader 对 grant 与公钥文件逐路径段禁止 symlink，检查 owner/mode，单次读取字节后再解析和验签，避免检查/使用间替换。`GO` 还必须同时断言当前 HEAD 等于 B、工作树干净、holder/lease/fencing 存活、grant 未撤销/未过期/未消费且签名由配置的仓外公钥验证；未知参数退出 64，其他任何不一致统一退出 2/`STOP`。开工后的 pre-commit 只是快速反馈；最终权威由 fresh-clone integration gate 对 C 和 A 重算，不信任 worker 本地结果。
+
+目前平台 required check、外部 signer 和 ext 分支上的受管根 Harness 均未完成，所以这份设计草案的运行结果只能是 `STOP`。
+
 ### Task 1：冻结 RichMemorialEnvelope v1
 
 上下文：先冻结 closed schema，避免后端、前端和史馆各自发明结构。
