@@ -557,12 +557,17 @@ def _module_identity(module) -> dict[str, str]:
     return {"file": str(path), "sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
 
 
-def _synthetic_diagnostics(provider=None) -> dict[str, object]:
+def _synthetic_diagnostics(
+    provider=None, *, source_manifest_path: Path | None = None
+) -> dict[str, object]:
     resolved = provider or _latest_accounting_provider
     build_id = os.environ.get("CHAOTANG_SYNTHETIC_FRONTEND_BUILD_ID")
     source_manifest_fingerprint = os.environ.get(
         "CHAOTANG_SYNTHETIC_SOURCE_MANIFEST_FINGERPRINT"
     )
+    if source_manifest_path is not None:
+        manifest = json.loads(source_manifest_path.read_text(encoding="utf-8-sig"))
+        source_manifest_fingerprint = manifest.get("fingerprint")
     return {
         "pid": os.getpid(),
         "start_nonce": _start_nonce,

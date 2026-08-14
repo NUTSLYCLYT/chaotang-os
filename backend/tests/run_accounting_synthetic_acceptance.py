@@ -15,6 +15,7 @@ import sys
 import tempfile
 import time
 from contextlib import closing
+from ctypes import wintypes
 from http.cookiejar import CookieJar
 from io import BytesIO
 from pathlib import Path
@@ -27,7 +28,18 @@ from openpyxl import load_workbook
 ROOT = Path(__file__).resolve().parents[2]
 BACKEND = ROOT / "backend"
 FRONTEND = ROOT / "frontend"
-ACCOUNTING_DECREE = "我想用本地数据分析出2025年的财务数据分析一下"
+
+
+def _load_dynamic_layout_matrix():
+    backend_import_root = str(BACKEND)
+    if backend_import_root not in sys.path:
+        sys.path.insert(0, backend_import_root)
+    from tests.synthetic_accounting_acceptance_app import _run_dynamic_layout_matrix
+
+    return _run_dynamic_layout_matrix
+
+
+ACCOUNTING_DECREE = "请户部会计司根据本地财务数据生成2025年管理层综合财务报告"
 SHEETS = [
     "管理摘要",
     "核心财务报表",
@@ -40,28 +52,199 @@ SHEETS = [
 
 PROTECTED_PORTS = frozenset({3000, 8000, 13000, 18000, 13381, 18381})
 _PROCESS_JOBS: dict[int, int] = {}
+_PROCESS_GATES: dict[int, Path] = {}
+_JOB_OBJECT_EXTENDED_LIMIT_INFORMATION = 9
+_JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x00002000
+_WAIT_OBJECT_0 = 0x00000000
+_WAIT_TIMEOUT = 0x00000102
+_WAIT_FAILED = 0xFFFFFFFF
+_JOB_STOP_TIMEOUT_MS = 10_000
+_PROCESS_CLEANUP_TIMEOUT_SECONDS = 10
+_WINDOWS_GATE_TIMEOUT_SECONDS = 60
+
+_WINDOWS_JOB_BOOTSTRAP = """
+import pathlib
+import subprocess
+import sys
+import time
+
+gate = pathlib.Path(sys.argv[1])
+deadline = time.monotonic() + float(sys.argv[2])
+while not gate.exists():
+    if time.monotonic() >= deadline:
+        raise SystemExit(124)
+    time.sleep(0.01)
+gate.unlink()
+child = subprocess.Popen(sys.argv[3:])
+raise SystemExit(child.wait())
+"""
+
+
+def _windows_kernel32():
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.CreateJobObjectW.argtypes = (ctypes.c_void_p, wintypes.LPCWSTR)
+    kernel32.CreateJobObjectW.restype = wintypes.HANDLE
+    kernel32.SetInformationJobObject.argtypes = (
+        wintypes.HANDLE,
+        ctypes.c_int,
+        ctypes.c_void_p,
+        wintypes.DWORD,
+    )
+    kernel32.SetInformationJobObject.restype = wintypes.BOOL
+    kernel32.AssignProcessToJobObject.argtypes = (wintypes.HANDLE, wintypes.HANDLE)
+    kernel32.AssignProcessToJobObject.restype = wintypes.BOOL
+    kernel32.TerminateJobObject.argtypes = (wintypes.HANDLE, wintypes.DWORD)
+    kernel32.TerminateJobObject.restype = wintypes.BOOL
+    kernel32.WaitForSingleObject.argtypes = (wintypes.HANDLE, wintypes.DWORD)
+    kernel32.WaitForSingleObject.restype = wintypes.DWORD
+    kernel32.CloseHandle.argtypes = (wintypes.HANDLE,)
+    kernel32.CloseHandle.restype = wintypes.BOOL
+    return kernel32
+
+
+def _get_windows_last_error() -> int:
+    return ctypes.get_last_error()
+
+
+def _create_windows_gate() -> Path:
+    return Path(tempfile.mkdtemp(prefix="chaotang-job-gate-")) / "release"
+
+
+def _release_windows_gate(gate: Path) -> None:
+    pending = gate.with_name("release.pending")
+    with pending.open("x", encoding="ascii") as stream:
+        stream.write("go")
+        stream.flush()
+        os.fsync(stream.fileno())
+    os.replace(pending, gate)
+
+
+def _discard_windows_gate(gate: Path | None) -> None:
+    if gate is None:
+        return
+    for path in (gate, gate.with_name("release.pending")):
+        path.unlink(missing_ok=True)
+    try:
+        gate.parent.rmdir()
+    except FileNotFoundError:
+        pass
+
+
+def _cleanup_failed_windows_spawn(
+    process=None,
+    kernel32=None,
+    job=None,
+    gate=None,
+) -> list[Exception]:
+    cleanup_errors: list[Exception] = []
+    if process is not None:
+        try:
+            if process.poll() is None:
+                completed = subprocess.run(
+                    ["taskkill", "/PID", str(process.pid), "/T", "/F"],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    timeout=_PROCESS_CLEANUP_TIMEOUT_SECONDS,
+                    check=False,
+                )
+                if completed.returncode != 0 and process.poll() is None:
+                    cleanup_errors.append(
+                        RuntimeError(
+                            f"taskkill failed with exit code {completed.returncode}"
+                        )
+                    )
+        except Exception as error:
+            cleanup_errors.append(error)
+
+        try:
+            if process.poll() is None:
+                process.terminate()
+        except Exception as error:
+            cleanup_errors.append(error)
+
+        try:
+            process.wait(timeout=_PROCESS_CLEANUP_TIMEOUT_SECONDS)
+        except subprocess.TimeoutExpired as error:
+            cleanup_errors.append(error)
+            try:
+                process.kill()
+                process.wait(timeout=_PROCESS_CLEANUP_TIMEOUT_SECONDS)
+            except Exception as kill_error:
+                cleanup_errors.append(kill_error)
+        except Exception as error:
+            cleanup_errors.append(error)
+
+    if job and kernel32 is not None:
+        try:
+            if not kernel32.CloseHandle(job):
+                cleanup_errors.append(
+                    OSError(_get_windows_last_error(), "CloseHandle(job) failed")
+                )
+        except Exception as error:
+            cleanup_errors.append(error)
+    try:
+        _discard_windows_gate(gate)
+    except Exception as error:
+        cleanup_errors.append(error)
+    return cleanup_errors
 
 
 def _tracked_popen(args, **kwargs) -> subprocess.Popen[bytes]:
-    process = subprocess.Popen(args, **kwargs)
-    if sys.platform == "win32":
-        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    if sys.platform != "win32":
+        return subprocess.Popen(args, **kwargs)
+    if kwargs.get("shell"):
+        raise ValueError("Windows tracked processes require shell=False")
+
+    target_args = [os.fspath(argument) for argument in args]
+    gate = _create_windows_gate()
+    bootstrap_args = [
+        sys.executable,
+        "-c",
+        _WINDOWS_JOB_BOOTSTRAP,
+        os.fspath(gate),
+        str(_WINDOWS_GATE_TIMEOUT_SECONDS),
+        *target_args,
+    ]
+    process = None
+    kernel32 = None
+    job = None
+    try:
+        process = subprocess.Popen(bootstrap_args, **kwargs)
+        kernel32 = _windows_kernel32()
         job = kernel32.CreateJobObjectW(None, None)
         if not job:
-            process.terminate()
-            raise OSError(ctypes.get_last_error(), "CreateJobObjectW failed")
+            raise OSError(_get_windows_last_error(), "CreateJobObjectW failed")
         information = (ctypes.c_uint32 * 36)()
-        information[4] = 0x00002000  # JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
-        if not kernel32.SetInformationJobObject(job, 9, information, ctypes.sizeof(information)):
-            kernel32.CloseHandle(job)
-            process.terminate()
-            raise OSError(ctypes.get_last_error(), "SetInformationJobObject failed")
+        information[4] = _JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+        if not kernel32.SetInformationJobObject(
+            job,
+            _JOB_OBJECT_EXTENDED_LIMIT_INFORMATION,
+            information,
+            ctypes.sizeof(information),
+        ):
+            raise OSError(
+                _get_windows_last_error(), "SetInformationJobObject failed"
+            )
         if not kernel32.AssignProcessToJobObject(job, process._handle):
-            kernel32.CloseHandle(job)
-            process.terminate()
-            raise OSError(ctypes.get_last_error(), "AssignProcessToJobObject failed")
+            raise OSError(
+                _get_windows_last_error(), "AssignProcessToJobObject failed"
+            )
         _PROCESS_JOBS[process.pid] = job
-    return process
+        _PROCESS_GATES[process.pid] = gate
+        _release_windows_gate(gate)
+        return process
+    except BaseException as error:
+        if process is not None:
+            _PROCESS_JOBS.pop(process.pid, None)
+            _PROCESS_GATES.pop(process.pid, None)
+        for cleanup_error in _cleanup_failed_windows_spawn(
+            process,
+            kernel32,
+            job,
+            gate,
+        ):
+            error.add_note(f"cleanup error: {cleanup_error!r}")
+        raise
 
 
 def _free_port(excluded_ports: set[int] | frozenset[int]) -> int:
@@ -197,9 +380,37 @@ def _poll_job(
 
 def _stop(process: subprocess.Popen[bytes]) -> None:
     job = _PROCESS_JOBS.pop(process.pid, None)
+    gate = _PROCESS_GATES.pop(process.pid, None)
+    _discard_windows_gate(gate)
     if job is not None:
-        ctypes.WinDLL("kernel32", use_last_error=True).CloseHandle(job)
-        process.wait(timeout=10)
+        kernel32 = _windows_kernel32()
+        job_error: BaseException | None = None
+        if not kernel32.TerminateJobObject(job, 1):
+            job_error = OSError(_get_windows_last_error(), "TerminateJobObject failed")
+        else:
+            wait_result = kernel32.WaitForSingleObject(job, _JOB_STOP_TIMEOUT_MS)
+            if wait_result == _WAIT_TIMEOUT:
+                job_error = TimeoutError("Windows Job Object did not terminate within 10 seconds")
+            elif wait_result == _WAIT_FAILED:
+                job_error = OSError(
+                    _get_windows_last_error(), "WaitForSingleObject(job) failed"
+                )
+            elif wait_result != _WAIT_OBJECT_0:
+                job_error = RuntimeError(
+                    f"unexpected WaitForSingleObject(job) result: {wait_result}"
+                )
+        close_error: OSError | None = None
+        if not kernel32.CloseHandle(job):
+            close_error = OSError(_get_windows_last_error(), "CloseHandle(job) failed")
+        try:
+            process.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait(timeout=10)
+        if job_error is not None:
+            raise job_error
+        if close_error is not None:
+            raise close_error
         return
     if process.poll() is not None:
         return
@@ -209,6 +420,29 @@ def _stop(process: subprocess.Popen[bytes]) -> None:
     except subprocess.TimeoutExpired:
         process.kill()
         process.wait(timeout=10)
+
+
+def _stop_all(
+    *processes: subprocess.Popen[bytes] | None,
+    active_error: BaseException | None = None,
+) -> None:
+    cleanup_errors: list[Exception] = []
+    for process in processes:
+        if process is None:
+            continue
+        try:
+            _stop(process)
+        except Exception as error:
+            cleanup_errors.append(error)
+    if not cleanup_errors:
+        return
+    if active_error is not None:
+        for error in cleanup_errors:
+            active_error.add_note(f"cleanup error: {error!r}")
+        return
+    if len(cleanup_errors) == 1:
+        raise cleanup_errors[0]
+    raise ExceptionGroup("process cleanup failed", cleanup_errors)
 
 
 def _expect_http_error(opener, request: Request, expected: int) -> None:
@@ -284,10 +518,7 @@ def _start_servers(
         )
         return backend, frontend
     except Exception:
-        if frontend is not None:
-            _stop(frontend)
-        if backend is not None:
-            _stop(backend)
+        _stop_all(frontend, backend, active_error=sys.exception())
         raise
     finally:
         backend_log.close()
@@ -656,9 +887,7 @@ def main(
                 f"{artifact_id}.xlsx"
             }
             os.environ["CHAOTANG_SYNTHETIC_ACCEPTANCE_TMP"] = tmp
-            from tests.synthetic_accounting_acceptance_app import _run_dynamic_layout_matrix
-
-            dynamic_matrix = _run_dynamic_layout_matrix(Path(tmp) / "dynamic-layouts")
+            dynamic_matrix = _load_dynamic_layout_matrix()(Path(tmp) / "dynamic-layouts")
             evidence = {
                 "round": formal_round,
                 "exit_code": 0,
@@ -674,14 +903,13 @@ def main(
             print(json.dumps(evidence, ensure_ascii=False, sort_keys=True))
             print(
                 "synthetic-accounting-acceptance: PASS "
-                "(explicit-analysis-2025, canonical authority, published identity, "
+                "(explicit-report-2025, canonical authority, published identity, "
                 "owner isolation, "
                 "unsafe ID rejection, seven sheets, source/check disclosures)"
             )
             return 0
         finally:
-            _stop(frontend)
-            _stop(backend)
+            _stop_all(frontend, backend, active_error=sys.exception())
 
 
 if __name__ == "__main__":
