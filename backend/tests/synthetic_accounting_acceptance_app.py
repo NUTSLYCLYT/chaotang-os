@@ -557,20 +557,15 @@ def _module_identity(module) -> dict[str, str]:
     return {"file": str(path), "sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
 
 
-def _synthetic_diagnostics(provider=None) -> dict[str, object]:
+def _synthetic_diagnostics(
+    provider=None, *, source_manifest_path: Path | None = None
+) -> dict[str, object]:
     resolved = provider or _latest_accounting_provider
     repository_root = Path(__file__).resolve().parents[2]
     build_id_path = repository_root / "frontend" / ".next" / "BUILD_ID"
-    manifest_path = (
-        repository_root
-        / ".superpowers"
-        / "sdd"
-        / "dynamic-bureau-task-8-rounds"
-        / "freeze-manifest.json"
-    )
     manifest = (
-        json.loads(manifest_path.read_text(encoding="utf-8-sig"))
-        if manifest_path.exists()
+        json.loads(source_manifest_path.read_text(encoding="utf-8-sig"))
+        if source_manifest_path is not None
         else {}
     )
     return {
