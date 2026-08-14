@@ -1,0 +1,78 @@
+{
+  "schema_version": "1.0.0",
+  "capability_id": "libu-responsibility-authority-chain",
+  "version": "0.1.0",
+  "status": "candidate",
+  "evaluation_scope": "synthetic-offline-only",
+  "production_boundary": "not-registered-no-execution-authority",
+  "content_digests": {
+    "prompt": "sha256:166c9658859b225b1aae320487d1304f47bcfaecde3fb4da5bc18e9323d9fba9",
+    "contract": "sha256:15477723ceea5427ac453db367484e5b464e2dc6e64e0128d212c631061ad36a",
+    "policy": "sha256:5d443549dd9cf4d5bc2442c5975c39a2c6fd08c34df9ce640107fbd49b779b16",
+    "evaluation": "sha256:5c318e8305de2d7ba44f37c724a1503d812d180609f34ae10d4fded4ac9fb9df"
+  },
+  "artifacts": {
+    "prompt": {
+      "path": "prompt.txt",
+      "digest": "sha256:166c9658859b225b1aae320487d1304f47bcfaecde3fb4da5bc18e9323d9fba9"
+    },
+    "contract": {
+      "path": "contract.json",
+      "digest": "sha256:15477723ceea5427ac453db367484e5b464e2dc6e64e0128d212c631061ad36a"
+    },
+    "policy": {
+      "path": "policy.json",
+      "digest": "sha256:5d443549dd9cf4d5bc2442c5975c39a2c6fd08c34df9ce640107fbd49b779b16"
+    },
+    "behavior": {
+      "path": "candidate.json",
+      "digest": "sha256:519c5bc296ad167aa2e4d3b1654dda1c733e797b28ac7a88ba7e9a8732a015f3"
+    },
+    "adapter": {
+      "path": "adapter.txt",
+      "digest": "sha256:aea7c153f6461c47033098a624ecdd47749a3e245d93e0229bbb968029c078d2"
+    },
+    "evaluations": {
+      "path": "evaluations.json",
+      "digest": "sha256:5c318e8305de2d7ba44f37c724a1503d812d180609f34ae10d4fded4ac9fb9df"
+    },
+    "telemetry": {
+      "path": "telemetry.txt",
+      "digest": "sha256:e07809b5a61e7baef88ccda8048e3090c9bbe38b9384d0aeb07f5978bbd2c0b6"
+    },
+    "rollback": {
+      "path": "rollback.txt",
+      "digest": "sha256:2ec8afa35ed6813c3f1bd52f9651b42f0bbee6acb84f74dbcc94946deb72d8cf"
+    },
+    "provenance": {
+      "repository": "origin/feature-chaotang-ext",
+      "commit": "939186f0331d9784bc8c4ceee393aeb197230ed0",
+      "path": "frontend/config/libu.chro_cao_office.registry.yaml"
+    }
+  },
+  "authority_ref": {
+    "issuer": "chaotang-os-root-harness",
+    "projection_digest": "sha256:919d990f2c967feff66e5f465cc8a48310db52a4eda426a81d001fbcaf83c074"
+  },
+  "requested_permissions": {
+    "tools": [],
+    "data_domains": [],
+    "may_write_external": false
+  },
+  "controls": {
+    "kill_switches": {
+      "capability_enabled": true,
+      "tenant_enabled": true,
+      "tools_enabled": true
+    },
+    "taint": {
+      "external_content_taints_context": true,
+      "tainted_context_allows_tools": false
+    },
+    "context_rent": {
+      "max_tokens": 1200,
+      "direct_fallback": true,
+      "minimum_expected_gain": 0.1
+    }
+  }
+}

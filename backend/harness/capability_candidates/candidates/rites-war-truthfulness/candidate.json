@@ -1,0 +1,9 @@
+{
+  "id": "rites-war-truthfulness",
+  "name": "礼部审辞与兵部销售真实性",
+  "owner": "礼部+兵部",
+  "purpose": "外部表达与销售主张必须区分事实、推断和承诺，并绑定证据及授权。",
+  "requiredAssertions": ["claim-grounded", "commitment-authorized", "tenant-unchanged", "authority-unchanged", "no-side-effects"],
+  "migrationVerdict": "rewrite-distill",
+  "authorization": "candidate-only"
+}

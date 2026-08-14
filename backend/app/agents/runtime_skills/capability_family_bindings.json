@@ -1,0 +1,227 @@
+{
+  "schemaVersion": "1.0.0",
+  "sourceCommit": "939186f0331d9784bc8c4ceee393aeb197230ed0",
+  "sourceMatrixSummary": {
+    "familyCount": 23,
+    "includedSourceAssets": 1777,
+    "assignedSourceAssets": 1777,
+    "unassignedSourceAssets": 0,
+    "multiplyAssignedSourceAssets": 0,
+    "uniqueSourceBlobs": 1399,
+    "consolidatedDuplicateSourceAssets": 378,
+    "byImplementationStatus": {
+      "existing": 4,
+      "enhance": 17,
+      "new": 1,
+      "retire": 1
+    }
+  },
+  "families": [
+    {
+      "familyId": "capability-family:bingbu-commercial-governance",
+      "implementationStatus": "enhance",
+      "sourceAssetCount": 59,
+      "runtimeSkillIds": [
+        "synthesize-commercial-governance"
+      ]
+    },
+    {
+      "familyId": "capability-family:bingbu-sales-channel",
+      "implementationStatus": "enhance",
+      "sourceAssetCount": 73,
+      "runtimeSkillIds": [
+        "analyze-sales-opportunity",
+        "analyze-lead-acquisition",
+        "analyze-channel-performance",
+        "analyze-customer-health",
+        "analyze-growth-funnel"
+      ]
+    },
+    {
+      "familyId": "capability-family:bingbu-strategy-intelligence",
+      "implementationStatus": "enhance",
+      "sourceAssetCount": 57,
+      "runtimeSkillIds": [
+        "analyze-competitive-position",
+        "analyze-growth-funnel"
+      ]
+    },
+    {
+      "familyId": "capability-family:gongbu-engineering-delivery-control",
+      "implementationStatus": "enhance",
+      "sourceAssetCount": 264,
+      "runtimeSkillIds": [
+        "analyze-technical-feasibility",
+        "analyze-delivery-schedule",
+        "analyze-quality-readiness",
+        "analyze-field-conditions",
+        "analyze-commitment-fulfillment"
+      ]
+    },
+    {
+      "familyId": "capability-family:gongbu-engineering-governance",
+      "implementationStatus": "enhance",
+      "sourceAssetCount": 20,
+      "runtimeSkillIds": [
+        "synthesize-delivery-governance"
+      ]
+    },
+    {
+      "familyId": "capability-family:gongbu-product-supply-operations",
+      "implementationStatus": "enhance",
+      "sourceAssetCount": 34,
+      "runtimeSkillIds": [
+        "analyze-product-strategy",
+        "analyze-supply-readiness"
+      ]
+    },
+    {
+      "familyId": "capability-family:hubu-accounting-controls",
+      "implementationStatus": "existing",
+      "sourceAssetCount": 50,
+      "runtimeSkillIds": [
+        "analyze-accounting-position",
+        "analyze-financial-controls"
+      ]
+    },
+    {
+      "familyId": "capability-family:hubu-budget-treasury",
+      "implementationStatus": "enhance",
+      "sourceAssetCount": 125,
+      "runtimeSkillIds": [
+        "analyze-budget-performance",
+        "analyze-cash-safety",
+        "analyze-accounting-position"
+      ]
+    },
+    {
+      "familyId": "capability-family:hubu-financial-governance",
+      "implementationStatus": "enhance",
+      "sourceAssetCount": 115,
+      "runtimeSkillIds": [
+        "synthesize-finance-governance"
+      ]
+    },
+    {
+      "familyId": "capability-family:hubu-investment-pricing",
+      "implementationStatus": "existing",
+      "sourceAssetCount": 49,
+      "runtimeSkillIds": [
+        "analyze-investment-case",
+        "analyze-financing-options",
+        "analyze-pricing-economics"
+      ]
+    },
+    {
+      "familyId": "capability-family:libu-appointment-authority",
+      "implementationStatus": "enhance",
+      "sourceAssetCount": 2,
+      "runtimeSkillIds": [
+        "analyze-appointment-fit",
+        "analyze-workforce-coordination"
+      ]
+    },
+    {
+      "familyId": "capability-family:libu-compensation-relations",
+      "implementationStatus": "existing",
+      "sourceAssetCount": 25,
+      "runtimeSkillIds": [
+        "analyze-compensation-equity",
+        "analyze-labor-relations",
+        "analyze-hr-policy"
+      ]
+    },
+    {
+      "familyId": "capability-family:libu-rites-brand-content",
+      "implementationStatus": "enhance",
+      "sourceAssetCount": 65,
+      "runtimeSkillIds": [
+        "analyze-brand-consistency",
+        "analyze-content-quality",
+        "analyze-public-relations",
+        "analyze-customer-communications",
+        "analyze-government-enterprise-relations",
+        "analyze-user-experience"
+      ]
+    },
+    {
+      "familyId": "capability-family:libu-rites-communication-governance",
+      "implementationStatus": "enhance",
+      "sourceAssetCount": 40,
+      "runtimeSkillIds": [
+        "synthesize-communications-governance"
+      ]
+    },
+    {
+      "familyId": "capability-family:libu-talent-acquisition",
+      "implementationStatus": "existing",
+      "sourceAssetCount": 37,
+      "runtimeSkillIds": [
+        "analyze-recruitment-pipeline",
+        "analyze-appointment-fit"
+      ]
+    },
+    {
+      "familyId": "capability-family:libu-workforce-governance",
+      "implementationStatus": "enhance",
+      "sourceAssetCount": 30,
+      "runtimeSkillIds": [
+        "synthesize-workforce-governance"
+      ]
+    },
+    {
+      "familyId": "capability-family:shared-evaluation-evidence",
+      "implementationStatus": "new",
+      "sourceAssetCount": 1,
+      "runtimeSkillIds": [
+        "analyze-evidence-integrity",
+        "analyze-quality-readiness"
+      ]
+    },
+    {
+      "familyId": "capability-family:shared-orchestration-registry",
+      "implementationStatus": "enhance",
+      "sourceAssetCount": 12,
+      "runtimeSkillIds": [
+        "conduct-joint-ministry-review"
+      ]
+    },
+    {
+      "familyId": "capability-family:shared-runtime-governance",
+      "implementationStatus": "enhance",
+      "sourceAssetCount": 129,
+      "runtimeSkillIds": [
+        "conduct-joint-ministry-review"
+      ]
+    },
+    {
+      "familyId": "capability-family:xingbu-compliance-risk",
+      "implementationStatus": "enhance",
+      "sourceAssetCount": 57,
+      "runtimeSkillIds": [
+        "analyze-compliance-posture",
+        "analyze-enterprise-risk",
+        "analyze-evidence-integrity"
+      ]
+    },
+    {
+      "familyId": "capability-family:xingbu-contract-dispute",
+      "implementationStatus": "enhance",
+      "sourceAssetCount": 473,
+      "runtimeSkillIds": [
+        "analyze-contract-risk",
+        "analyze-dispute-resolution",
+        "analyze-intellectual-property"
+      ]
+    },
+    {
+      "familyId": "capability-family:xingbu-legal-governance",
+      "implementationStatus": "enhance",
+      "sourceAssetCount": 27,
+      "runtimeSkillIds": [
+        "synthesize-risk-governance",
+        "analyze-legal-policy"
+      ]
+    }
+  ]
+}

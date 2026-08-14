@@ -1,0 +1,1 @@
+Offline truthfulness evaluator; no CRM, publishing, or messaging access.

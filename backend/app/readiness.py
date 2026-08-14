@@ -35,6 +35,7 @@ _TABLE_SCHEMAS: dict[str, dict[str, frozenset[str]]] = {
                 "provider_request_count",
                 "cancel_requested",
                 "provider_request_limit",
+                "authority_committed",
                 "acceptance_committed",
                 "result_json",
                 "reply_id",

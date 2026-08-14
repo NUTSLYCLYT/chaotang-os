@@ -1534,12 +1534,23 @@ def test_multi_execute_audit_records_case_archive_after_observer_outcome(
     )
     class LifecycleGraph(_FakeGraph):
         def invoke(self, state):
-            decrees_module._lifecycle_observer_context.get().open_case(
+            observer = decrees_module._lifecycle_observer_context.get()
+            observer.open_case(
                 decree_text=state["decree_text"],
                 departments=["户部", "工部"],
                 processing_path=_MULTI_ROUTE_RESULT["processing_path"],
             )
-            return super().invoke(state)
+            result = super().invoke(state)
+            observer.record_checkpoint(
+                status="COUNCIL_REVIEWING",
+                processing_path=_MULTI_ROUTE_RESULT["processing_path"],
+            )
+            observer.record_checkpoint(
+                status="CHANCELLOR_FINALIZING",
+                processing_path=_MULTI_ROUTE_RESULT["processing_path"],
+                council_verdict="军机处合议完成",
+            )
+            return result
 
     fake_provider(
         _FakeProvider(graph=LifecycleGraph(invoke_result=_MULTI_ROUTE_RESULT))

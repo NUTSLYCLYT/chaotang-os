@@ -343,6 +343,43 @@ class ArtifactStorage:
             raise ArtifactNotFound
         return self._work_product_from_row(row)
 
+    def get_work_product_artifact_states(
+        self, owner_user_id: str, work_product_id: str
+    ) -> tuple[ArtifactState, ...]:
+        """Reload the actual backing artifact lifecycle for one owned product."""
+
+        owner_user_id = _required(owner_user_id, "owner_user_id")
+        work_product_id = _required(work_product_id, "work_product_id")
+        try:
+            connection = self._connect()
+        except (OSError, sqlite3.Error):
+            raise ArtifactStorageError("artifact_unavailable") from None
+        with closing(connection):
+            try:
+                rows = connection.execute(
+                    """
+                    SELECT artifact.state
+                    FROM work_products AS product
+                    JOIN work_product_artifacts AS binding
+                      ON binding.work_product_id = product.work_product_id
+                    JOIN report_artifacts AS artifact
+                      ON artifact.artifact_id = binding.artifact_id
+                    WHERE product.owner_user_id = ?
+                      AND product.work_product_id = ?
+                      AND artifact.owner_user_id = ?
+                    ORDER BY artifact.artifact_id
+                    """,
+                    (owner_user_id, work_product_id, owner_user_id),
+                ).fetchall()
+            except sqlite3.Error:
+                raise ArtifactStorageError("artifact_unavailable") from None
+        if not rows:
+            raise ArtifactNotFound
+        try:
+            return tuple(ArtifactState(row["state"]) for row in rows)
+        except (KeyError, ValueError):
+            raise ArtifactStorageError("artifact_unavailable") from None
+
     def get_work_product_for_artifact(
         self, owner_user_id: str, artifact_id: str
     ) -> WorkProductEnvelope:

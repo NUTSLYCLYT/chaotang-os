@@ -1,0 +1,499 @@
+{
+  "schemaVersion": "1.0.0",
+  "inventoryMaturity": "human-governance-ledger-v0",
+  "generatedAt": "2026-08-14",
+  "target": {
+    "repository": "chaotang-os",
+    "branch": "ext-dev"
+  },
+  "policy": {
+    "inventoryOnly": true,
+    "reproducibleMachineStocktakeComplete": false,
+    "runtimePromotionAuthorized": false,
+    "absorptionDefinition": [
+      "input_output_contract",
+      "method_or_deterministic_core",
+      "authority_and_owner",
+      "evidence_and_digest",
+      "failure_conflict_stop_semantics",
+      "positive_negative_runtime_tests"
+    ],
+    "statusValues": [
+      "none",
+      "label-only",
+      "partial",
+      "substantive",
+      "superseded",
+      "independent-system"
+    ],
+    "verdictValues": [
+      "direct-adapt",
+      "rewrite-distill",
+      "contract-eval-only",
+      "independent-integration",
+      "quarantine",
+      "reference-only",
+      "retire"
+    ]
+  },
+  "universe": {
+    "chaotangOsRefsAndWorktrees": true,
+    "currentChaotangOsRefCount": 228,
+    "currentUniqueCommitCount": 190,
+    "currentUniqueTreeCount": 183,
+    "currentRegisteredWorktreeCount": 6,
+    "pinnedExtCommit": "939186f0331d9784bc8c4ceee393aeb197230ed0",
+    "siblingProjectRepositories": true,
+    "homeProfessionalRepositories": true,
+    "historicalKnowledgeVaults": true,
+    "excludedClassesAreRecorded": true
+  },
+  "summary": {
+    "islandCount": 31,
+    "highestValueNotSubstantivelyAbsorbed": [
+      "pack-battery-rd-kernel",
+      "battery-physical-safety-gate",
+      "tiandao-governance-plane",
+      "shiguan-outcome-learning",
+      "battery-rd-os-domain-system"
+    ],
+    "mustNotMergeAsRuntime": [
+      "legacy-flow-runtime",
+      "frontend-courtos-second-brain",
+      "courtos-brain-raw-vault",
+      "hermes-openclaw-platform",
+      "certification-release-evidence"
+    ]
+  },
+  "islands": [
+    {
+      "id": "dev-trusted-runtime-kernel",
+      "name": "DEV 可信运行内核",
+      "sources": ["ext-dev:backend/app/agents/runtime_skills"],
+      "capabilities": ["39司+6部+1军机处", "typed reports", "tool policy", "audit", "owner-scoped execution"],
+      "realConsumers": ["backend runtime executor", "decree execution"],
+      "extStatus": "none",
+      "extDevStatus": "substantive",
+      "value": "single authoritative runtime registry and source of truth; production promotion is not authorized",
+      "redundancy": ["overlaps old FlowEngine and frontend CourtOS execution"],
+      "conflicts": ["must not be replaced by prompt or YAML registries"],
+      "verdict": "direct-adapt"
+    },
+    {
+      "id": "ext-six-ministry-design-corpus",
+      "name": "EXT 六部 Agent/Skill/Office 设计语料",
+      "sources": ["939186f:backend/agent_design", "939186f:backend/runtime_prompts", "939186f:frontend/dev/contracts"],
+      "capabilities": ["六部专业方法", "跨部质量门", "角色输入输出", "golden and adversarial cases"],
+      "realConsumers": ["部分旧 flow", "部分前端 deterministic office", "大量无消费静态语料"],
+      "extStatus": "substantive",
+      "extDevStatus": "partial",
+      "value": "behavioral invariants and evaluation corpus",
+      "redundancy": ["36类通用 skills 在多个部门复制", "多套 roster 和 prompt 重叠"],
+      "conflicts": ["Claude/OpenClaw paths", "old authority language", "duplicate registries"],
+      "verdict": "rewrite-distill"
+    },
+    {
+      "id": "pack-battery-rd-kernel",
+      "name": "PACK/电池研发专业内核",
+      "sources": ["939186f:backend/config/flow_pack_rd.yaml", "939186f:backend/config/flow_battery_stage_gate.yaml", "939186f:backend/src/pack_rd_*", "939186f:backend/src/cell_library.py"],
+      "capabilities": ["18节点PACK研发", "6节点Stage Gate", "串并联/电流/热/成本确定性校验", "跨模块一致性", "FMEA", "golden tests"],
+      "realConsumers": ["old FlowEngine", "jiqun registry", "Gongbu frontend bridge", "tests and flywheel"],
+      "extStatus": "substantive",
+      "extDevStatus": "label-only",
+      "value": "highest-value domain engineering capability",
+      "redundancy": ["generic Gongbu feasibility/quality skills cover names but not algorithms", "battery-rd-os has a newer product system"],
+      "conflicts": ["old 150-call orchestration", "unverified cell/price data", "historical SUSPENDED quality state"],
+      "verdict": "rewrite-distill"
+    },
+    {
+      "id": "battery-physical-safety-gate",
+      "name": "电池物理安全失败关闭门",
+      "sources": ["feature-chaotang-ext:backend/src/real_department_engines.py", "task/fix-gongbu-battery-safety-p17-20260719", "task/fix-gongbu-component-scope-p18-v4-latest-20260719"],
+      "capabilities": ["P0/P1 hazard triage", "thermal-runaway/fire/explosion black classification", "require-human-signoff signal", "component-scope disambiguation", "cache bypass protection"],
+      "realConsumers": ["old Gongbu department adapter and tests; end-to-end approval-queue consumption and blocking are not proven"],
+      "extStatus": "substantive",
+      "extDevStatus": "none",
+      "value": "non-negotiable physical safety boundary",
+      "redundancy": ["generic safety wording in prompts"],
+      "conflicts": ["must execute before models and cannot be downgraded by council synthesis", "direct adaptation must add a real human-approval blocking chain"],
+      "verdict": "direct-adapt"
+    },
+    {
+      "id": "battery-rd-os-domain-system",
+      "name": "独立 Battery R&D OS",
+      "sources": ["/home/ubuntu/battery-rd-os@551ef2745b18"],
+      "capabilities": ["projects/samples/experiments", "CSV/manual ingest", "electrochem analysis", "failure reports", "stage gates", "architecture/manufacturing reviews", "execution tracking", "FastAPI+Next.js product"],
+      "realConsumers": ["independent API and web product"],
+      "extStatus": "none",
+      "extDevStatus": "none",
+      "value": "current specialist system and likely authoritative R&D source",
+      "redundancy": ["overlaps legacy PACK flows and Gongbu domain ambitions"],
+      "conflicts": ["must remain domain system; copying creates another product/runtime inside ext-dev"],
+      "verdict": "independent-integration"
+    },
+    {
+      "id": "battery-knowledge-store",
+      "name": "本地电池知识与历史数据",
+      "sources": ["/home/ubuntu/.battery_knowledge", "main:backend/knowledge/docs battery allowlist", "historical IMA data"],
+      "capabilities": ["datasheets", "standards", "test reports", "BOM history", "competitors", "indexes"],
+      "realConsumers": ["not proven as current ext-dev authority"],
+      "extStatus": "none",
+      "extDevStatus": "none",
+      "value": "potential factual grounding for PACK and safety",
+      "redundancy": ["cell_library and battery-rd-os data may overlap"],
+      "conflicts": ["ownership", "freshness", "license", "sensitivity", "derived index quality"],
+      "verdict": "quarantine"
+    },
+    {
+      "id": "professional-agent-overlay",
+      "name": "十类专业 Agent Overlay",
+      "sources": ["codex/professional-agent-overlay-clean@83e2accf"],
+      "capabilities": ["10 professional work products", "六部专业合同", "council", "outcome", "temporal designs"],
+      "realConsumers": ["overlay tests and design harness"],
+      "extStatus": "none",
+      "extDevStatus": "partial",
+      "value": "closest contract design to ext-dev trusted kernel",
+      "redundancy": ["overlaps current RuntimeSkill contracts and Tiandao/EGB"],
+      "conflicts": ["branch merge would reintroduce obsolete state and authority assumptions"],
+      "verdict": "contract-eval-only"
+    },
+    {
+      "id": "tiandao-governance-plane",
+      "name": "天道 G/G1/E 双平面治理",
+      "sources": ["codex/professional-agent-overlay-clean:docs/superpowers/specs/2026-08-02-tiandao-dual-plane-governance-design.md", "integration/agent-design-convergence-20260804:TIANDAO_HANDOFF.md"],
+      "capabilities": ["admission/complexity/artifact gates", "read-only shadow", "Candidate→Risk→Approval→Mandate→Adapter→Receipt", "one-time digest-bound authority", "CAS"],
+      "realConsumers": ["mostly design and tests; external action plane not production-authorized"],
+      "extStatus": "none",
+      "extDevStatus": "partial",
+      "value": "unifies governance without becoming another agent",
+      "redundancy": ["EGB engineering action governance", "current WorkProduct/Confirmation/authority pieces"],
+      "conflicts": ["a second state machine or self-issued mandate would violate DEV authority"],
+      "verdict": "rewrite-distill"
+    },
+    {
+      "id": "egb-engineering-action-governance",
+      "name": "EGB 工程行动治理",
+      "sources": ["/home/ubuntu/Projects/chaotang-ext-gongbu-egb0@f1178bff82f9"],
+      "capabilities": ["engineering actions", "principal credential", "approval", "authorization receipt", "recovery", "completion receipt", "shadow replay"],
+      "realConsumers": ["standalone design/test branch"],
+      "extStatus": "none",
+      "extDevStatus": "none",
+      "value": "strong negative tests and action governance vocabulary",
+      "redundancy": ["Tiandao E/G1"],
+      "conflicts": ["competing authorization terms and states"],
+      "verdict": "contract-eval-only"
+    },
+    {
+      "id": "shiguan-trusted-archive",
+      "name": "史馆可信归档内核",
+      "sources": ["ext-dev:backend/app/shiguan", "ext-dev:backend/app/daily_memorial_drafts"],
+      "capabilities": ["owner-scoped MEMORIAL/REPLY archive", "immutable evidence snapshots", "recall", "review", "daily memorial"],
+      "realConsumers": ["decree executor/API", "Jinyiwei", "ministries", "Junjichu", "chancellor recall", "Qintianjian"],
+      "extStatus": "partial",
+      "extDevStatus": "substantive",
+      "value": "trusted memory backbone",
+      "redundancy": ["courtos-brain archive concepts", "old failure/typed memory modules"],
+      "conflicts": ["archive is not knowledge authority or outcome truth by itself"],
+      "verdict": "direct-adapt"
+    },
+    {
+      "id": "shiguan-outcome-learning",
+      "name": "史馆结果账与学习闭环",
+      "sources": ["codex/professional-agent-overlay-clean:backend/app/shiguan/outcomes.py", "EXT:court_flywheel/failure_memory/archive_outcomes/signoff_learning"],
+      "capabilities": ["append-only outcomes", "failure memory", "result feedback", "temporal freshness", "promotion evidence"],
+      "realConsumers": ["overlay/legacy learning tests; not current ext-dev production"],
+      "extStatus": "partial",
+      "extDevStatus": "none",
+      "value": "turns archive into measurable learning",
+      "redundancy": ["current Shiguan review/stats", "courtos-brain evolution logs"],
+      "conflicts": ["untrusted outcomes or model-written success labels would poison learning"],
+      "verdict": "rewrite-distill"
+    },
+    {
+      "id": "courtos-brain-raw-vault",
+      "name": "CourtOS-Brain 历史知识库",
+      "sources": ["main:courtos-brain (1700 files)", "/home/ubuntu/CourtOS-Brain@28cc57f2b144 (492 tracked; 305 paths new versus migrated vault)", "/home/ubuntu/CourtOS-Brain.migrated-2026-07-13@13f39be609e2"],
+      "capabilities": ["Source→Concept/Entity→Audit→Output method", "daily briefs", "weekly retrospectives", "swarm logs", "Hermes research", "Xianhu publications"],
+      "realConsumers": ["no in-tree production consumer; archive tooling only"],
+      "extStatus": "none",
+      "extDevStatus": "none",
+      "value": "knowledge lifecycle method and a small allowlisted corpus",
+      "redundancy": ["multiple vault copies", "598/598 concept stubs", "430/434 entity stubs", "vendored Obsidian data"],
+      "conflicts": ["personal notes", "CoT/ops logs", "placeholder sources", "fourth-mainline risk", "the current 492-file vault has only structural review; its 305 new-only paths need a separate incremental allowlist audit"],
+      "verdict": "quarantine"
+    },
+    {
+      "id": "legacy-flow-runtime",
+      "name": "旧后端蜂群、Flow 与 Runtime Prompts",
+      "sources": ["939186f:backend/config/flow_*.yaml", "939186f:backend/src", "939186f:backend/runtime_prompts"],
+      "capabilities": ["broad sales/finance/legal/HR/marketing/engineering flows", "role composition", "legacy tool calls"],
+      "realConsumers": ["old flow_engine", "registries", "legacy APIs"],
+      "extStatus": "substantive",
+      "extDevStatus": "superseded",
+      "value": "domain procedures, algorithms, failure cases",
+      "redundancy": ["current DecreeJob/LangGraph/RuntimeSkill runtime"],
+      "conflicts": ["second runtime", "silent fallback", "prompt-granted authority", "global prompt editing"],
+      "verdict": "retire"
+    },
+    {
+      "id": "frontend-courtos-second-brain",
+      "name": "旧前端确定性 CourtOS",
+      "sources": ["939186f:frontend/src/core/courtos", "939186f:frontend/dev/contracts", "frontend/dev/_attic/frontend-second-brain"],
+      "capabilities": ["department office routing", "view models", "evidence labels", "flywheel hooks", "decision store"],
+      "realConsumers": ["old frontend pages/tests"],
+      "extStatus": "substantive",
+      "extDevStatus": "none",
+      "value": "read-only presentation patterns and UX truthfulness",
+      "redundancy": ["backend routing and authority", "multiple office rosters"],
+      "conflicts": ["frontend business authority", "second brain/state store"],
+      "verdict": "contract-eval-only"
+    },
+    {
+      "id": "legal-agent-domain-platform",
+      "name": "独立 Legal Agent 法律领域平台",
+      "sources": ["/home/ubuntu/legal-agent@e713590f4426", "/home/ubuntu/legal-agent-worktrees/demo-workflow"],
+      "capabilities": ["7+ role legal swarm", "red/blue adversarial analysis", "CLI/API/Celery", "dossier/share/webhook workflows", "battery/HR/finance/ecommerce/marketing/sales domain packs"],
+      "realConsumers": ["independent CLI/API/worker and tests"],
+      "extStatus": "none",
+      "extDevStatus": "none",
+      "value": "deep legal workflow beyond generic Xingbu prompts",
+      "redundancy": ["Xingbu RuntimeSkills", "EXT repeated legal agent-design skills", "deterministic legal kernels"],
+      "conflicts": ["separate identity/storage", "high-risk legal conclusions", "external share/webhook actions", "raw case materials must remain private"],
+      "verdict": "independent-integration"
+    },
+    {
+      "id": "libu-media-studio",
+      "name": "礼部五工位影像工作台",
+      "sources": ["/home/ubuntu/chaotang-libu-studio@298ff5a753a7"],
+      "capabilities": ["13-field storyboard contract", "human anchor/champion gates", "I2V pHash verification", "ffmpeg assembly", "artifact ledger and final acceptance"],
+      "realConsumers": ["independent media service and GPU/cloud adapters"],
+      "extStatus": "none",
+      "extDevStatus": "none",
+      "value": "mature artifact-centered content production flow",
+      "redundancy": ["Rites content RuntimeSkill and general media skills"],
+      "conflicts": ["GPU/cloud side effects", "shared-token auth", "unauthenticated completion callback and callback/SSRF boundary require redesign"],
+      "verdict": "independent-integration"
+    },
+    {
+      "id": "intel-demand-vetting-receipt-loop",
+      "name": "采情牒—核查—回执情报闭环",
+      "sources": ["/home/ubuntu/chaotang-intel@94b39924486e"],
+      "capabilities": ["ministry intelligence request", "seed/pending collection", "source-tier and hard-claim vetting", "graded brief", "used receipt and hit rate"],
+      "realConsumers": ["offline public-source pipeline; professional feeds explicitly not connected"],
+      "extStatus": "none",
+      "extDevStatus": "none",
+      "value": "demand-driven intelligence and honest no-data semantics",
+      "redundancy": ["current Jinyiwei evidence investigation and old finance-intel bridge"],
+      "conflicts": ["seed files and JSONL ledger are not authoritative facts", "missing professional data feeds"],
+      "verdict": "rewrite-distill"
+    },
+    {
+      "id": "hermes-openclaw-platform",
+      "name": "Hermes/OpenClaw Agent 平台",
+      "sources": ["/home/ubuntu/hermes-agent@c80ab48d3e26", "/home/ubuntu/.openclaw", "/home/ubuntu/.openclaw-snapshots", "939186f:backend/agent_design/buildAgent"],
+      "capabilities": ["multi-provider agent", "messaging gateway", "memory", "skill creation", "cron", "sandbox/delegation"],
+      "realConsumers": ["independent Hermes runtime; old agent-design references"],
+      "extStatus": "partial",
+      "extDevStatus": "none",
+      "value": "engineering patterns and optional sidecar capabilities",
+      "redundancy": ["Codex/Claude engineering agents", "current runtime and skill governance"],
+      "conflicts": ["self-improving skills", "broad shell/network authority", "personal messaging and memory"],
+      "verdict": "reference-only"
+    },
+    {
+      "id": "secure-ingest-product-acceptance",
+      "name": "安全摄入与不可变产品验收",
+      "sources": ["codex/ext-d4a-w08-continuation-*", "codex/ext-p0c-contract-acceptance-20260813", "r0-w08-* refs"],
+      "capabilities": ["MIME/OOXML/zip-bomb checks", "exact-source provenance", "immutable acceptance", "release identity"],
+      "realConsumers": ["historical harness and acceptance suites"],
+      "extStatus": "none",
+      "extDevStatus": "partial",
+      "value": "high-value negative tests for files and deliverables",
+      "redundancy": ["current source manifest and harness guards"],
+      "conflicts": ["historical paths and product identities"],
+      "verdict": "contract-eval-only"
+    },
+    {
+      "id": "local-companion-runtime",
+      "name": "本地 Companion 伴侣运行核",
+      "sources": ["codex/local-companion-phase1b-20260803:backend/app/companion"],
+      "capabilities": ["owner/session/character isolation", "idempotency", "candidate memory non-promotion", "sealed reply", "delivery lease/fencing/receipt", "interruption recovery"],
+      "realConsumers": ["companion API and offline/fake-adapter tests"],
+      "extStatus": "none",
+      "extDevStatus": "none",
+      "value": "mature delivery and memory-safety patterns for a separate companion product",
+      "redundancy": ["Shiguan memory and generic job delivery share primitives but not product semantics"],
+      "conflicts": ["must not merge personal companion memory into six-ministry or Shiguan records", "no production model/voice authority proven"],
+      "verdict": "contract-eval-only"
+    },
+    {
+      "id": "temporal-decision-intelligence",
+      "name": "时间化决策智能",
+      "sources": ["docs/temporal-decision-intelligence-design-20260727", "939186f:qintianjian_* and forecast_backtest", "ext-dev:backend/app/qintianjian"],
+      "capabilities": ["Decision→Forecast→Action→Outcome→Settlement→Learning timeline", "temporal seal", "anti-leak evaluation", "eligible denominator/coverage", "Brier and trigger provenance"],
+      "realConsumers": ["ext-dev Qintian forecast/scenario/trigger/review API and owner-scoped storage; full settlement loop remains design/donor"],
+      "extStatus": "partial",
+      "extDevStatus": "partial",
+      "value": "prevents hindsight leakage and makes decisions learnable over time",
+      "redundancy": ["Shiguan outcome ledger and old truth_ledger overlap on result recording"],
+      "conflicts": ["filesystem truth ledger would create a second fact source", "unsettled outcomes cannot train or promote"],
+      "verdict": "rewrite-distill"
+    },
+    {
+      "id": "hubu-professional-accounting",
+      "name": "户部专业会计纵切产品",
+      "sources": ["codex/professional-agent-overlay-clean:backend/app/hubu/professional_work"],
+      "capabilities": ["period close", "management review", "expansion decision", "FAST/EXPERT/COUNCIL/NEEDS_INPUT routing", "strict numeric work products", "offline evals"],
+      "realConsumers": ["overlay graph/store/UI/tests"],
+      "extStatus": "none",
+      "extDevStatus": "partial",
+      "value": "deepest proven professional vertical above generic Hubu skills",
+      "redundancy": ["current Hubu RuntimeSkills, accounting reports, WorkProduct and Confirmation"],
+      "conflicts": ["dedicated graph/store would duplicate ext-dev runtime and storage authority"],
+      "verdict": "rewrite-distill"
+    },
+    {
+      "id": "xingbu-deterministic-legal-kernel",
+      "name": "刑部确定性合同红线与法条核验核",
+      "sources": ["939186f:legal validators/red-team/golden and six legal reference assets"],
+      "capabilities": ["three-state contract redlines", "veto-class redlines", "statute citation validation", "legal red-team", "legal golden cases"],
+      "realConsumers": ["EXT legal flows/tests"],
+      "extStatus": "substantive",
+      "extDevStatus": "label-only",
+      "value": "deterministic safety layer missing from generic Xingbu analysis methods",
+      "redundancy": ["independent legal-agent product and EXT repeated legal prompts"],
+      "conflicts": ["expert-default thresholds cannot become authority", "jurisdiction/version/freshness and human legal review are mandatory"],
+      "verdict": "rewrite-distill"
+    },
+    {
+      "id": "council-graph-experiment",
+      "name": "Council Graph 稀疏会审实验",
+      "sources": ["codex/professional-agent-overlay-clean:council graph/store/observer/activation"],
+      "capabilities": ["independent ministry opinions", "sparse council composition", "deterministic synthesis", "side-by-side observer"],
+      "realConsumers": ["overlay tests and experimental activation"],
+      "extStatus": "none",
+      "extDevStatus": "partial",
+      "value": "useful council composition and observation tests",
+      "redundancy": ["current Junjichu/LangGraph council and joint control adapter"],
+      "conflicts": ["independent database and top-level authority would fork the runtime"],
+      "verdict": "contract-eval-only"
+    },
+    {
+      "id": "legal-verify-core",
+      "name": "本地确定性 Legal Verify Core",
+      "sources": ["/home/ubuntu/legal-verify-core"],
+      "capabilities": ["contract clause segmentation", "pitfall rules", "real/fallback_labeled/mock/missing truth labels", "statutory basis gate", "model conclusion downgrade"],
+      "realConsumers": ["standalone local verifier and fixtures"],
+      "extStatus": "none",
+      "extDevStatus": "none",
+      "value": "small deterministic provenance-aware legal gate distinct from the LLM legal swarm",
+      "redundancy": ["EXT Xingbu deterministic kernel"],
+      "conflicts": ["rental-specific rules cannot become general legal authority", "non-git source needs provenance freeze"],
+      "verdict": "rewrite-distill"
+    },
+    {
+      "id": "qintian-prediction-falsification-loop",
+      "name": "钦天监预测—证伪—校准闭环",
+      "sources": ["/home/ubuntu/chaotang-archive/qintian-2026-07-04"],
+      "capabilities": ["evidence-linked prediction", "direction and falsification condition", "counter-signal detection", "human refuted settlement", "hit-rate calibration"],
+      "realConsumers": ["historical Qintian scripts and ledger"],
+      "extStatus": "none",
+      "extDevStatus": "none",
+      "value": "concrete falsifiability loop and real failure examples",
+      "redundancy": ["temporal decision intelligence", "current Qintian forecast/review", "Shiguan outcome ledger"],
+      "conflicts": ["legacy regex produced false reversals", "LLM must not auto-settle outcomes", "old file ledger cannot be authority"],
+      "verdict": "contract-eval-only"
+    },
+    {
+      "id": "expert-council-skill-pack",
+      "name": "大神会审与专家视角 Skill Pack",
+      "sources": ["/home/ubuntu/chaotang-weblyt", "C:/Users/admin/.agents/skills/*-perspective", "C:/Users/admin/.agents/skills/expert-council"],
+      "capabilities": ["expert lenses", "council facilitation", "named perspective roster"],
+      "realConsumers": ["Codex/engineering skill environment; not product runtime authority"],
+      "extStatus": "partial",
+      "extDevStatus": "none",
+      "value": "review lenses and communication scaffolding",
+      "redundancy": ["global skill installation already carries the core pack", "EXT persona rosters"],
+      "conflicts": ["persona names cannot grant product authority or impersonate production agents"],
+      "verdict": "reference-only"
+    },
+    {
+      "id": "shared-design-system",
+      "name": "共享视觉 Design System",
+      "sources": ["/home/ubuntu/design-system@2bb6cc4a7a0a"],
+      "capabilities": ["design tokens", "React components", "theme variants", "component tests"],
+      "realConsumers": ["standalone design-system repository"],
+      "extStatus": "none",
+      "extDevStatus": "none",
+      "value": "reusable visual primitives and tests",
+      "redundancy": ["current frontend design/token facts", "historical landing design corpus"],
+      "conflicts": ["importing creates a second token/component authority"],
+      "verdict": "reference-only"
+    },
+    {
+      "id": "super-brain-knowledge-memory-sidecar",
+      "name": "Super Brain 知识与记忆摄入侧车",
+      "sources": ["/home/ubuntu/super_brain_backend (non-git local runtime)"],
+      "capabilities": ["FastAPI ingest/search/chat", "layered conversation memory", "Obsidian sync/watch", "OpenClaw adapter", "external research ingest", "NotebookLM source-pack generation"],
+      "realConsumers": ["available local port-8099 launch scripts", "available OpenClaw/Hermes adapter scripts", "available Obsidian watcher; current online state and real call volume are not proven"],
+      "extStatus": "none",
+      "extDevStatus": "none",
+      "value": "working ingestion and retrieval prototype missing from the static CourtOS-Brain vault",
+      "redundancy": ["CourtOS-Brain", "Hermes/OpenClaw memory", "ext-dev Evidence Spine and Shiguan"],
+      "conflicts": ["non-git/floating source", "local environment and credentials", "session identity is not ext-dev owner authority", "web/Obsidian writes and derived memory can pollute trusted evidence"],
+      "verdict": "quarantine"
+    },
+    {
+      "id": "historical-ui-concepts",
+      "name": "历史 UI/产品概念岛",
+      "sources": ["/home/ubuntu/chaotang-landing@e572c8c7eeb2", "/home/ubuntu/chaotang-concept", "/home/ubuntu/courtos-docs-salvage", "939186f:frontend/dev/_attic/frozen/api-battery-exchange"],
+      "capabilities": ["court visual system", "scroll/memorial UX", "department color semantics", "frozen battery exchange mock"],
+      "realConsumers": ["static design previews only"],
+      "extStatus": "partial",
+      "extDevStatus": "partial",
+      "value": "design language and UX references",
+      "redundancy": ["current frontend and multiple archived variants"],
+      "conflicts": ["placeholder data", "mock authority", "frozen product scope"],
+      "verdict": "reference-only"
+    },
+    {
+      "id": "certification-release-evidence",
+      "name": "认证、发布与审查证据快照",
+      "sources": ["/home/ubuntu/Projects/chaotang-ext-certification", "/home/ubuntu/Projects/chaotang-ext-certification-evidence", "/home/ubuntu/Projects/chaotang-os-rc0-d5df61c", "/home/ubuntu/Projects/chaotang-release-evidence", "/home/ubuntu/chaotang-logs", "/home/ubuntu/chaotang-archive"],
+      "capabilities": ["historical build/test/migration/review evidence"],
+      "realConsumers": ["human audit and release review"],
+      "extStatus": "substantive",
+      "extDevStatus": "none",
+      "value": "provenance and regression reference",
+      "redundancy": ["same tree snapshots and generated run artifacts"],
+      "conflicts": ["stale environment/path/build identity; not reusable proof for ext-dev"],
+      "verdict": "reference-only"
+    }
+  ],
+  "explicitExclusions": [
+    {
+      "class": "build-cache-or-venv",
+      "reason": "generated dependency/runtime material, not capability source"
+    },
+    {
+      "class": "raw-run-logs-and-pids",
+      "reason": "operational evidence or sensitive state, not runtime capability"
+    },
+    {
+      "class": "personal-memory-and-private-materials",
+      "reason": "requires separate consent, minimization and provenance review"
+    },
+    {
+      "class": "life-vault-companions-and-case-materials",
+      "reason": "personal or non-product scope; cyber-companion is design-only and cyber-companion-runtime/companions/vam-voice-companion are related surfaces, not silently treated as ext-dev capability"
+    },
+    {
+      "class": "duplicate-worktree-or-review-snapshot",
+      "reason": "same capability tree; retain ref/commit provenance without double counting"
+    },
+    {
+      "class": "historical-mock-or-attic",
+      "reason": "design/eval reference only; no current consumer or authority"
+    }
+  ]
+}

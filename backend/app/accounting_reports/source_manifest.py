@@ -171,7 +171,7 @@ def _resolve_selected_file(path: Path, root: Path) -> Path:
 
 
 def _before_selected_open(_path: Path) -> None:
-    """Test seam immediately before the controlled open; production is a no-op."""
+    """Test seam after the identity anchor opens and before its controlled read."""
 
 
 def _before_selected_postcheck(_path: Path) -> None:
@@ -194,13 +194,18 @@ def _read_selected_bytes(
     expected: os.stat_result,
 ) -> bytes:
     try:
-        _before_selected_open(path)
-        before_path = path.lstat()
-        if _is_reparse(path) or _file_identity(before_path) != _file_identity(expected):
-            raise AccountingSourceError("source_schema_invalid")
         with path.open("rb") as source:
+            # Keep the originally selected object open through both race seams.
+            # On filesystems that immediately reuse an unlinked inode, the open
+            # handle prevents a replacement from masquerading as that object.
+            _before_selected_open(path)
+            before_path = path.lstat()
             before_handle = os.fstat(source.fileno())
-            if _file_identity(before_handle) != _file_identity(expected):
+            if (
+                _is_reparse(path)
+                or _file_identity(before_path) != _file_identity(expected)
+                or _file_identity(before_handle) != _file_identity(expected)
+            ):
                 raise AccountingSourceError("source_schema_invalid")
             content = source.read(MAX_PROBE_FILE_BYTES + 1)
             after_handle = os.fstat(source.fileno())
@@ -208,16 +213,16 @@ def _read_selected_bytes(
                 raise AccountingSourceError("source_schema_invalid")
             if len(content) > MAX_PROBE_FILE_BYTES:
                 raise AccountingSourceError("source_schema_invalid")
-        _before_selected_postcheck(path)
-        after_path = path.lstat()
-        resolved_after = path.resolve(strict=True)
-        resolved_after.relative_to(root)
-        if (
-            _is_reparse(path)
-            or not resolved_after.is_file()
-            or _file_identity(after_path) != _file_identity(before_handle)
-        ):
-            raise AccountingSourceError("source_schema_invalid")
+            _before_selected_postcheck(path)
+            after_path = path.lstat()
+            resolved_after = path.resolve(strict=True)
+            resolved_after.relative_to(root)
+            if (
+                _is_reparse(path)
+                or not resolved_after.is_file()
+                or _file_identity(after_path) != _file_identity(before_handle)
+            ):
+                raise AccountingSourceError("source_schema_invalid")
         return content
     except AccountingSourceError:
         raise

@@ -1,0 +1,219 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chaotang-os.local/contracts/six-ministry-runtime-readiness.schema.json",
+  "title": "Six Ministry Runtime Readiness",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "generatedAt", "sourceCommit", "scope", "summary", "implementationEvidence", "resolverBindings", "validationEvidence", "capabilityFamilies"],
+  "properties": {
+    "schemaVersion": { "const": "2.0.0" },
+    "generatedAt": { "type": "string", "pattern": "^20[0-9]{2}-[0-9]{2}-[0-9]{2}$" },
+    "sourceCommit": { "const": "939186f0331d9784bc8c4ceee393aeb197230ed0" },
+    "scope": { "const": "provider-free, network-free, side-effect-free ext-dev readiness" },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sourceAssets", "families", "activeFamilies", "retiredFamilies", "runtimeSkillDefinitionsCovered", "businessSuccessMeasuredFamilies", "serverOwnedResolverBindings", "externalSideEffectsObserved", "productionPromotionAuthorized"],
+      "properties": {
+        "sourceAssets": { "const": 1777 },
+        "families": { "const": 23 },
+        "activeFamilies": { "const": 22 },
+        "retiredFamilies": { "const": 1 },
+        "runtimeSkillDefinitionsCovered": { "const": 46 },
+        "businessSuccessMeasuredFamilies": { "const": 0 },
+        "serverOwnedResolverBindings": { "const": 6 },
+        "externalSideEffectsObserved": { "const": false },
+        "productionPromotionAuthorized": { "const": false }
+      }
+    },
+    "implementationEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "files", "fingerprint"],
+      "properties": {
+        "algorithm": { "const": "sha256-path-null-content-null-v1" },
+        "files": {
+          "type": "array",
+          "minItems": 46,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/repositoryPath" }
+        },
+        "fingerprint": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "resolverBindings": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "prefixItems": [
+        { "$ref": "#/$defs/currentUserResolver" },
+        { "$ref": "#/$defs/decreeResolver" },
+        { "$ref": "#/$defs/jinyiweiResolver" },
+        { "$ref": "#/$defs/accountingResolver" },
+        { "$ref": "#/$defs/junjichuResolver" },
+        { "$ref": "#/$defs/shiguanResolver" }
+      ],
+      "items": false
+    },
+    "validationEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["implementationFingerprint", "focusedRegression", "fullBackendRegression", "governanceNode", "harness", "independentReviews"],
+      "properties": {
+        "implementationFingerprint": { "$ref": "#/$defs/sha256" },
+        "focusedRegression": { "$ref": "#/$defs/testRun" },
+        "fullBackendRegression": { "$ref": "#/$defs/testRun" },
+        "governanceNode": { "$ref": "#/$defs/testRun" },
+        "harness": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "baselineFiles", "selfTests"],
+          "properties": {
+            "status": { "enum": ["pending", "passed", "failed"] },
+            "baselineFiles": { "type": "integer", "minimum": 0 },
+            "selfTests": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "independentReviews": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "reviewedImplementationFingerprint", "p0", "p1", "p2", "reviewers"],
+          "properties": {
+            "status": { "enum": ["changes-requested", "approved", "approved-with-notes"] },
+            "reviewedImplementationFingerprint": {
+              "oneOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }]
+            },
+            "p0": { "type": "integer", "minimum": 0 },
+            "p1": { "type": "integer", "minimum": 0 },
+            "p2": { "type": "integer", "minimum": 0 },
+            "reviewers": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 3,
+              "uniqueItems": true,
+              "items": { "enum": ["code", "python", "security"] }
+            }
+          },
+          "allOf": [
+            {
+              "if": { "properties": { "status": { "enum": ["approved", "approved-with-notes"] } } },
+              "then": {
+                "properties": {
+                  "reviewedImplementationFingerprint": { "$ref": "#/$defs/sha256" },
+                  "p0": { "const": 0 },
+                  "p1": { "const": 0 },
+                  "reviewers": { "minItems": 3, "maxItems": 3 }
+                }
+              },
+              "else": {
+                "properties": {
+                  "reviewedImplementationFingerprint": { "type": "null" },
+                  "p1": { "minimum": 1 }
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "capabilityFamilies": {
+      "type": "array",
+      "minItems": 23,
+      "maxItems": 23,
+      "items": { "$ref": "#/$defs/family" }
+    }
+  },
+  "$defs": {
+    "nonEmptyString": { "type": "string", "minLength": 1 },
+    "nonEmptyStringArray": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/nonEmptyString" }
+    },
+    "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "repositoryPath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\).+$"
+    },
+    "testRun": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "passed", "skipped", "failed"],
+      "properties": {
+        "status": { "enum": ["pending", "passed", "failed"] },
+        "passed": { "type": "integer", "minimum": 0 },
+        "skipped": { "type": "integer", "minimum": 0 },
+        "failed": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "resolverBase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["resolverId", "sourcePath", "purpose", "limitation"],
+      "properties": {
+        "resolverId": { "$ref": "#/$defs/nonEmptyString" },
+        "sourcePath": { "$ref": "#/$defs/repositoryPath" },
+        "purpose": { "$ref": "#/$defs/nonEmptyString" },
+        "limitation": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    },
+    "currentUserResolver": {
+      "allOf": [
+        { "$ref": "#/$defs/resolverBase" },
+        { "properties": { "resolverId": { "const": "current-user-owner" }, "sourcePath": { "const": "backend/app/api/auth.py" } } }
+      ]
+    },
+    "decreeResolver": {
+      "allOf": [
+        { "$ref": "#/$defs/resolverBase" },
+        { "properties": { "resolverId": { "const": "committed-decree-authority" }, "sourcePath": { "const": "backend/app/decree_jobs/storage.py" } } }
+      ]
+    },
+    "jinyiweiResolver": {
+      "allOf": [
+        { "$ref": "#/$defs/resolverBase" },
+        { "properties": { "resolverId": { "const": "owner-scoped-jinyiwei-evidence" }, "sourcePath": { "const": "backend/app/jinyiwei/storage.py" } } }
+      ]
+    },
+    "accountingResolver": {
+      "allOf": [
+        { "$ref": "#/$defs/resolverBase" },
+        { "properties": { "resolverId": { "const": "owner-run-accounting-work-product" }, "sourcePath": { "const": "backend/app/accounting_reports/storage.py" } } }
+      ]
+    },
+    "junjichuResolver": {
+      "allOf": [
+        { "$ref": "#/$defs/resolverBase" },
+        { "properties": { "resolverId": { "const": "owner-run-junjichu-report-receipt" }, "sourcePath": { "const": "backend/app/junjichu_cases/storage.py" } } }
+      ]
+    },
+    "shiguanResolver": {
+      "allOf": [
+        { "$ref": "#/$defs/resolverBase" },
+        { "properties": { "resolverId": { "const": "owner-scoped-shiguan-reply" }, "sourcePath": { "const": "backend/app/shiguan/storage.py" } } }
+      ]
+    },
+    "family": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["familyId", "name", "owners", "sourceAssetCount", "sourceStatus", "runtimeSkillIds", "absorbedValue", "runtimeStatus", "contractShapeExercised", "businessSuccessMeasured", "missingProductionDependencies", "notAbsorbed", "externalSideEffectsObserved", "productionPromotionAuthorized"],
+      "properties": {
+        "familyId": { "type": "string", "pattern": "^capability-family:[a-z0-9-]+$" },
+        "name": { "$ref": "#/$defs/nonEmptyString" },
+        "owners": { "$ref": "#/$defs/nonEmptyStringArray" },
+        "sourceAssetCount": { "type": "integer", "minimum": 1 },
+        "sourceStatus": { "enum": ["existing", "enhance", "new", "retire"] },
+        "runtimeSkillIds": { "type": "array", "items": { "$ref": "#/$defs/nonEmptyString" } },
+        "absorbedValue": { "$ref": "#/$defs/nonEmptyStringArray" },
+        "runtimeStatus": { "enum": ["degraded-until-authority-evidence", "retired"] },
+        "contractShapeExercised": { "type": "boolean" },
+        "businessSuccessMeasured": { "const": false },
+        "missingProductionDependencies": { "type": "array", "items": { "$ref": "#/$defs/nonEmptyString" } },
+        "notAbsorbed": { "$ref": "#/$defs/nonEmptyStringArray" },
+        "externalSideEffectsObserved": { "const": false },
+        "productionPromotionAuthorized": { "const": false }
+      }
+    }
+  }
+}

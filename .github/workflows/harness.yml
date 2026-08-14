@@ -13,6 +13,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Root Harness verifies the immutable EXT capability provenance.
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -20,6 +23,17 @@ jobs:
         run: node scripts/check_harness.mjs
       - name: Test baseline checker
         run: node scripts/check_harness.mjs --self-test
+      - name: Test six-ministry capability governance
+        run: >-
+          node --test
+          scripts/stocktake_external_capabilities.test.mjs
+          scripts/capability_capsule.test.mjs
+          scripts/capability_eval.test.mjs
+          scripts/capability_shadow.test.mjs
+          scripts/decision_quality_gate.test.mjs
+          scripts/capability_family_matrix.test.mjs
+          scripts/six_ministry_execution_contract.test.mjs
+          scripts/six_ministry_evidence_spine_contract.test.mjs
       - run: node --test scripts/check_migration_completeness.test.mjs
       - run: node scripts/check_migration_completeness.mjs
       - name: Test shared Stop hook protocol

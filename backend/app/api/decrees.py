@@ -38,11 +38,12 @@ from collections.abc import Callable
 from contextvars import ContextVar
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
-from typing import get_args
+from pathlib import Path
+from typing import Annotated, get_args
 
-from fastapi import APIRouter, FastAPI, Header
+from fastapi import APIRouter, Depends, FastAPI, Header, Request
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.accounting_reports.config import APPROVED_ACCOUNTING_SOURCE_DIR
 from app.accounting_reports.models import (
@@ -83,16 +84,20 @@ from app.agents.chancellor_runtime import (
 )
 from app.agents.junjichu.agent import CaseLifecycleObserver
 from app.agents.ministries import MINISTRIES
+from app.agents.runtime_skills.evidence_spine import route_snapshot_digest
+from app.agents.runtime_skills.models import CouncilReport, MinistryReport
 from app.agents.synthesis_failures import (
     SynthesisFailureCode,
     SynthesisStage,
     classify_synthesis_failure,
 )
 from app.api.auth import CurrentUser
-from app.api.decree_jobs import JobStore
-from app.decree_jobs import AcceptDecreeJob, IdempotencyConflict
+from app.api.decree_jobs import get_decree_job_store
+from app.decree_jobs import AcceptDecreeJob, DecreeJobStore, IdempotencyConflict
 from app.junjichu_cases import (
     JunjichuCaseOpenInput,
+    append_runtime_council_report,
+    append_runtime_ministry_report,
     archive_case,
     fail_case,
     open_case,
@@ -118,6 +123,29 @@ _FIXED_FAILURE_REASON = "processing_failed"
 _FAILURE_STAGES = frozenset(
     {"route", "bureau", "ministry", "council", "finalize", "archive", "report"}
 )
+
+
+def _decree_job_store_factory(
+    request: Request,
+) -> Callable[[], DecreeJobStore]:
+    """Resolve the configured store provider without opening storage yet.
+
+    FastAPI resolves dependencies before it validates the request body.  Returning
+    the provider itself keeps that phase side-effect free; the endpoint invokes the
+    provider only after ``ChancellorDecreeRequest`` has passed validation.  Looking
+    up the application override preserves the existing isolated-test wiring.
+    """
+
+    return request.app.dependency_overrides.get(
+        get_decree_job_store,
+        get_decree_job_store,
+    )
+
+
+DecreeJobStoreFactory = Annotated[
+    Callable[[], DecreeJobStore],
+    Depends(_decree_job_store_factory),
+]
 
 
 def _model_failure_metadata(
@@ -271,43 +299,133 @@ def build_accounting_report_session(
 class _StorageCaseLifecycleObserver(CaseLifecycleObserver):
     """Bind validated lifecycle events to one authenticated owner's case."""
 
-    def __init__(self, owner_user_id: str) -> None:
+    def __init__(
+        self,
+        owner_user_id: str,
+        *,
+        run_id: str | None = None,
+        draft_fingerprint: str | None = None,
+        route_digest: str | None = None,
+        approved_departments: tuple[str, ...] | None = None,
+        db_path: Path | None = None,
+    ) -> None:
         self._owner_user_id = owner_user_id
         self._case_id: str | None = None
+        self._ministry_report_digests: list[str] = []
+        self._council_report_digest: str | None = None
         self._completed_ministry_opinions: list[dict[str, object]] = []
+        self._ministry_opinion_replay_index = 0
         self._failure_stage: SynthesisStage = "route"
         self._failure_recorded = False
+        binding_values = (
+            run_id,
+            draft_fingerprint,
+            route_digest,
+            approved_departments,
+        )
+        if any(item is not None for item in binding_values) and any(
+            item is None for item in binding_values
+        ):
+            raise ValueError("case execution binding is incomplete")
+        self._run_id = run_id
+        self._draft_fingerprint = draft_fingerprint
+        self._route_digest = route_digest
+        self._approved_departments = approved_departments
+        self._db_path = db_path
+
+    def _storage_kwargs(self) -> dict[str, Path]:
+        return {} if self._db_path is None else {"db_path": self._db_path}
 
     @property
     def case_created(self) -> bool:
         return self._case_id is not None
 
+    @property
+    def case_id(self) -> str | None:
+        """Return the durable case identity created for a multi-ministry run."""
+
+        return self._case_id
+
+    @property
+    def ministry_report_digests(self) -> tuple[str, ...]:
+        return tuple(self._ministry_report_digests)
+
+    @property
+    def council_report_digest(self) -> str | None:
+        return self._council_report_digest
+
     def open_case(
         self, *, decree_text: str, departments: list[str], processing_path: list[str]
     ) -> None:
+        if self._approved_departments is not None and tuple(departments) != (
+            self._approved_departments
+        ):
+            raise ValueError("case route does not match approved departments")
         case = open_case(
             JunjichuCaseOpenInput(
                 decree_text=decree_text,
                 route_type="multi",
                 departments=departments,
                 processing_path=processing_path,
+                run_id=self._run_id,
+                decree_id=self._run_id,
+                draft_fingerprint=self._draft_fingerprint,
+                route_digest=self._route_digest,
             ),
             owner_user_id=self._owner_user_id,
+            **self._storage_kwargs(),
         )
         self._case_id = case.id
+        self._completed_ministry_opinions = list(case.completed_ministry_opinions)
+        self._ministry_opinion_replay_index = 0
         self._failure_stage = "ministry"
 
     def record_ministry_opinion(self, opinion: dict[str, object]) -> None:
         if self._case_id is None:
             return
         self._failure_stage = "ministry"
-        self._completed_ministry_opinions.append(opinion)
+        position = self._ministry_opinion_replay_index
+        if position < len(self._completed_ministry_opinions):
+            if self._completed_ministry_opinions[position] != opinion:
+                raise ValueError("ministry opinion replay conflict")
+        else:
+            self._completed_ministry_opinions.append(opinion)
+        self._ministry_opinion_replay_index += 1
         record_checkpoint(
             self._case_id,
             owner_user_id=self._owner_user_id,
             status="MINISTRY_REVIEWING",
             completed_ministry_opinions=self._completed_ministry_opinions,
+            **self._storage_kwargs(),
         )
+
+    def record_ministry_report(self, report: MinistryReport) -> None:
+        if self._run_id is None:
+            return
+        if self._case_id is None:
+            raise ValueError("case must be opened before ministry report")
+        record = append_runtime_ministry_report(
+            self._case_id,
+            owner_user_id=self._owner_user_id,
+            run_id=self._run_id,
+            report=report,
+            **self._storage_kwargs(),
+        )
+        self._ministry_report_digests.append(record.content_digest)
+
+    def record_council_report(self, report: CouncilReport) -> None:
+        if self._run_id is None:
+            return
+        if self._case_id is None:
+            raise ValueError("case must be opened before council report")
+        record = append_runtime_council_report(
+            self._case_id,
+            owner_user_id=self._owner_user_id,
+            run_id=self._run_id,
+            report=report,
+            **self._storage_kwargs(),
+        )
+        self._council_report_digest = record.content_digest
 
     def record_checkpoint(
         self,
@@ -329,6 +447,7 @@ class _StorageCaseLifecycleObserver(CaseLifecycleObserver):
             processing_path=processing_path,
             completed_ministry_opinions=self._completed_ministry_opinions,
             council_verdict=council_verdict,
+            **self._storage_kwargs(),
         )
 
     def archive(self, reply_id: str) -> None:
@@ -337,6 +456,7 @@ class _StorageCaseLifecycleObserver(CaseLifecycleObserver):
                 self._case_id,
                 owner_user_id=self._owner_user_id,
                 reply_id=reply_id,
+                **self._storage_kwargs(),
             )
 
     def fail(
@@ -353,6 +473,7 @@ class _StorageCaseLifecycleObserver(CaseLifecycleObserver):
                 reason=_FIXED_FAILURE_REASON,
                 failure_stage=stage or self._failure_stage,
                 failure_code=code,
+                **self._storage_kwargs(),
             )
 
 
@@ -515,6 +636,40 @@ class PreparedDecreeExecution(BaseModel):
     response: ChancellorDecreeResponse
     internal_result: dict[str, object]
     generated_artifact_id: str | None = None
+    junjichu_case_id: str | None = Field(default=None, min_length=1, max_length=256)
+    junjichu_ministry_report_digests: tuple[str, ...] = ()
+    junjichu_council_report_digest: str | None = None
+
+    @model_validator(mode="after")
+    def _case_checkpoint_matches_route(self) -> PreparedDecreeExecution:
+        if self.response.route_type == "multi":
+            if self.junjichu_case_id is None:
+                raise ValueError("multi route requires junjichu_case_id")
+            if len(self.junjichu_ministry_report_digests) != len(
+                self.response.departments
+            ) or any(
+                len(digest) != 64
+                or any(character not in "0123456789abcdef" for character in digest)
+                for digest in self.junjichu_ministry_report_digests
+            ):
+                raise ValueError("multi route requires exact ministry report digests")
+            if (
+                self.junjichu_council_report_digest is None
+                or len(self.junjichu_council_report_digest) != 64
+                or any(
+                    character not in "0123456789abcdef"
+                    for character in self.junjichu_council_report_digest
+                )
+            ):
+                raise ValueError("multi route requires exact council report digest")
+        elif self.junjichu_case_id is not None:
+            raise ValueError("single route cannot bind junjichu_case_id")
+        elif (
+            self.junjichu_ministry_report_digests
+            or self.junjichu_council_report_digest is not None
+        ):
+            raise ValueError("single route cannot bind council report digests")
+        return self
 
 
 def _durable_internal_result(result: dict[str, object]) -> dict[str, object]:
@@ -837,11 +992,12 @@ def _accepted_response(job, *, replayed: bool) -> JSONResponse:
 def accept_decree(
     payload: ChancellorDecreeRequest,
     current_user: CurrentUser,
-    store: JobStore,
+    store_factory: DecreeJobStoreFactory,
     idempotency_key: str = Header(
         alias="Idempotency-Key", min_length=1, max_length=128
     ),
 ) -> JSONResponse:
+    store = store_factory()
     request_hash = _canonical_request_hash(payload, current_user.id)
     try:
         recovered = store.recover_acceptance(
@@ -919,6 +1075,19 @@ def accept_decree(
         store.abandon_acceptance(accepted.job.job_id, current_user.id)
         raise AccountingReportPublicationError("draft_authority_commit_failed")
     try:
+        store.mark_authority_committed(accepted.job.job_id, current_user.id)
+    except Exception:
+        # The process-local authority has already been consumed.  Without a
+        # durable commit marker this acceptance must never be recovered or
+        # claimed after restart.
+        try:
+            store.abandon_acceptance(accepted.job.job_id, current_user.id)
+        except Exception:
+            pass
+        raise AccountingReportPublicationError(
+            "draft_authority_commit_marker_failed"
+        ) from None
+    try:
         job = store.activate_acceptance(accepted.job.job_id, current_user.id)
     except Exception:
         abandoned = False
@@ -993,7 +1162,17 @@ def execute_decree_now(
         run_id=run_id,
         accounting_context=accounting_context,
     )
-    observer = _StorageCaseLifecycleObserver(current_user.id)
+    observer_kwargs: dict[str, object] = {}
+    if payload.draft_fingerprint is not None:
+        observer_kwargs = {
+            "run_id": run_id,
+            "draft_fingerprint": payload.draft_fingerprint,
+            "route_digest": route_snapshot_digest(approved_route),
+            "approved_departments": tuple(
+                item.department for item in approved_route.departments
+            ),
+        }
+    observer = _StorageCaseLifecycleObserver(current_user.id, **observer_kwargs)
     context_token = None
     runtime_audit = None
     final_side_effects = ["authority_consumed"]
@@ -1079,6 +1258,9 @@ def execute_decree_now(
                 response=response,
                 internal_result=audited_result,
                 generated_artifact_id=generated_artifact_id,
+                junjichu_case_id=observer.case_id,
+                junjichu_ministry_report_digests=observer.ministry_report_digests,
+                junjichu_council_report_digest=observer.council_report_digest,
             )
         try:
             archive_kwargs = {"owner_user_id": current_user.id}

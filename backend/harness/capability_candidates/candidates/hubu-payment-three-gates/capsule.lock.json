@@ -1,0 +1,16 @@
+{
+  "schema_version": "1.0.0",
+  "capability_id": "hubu-payment-three-gates",
+  "version": "0.1.0",
+  "capsule_digest": "sha256:a76167f3c8e5c7777cba7c3ca5f6432001db32a84dfc44c7d8ee11d7200df4dd",
+  "objects": {
+    "adapter.txt": "sha256:81813282c537fd24b38eeacc53e5ca3267edebff541e0a448c535e9758183565",
+    "candidate.json": "sha256:ce6b79f83bcb5ba77c9c2e05dda2b8ed58c82ac6ab02667ebda41333244dfc9e",
+    "contract.json": "sha256:92c04565808c9429e64af8296431a950d95bfe2326796e4de5ab8cf6e57b75da",
+    "evaluations.json": "sha256:db5661928265d20bca399033730f13948f4e1c2056239bde42ca47add83b2b83",
+    "policy.json": "sha256:163a411faaa22eaf614aeaa3246591eaa10551a4e4a9313ae82a6c462f5795fd",
+    "prompt.txt": "sha256:5c998180166d6bca0325744648c36380d184ef5c6bf62d8a55acfc8868d97f6c",
+    "rollback.txt": "sha256:30fc4650ad81f2305d93d0ffe314dfe5a57d96691896c65d07707af3b11f1d7d",
+    "telemetry.txt": "sha256:06d703c699ed648469078a88eb92396ef8a5eecda451742cb6aa1984a600276c"
+  }
+}

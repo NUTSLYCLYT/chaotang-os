@@ -1,0 +1,1 @@
+Offline responsibility evaluator; no identity or authority writes.

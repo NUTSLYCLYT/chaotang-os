@@ -1,0 +1,16 @@
+{
+  "schema_version": "1.0.0",
+  "capability_id": "rites-message-quality-gate",
+  "version": "0.1.0",
+  "capsule_digest": "sha256:c0c5ab055d835d740f1acc65599ee468632a43b3fc1327bc4edc658c1bd9bad6",
+  "objects": {
+    "objects/adapter.txt": "sha256:3dd42617d1ee4132a3e25b7bc02d29475c2a7c9a45c8fcd6914d695bbc6f740c",
+    "objects/behavior.txt": "sha256:0989f58e89e2153b187af2d6f7ef353e66927aa9319400c888689af3269b922f",
+    "objects/contract.json": "sha256:7abb0816a3d31906cb750acea7c4117c0c56362f9a8bc71655a4ba510d527a09",
+    "objects/evaluations.json": "sha256:68b868722f2ab5f753539b06fd8c44fc140d8b2901e5b3c9c066581e47b85d7e",
+    "objects/policy.json": "sha256:a3a2ab6ccc95c961c0873ceb4b853d96f4426d96e6d2bde601a37a08092bb057",
+    "objects/prompt.txt": "sha256:428cee57614ab43cd848386eafbec3e842465f531a931c92454236a5b206a68e",
+    "objects/rollback.txt": "sha256:ea4934871facefeff8c2c505237fd11bd4d984785b1ebc1088f5917b563d2451",
+    "objects/telemetry.txt": "sha256:bfcef4534a79c5127583b82848deafde3d35c6886bb4b908e0f374398e48e199"
+  }
+}

@@ -1,0 +1,1 @@
+Require contract, acceptance, and approval evidence; never initiate payment.

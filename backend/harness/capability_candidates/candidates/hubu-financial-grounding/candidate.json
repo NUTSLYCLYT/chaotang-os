@@ -1,0 +1,9 @@
+{
+  "id": "hubu-financial-grounding",
+  "name": "户部财务勾稽与数字接地",
+  "owner": "户部",
+  "purpose": "数字必须绑定来源、期间、口径和勾稽关系；冲突数字不得被静默平均。",
+  "requiredAssertions": ["source-labelled", "numeric-provenance", "tenant-unchanged", "authority-unchanged", "no-side-effects"],
+  "migrationVerdict": "rewrite-distill",
+  "authorization": "candidate-only"
+}

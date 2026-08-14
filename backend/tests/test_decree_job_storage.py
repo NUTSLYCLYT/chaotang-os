@@ -65,6 +65,7 @@ def test_uncommitted_authority_acceptance_is_not_claimable_until_activated(
         request_hash="hash-a",
     ) is None
 
+    store.mark_authority_committed(pending.job_id, "owner-a", now=NOW)
     store.activate_acceptance(pending.job_id, "owner-a", now=NOW)
     claimed = store.claim_next("worker-a", now=NOW)
     assert claimed is not None
@@ -76,6 +77,7 @@ def test_crash_recovery_commits_the_same_pending_acceptance_once(tmp_path) -> No
     pending = store.accept(
         replace(_command(), acceptance_committed=False), now=NOW
     ).job
+    store.mark_authority_committed(pending.job_id, "owner-a", now=NOW)
 
     recovered = store.recover_acceptance(
         owner_user_id="owner-a",
@@ -101,6 +103,46 @@ def test_crash_recovery_commits_the_same_pending_acceptance_once(tmp_path) -> No
         pending.job_id, "owner-a", now=NOW + timedelta(seconds=2)
     ).job_id == pending.job_id
     assert store.claim_next("worker-a", now=NOW + timedelta(seconds=2)) is not None
+
+
+def test_accept_never_replaces_a_durable_authority_marker(tmp_path) -> None:
+    store = DecreeJobStore(tmp_path / "jobs.sqlite3")
+    command = replace(_command(), acceptance_committed=False)
+    pending = store.accept(command, now=NOW).job
+    store.mark_authority_committed(pending.job_id, "owner-a", now=NOW)
+
+    replay = store.accept(command, now=NOW + timedelta(seconds=1))
+
+    assert replay.replayed is True
+    assert replay.job.job_id == pending.job_id
+    assert store.count() == 1
+    assert store.claim_next("worker-a", now=NOW + timedelta(seconds=1)) is not None
+
+
+def test_recovery_never_promotes_acceptance_without_authority_commit_marker(
+    tmp_path,
+) -> None:
+    store = DecreeJobStore(tmp_path / "jobs.sqlite3")
+    pending = store.accept(
+        replace(_command(), acceptance_committed=False), now=NOW
+    ).job
+
+    assert (
+        store.recover_acceptance(
+            owner_user_id="owner-a",
+            idempotency_key="submission-1",
+            request_hash="hash-a",
+            now=NOW + timedelta(seconds=1),
+        )
+        is None
+    )
+    assert store.claim_next("worker-a", now=NOW + timedelta(seconds=1)) is None
+    with pytest.raises(DecreeJobStoreError, match="acceptance_activation_failed"):
+        store.activate_acceptance(
+            pending.job_id,
+            "owner-a",
+            now=NOW + timedelta(seconds=1),
+        )
 
 
 def test_crash_recovery_rejects_changed_payload_and_cannot_cross_owner(
@@ -156,6 +198,7 @@ def test_reaccepted_authority_replaces_crash_orphan_before_activation(tmp_path) 
     assert replacement.replayed is False
     assert replacement.job.job_id != orphan.job_id
     assert store.count() == 1
+    store.mark_authority_committed(replacement.job.job_id, "owner-a", now=NOW)
     store.activate_acceptance(replacement.job.job_id, "owner-a", now=NOW)
     assert store.claim_next("worker-a", now=NOW) is not None
 
@@ -434,7 +477,8 @@ def test_existing_legacy_job_schema_is_altered_without_losing_rows(tmp_path) -> 
             row[1] for row in connection.execute("PRAGMA table_info(decree_jobs)")
         }
         committed = connection.execute(
-            "SELECT acceptance_committed FROM decree_jobs WHERE job_id = ?",
+            "SELECT authority_committed, acceptance_committed "
+            "FROM decree_jobs WHERE job_id = ?",
             ("legacy-job",),
         ).fetchone()
 
@@ -442,10 +486,109 @@ def test_existing_legacy_job_schema_is_altered_without_losing_rows(tmp_path) -> 
         "provider_request_limit",
         "error_stage",
         "error_category",
+        "authority_committed",
         "acceptance_committed",
     }.issubset(columns)
     assert legacy.provider_request_limit == 8
-    assert committed == (1,)
+    assert committed == (1, 1)
+
+
+def test_authority_marker_migration_preserves_precommit_rows_as_untrusted(
+    tmp_path,
+) -> None:
+    path = tmp_path / "previous-jobs.sqlite3"
+    with closing(sqlite3.connect(path)) as connection:
+        connection.executescript(
+            """
+            CREATE TABLE decree_jobs (
+                job_id TEXT PRIMARY KEY,
+                owner_user_id TEXT NOT NULL,
+                idempotency_key TEXT NOT NULL,
+                request_hash TEXT NOT NULL,
+                draft_fingerprint TEXT NOT NULL,
+                decree_text TEXT NOT NULL,
+                approved_route_json TEXT NOT NULL,
+                state TEXT NOT NULL,
+                attempt_count INTEGER NOT NULL DEFAULT 0,
+                provider_request_count INTEGER NOT NULL DEFAULT 0,
+                provider_request_limit INTEGER NOT NULL DEFAULT 8,
+                cancel_requested INTEGER NOT NULL DEFAULT 0,
+                result_json TEXT,
+                reply_id TEXT,
+                error_code TEXT,
+                error_stage TEXT,
+                error_category TEXT,
+                acceptance_committed INTEGER NOT NULL DEFAULT 1,
+                deadline_at TEXT NOT NULL,
+                retry_at TEXT,
+                lease_owner TEXT,
+                lease_expires_at TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                UNIQUE(owner_user_id, idempotency_key),
+                UNIQUE(owner_user_id, draft_fingerprint)
+            );
+            """
+        )
+        values = (
+            "owner-a",
+            "hash-a",
+            "legacy decree",
+            '{"route_type":"single"}',
+            "QUEUED",
+            (NOW + timedelta(minutes=30)).isoformat(),
+            NOW.isoformat(),
+            NOW.isoformat(),
+        )
+        connection.execute(
+            """
+            INSERT INTO decree_jobs (
+                job_id, owner_user_id, idempotency_key, request_hash,
+                draft_fingerprint, decree_text, approved_route_json, state,
+                acceptance_committed, deadline_at, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)
+            """,
+            ("pending-job", values[0], "pending-key", values[1], "a" * 64, *values[2:]),
+        )
+        connection.execute(
+            """
+            INSERT INTO decree_jobs (
+                job_id, owner_user_id, idempotency_key, request_hash,
+                draft_fingerprint, decree_text, approved_route_json, state,
+                acceptance_committed, deadline_at, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)
+            """,
+            (
+                "committed-job",
+                values[0],
+                "committed-key",
+                values[1],
+                "b" * 64,
+                *values[2:],
+            ),
+        )
+        connection.commit()
+
+    store = DecreeJobStore(path)
+    with closing(sqlite3.connect(path)) as connection:
+        markers = connection.execute(
+            "SELECT job_id, authority_committed, acceptance_committed "
+            "FROM decree_jobs ORDER BY job_id"
+        ).fetchall()
+
+    assert markers == [("committed-job", 1, 1), ("pending-job", 0, 0)]
+    assert (
+        store.recover_acceptance(
+            owner_user_id="owner-a",
+            idempotency_key="pending-key",
+            request_hash="hash-a",
+            now=NOW,
+        )
+        is None
+    )
+    claimed = store.claim_next("worker-a", now=NOW)
+    assert claimed is not None
+    assert claimed.job_id == "committed-job"
 
 
 def test_cancellation_is_cooperative_before_archive_and_rejected_after(tmp_path) -> None:
@@ -506,6 +649,44 @@ def test_checkpoint_transitions_cannot_regress_or_skip_stages(tmp_path) -> None:
     store.checkpoint_result(job_id, "worker-a", result_json='{"status":"ok"}', now=NOW)
     with pytest.raises(LeaseConflict):
         store.checkpoint_result(job_id, "worker-a", result_json='{"status":"new"}', now=NOW)
+
+
+def test_result_checkpoint_atomically_honors_a_late_cancel_request(tmp_path) -> None:
+    store = DecreeJobStore(tmp_path / "late-cancel.sqlite3")
+    job_id = store.accept(_command(), now=NOW).job.job_id
+    store.claim_next("worker-a", now=NOW, lease_seconds=30)
+    store.request_cancel(job_id, "owner-a", now=NOW)
+
+    checkpointed = store.checkpoint_result(
+        job_id,
+        "worker-a",
+        result_json='{"status":"ok"}',
+        now=NOW,
+    )
+
+    assert checkpointed.state is DecreeJobState.CANCELLED
+    assert checkpointed.result_json is None
+    assert checkpointed.lease_owner is None
+
+
+def test_transient_failure_atomically_finishes_a_late_cancel_request(tmp_path) -> None:
+    store = DecreeJobStore(tmp_path / "late-cancel-failure.sqlite3")
+    job_id = store.accept(_command(), now=NOW).job.job_id
+    store.claim_next("worker-a", now=NOW, lease_seconds=30)
+    store.request_cancel(job_id, "owner-a", now=NOW)
+
+    cancelled = store.fail_attempt(
+        job_id,
+        "worker-a",
+        error_code="result_checkpoint_failed",
+        transient=True,
+        retry_at=NOW + timedelta(seconds=5),
+        now=NOW,
+    )
+
+    assert cancelled.state is DecreeJobState.CANCELLED
+    assert cancelled.retry_at is None
+    assert cancelled.lease_owner is None
 
 
 def test_side_effect_transient_failure_retries_once_then_fails_closed(tmp_path) -> None:

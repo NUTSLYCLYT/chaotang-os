@@ -1,0 +1,36 @@
+{
+  "schema_version": "1.0.0",
+  "capability_id": "rites-message-quality-gate",
+  "version": "0.1.0",
+  "status": "candidate",
+  "evaluation_scope": "synthetic-offline-only",
+  "production_boundary": "not-registered-no-execution-authority",
+  "content_digests": {
+    "prompt": "sha256:428cee57614ab43cd848386eafbec3e842465f531a931c92454236a5b206a68e",
+    "contract": "sha256:7abb0816a3d31906cb750acea7c4117c0c56362f9a8bc71655a4ba510d527a09",
+    "policy": "sha256:a3a2ab6ccc95c961c0873ceb4b853d96f4426d96e6d2bde601a37a08092bb057",
+    "evaluation": "sha256:68b868722f2ab5f753539b06fd8c44fc140d8b2901e5b3c9c066581e47b85d7e"
+  },
+  "artifacts": {
+    "prompt": { "path": "objects/prompt.txt", "digest": "sha256:428cee57614ab43cd848386eafbec3e842465f531a931c92454236a5b206a68e" },
+    "contract": { "path": "objects/contract.json", "digest": "sha256:7abb0816a3d31906cb750acea7c4117c0c56362f9a8bc71655a4ba510d527a09" },
+    "policy": { "path": "objects/policy.json", "digest": "sha256:a3a2ab6ccc95c961c0873ceb4b853d96f4426d96e6d2bde601a37a08092bb057" },
+    "behavior": { "path": "objects/behavior.txt", "digest": "sha256:0989f58e89e2153b187af2d6f7ef353e66927aa9319400c888689af3269b922f" },
+    "adapter": { "path": "objects/adapter.txt", "digest": "sha256:3dd42617d1ee4132a3e25b7bc02d29475c2a7c9a45c8fcd6914d695bbc6f740c" },
+    "evaluations": { "path": "objects/evaluations.json", "digest": "sha256:68b868722f2ab5f753539b06fd8c44fc140d8b2901e5b3c9c066581e47b85d7e" },
+    "telemetry": { "path": "objects/telemetry.txt", "digest": "sha256:bfcef4534a79c5127583b82848deafde3d35c6886bb4b908e0f374398e48e199" },
+    "provenance": { "repository": "origin/feature-chaotang-ext", "commit": "939186f0331d9784bc8c4ceee393aeb197230ed0", "path": "frontend/config/rites_brand_comms.registry.yaml" },
+    "rollback": { "path": "objects/rollback.txt", "digest": "sha256:ea4934871facefeff8c2c505237fd11bd4d984785b1ebc1088f5917b563d2451" }
+  },
+  "authority_ref": { "issuer": "chaotang-os-root-harness", "projection_digest": "sha256:ee71155080cf30d55f3d46f5fe05a447a973071808bccea1d50c6a7f6cb561c2" },
+  "requested_permissions": {
+    "tools": [],
+    "data_domains": [],
+    "may_write_external": false
+  },
+  "controls": {
+    "kill_switches": { "capability_enabled": true, "tenant_enabled": true, "tools_enabled": true },
+    "taint": { "external_content_taints_context": true, "tainted_context_allows_tools": false },
+    "context_rent": { "max_tokens": 1200, "direct_fallback": true, "minimum_expected_gain": 0.1 }
+  }
+}

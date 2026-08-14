@@ -1,0 +1,16 @@
+{
+  "schema_version": "1.0.0",
+  "capability_id": "decision-quality-gate",
+  "version": "0.1.0",
+  "capsule_digest": "sha256:4c810fd51287c34091599aa794505429ffd861b8a4df40d38c1ad743be26a861",
+  "objects": {
+    "adapter.txt": "sha256:2110e134e010c91a7225b9c39f10096b54b096807011dee23b619fc2859c8040",
+    "candidate.json": "sha256:5c525318a0f81111bca27aa668b35b36947ea8bb23760d08ac52a4f7d1ff105c",
+    "contract.json": "sha256:a69bfb4419966673d7cce3f02ad69489718c20152b8097bbb09b4557a0bd0c4e",
+    "evaluations.json": "sha256:6ee1647fb7285e3765a8e219bd223a3a94221988cf7e017ad2786c5e6e596e79",
+    "policy.json": "sha256:271883f974e6fe4ae5528a8528687be30f67a834ea21346e07221fdac672cb29",
+    "prompt.txt": "sha256:46bbd01a1cb2ddf2641d23375b122de3cb8c00ef358b57a8f8fa3a8e38fb0ed0",
+    "rollback.txt": "sha256:cdf6522a5dc5625b98d9e8e654b6baa49e6afc41acb75868bdd5511d2f499b89",
+    "telemetry.txt": "sha256:b5efd51b25bafc31889ad846e68e78540caa0210806718a43eaa616eb8c81ef3"
+  }
+}

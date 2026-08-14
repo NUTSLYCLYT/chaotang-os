@@ -1,0 +1,9 @@
+{
+  "id": "decision-quality-gate",
+  "name": "六部共用决策质量门",
+  "owner": "six-ministries",
+  "purpose": "所有结论均需证据或缺口，红灯、冲突和不可逆动作不得被隐藏或自动执行。",
+  "requiredAssertions": ["source-labelled", "evidence-or-gap", "tenant-unchanged", "authority-unchanged", "no-side-effects"],
+  "migrationVerdict": "rewrite-distill",
+  "authorization": "candidate-only"
+}

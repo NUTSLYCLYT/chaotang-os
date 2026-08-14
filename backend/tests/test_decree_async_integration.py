@@ -153,12 +153,16 @@ def test_post_recovers_crash_after_authority_commit_without_new_authority(
         "activate_acceptance",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(SystemExit("crash")),
     )
-    client = TestClient(_app(store))
     request = _request(b"crash-recovery")
     headers = {"Idempotency-Key": "crashed-response"}
 
     with pytest.raises(SystemExit, match="crash"):
-        client.post("/api/v1/decrees/chancellor", headers=headers, json=request)
+        decrees.accept_decree(
+            decrees.ChancellorDecreeRequest.model_validate(request),
+            SimpleNamespace(id="owner-a"),
+            lambda: store,
+            headers["Idempotency-Key"],
+        )
     assert store.count() == 1
     assert accepted_ids
 
@@ -168,12 +172,119 @@ def test_post_recovers_crash_after_authority_commit_without_new_authority(
         "reserve_with_context",
         lambda **_kwargs: (_ for _ in ()).throw(AssertionError("authority re-read")),
     )
+    # Recovery crosses a fresh HTTP client boundary, matching a real process
+    # restart while retaining only durable storage and committed authority.
+    client = TestClient(_app(store))
     replay = client.post("/api/v1/decrees/chancellor", headers=headers, json=request)
 
     assert replay.status_code == 202
     assert replay.json()["job_id"] == accepted_ids[0]
     assert replay.json()["replayed"] is True
     assert store.count() == 1
+    assert store.claim_next("worker-a") is not None
+
+
+def test_precommit_crash_never_recovers_or_queues_uncommitted_authority(
+    tmp_path, monkeypatch
+) -> None:
+    store = DecreeJobStore(tmp_path / "jobs.sqlite3")
+    authority = ConsumedDraftAuthority(_route(), None)
+    monkeypatch.setattr(
+        decrees.draft_authority_registry,
+        "reserve_with_context",
+        lambda **_kwargs: authority,
+    )
+    monkeypatch.setattr(
+        decrees.draft_authority_registry,
+        "commit_reservation",
+        lambda **_kwargs: (_ for _ in ()).throw(SystemExit("precommit crash")),
+    )
+    request = _request(b"precommit-crash")
+    headers = {"Idempotency-Key": "precommit-crash"}
+
+    with pytest.raises(SystemExit, match="precommit crash"):
+        decrees.accept_decree(
+            decrees.ChancellorDecreeRequest.model_validate(request),
+            SimpleNamespace(id="owner-a"),
+            lambda: store,
+            headers["Idempotency-Key"],
+        )
+
+    assert store.count() == 1
+    assert store.claim_next("worker-a") is None
+    assert (
+        store.lookup_replay(
+            owner_user_id="owner-a",
+            idempotency_key=headers["Idempotency-Key"],
+            request_hash=decrees._canonical_request_hash(
+                decrees.ChancellorDecreeRequest.model_validate(request),
+                "owner-a",
+            ),
+        )
+        is None
+    )
+
+    # A real process restart loses the process-local draft registry.  The
+    # durable row alone must not be enough to recreate authority.
+    monkeypatch.setattr(
+        decrees.draft_authority_registry,
+        "reserve_with_context",
+        lambda **_kwargs: None,
+    )
+    replay = TestClient(_app(store)).post(
+        "/api/v1/decrees/chancellor", headers=headers, json=request
+    )
+
+    assert replay.status_code == 409
+    assert replay.json()["reason"] == "draft_not_current"
+    assert store.claim_next("worker-a") is None
+
+
+def test_postcommit_marker_error_preserves_recoverable_acceptance(
+    tmp_path, monkeypatch
+) -> None:
+    store = DecreeJobStore(tmp_path / "jobs.sqlite3")
+    authority = ConsumedDraftAuthority(_route(), None)
+    original_mark = store.mark_authority_committed
+
+    def commit_then_fail(*args, **kwargs):
+        original_mark(*args, **kwargs)
+        raise OSError("connection dropped after authority marker commit")
+
+    monkeypatch.setattr(
+        decrees.draft_authority_registry,
+        "reserve_with_context",
+        lambda **_kwargs: authority,
+    )
+    monkeypatch.setattr(
+        decrees.draft_authority_registry,
+        "commit_reservation",
+        lambda **_kwargs: True,
+    )
+    monkeypatch.setattr(store, "mark_authority_committed", commit_then_fail)
+    request = _request(b"postcommit-marker")
+    headers = {"Idempotency-Key": "postcommit-marker"}
+
+    response = TestClient(_app(store)).post(
+        "/api/v1/decrees/chancellor", headers=headers, json=request
+    )
+
+    assert response.status_code == 502
+    assert store.count() == 1
+    assert store.claim_next("worker-a") is None
+
+    monkeypatch.setattr(store, "mark_authority_committed", original_mark)
+    monkeypatch.setattr(
+        decrees.draft_authority_registry,
+        "reserve_with_context",
+        lambda **_kwargs: (_ for _ in ()).throw(AssertionError("authority re-read")),
+    )
+    replay = TestClient(_app(store)).post(
+        "/api/v1/decrees/chancellor", headers=headers, json=request
+    )
+
+    assert replay.status_code == 202
+    assert replay.json()["replayed"] is True
     assert store.claim_next("worker-a") is not None
 
 
@@ -198,14 +309,15 @@ def test_pending_recovery_rejects_changed_payload_and_is_owner_scoped(
         lambda *_args, **_kwargs: (_ for _ in ()).throw(SystemExit("crash")),
     )
     headers = {"Idempotency-Key": "owner-key"}
-    client_a = TestClient(_app(store, owner="owner-a"))
     with pytest.raises(SystemExit):
-        client_a.post(
-            "/api/v1/decrees/chancellor",
-            headers=headers,
-            json=_request(b"owner-a"),
+        decrees.accept_decree(
+            decrees.ChancellorDecreeRequest.model_validate(_request(b"owner-a")),
+            SimpleNamespace(id="owner-a"),
+            lambda: store,
+            headers["Idempotency-Key"],
         )
 
+    client_a = TestClient(_app(store, owner="owner-a"))
     wrong = client_a.post(
         "/api/v1/decrees/chancellor",
         headers=headers,
@@ -229,7 +341,7 @@ def test_pending_recovery_rejects_changed_payload_and_is_owner_scoped(
     assert store.count() == 1
 
 
-def test_activation_failure_abandons_job_and_restores_authority(
+def test_activation_failure_preserves_committed_authority_for_recovery(
     tmp_path, monkeypatch
 ) -> None:
     store = DecreeJobStore(tmp_path / "jobs.sqlite3")
@@ -264,8 +376,9 @@ def test_activation_failure_abandons_job_and_restores_authority(
     )
 
     assert response.status_code == 502
-    assert store.count() == 0
-    assert restored == [authority]
+    assert store.count() == 1
+    assert restored == []
+    assert store.claim_next("worker-a") is None
 
 
 def test_post_commit_activation_error_keeps_authority_consumed(

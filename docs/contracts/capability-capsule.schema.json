@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chaotang-os.invalid/contracts/capability-capsule.schema.json",
+  "title": "Capability Capsule v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "capability_id", "version", "status", "evaluation_scope", "production_boundary", "content_digests", "artifacts", "authority_ref", "requested_permissions", "controls"],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "capability_id": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$", "maxLength": 128 },
+    "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$", "maxLength": 32 },
+    "status": { "enum": ["quarantined", "normalized", "candidate", "shadow", "canary", "stable", "deprecated", "revoked"] },
+    "evaluation_scope": { "const": "synthetic-offline-only" },
+    "production_boundary": { "const": "not-registered-no-execution-authority" },
+    "content_digests": {
+      "type": "object", "additionalProperties": false,
+      "required": ["prompt", "contract", "policy", "evaluation"],
+      "properties": { "prompt": { "$ref": "#/$defs/digest" }, "contract": { "$ref": "#/$defs/digest" }, "policy": { "$ref": "#/$defs/digest" }, "evaluation": { "$ref": "#/$defs/digest" } }
+    },
+    "artifacts": {
+      "type": "object", "additionalProperties": false,
+      "required": ["prompt", "contract", "policy", "behavior", "adapter", "evaluations", "telemetry", "provenance", "rollback"],
+      "properties": {
+        "prompt": { "$ref": "#/$defs/artifact" }, "contract": { "$ref": "#/$defs/artifact" }, "policy": { "$ref": "#/$defs/artifact" },
+        "behavior": { "$ref": "#/$defs/artifact" }, "adapter": { "$ref": "#/$defs/artifact" }, "evaluations": { "$ref": "#/$defs/artifact" },
+        "telemetry": { "$ref": "#/$defs/artifact" }, "rollback": { "$ref": "#/$defs/artifact" },
+        "provenance": {
+          "type": "object", "additionalProperties": false, "required": ["repository", "commit", "path"],
+          "properties": {
+            "repository": { "type": "string", "minLength": 1, "maxLength": 512 },
+            "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+            "path": { "type": "string", "minLength": 1, "maxLength": 1024 }
+          }
+        }
+      }
+    },
+    "authority_ref": {
+      "type": "object", "additionalProperties": false, "required": ["issuer", "projection_digest"],
+      "properties": { "issuer": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$", "maxLength": 128 }, "projection_digest": { "$ref": "#/$defs/digest" } }
+    },
+    "requested_permissions": { "$ref": "#/$defs/requestedPermissions" },
+    "controls": {
+      "type": "object", "additionalProperties": false, "required": ["kill_switches", "taint", "context_rent"],
+      "properties": {
+        "kill_switches": {
+          "type": "object", "additionalProperties": false, "required": ["capability_enabled", "tenant_enabled", "tools_enabled"],
+          "properties": { "capability_enabled": { "type": "boolean" }, "tenant_enabled": { "type": "boolean" }, "tools_enabled": { "type": "boolean" } }
+        },
+        "taint": {
+          "type": "object", "additionalProperties": false, "required": ["external_content_taints_context", "tainted_context_allows_tools"],
+          "properties": { "external_content_taints_context": { "const": true }, "tainted_context_allows_tools": { "const": false } }
+        },
+        "context_rent": {
+          "type": "object", "additionalProperties": false, "required": ["max_tokens", "direct_fallback", "minimum_expected_gain"],
+          "properties": { "max_tokens": { "type": "integer", "minimum": 1, "maximum": 32768 }, "direct_fallback": { "const": true }, "minimum_expected_gain": { "type": "number", "minimum": 0, "maximum": 1 } }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "artifact": {
+      "type": "object", "additionalProperties": false, "required": ["path", "digest"],
+      "properties": { "path": { "type": "string", "minLength": 1, "maxLength": 1024 }, "digest": { "$ref": "#/$defs/digest" } }
+    },
+    "stringSet": { "type": "array", "maxItems": 128, "uniqueItems": true, "items": { "type": "string", "minLength": 1, "maxLength": 256 } },
+    "permissions": {
+      "type": "object", "additionalProperties": false, "required": ["approved_tools", "approved_data_domains", "may_write_external", "human_confirmation_required"],
+      "properties": { "approved_tools": { "$ref": "#/$defs/stringSet" }, "approved_data_domains": { "$ref": "#/$defs/stringSet" }, "may_write_external": { "type": "boolean" }, "human_confirmation_required": { "type": "boolean" } }
+    },
+    "requestedPermissions": {
+      "type": "object", "additionalProperties": false, "required": ["tools", "data_domains", "may_write_external"],
+      "properties": { "tools": { "$ref": "#/$defs/stringSet" }, "data_domains": { "$ref": "#/$defs/stringSet" }, "may_write_external": { "type": "boolean" } }
+    }
+  }
+}

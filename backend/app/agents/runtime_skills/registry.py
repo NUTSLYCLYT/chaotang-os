@@ -1,3 +1,5 @@
+import hashlib
+import json
 from collections.abc import Callable
 
 from app.agents.bureaus import BUREAU_PROFILES
@@ -19,6 +21,34 @@ from app.agents.runtime_skills.tool_registry import (
 
 class DownstreamSkillRegistryError(ValueError):
     """A stable fail-closed registry error."""
+
+
+def runtime_skill_definition_digest(skill: RuntimeSkillDefinition) -> str:
+    """Return the canonical content identity of one executable definition."""
+
+    projection = {
+        "skill_id": skill.skill_id,
+        "version": skill.version,
+        "agent_id": skill.agent_id,
+        "layer": skill.layer.value,
+        "purpose": skill.purpose,
+        "responsibility_scope": skill.responsibility_scope,
+        "data_requirements": skill.data_requirements,
+        "analysis_procedure": skill.analysis_procedure,
+        "required_findings": skill.required_findings,
+        "allowed_services": sorted(service.value for service in skill.allowed_services),
+        "forbidden_actions": skill.forbidden_actions,
+        "report_type": f"{skill.report_type.__module__}.{skill.report_type.__qualname__}",
+        "tool_policy": (
+            skill.tool_policy.model_dump(mode="json")
+            if skill.tool_policy is not None
+            else None
+        ),
+    }
+    canonical = json.dumps(
+        projection, ensure_ascii=False, separators=(",", ":"), sort_keys=True
+    )
+    return f"sha256:{hashlib.sha256(canonical.encode('utf-8')).hexdigest()}"
 
 
 _BUREAU_SPECS_BY_IDENTITY = {

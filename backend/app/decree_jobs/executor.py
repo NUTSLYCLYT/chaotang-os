@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sqlite3
 from types import SimpleNamespace
 
 from pydantic import TypeAdapter
@@ -15,6 +16,7 @@ from app.agents.chancellor_draft.authority import (
 )
 from app.agents.chancellor_draft.routing import ApprovedRouteSnapshot
 from app.agents.evidence_protocol import AgentEvidenceSnapshot
+from app.agents.runtime_skills.evidence_spine import route_snapshot_digest
 from app.agents.synthesis_failures import classify_synthesis_failure
 from app.api.decrees import (
     AccountingReportPublicationError,
@@ -25,6 +27,14 @@ from app.api.decrees import (
     _model_failure_metadata,
     build_accounting_report_session,
     execute_decree_now,
+)
+from app.junjichu_cases import (
+    JunjichuCaseNotFoundError,
+    JunjichuRuntimeReportError,
+    archive_case,
+    get_case,
+    get_runtime_report_snapshot,
+    validate_case_archive_preconditions,
 )
 from app.langgraph_runtime.provider_budget import (
     ProviderBudgetExceeded,
@@ -123,15 +133,97 @@ def _archive_internal_result(
 
 def archive_prepared_decree(job: DecreeJob) -> str:
     prepared = _prepared(job)
+    authority = _decode_authority(job.approved_route_json)
+    internal_result = _archive_internal_result(prepared)
+    internal_route = internal_result.get("approved_route")
+    route = authority.route_snapshot
+    departments = tuple(item.department for item in route.departments)
+    if (
+        internal_route != route
+        or internal_result.get("draft_fingerprint") != job.draft_fingerprint
+        or tuple(prepared.response.departments) != departments
+        or prepared.response.route_type != ("multi" if len(departments) > 1 else "single")
+    ):
+        raise PermanentJobError("result_checkpoint_invalid")
+    case_id = prepared.junjichu_case_id
+    if prepared.response.route_type == "multi":
+        if case_id is None:
+            raise PermanentJobError("result_checkpoint_invalid")
+        try:
+            case = get_case(case_id, owner_user_id=job.owner_user_id)
+        except (sqlite3.Error, OSError) as exc:
+            raise TransientJobError("junjichu_archive_failed") from exc
+        if case is None or case.owner_user_id != job.owner_user_id:
+            raise PermanentJobError("junjichu_archive_failed")
+        try:
+            validate_case_archive_preconditions(
+                case,
+                reply_id=job.job_id,
+                expected_run_id=job.job_id,
+                expected_decree_id=job.job_id,
+                expected_draft_fingerprint=job.draft_fingerprint,
+                expected_route_digest=route_snapshot_digest(route),
+                expected_departments=departments,
+                expected_council_verdict=prepared.response.council_verdict,
+            )
+        except ValueError as exc:
+            raise PermanentJobError("junjichu_archive_failed") from exc
+        try:
+            report_snapshot = get_runtime_report_snapshot(
+                case_id,
+                owner_user_id=job.owner_user_id,
+                run_id=job.job_id,
+            )
+        except JunjichuRuntimeReportError as exc:
+            raise PermanentJobError("junjichu_archive_failed") from exc
+        if (
+            tuple(
+                record.content_digest
+                for record in report_snapshot.ministry_records
+            )
+            != prepared.junjichu_ministry_report_digests
+            or report_snapshot.council_record is None
+            or report_snapshot.council_record.content_digest
+            != prepared.junjichu_council_report_digest
+        ):
+            raise PermanentJobError("junjichu_archive_failed")
     archived = archive_chancellor_decree(
         job.decree_text,
         prepared.response,
-        _archive_internal_result(prepared),
+        internal_result,
         owner_user_id=job.owner_user_id,
         reply_id=job.job_id,
     )
-    if not archived.archived or archived.reply_id != job.job_id:
+    if archived.reply_id != job.job_id:
         raise PermanentJobError("reply_archive_failed")
+    if not archived.archived:
+        raise TransientJobError("reply_archive_failed")
+    if prepared.response.route_type == "multi":
+        assert case_id is not None
+        try:
+            archived_case = archive_case(
+                case_id,
+                owner_user_id=job.owner_user_id,
+                reply_id=archived.reply_id,
+                expected_run_id=job.job_id,
+                expected_decree_id=job.job_id,
+                expected_draft_fingerprint=job.draft_fingerprint,
+                expected_route_digest=route_snapshot_digest(route),
+                expected_departments=departments,
+                expected_council_verdict=prepared.response.council_verdict,
+            )
+        except (sqlite3.Error, OSError) as exc:
+            raise TransientJobError("junjichu_archive_failed") from exc
+        except (JunjichuCaseNotFoundError, ValueError) as exc:
+            raise PermanentJobError("junjichu_archive_failed") from exc
+        if (
+            archived_case.status != "ARCHIVED"
+            or archived_case.reply_id != archived.reply_id
+            or archived_case.owner_user_id != job.owner_user_id
+            or archived_case.run_id != job.job_id
+            or archived_case.decree_id != job.job_id
+        ):
+            raise PermanentJobError("junjichu_archive_failed")
     return archived.reply_id
 
 
@@ -280,7 +372,11 @@ class PersistentDecreeJobExecutor:
                 _raise_accounting_failure(exc)
             except (ProviderBudgetExceeded, ProviderRequestLimitExceeded) as exc:
                 raise PermanentJobError("provider_budget_exceeded") from exc
-        return response.model_dump_json()
+        result_json = response.model_dump_json()
+        checkpoint_result = getattr(control, "checkpoint_result", None)
+        if checkpoint_result is not None:
+            checkpoint_result(result_json)
+        return result_json
 
     def archive(self, job: DecreeJob) -> str:
         return archive_prepared_decree(job)

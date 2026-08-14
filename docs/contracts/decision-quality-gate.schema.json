@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chaotang-os.invalid/contracts/decision-quality-gate.schema.json",
+  "title": "Decision quality gate trusted envelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["packet", "trusted_context"],
+  "properties": {
+    "packet": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "decision_id", "action_digest", "status", "source", "claims", "evidence", "conflict_state", "conflicts", "blocker_state", "blockers", "risk_state", "risks", "data_gaps", "limitations", "next_action"],
+      "properties": {
+        "schema_version": { "const": "1.0.0" },
+        "decision_id": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "action_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "status": { "enum": ["completed", "degraded", "failed"] },
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode", "label"],
+          "properties": {
+            "mode": { "enum": ["LIVE", "LOCAL", "DEMO", "FALLBACK"] },
+            "label": { "type": "string", "minLength": 1, "maxLength": 4096 }
+          }
+        },
+        "claims": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["claim_id", "text", "critical", "evidence_refs"],
+            "properties": {
+              "claim_id": { "type": "string", "minLength": 1, "maxLength": 256 },
+              "text": { "type": "string", "minLength": 1, "maxLength": 4096 },
+              "critical": { "type": "boolean" },
+              "evidence_refs": { "type": "array", "maxItems": 50, "items": { "type": "string", "minLength": 1, "maxLength": 256 }, "uniqueItems": true }
+            }
+          }
+        },
+        "evidence": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["evidence_id", "provenance"],
+            "properties": {
+              "evidence_id": { "type": "string", "minLength": 1, "maxLength": 256 },
+              "provenance": { "type": "string", "minLength": 1, "maxLength": 4096 }
+            }
+          }
+        },
+        "conflict_state": { "enum": ["none", "present"] },
+        "conflicts": { "$ref": "#/$defs/stringList" },
+        "blocker_state": { "enum": ["none", "present"] },
+        "blockers": { "$ref": "#/$defs/stringList" },
+        "risk_state": { "enum": ["none", "present"] },
+        "risks": { "$ref": "#/$defs/stringList" },
+        "data_gaps": { "$ref": "#/$defs/stringList" },
+        "limitations": { "$ref": "#/$defs/stringList" },
+        "next_action": { "type": "string", "minLength": 1, "maxLength": 4096 }
+      }
+    },
+    "trusted_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["decision_id", "action_digest", "verified_evidence_ids", "high_risk", "human_confirmation"],
+      "properties": {
+        "decision_id": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "action_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "verified_evidence_ids": { "type": "array", "maxItems": 100, "items": { "type": "string", "minLength": 1, "maxLength": 256 }, "uniqueItems": true },
+        "high_risk": { "type": "boolean" },
+        "human_confirmation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["required", "status", "approval_ref"],
+          "properties": {
+            "required": { "type": "boolean" },
+            "status": { "enum": ["not_required", "pending", "approved", "rejected"] },
+            "approval_ref": { "type": ["string", "null"], "maxLength": 4096 }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "stringList": { "type": "array", "maxItems": 100, "items": { "type": "string", "minLength": 1, "maxLength": 4096 } }
+  }
+}

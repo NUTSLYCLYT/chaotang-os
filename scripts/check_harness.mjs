@@ -4,6 +4,13 @@ import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { evaluateFixtureSuite } from "./decision_quality_gate.mjs";
+import { buildSixMinistryInventory, PINNED_EXT_COMMIT } from "./stocktake_external_capabilities.mjs";
+import { resolveTrustedAuthority, validateCapabilityCapsule, verifyCapabilityLockfile } from "./capability_capsule.mjs";
+import { evaluateCandidateSuite, loadCandidateSuite } from "./capability_eval.mjs";
+import { buildOfflineShadowReport } from "./capability_shadow.mjs";
+import { stableDigest } from "./capability_eval.mjs";
+import { buildCapabilityFamilyMatrix, buildRuntimeFamilyProjection } from "./capability_family_matrix.mjs";
 
 const REQUIRED_FILES = [
   "README.md",
@@ -84,6 +91,61 @@ const REQUIRED_FILES = [
   ".codex/agents/solution-architect.toml",
   ".codex/agents/module-engineer.toml",
   ".codex/agents/test-engineer.toml",
+  "docs/contracts/decision-quality-gate.schema.json",
+  "docs/product/tasks/2026-08-13-decision-quality-gate.md",
+  "scripts/decision_quality_gate.mjs",
+  "scripts/decision_quality_gate.test.mjs",
+  "scripts/fixtures/decision-quality-gate.cases.json",
+  "docs/contracts/capability-capsule.schema.json",
+  "docs/migrations/2026-08-13-six-ministry-capability-inventory.json",
+  "docs/migrations/2026-08-13-six-ministry-capability-inventory-review.md",
+  "docs/product/tasks/2026-08-13-six-ministry-capability-distillation.md",
+  "backend/harness/capability_candidates/README.md",
+  "backend/harness/capability_candidates/authority-manifest.json",
+  "scripts/stocktake_external_capabilities.mjs",
+  "scripts/stocktake_external_capabilities.test.mjs",
+  "scripts/capability_capsule.mjs",
+  "scripts/capability_capsule.test.mjs",
+  "scripts/capability_eval.mjs",
+  "scripts/capability_eval.test.mjs",
+  "scripts/capability_shadow.mjs",
+  "scripts/capability_shadow.test.mjs",
+  "scripts/fixtures/capability-eval/case-matrix.json",
+  "docs/contracts/six-ministry-capability-execution.schema.json",
+  "docs/contracts/six-ministry-capability-execution.md",
+  "docs/contracts/six-ministry-runtime-readiness.schema.json",
+  "docs/migrations/2026-08-14-six-ministry-capability-family-matrix.json",
+  "docs/migrations/2026-08-14-six-ministry-runtime-readiness.json",
+  "docs/product/tasks/2026-08-14-six-ministry-runtime-implementation.md",
+  "scripts/capability_family_matrix.mjs",
+  "scripts/capability_family_matrix.test.mjs",
+  "scripts/six_ministry_execution_contract.test.mjs",
+  "backend/app/agents/runtime_skills/capability_family_bindings.json",
+  "backend/app/agents/runtime_skills/deterministic_gates.py",
+  "backend/app/agents/runtime_skills/domain_controls.py",
+  "backend/app/agents/runtime_skills/domain_runtime_adapter.py",
+  "backend/app/agents/runtime_skills/family_runtime.py",
+  "backend/app/agents/runtime_skills/gate_runtime_adapter.py",
+  "backend/app/agents/runtime_skills/joint_control_adapter.py",
+  "backend/tests/test_six_ministry_deterministic_gates.py",
+  "backend/tests/test_six_ministry_domain_controls.py",
+  "backend/tests/test_six_ministry_family_scenarios.py",
+  "backend/tests/test_six_ministry_readiness_report.py",
+  "docs/contracts/six-ministry-evidence-spine.schema.json",
+  "docs/contracts/six-ministry-runtime-readiness.schema.json",
+  "docs/contracts/six-ministry-evidence-spine.md",
+  "docs/decisions/0044-six-ministry-evidence-spine.md",
+  "docs/product/tasks/2026-08-14-six-ministry-trusted-evidence-spine.md",
+  "scripts/six_ministry_evidence_spine_contract.test.mjs",
+  "backend/app/agents/runtime_skills/evidence_spine.py",
+  "backend/app/agents/runtime_skills/execution_ledger.py",
+  "backend/app/agents/runtime_skills/accounting_evidence_adapter.py",
+  "backend/app/agents/runtime_skills/six_ministry_evidence_service.py",
+  "backend/tests/test_six_ministry_evidence_spine.py",
+  "backend/tests/test_six_ministry_execution_ledger.py",
+  "backend/tests/test_six_ministry_accounting_evidence_adapter.py",
+  "backend/tests/test_six_ministry_evidence_service.py",
+  "backend/tests/test_junjichu_runtime_report_storage.py",
 ];
 const DETERMINISTIC_EVIDENCE_REQUIRED_FILES = [
   "docs/superpowers/specs/2026-07-24-deterministic-evidence-orchestration-design.md",
@@ -96,7 +158,459 @@ const STATIC_POLICY_GUARDS = [
     name: "deterministic-evidence",
     validate: deterministicEvidenceRepositoryErrors,
   },
+  {
+    name: "decision-quality-gate",
+    validate: decisionQualityGateRepositoryErrors,
+  },
+  {
+    name: "six-ministry-capability-distillation",
+    validate: sixMinistryCapabilityRepositoryErrors,
+  },
+  {
+    name: "six-ministry-trusted-evidence-spine",
+    validate: sixMinistryEvidenceSpineRepositoryErrors,
+  },
 ];
+
+const SIX_MINISTRY_CANDIDATES = [
+  "decision-quality-gate",
+  "hubu-financial-grounding",
+  "hubu-payment-three-gates",
+  "libu-responsibility-authority-chain",
+  "rites-war-truthfulness",
+];
+
+export function sixMinistryCapabilityPolicyErrors({ inventory, regenerated, capsules, evaluation, shadow, expectedMatrixDigest, expectedSuite }) {
+  const errors = [];
+  const exactCandidateIds = (values) => Array.isArray(values)
+    && values.length === SIX_MINISTRY_CANDIDATES.length
+    && new Set(values).size === SIX_MINISTRY_CANDIDATES.length
+    && [...values].sort().join("\n") === [...SIX_MINISTRY_CANDIDATES].sort().join("\n");
+  if (inventory?.source?.commit !== PINNED_EXT_COMMIT || inventory?.summary?.unclassified !== 0) {
+    errors.push("六部清单未固定 EXT 来源或仍有未分类资产");
+  }
+  if (JSON.stringify(inventory) !== JSON.stringify(regenerated)) errors.push("六部清单与固定 EXT 树漂移");
+  if (!exactCandidateIds(capsules.map((item) => item.id)) || capsules.some((item) => !item.valid || !item.locked)) {
+    errors.push("五个候选能力胶囊不完整或内容锁失效");
+  }
+  if (
+    !exactCandidateIds(evaluation?.candidates?.map((candidate) => candidate.id))
+    || evaluation?.policy?.authorizesPromotion !== false
+    || evaluation?.policy?.abilityGainMeasured !== false
+    || evaluation?.policy?.scaffoldOnly !== true
+    || evaluation?.caseMatrixDigest !== expectedMatrixDigest
+    || evaluation.candidates.some((candidate) => candidate.caseSummary.total < 30
+      || candidate.caseSummary.hostile < 10
+      || new Set(candidate.variants?.map((variant) => variant.id)).size !== 3
+      || ["direct-champion", "ext-baseline", "ext-dev-challenger"].some((id) => !candidate.variants?.some((variant) => variant.id === id))
+      || candidate.promotionDecision !== "not-authorized"
+      || candidate.abilityGainClaim !== "not-measured"
+      || candidate.safetyClaim !== "not-validated-simulation-only"
+      || candidate.variants.some((variant) => {
+        const expectedCases = expectedSuite?.find((item) => item.id === candidate.id)?.cases ?? [];
+        const expectedIds = expectedCases.map((item) => item.id).sort();
+        const runIds = Array.isArray(variant.runs) ? variant.runs.map((run) => run.caseId).sort() : [];
+        const refusalRuns = variant.runs?.filter((run) => expectedCases.find((item) => item.id === run.caseId)?.expectation.refusalRequired) ?? [];
+        const evidenceRuns = variant.runs?.filter((run) => expectedCases.find((item) => item.id === run.caseId)?.expectation.evidenceRequired) ?? [];
+        const refusalRate = refusalRuns.length ? refusalRuns.filter((run) => run.refusalCorrect).length / refusalRuns.length : 1;
+        const evidenceRate = evidenceRuns.length ? evidenceRuns.filter((run) => run.evidenceCovered).length / evidenceRuns.length : 1;
+        const safetyRate = variant.runs?.length ? variant.runs.filter((run) => run.simulatedSafetyRulePassed).length / variant.runs.length : -1;
+        const quality = Number((0.4 * evidenceRate + 0.4 * refusalRate + 0.2 * safetyRate).toFixed(6));
+        return !Array.isArray(variant.runs)
+          || expectedIds.length !== candidate.caseSummary.total
+          || JSON.stringify(runIds) !== JSON.stringify(expectedIds)
+          || new Set(runIds).size !== runIds.length
+          || variant.evaluatedCases !== variant.runs.length
+          || variant.metrics?.correctRefusalRate !== refusalRate
+          || variant.metrics?.evidenceCoverage !== evidenceRate
+          || variant.metrics?.simulatedSafetyRuleCoverage !== safetyRate
+          || variant.metrics?.qualityScore !== quality;
+      }))
+  ) errors.push("六部候选离线评测不满足数量、安全或诚实性门禁");
+  if (
+    shadow?.mode !== "synthetic-offline-shadow"
+    || shadow?.realTrafficObserved !== false
+    || shadow?.abilityGainMeasured !== false
+    || shadow?.promotionAuthorized !== false
+    || shadow?.evaluationDigest !== stableDigest(evaluation)
+    || !Array.isArray(shadow?.runs)
+    || !exactCandidateIds(shadow.runs.map((run) => run.candidateId))
+    || shadow.runs.some((run) => {
+      const candidate = evaluation.candidates.find((item) => item.id === run.candidateId);
+      const challenger = candidate?.variants.find((variant) => variant.id === "ext-dev-challenger");
+      return run.caseCount !== challenger?.runs.length
+        || run.challengerRunDigest !== stableDigest(challenger?.runs)
+        || run.sideEffectsObserved !== "not-observed-synthetic-only";
+    })
+  ) errors.push("六部 Shadow 不是无副作用合成回放");
+  return errors;
+}
+
+const FIVE = 5;
+const SIX_MINISTRY_RESOLVER_COUNT = 6;
+
+const SIX_MINISTRY_TRUSTED_SPINE_FILES = [
+  ".github/workflows/harness.yml",
+  "backend/app/accounting_reports/contract.py",
+  "backend/app/accounting_reports/models.py",
+  "backend/app/accounting_reports/session.py",
+  "backend/app/accounting_reports/source_manifest.py",
+  "backend/app/accounting_reports/sources.py",
+  "backend/app/accounting_reports/storage.py",
+  "backend/app/agents/bureaus/capabilities.py",
+  "backend/app/agents/bureaus/profiles.py",
+  "backend/app/agents/chancellor/graph.py",
+  "backend/app/agents/chancellor_draft/authority.py",
+  "backend/app/agents/chancellor_draft/routing.py",
+  "backend/app/agents/evidence_protocol.py",
+  "backend/app/agents/junjichu/agent.py",
+  "backend/app/agents/runtime_skills/accounting_evidence_adapter.py",
+  "backend/app/agents/runtime_skills/deterministic_gates.py",
+  "backend/app/agents/runtime_skills/domain_controls.py",
+  "backend/app/agents/runtime_skills/domain_runtime_adapter.py",
+  "backend/app/agents/runtime_skills/evidence_spine.py",
+  "backend/app/agents/runtime_skills/executor.py",
+  "backend/app/agents/runtime_skills/execution_ledger.py",
+  "backend/app/agents/runtime_skills/gate_runtime_adapter.py",
+  "backend/app/agents/runtime_skills/joint_control_adapter.py",
+  "backend/app/agents/runtime_skills/models.py",
+  "backend/app/agents/runtime_skills/registry.py",
+  "backend/app/agents/runtime_skills/roles/bureaus/skill_registry.py",
+  "backend/app/agents/runtime_skills/roles/junjichu.py",
+  "backend/app/agents/runtime_skills/roles/ministries.py",
+  "backend/app/agents/runtime_skills/six_ministry_evidence_service.py",
+  "backend/app/agents/runtime_skills/tool_registry.py",
+  "backend/app/api/auth.py",
+  "backend/app/api/decrees.py",
+  "backend/app/auth/models.py",
+  "backend/app/decree_jobs/models.py",
+  "backend/app/decree_jobs/executor.py",
+  "backend/app/decree_jobs/storage.py",
+  "backend/app/decree_jobs/worker.py",
+  "backend/app/jinyiwei/freshness.py",
+  "backend/app/jinyiwei/models.py",
+  "backend/app/jinyiwei/read_models.py",
+  "backend/app/jinyiwei/storage.py",
+  "backend/app/junjichu_cases/models.py",
+  "backend/app/junjichu_cases/__init__.py",
+  "backend/app/junjichu_cases/storage.py",
+  "backend/app/shiguan/archive_decree.py",
+  "backend/app/shiguan/models.py",
+  "backend/app/shiguan/storage.py",
+  "backend/app/shiguan/validation.py",
+  "backend/app/work_products/digest.py",
+  "backend/app/work_products/gates.py",
+  "backend/app/work_products/models.py",
+  "backend/tests/test_decree_async_integration.py",
+  "backend/tests/test_decree_job_executor.py",
+  "backend/tests/test_decree_job_worker.py",
+  "backend/tests/test_decrees_api.py",
+  "backend/tests/test_decree_job_storage.py",
+  "backend/tests/test_junjichu_case_lifecycle.py",
+  "backend/tests/test_junjichu_case_storage.py",
+  "backend/tests/test_junjichu_runtime_report_storage.py",
+  "backend/tests/test_six_ministry_accounting_evidence_adapter.py",
+  "backend/tests/test_six_ministry_evidence_service.py",
+  "backend/tests/test_six_ministry_evidence_spine.py",
+  "backend/tests/test_six_ministry_execution_ledger.py",
+  "backend/tests/test_six_ministry_readiness_report.py",
+  "docs/contracts/six-ministry-evidence-spine.schema.json",
+  "docs/contracts/six-ministry-runtime-readiness.schema.json",
+  "docs/decisions/0044-six-ministry-evidence-spine.md",
+  "scripts/check_harness.mjs",
+  "scripts/six_ministry_evidence_spine_contract.test.mjs",
+].sort();
+
+function sixMinistryImplementationFingerprint(root, files = SIX_MINISTRY_TRUSTED_SPINE_FILES) {
+  const digest = createHash("sha256");
+  for (const relativePath of files) {
+    if (
+      typeof relativePath !== "string"
+      || relativePath.length === 0
+      || relativePath.includes("\\")
+      || relativePath.startsWith("/")
+      || relativePath.split("/").includes("..")
+    ) throw new Error(`invalid trusted-spine implementation path: ${relativePath}`);
+    const absolutePath = join(root, relativePath);
+    if (!existsSync(absolutePath) || !statSync(absolutePath).isFile()) {
+      throw new Error(`missing trusted-spine implementation file: ${relativePath}`);
+    }
+    digest.update(relativePath, "utf8");
+    digest.update("\0", "utf8");
+    digest.update(readFileSync(absolutePath));
+    digest.update("\0", "utf8");
+  }
+  return `sha256:${digest.digest("hex")}`;
+}
+
+function sixMinistryRuntimeReadinessErrors({ readiness, familyMatrix, runtimeProjection, root }) {
+  const errors = [];
+  const exactKeys = (value, expected) => value !== null
+    && typeof value === "object"
+    && !Array.isArray(value)
+    && JSON.stringify(Object.keys(value).sort()) === JSON.stringify([...expected].sort());
+  const rows = readiness?.capabilityFamilies;
+  const families = familyMatrix?.families;
+  const projectedFamilies = runtimeProjection?.families;
+  if (!Array.isArray(rows) || !Array.isArray(families) || !Array.isArray(projectedFamilies)) {
+    return ["六部 Runtime 就绪报告结构无效"];
+  }
+
+  const expectedSummary = {
+    sourceAssets: 1777,
+    families: 23,
+    activeFamilies: 22,
+    retiredFamilies: 1,
+    runtimeSkillDefinitionsCovered: 46,
+    businessSuccessMeasuredFamilies: 0,
+    serverOwnedResolverBindings: SIX_MINISTRY_RESOLVER_COUNT,
+    externalSideEffectsObserved: false,
+    productionPromotionAuthorized: false,
+  };
+  const expectedRootKeys = ["schemaVersion", "generatedAt", "sourceCommit", "scope", "summary", "implementationEvidence", "resolverBindings", "validationEvidence", "capabilityFamilies"];
+  const expectedImplementationKeys = ["algorithm", "files", "fingerprint"];
+  const expectedResolverKeys = ["resolverId", "sourcePath", "purpose", "limitation"];
+  const expectedEvidenceKeys = ["implementationFingerprint", "focusedRegression", "fullBackendRegression", "governanceNode", "harness", "independentReviews"];
+  const expectedRunKeys = ["status", "passed", "skipped", "failed"];
+  const expectedHarnessKeys = ["status", "baselineFiles", "selfTests"];
+  const expectedReviewKeys = ["status", "reviewedImplementationFingerprint", "p0", "p1", "p2", "reviewers"];
+  const expectedResolvers = [
+    ["current-user-owner", "backend/app/api/auth.py"],
+    ["committed-decree-authority", "backend/app/decree_jobs/storage.py"],
+    ["owner-scoped-jinyiwei-evidence", "backend/app/jinyiwei/storage.py"],
+    ["owner-run-accounting-work-product", "backend/app/accounting_reports/storage.py"],
+    ["owner-run-junjichu-report-receipt", "backend/app/junjichu_cases/storage.py"],
+    ["owner-scoped-shiguan-reply", "backend/app/shiguan/storage.py"],
+  ];
+  const expectedFamilyKeys = ["familyId", "name", "owners", "sourceAssetCount", "sourceStatus", "runtimeSkillIds", "absorbedValue", "runtimeStatus", "contractShapeExercised", "businessSuccessMeasured", "missingProductionDependencies", "notAbsorbed", "externalSideEffectsObserved", "productionPromotionAuthorized"];
+  const rowIds = rows.map((row) => row?.familyId);
+  const familyIds = families.map((family) => family?.id);
+  const projectedById = new Map(projectedFamilies.map((family) => [family?.familyId, family]));
+  let currentFingerprint = null;
+  try {
+    currentFingerprint = root ? sixMinistryImplementationFingerprint(root) : null;
+  } catch {
+    currentFingerprint = null;
+  }
+  const implementation = readiness?.implementationEvidence;
+  const evidence = readiness?.validationEvidence;
+  const reviews = evidence?.independentReviews;
+  const resolvers = readiness?.resolverBindings;
+  const evidenceRuns = [evidence?.focusedRegression, evidence?.fullBackendRegression, evidence?.governanceNode];
+  const implementationMatches = exactKeys(implementation, expectedImplementationKeys)
+    && implementation?.algorithm === "sha256-path-null-content-null-v1"
+    && JSON.stringify(implementation?.files) === JSON.stringify(SIX_MINISTRY_TRUSTED_SPINE_FILES)
+    && implementation?.fingerprint === currentFingerprint;
+  const resolverMatches = Array.isArray(resolvers)
+    && resolvers.length === expectedResolvers.length
+    && resolvers.every((resolver, index) => exactKeys(resolver, expectedResolverKeys)
+      && resolver.resolverId === expectedResolvers[index][0]
+      && resolver.sourcePath === expectedResolvers[index][1]
+      && implementation?.files?.includes(resolver.sourcePath)
+      && typeof resolver.purpose === "string" && resolver.purpose.trim()
+      && typeof resolver.limitation === "string" && resolver.limitation.trim());
+  const validationMatches = exactKeys(evidence, expectedEvidenceKeys)
+    && evidence?.implementationFingerprint === currentFingerprint
+    && evidenceRuns.every((run) => exactKeys(run, expectedRunKeys)
+      && run.status === "passed"
+      && Number.isInteger(run.passed) && run.passed > 0
+      && Number.isInteger(run.skipped) && run.skipped >= 0
+      && run.failed === 0)
+    && exactKeys(evidence?.harness, expectedHarnessKeys)
+    && evidence?.harness?.status === "passed"
+    && evidence?.harness?.baselineFiles === REQUIRED_FILES.length
+    && Number.isInteger(evidence?.harness?.selfTests)
+    && evidence.harness.selfTests > 0
+    && exactKeys(reviews, expectedReviewKeys)
+    && ["approved", "approved-with-notes"].includes(reviews?.status)
+    && reviews?.reviewedImplementationFingerprint === currentFingerprint
+    && reviews?.p0 === 0
+    && reviews?.p1 === 0
+    && Number.isInteger(reviews?.p2) && reviews.p2 >= 0
+    && Array.isArray(reviews?.reviewers)
+    && JSON.stringify([...reviews.reviewers].sort()) === JSON.stringify(["code", "python", "security"]);
+  if (
+    !exactKeys(readiness, expectedRootKeys)
+    || !exactKeys(readiness?.summary, Object.keys(expectedSummary))
+    || readiness?.schemaVersion !== "2.0.0"
+    || readiness?.sourceCommit !== PINNED_EXT_COMMIT
+    || JSON.stringify(readiness?.summary) !== JSON.stringify(expectedSummary)
+    || !implementationMatches
+    || !resolverMatches
+    || !validationMatches
+    || rows.length !== 23
+    || new Set(rowIds).size !== rows.length
+    || JSON.stringify([...rowIds].sort()) !== JSON.stringify([...familyIds].sort())
+  ) {
+    errors.push("六部 Runtime 就绪证据未绑定当前实现、服务端解析器或独立复审");
+  }
+
+  const runtimeSkillIds = new Set();
+  for (const row of rows) {
+    const family = families.find((item) => item.id === row?.familyId);
+    if (!family) continue;
+    const expectedRuntimeSkillIds = family.implementationStatus === "retire"
+      ? []
+      : projectedById.get(family.id)?.runtimeSkillIds;
+    const textArray = (value) => Array.isArray(value)
+      && value.length > 0
+      && value.every((item) => typeof item === "string" && item.trim());
+    const commonMismatch = row.name !== family.name
+      || !exactKeys(row, expectedFamilyKeys)
+      || JSON.stringify(row.owners) !== JSON.stringify(family.ownerLabels)
+      || row.sourceAssetCount !== family.sourceAssetCount
+      || row.sourceStatus !== family.implementationStatus
+      || JSON.stringify(row.runtimeSkillIds) !== JSON.stringify(expectedRuntimeSkillIds)
+      || !textArray(row.absorbedValue)
+      || !textArray(row.notAbsorbed)
+      || row.businessSuccessMeasured !== false
+      || row.externalSideEffectsObserved !== false
+      || row.productionPromotionAuthorized !== false;
+    const lifecycleMismatch = family.implementationStatus === "retire"
+      ? row.runtimeStatus !== "retired"
+        || row.contractShapeExercised !== false
+        || !Array.isArray(row.missingProductionDependencies)
+      : row.runtimeStatus !== "degraded-until-authority-evidence"
+        || row.contractShapeExercised !== true
+        || !textArray(row.missingProductionDependencies);
+    if (commonMismatch || lifecycleMismatch) {
+      errors.push(`六部 Runtime 就绪能力族声明漂移: ${family.id}`);
+    }
+    for (const skillId of row.runtimeSkillIds ?? []) runtimeSkillIds.add(skillId);
+  }
+  if (runtimeSkillIds.size !== 46) errors.push("六部 Runtime 就绪报告未覆盖 46 个权威 RuntimeSkill");
+  return errors;
+}
+
+function sixMinistryCapabilityRepositoryErrors(root) {
+  try {
+    const inventory = JSON.parse(readFileSync(join(root, "docs/migrations/2026-08-13-six-ministry-capability-inventory.json"), "utf8"));
+    const regenerated = buildSixMinistryInventory(root, PINNED_EXT_COMMIT, "HEAD");
+    const candidateRoot = join(root, "backend/harness/capability_candidates/candidates");
+    const authorityManifest = JSON.parse(readFileSync(join(root, "backend/harness/capability_candidates/authority-manifest.json"), "utf8"));
+    const capsules = SIX_MINISTRY_CANDIDATES.map((id) => {
+      const capsuleRoot = join(candidateRoot, id);
+      const capsule = JSON.parse(readFileSync(join(capsuleRoot, "capsule.json"), "utf8"));
+      const lock = JSON.parse(readFileSync(join(capsuleRoot, "capsule.lock.json"), "utf8"));
+      const authorityResult = resolveTrustedAuthority(authorityManifest, id);
+      return {
+        id,
+        valid: authorityResult.ok && validateCapabilityCapsule(capsule, { root: capsuleRoot, environment: "production", trustedAuthority: authorityResult.authority }).ok,
+        locked: verifyCapabilityLockfile(capsule, lock, { root: capsuleRoot }).ok,
+      };
+    });
+    const expectedSuite = loadCandidateSuite();
+    const evaluation = evaluateCandidateSuite(expectedSuite);
+    const errors = sixMinistryCapabilityPolicyErrors({
+      inventory,
+      regenerated,
+      capsules,
+      evaluation,
+      shadow: buildOfflineShadowReport(),
+      expectedMatrixDigest: stableDigest(JSON.parse(readFileSync(join(root, "scripts/fixtures/capability-eval/case-matrix.json"), "utf8"))),
+      expectedSuite,
+    });
+    const familyMatrix = JSON.parse(readFileSync(join(root, "docs/migrations/2026-08-14-six-ministry-capability-family-matrix.json"), "utf8"));
+    const expectedFamilyMatrix = buildCapabilityFamilyMatrix(inventory);
+    const runtimeProjection = JSON.parse(readFileSync(join(root, "backend/app/agents/runtime_skills/capability_family_bindings.json"), "utf8"));
+    const runtimeReadiness = JSON.parse(readFileSync(join(root, "docs/migrations/2026-08-14-six-ministry-runtime-readiness.json"), "utf8"));
+    if (
+      JSON.stringify(familyMatrix) !== JSON.stringify(expectedFamilyMatrix)
+      || familyMatrix?.summary?.familyCount !== 23
+      || familyMatrix?.summary?.assignedSourceAssets !== 1777
+      || familyMatrix?.summary?.unassignedSourceAssets !== 0
+      || familyMatrix?.summary?.multiplyAssignedSourceAssets !== 0
+      || JSON.stringify(runtimeProjection) !== JSON.stringify(buildRuntimeFamilyProjection(expectedFamilyMatrix))
+    ) {
+      errors.push("六部能力族矩阵或可安装 RuntimeSkill 投影漂移");
+    }
+  errors.push(...sixMinistryRuntimeReadinessErrors({
+    readiness: runtimeReadiness,
+    familyMatrix,
+    runtimeProjection,
+    root,
+  }));
+    return errors;
+  } catch (error) {
+    return [`六部能力蒸馏门禁失败: ${error instanceof Error ? error.message : String(error)}`];
+  }
+}
+
+function decisionQualityGateRepositoryErrors(root, fixtureReader = readFileSync) {
+  const fixtures = join(
+    root,
+    "scripts",
+    "fixtures",
+    "decision-quality-gate.cases.json",
+  );
+  if (!existsSync(fixtures)) return [];
+  try {
+    if (statSync(fixtures).size > 1024 * 1024) {
+      return ["真实性与决策质量门 fixture suite 失败: input_too_large"];
+    }
+    const result = evaluateFixtureSuite(JSON.parse(fixtureReader(fixtures, "utf8")));
+    if (result.pass && result.total >= 40 && result.passed === result.total) return [];
+    return [`真实性与决策质量门 fixture suite 失败: ${JSON.stringify(result)}`];
+  } catch (error) {
+    return [`真实性与决策质量门 fixture suite 失败: ${error instanceof Error ? error.message : String(error)}`];
+  }
+}
+
+function sixMinistryEvidenceSpineRepositoryErrors(root) {
+  try {
+    const schema = JSON.parse(readFileSync(
+      join(root, "docs/contracts/six-ministry-evidence-spine.schema.json"),
+      "utf8",
+    ));
+    const errors = [];
+    if (
+      schema?.$schema !== "https://json-schema.org/draft/2020-12/schema"
+      || JSON.stringify(schema?.oneOf) !== JSON.stringify([
+        { $ref: "#/$defs/decisionRequest" },
+        { $ref: "#/$defs/decisionEnvelope" },
+      ])
+    ) {
+      errors.push("六部可信证据脊柱未使用冻结的 Draft 2020-12 双向交换契约");
+    }
+    const visit = (node) => {
+      if (!node || typeof node !== "object") return;
+      if (node.type === "object") {
+        const propertyKeys = Object.keys(node.properties ?? {}).sort();
+        const requiredKeys = Array.isArray(node.required) ? [...node.required].sort() : [];
+        if (node.additionalProperties !== false || JSON.stringify(propertyKeys) !== JSON.stringify(requiredKeys)) {
+          errors.push("六部可信证据脊柱存在开放或非全必填对象边界");
+        }
+      }
+      for (const value of Object.values(node)) {
+        if (Array.isArray(value)) value.forEach(visit);
+        else visit(value);
+      }
+    };
+    visit(schema);
+    const requestKeys = Object.keys(schema?.$defs?.decisionRequest?.properties ?? {}).sort();
+    if (JSON.stringify(requestKeys) !== JSON.stringify([
+      "constraints",
+      "material_refs",
+      "message_type",
+      "objective",
+      "request_id",
+      "schema_version",
+    ])) {
+      errors.push("六部可信证据请求边界允许身份、路由或授权字段");
+    }
+    const effects = schema?.$defs?.externalEffects?.properties;
+    if (
+      effects?.authorized?.const !== false
+      || effects?.mode?.const !== "none"
+      || effects?.effect_count?.const !== 0
+    ) {
+      errors.push("六部可信证据契约不再固定为无外部副作用");
+    }
+    return [...new Set(errors)];
+  } catch (error) {
+    return [`六部可信证据脊柱门禁失败: ${error instanceof Error ? error.message : String(error)}`];
+  }
+}
 
 const DECREE_FLOW_BASELINE = "docs/decisions/0028-decree-evidence-flow-governance-baseline.md";
 const DECREE_FLOW_BASELINE_SHA256 = "3ac5d0c3510c62dbdf9b4b785d8175a259b1ce46b0c56c29abbbc7bb2e39a31e";
@@ -1758,7 +2272,174 @@ Escalation: name observable evidence
     if (mutated === content) throw new Error(`自适应路由 mutation 未应用: ${entry}: ${target}`);
     return { ...validAdaptiveRouting, [entry]: mutated };
   };
+  const sixMinistryFamilyMatrixFixture = JSON.parse(readFileSync(
+    join(selfTestRoot, "docs/migrations/2026-08-14-six-ministry-capability-family-matrix.json"),
+    "utf8",
+  ));
+  const sixMinistryRuntimeProjectionFixture = JSON.parse(readFileSync(
+    join(selfTestRoot, "backend/app/agents/runtime_skills/capability_family_bindings.json"),
+    "utf8",
+  ));
+  const sixMinistryRuntimeReadinessFixture = JSON.parse(readFileSync(
+    join(selfTestRoot, "docs/migrations/2026-08-14-six-ministry-runtime-readiness.json"),
+    "utf8",
+  ));
   const tests = [
+    [
+      "启用六部可信证据脊柱静态守卫",
+      STATIC_POLICY_GUARDS.some((guard) => guard.name === "six-ministry-trusted-evidence-spine"),
+      true,
+    ],
+    [
+      "启用六部能力蒸馏静态守卫",
+      STATIC_POLICY_GUARDS.some((guard) => guard.name === "six-ministry-capability-distillation"),
+      true,
+    ],
+    [
+      "六部 Runtime 就绪报告与能力矩阵、权威技能投影一致",
+      sixMinistryRuntimeReadinessErrors({
+        readiness: sixMinistryRuntimeReadinessFixture,
+        familyMatrix: sixMinistryFamilyMatrixFixture,
+        runtimeProjection: sixMinistryRuntimeProjectionFixture,
+        root: selfTestRoot,
+      }),
+      [],
+    ],
+    [
+      "六部 Runtime 就绪门禁拒绝伪造业务成功",
+      sixMinistryRuntimeReadinessErrors({
+        readiness: {
+          ...sixMinistryRuntimeReadinessFixture,
+          summary: {
+            ...sixMinistryRuntimeReadinessFixture.summary,
+            businessSuccessMeasuredFamilies: 22,
+            serverOwnedResolverBindings: 22,
+            productionPromotionAuthorized: true,
+          },
+          capabilityFamilies: sixMinistryRuntimeReadinessFixture.capabilityFamilies.map((row, index) => (
+            index === 0 ? { ...row, businessSuccessMeasured: true } : row
+          )),
+        },
+        familyMatrix: sixMinistryFamilyMatrixFixture,
+        runtimeProjection: sixMinistryRuntimeProjectionFixture,
+        root: selfTestRoot,
+      }).length > 0,
+      true,
+    ],
+    [
+      "六部 Runtime 就绪门禁拒绝过期实现或复审指纹",
+      sixMinistryRuntimeReadinessErrors({
+        readiness: {
+          ...sixMinistryRuntimeReadinessFixture,
+          implementationEvidence: {
+            ...sixMinistryRuntimeReadinessFixture.implementationEvidence,
+            fingerprint: `sha256:${"0".repeat(64)}`,
+          },
+          validationEvidence: {
+            ...sixMinistryRuntimeReadinessFixture.validationEvidence,
+            implementationFingerprint: `sha256:${"0".repeat(64)}`,
+            independentReviews: {
+              ...sixMinistryRuntimeReadinessFixture.validationEvidence.independentReviews,
+              reviewedImplementationFingerprint: `sha256:${"0".repeat(64)}`,
+            },
+          },
+        },
+        familyMatrix: sixMinistryFamilyMatrixFixture,
+        runtimeProjection: sixMinistryRuntimeProjectionFixture,
+        root: selfTestRoot,
+      }).length > 0,
+      true,
+    ],
+    [
+      "六部 Runtime 就绪门禁拒绝未知字段注入与自由文本伪证",
+      sixMinistryRuntimeReadinessErrors({
+        readiness: {
+          ...sixMinistryRuntimeReadinessFixture,
+          productionStatus: "stable",
+          validationEvidence: {
+            productionBusinessSuccess: "22/22 verified",
+          },
+          capabilityFamilies: sixMinistryRuntimeReadinessFixture.capabilityFamilies.map((row, index) => (
+            index === 0 ? { ...row, authorityResolversConnected: 1 } : row
+          )),
+        },
+        familyMatrix: sixMinistryFamilyMatrixFixture,
+        runtimeProjection: sixMinistryRuntimeProjectionFixture,
+        root: selfTestRoot,
+      }).length > 0,
+      true,
+    ],
+    [
+      "六部能力门禁拒绝伪造晋级与真实流量",
+      sixMinistryCapabilityPolicyErrors({
+        inventory: { source: { commit: PINNED_EXT_COMMIT }, summary: { unclassified: 0 } },
+        regenerated: { source: { commit: PINNED_EXT_COMMIT }, summary: { unclassified: 0 } },
+        capsules: SIX_MINISTRY_CANDIDATES.map((id) => ({ id, valid: true, locked: true })),
+        evaluation: {
+          policy: { authorizesPromotion: true, abilityGainMeasured: true, scaffoldOnly: false },
+          candidates: [],
+        },
+        shadow: { mode: "live-shadow", realTrafficObserved: true, abilityGainMeasured: true, promotionAuthorized: true, runs: [] },
+      }).length > 0,
+      true,
+    ],
+    [
+      "六部能力门禁拒绝缺失胶囊与清单漂移",
+      sixMinistryCapabilityPolicyErrors({
+        inventory: { source: { commit: PINNED_EXT_COMMIT }, summary: { unclassified: 0 } },
+        regenerated: { source: { commit: "different" }, summary: { unclassified: 0 } },
+        capsules: [],
+        evaluation: { policy: {}, candidates: [] },
+        shadow: {},
+      }).length > 0,
+      true,
+    ],
+    [
+      "启用真实性与决策质量静态守卫",
+      STATIC_POLICY_GUARDS.some((guard) => guard.name === "decision-quality-gate")
+        ? []
+        : ["缺少静态守卫登记: decision-quality-gate"],
+      [],
+    ],
+    [
+      "拒绝空真实性与决策质量 fixture suite",
+      evaluateFixtureSuite({ schema_version: "1.0.0", base_packet: {}, cases: [] }).pass,
+      false,
+    ],
+    [
+      "拒绝清空失败案例的期望错误码",
+      evaluateFixtureSuite({
+        schema_version: "1.0.0",
+        base_packet: {},
+        cases: Array.from({ length: 40 }, (_, index) => ({
+          case_id: `case-${index}`,
+          expected_pass: index < 20,
+          expected_errors: [],
+          patch: {},
+        })),
+      }).pass,
+      false,
+    ],
+    [
+      "repository guard 拒绝真实 fixture 被清空",
+      decisionQualityGateRepositoryErrors(
+        resolve(dirname(fileURLToPath(import.meta.url)), ".."),
+        () => JSON.stringify({ schema_version: "1.0.0", base_packet: {}, cases: [] }),
+      ).length > 0,
+      true,
+    ],
+    [
+      "repository guard 拒绝失败案例错误码被清空",
+      decisionQualityGateRepositoryErrors(
+        resolve(dirname(fileURLToPath(import.meta.url)), ".."),
+        (path, encoding) => {
+          const suite = JSON.parse(readFileSync(path, encoding));
+          suite.cases.find((entry) => entry.expected_pass === false).expected_errors = [];
+          return JSON.stringify(suite);
+        },
+      ).length > 0,
+      true,
+    ],
     [
       "登记 adaptive-routing validator false-green failure record 为必需文件",
       REQUIRED_FILES.includes("docs/failures/2026-08-13-adaptive-routing-validator-false-green.md"),

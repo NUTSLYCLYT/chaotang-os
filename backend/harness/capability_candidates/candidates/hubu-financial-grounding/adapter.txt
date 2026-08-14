@@ -1,0 +1,1 @@
+Offline financial evaluator; no ledger or production access.

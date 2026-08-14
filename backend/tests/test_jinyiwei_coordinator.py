@@ -6,7 +6,6 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
-from test_jinyiwei_shiguan_source import _archive_with_adopted_snapshot, _match
 
 from app.jinyiwei.coordinator import (
     InvestigationCoordinator,
@@ -30,6 +29,7 @@ from app.jinyiwei.sources import SourceDocument, SourceQuery, SourceResult
 from app.jinyiwei.sources.shiguan import ShiguanSource
 from app.jinyiwei.storage import get_evidence_pack
 from app.shiguan.recall import RecallContext
+from tests.test_jinyiwei_shiguan_source import _archive_with_adopted_snapshot, _match
 
 NOW = datetime(2026, 7, 20, 12, 0, tzinfo=UTC)
 
@@ -915,7 +915,7 @@ def test_stale_adopted_snapshot_remains_historical_using_locked_as_of(
 def test_real_shiguan_legacy_archive_does_not_resolve_current_fact(
     tmp_path: Path,
 ) -> None:
-    from test_jinyiwei_shiguan_source import _archive
+    from tests.test_jinyiwei_shiguan_source import _archive
 
     shiguan = ShiguanSource(
         recall=lambda **_: RecallContext(

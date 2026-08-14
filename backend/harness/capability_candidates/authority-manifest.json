@@ -1,0 +1,12 @@
+{
+  "schema_version": "1.0.0",
+  "issuer": "chaotang-os-root-harness",
+  "projections": {
+    "decision-quality-gate": { "capability_id": "decision-quality-gate", "issuer": "chaotang-os-root-harness", "grants": { "approved_tools": [], "approved_data_domains": [], "may_write_external": false, "human_confirmation_required": true }, "digest": "sha256:e80192ba34325ed8411a29f24088bcf7d912fb66af2e0263a5032e394b99f449" },
+    "hubu-financial-grounding": { "capability_id": "hubu-financial-grounding", "issuer": "chaotang-os-root-harness", "grants": { "approved_tools": [], "approved_data_domains": [], "may_write_external": false, "human_confirmation_required": true }, "digest": "sha256:31b6088450d2366d695a67b02a9d449d3e47e50d160712a8f30388ab3f6ac2ff" },
+    "hubu-payment-three-gates": { "capability_id": "hubu-payment-three-gates", "issuer": "chaotang-os-root-harness", "grants": { "approved_tools": [], "approved_data_domains": [], "may_write_external": false, "human_confirmation_required": true }, "digest": "sha256:50f3f7aa0413c432eb0e3652821d246fa4b182d87d18091e1e661c87b9ec9fe7" },
+    "libu-responsibility-authority-chain": { "capability_id": "libu-responsibility-authority-chain", "issuer": "chaotang-os-root-harness", "grants": { "approved_tools": [], "approved_data_domains": [], "may_write_external": false, "human_confirmation_required": true }, "digest": "sha256:919d990f2c967feff66e5f465cc8a48310db52a4eda426a81d001fbcaf83c074" },
+    "rites-war-truthfulness": { "capability_id": "rites-war-truthfulness", "issuer": "chaotang-os-root-harness", "grants": { "approved_tools": [], "approved_data_domains": [], "may_write_external": false, "human_confirmation_required": true }, "digest": "sha256:88028815832f51a3ad1016a6ab068a6f02729195fbf21781824e073bef5c5af2" },
+    "rites-message-quality-gate": { "capability_id": "rites-message-quality-gate", "issuer": "chaotang-os-root-harness", "grants": { "approved_tools": [], "approved_data_domains": [], "may_write_external": false, "human_confirmation_required": true }, "digest": "sha256:ee71155080cf30d55f3d46f5fe05a447a973071808bccea1d50c6a7f6cb561c2" }
+  }
+}

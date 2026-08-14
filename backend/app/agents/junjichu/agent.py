@@ -64,7 +64,7 @@ from app.shiguan.recall import RecallContext, safe_recall_context_for_department
 
 if TYPE_CHECKING:
     from app.accounting_reports.session import AccountingReportSession
-    from app.agents.runtime_skills.models import CouncilReport
+    from app.agents.runtime_skills.models import CouncilReport, MinistryReport
 
 
 class CaseLifecycleObserver(Protocol):
@@ -75,6 +75,10 @@ class CaseLifecycleObserver(Protocol):
     ) -> None: ...
 
     def record_ministry_opinion(self, opinion: MinistryOpinion) -> None: ...
+
+    def record_ministry_report(self, report: MinistryReport) -> None: ...
+
+    def record_council_report(self, report: CouncilReport) -> None: ...
 
     def record_checkpoint(
         self,
@@ -457,6 +461,11 @@ def run_junjichu_council_with_report(
         )
         if lifecycle_observer is not None:
             lifecycle_observer.record_ministry_opinion(result.opinion)
+            record_runtime_report = getattr(
+                lifecycle_observer, "record_ministry_report", None
+            )
+            if record_runtime_report is not None:
+                record_runtime_report(result.runtime_report)
         return result
 
     result = invoke_junjichu_council_with_report(
@@ -472,6 +481,11 @@ def run_junjichu_council_with_report(
     if evidence_session is not None and result.runtime_report.status.value != "completed":
         evidence_session.record_degradation("junjichu:council")
     if lifecycle_observer is not None:
+        record_council_report = getattr(
+            lifecycle_observer, "record_council_report", None
+        )
+        if record_council_report is not None:
+            record_council_report(result.runtime_report)
         council_path = [node for node in (processing_path or []) if node != "军机处（会审）"]
         council_path.append("军机处（会审）")
         lifecycle_observer.record_checkpoint(

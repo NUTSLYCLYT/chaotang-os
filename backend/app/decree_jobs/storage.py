@@ -78,6 +78,7 @@ class DecreeJobStore:
                     error_code TEXT,
                     error_stage TEXT,
                     error_category TEXT,
+                    authority_committed INTEGER NOT NULL DEFAULT 1,
                     acceptance_committed INTEGER NOT NULL DEFAULT 1,
                     deadline_at TEXT NOT NULL,
                     retry_at TEXT,
@@ -107,6 +108,15 @@ class DecreeJobStore:
                 connection.execute(
                     "ALTER TABLE decree_jobs ADD COLUMN acceptance_committed "
                     "INTEGER NOT NULL DEFAULT 1"
+                )
+            if "authority_committed" not in columns:
+                connection.execute(
+                    "ALTER TABLE decree_jobs ADD COLUMN authority_committed "
+                    "INTEGER NOT NULL DEFAULT 0"
+                )
+                connection.execute(
+                    "UPDATE decree_jobs SET authority_committed = "
+                    "CASE WHEN acceptance_committed = 1 THEN 1 ELSE 0 END"
                 )
             connection.execute(
                 """
@@ -220,6 +230,21 @@ class DecreeJobStore:
                     connection.rollback()
                     raise IdempotencyConflict("idempotency_key_reused")
                 if not bool(existing_key["acceptance_committed"]):
+                    if bool(existing_key["authority_committed"]):
+                        connection.execute(
+                            "UPDATE decree_jobs SET acceptance_committed = 1, "
+                            "updated_at = ? WHERE job_id = ?",
+                            (timestamp, existing_key["job_id"]),
+                        )
+                        recovered = connection.execute(
+                            "SELECT * FROM decree_jobs WHERE job_id = ?",
+                            (existing_key["job_id"],),
+                        ).fetchone()
+                        connection.commit()
+                        assert recovered is not None
+                        return AcceptedDecreeJob(
+                            self._job(recovered), replayed=True
+                        )
                     connection.execute(
                         "DELETE FROM decree_job_idempotency_keys WHERE job_id = ?",
                         (existing_key["job_id"],),
@@ -243,15 +268,26 @@ class DecreeJobStore:
                     connection.rollback()
                     raise IdempotencyConflict("draft_fingerprint_reused")
                 if not bool(existing_draft["acceptance_committed"]):
-                    connection.execute(
-                        "DELETE FROM decree_job_idempotency_keys WHERE job_id = ?",
-                        (existing_draft["job_id"],),
-                    )
-                    connection.execute(
-                        "DELETE FROM decree_jobs WHERE job_id = ?",
-                        (existing_draft["job_id"],),
-                    )
-                    existing_draft = None
+                    if bool(existing_draft["authority_committed"]):
+                        connection.execute(
+                            "UPDATE decree_jobs SET acceptance_committed = 1, "
+                            "updated_at = ? WHERE job_id = ?",
+                            (timestamp, existing_draft["job_id"]),
+                        )
+                        existing_draft = connection.execute(
+                            "SELECT * FROM decree_jobs WHERE job_id = ?",
+                            (existing_draft["job_id"],),
+                        ).fetchone()
+                    else:
+                        connection.execute(
+                            "DELETE FROM decree_job_idempotency_keys WHERE job_id = ?",
+                            (existing_draft["job_id"],),
+                        )
+                        connection.execute(
+                            "DELETE FROM decree_jobs WHERE job_id = ?",
+                            (existing_draft["job_id"],),
+                        )
+                        existing_draft = None
             if existing_draft is not None:
                 connection.execute(
                     """
@@ -274,9 +310,10 @@ class DecreeJobStore:
                 INSERT INTO decree_jobs (
                     job_id, owner_user_id, idempotency_key, request_hash,
                     draft_fingerprint, decree_text, approved_route_json, state,
-                    provider_request_limit, acceptance_committed,
+                    provider_request_limit, authority_committed,
+                    acceptance_committed,
                     deadline_at, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, 'QUEUED', ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, 'QUEUED', ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     job_id,
@@ -287,6 +324,7 @@ class DecreeJobStore:
                     command.decree_text,
                     command.approved_route_json,
                     command.provider_request_limit,
+                    int(command.acceptance_committed),
                     int(command.acceptance_committed),
                     _iso(command.deadline_at),
                     timestamp,
@@ -366,6 +404,9 @@ class DecreeJobStore:
             if bool(row["acceptance_committed"]):
                 connection.commit()
                 return AcceptedDecreeJob(self._job(row), replayed=True)
+            if not bool(row["authority_committed"]):
+                connection.rollback()
+                return None
             cursor = connection.execute(
                 """
                 UPDATE decree_jobs
@@ -391,6 +432,46 @@ class DecreeJobStore:
         assert row is not None
         return int(row["count"])
 
+    def mark_authority_committed(
+        self, job_id: str, owner_user_id: str, *, now: datetime | None = None
+    ) -> DecreeJob:
+        """Persist the one-time draft authority commit before activation."""
+
+        timestamp = _iso(now or datetime.now(UTC))
+        with closing(self._connect()) as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            cursor = connection.execute(
+                """
+                UPDATE decree_jobs
+                SET authority_committed = 1, updated_at = ?
+                WHERE job_id = ? AND owner_user_id = ?
+                  AND authority_committed = 0
+                  AND acceptance_committed = 0 AND state = 'QUEUED'
+                """,
+                (timestamp, job_id, owner_user_id),
+            )
+            if cursor.rowcount != 1:
+                existing = connection.execute(
+                    """
+                    SELECT * FROM decree_jobs
+                    WHERE job_id = ? AND owner_user_id = ?
+                      AND authority_committed = 1
+                      AND acceptance_committed = 0 AND state = 'QUEUED'
+                    """,
+                    (job_id, owner_user_id),
+                ).fetchone()
+                if existing is None:
+                    connection.rollback()
+                    raise DecreeJobStoreError("authority_commit_marker_failed")
+                connection.commit()
+                return self._job(existing)
+            row = connection.execute(
+                "SELECT * FROM decree_jobs WHERE job_id = ?", (job_id,)
+            ).fetchone()
+            connection.commit()
+        assert row is not None
+        return self._job(row)
+
     def activate_acceptance(
         self, job_id: str, owner_user_id: str, *, now: datetime | None = None
     ) -> DecreeJob:
@@ -402,6 +483,7 @@ class DecreeJobStore:
                 UPDATE decree_jobs
                 SET acceptance_committed = 1, updated_at = ?
                 WHERE job_id = ? AND owner_user_id = ?
+                  AND authority_committed = 1
                   AND acceptance_committed = 0 AND state = 'QUEUED'
                 """,
                 (timestamp, job_id, owner_user_id),
@@ -411,6 +493,7 @@ class DecreeJobStore:
                     """
                     SELECT * FROM decree_jobs
                     WHERE job_id = ? AND owner_user_id = ?
+                      AND authority_committed = 1
                       AND acceptance_committed = 1 AND state = 'QUEUED'
                     """,
                     (job_id, owner_user_id),
@@ -435,6 +518,7 @@ class DecreeJobStore:
                 """
                 SELECT job_id FROM decree_jobs
                 WHERE job_id = ? AND owner_user_id = ?
+                  AND authority_committed = 0
                   AND acceptance_committed = 0 AND state = 'QUEUED'
                 """,
                 (job_id, owner_user_id),
@@ -661,6 +745,46 @@ class DecreeJobStore:
             row = self._owned_by_worker(
                 connection, job_id, worker_id, now=failed_at
             )
+            if row["cancel_requested"]:
+                connection.execute(
+                    """
+                    UPDATE decree_jobs
+                    SET state = 'CANCELLED', error_code = 'cancelled',
+                        error_stage = 'execution', error_category = 'cancelled',
+                        retry_at = NULL, lease_owner = NULL,
+                        lease_expires_at = NULL, updated_at = ?
+                    WHERE job_id = ?
+                    """,
+                    (timestamp, job_id),
+                )
+                updated = connection.execute(
+                    "SELECT * FROM decree_jobs WHERE job_id = ?", (job_id,)
+                ).fetchone()
+                connection.commit()
+                assert updated is not None
+                return self._job(updated)
+            if row["state"] in {
+                DecreeJobState.RESULT_READY.value,
+                DecreeJobState.ARCHIVING.value,
+                DecreeJobState.PUBLISHING.value,
+            }:
+                connection.execute(
+                    """
+                    UPDATE decree_jobs
+                    SET lease_owner = NULL, lease_expires_at = ?, updated_at = ?
+                    WHERE job_id = ?
+                    """,
+                    (timestamp, timestamp, job_id),
+                )
+                updated = connection.execute(
+                    "SELECT * FROM decree_jobs WHERE job_id = ?", (job_id,)
+                ).fetchone()
+                connection.commit()
+                assert updated is not None
+                return self._job(updated)
+            if row["state"] != DecreeJobState.RUNNING.value:
+                connection.rollback()
+                raise LeaseConflict("only a running model phase can fail an attempt")
             can_retry = (
                 transient
                 and int(row["attempt_count"]) < MAX_ATTEMPTS
@@ -779,6 +903,26 @@ class DecreeJobStore:
                 raise LeaseConflict(
                     f"expected {expected_state.value} before {state.value}"
                 )
+            if (
+                expected_state is DecreeJobState.RUNNING
+                and current["cancel_requested"]
+            ):
+                connection.execute(
+                    """
+                    UPDATE decree_jobs
+                    SET state = 'CANCELLED', error_code = 'cancelled',
+                        error_stage = 'execution', error_category = 'cancelled',
+                        lease_owner = NULL, lease_expires_at = NULL, updated_at = ?
+                    WHERE job_id = ?
+                    """,
+                    (_iso(now), job_id),
+                )
+                row = connection.execute(
+                    "SELECT * FROM decree_jobs WHERE job_id = ?", (job_id,)
+                ).fetchone()
+                connection.commit()
+                assert row is not None
+                return self._job(row)
             connection.execute(
                 """
                 UPDATE decree_jobs

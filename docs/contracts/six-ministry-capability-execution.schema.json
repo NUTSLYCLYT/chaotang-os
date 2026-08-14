@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chaotang-os.invalid/contracts/six-ministry-capability-execution.schema.json",
+  "title": "Six Ministry Capability Execution Compatibility Envelope v1",
+  "description": "Non-authoritative compatibility overlay. RuntimeSkill, evidence session, authority projection, tool policy and confirmation receipts remain authoritative. Cross-field rules are encoded below with allOf.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "contract_role", "runtime_skill_binding", "identity", "routing", "evidence", "responsibility", "execution", "tool_policy", "outcome"],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "contract_role": { "const": "runtime-skill-compatibility-overlay-not-authority" },
+    "runtime_skill_binding": { "$ref": "#/$defs/runtimeSkillBinding" },
+    "identity": { "$ref": "#/$defs/identity" },
+    "routing": { "$ref": "#/$defs/routing" },
+    "evidence": { "$ref": "#/$defs/evidence" },
+    "responsibility": { "$ref": "#/$defs/responsibility" },
+    "execution": { "$ref": "#/$defs/execution" },
+    "tool_policy": { "$ref": "#/$defs/toolPolicy" },
+    "outcome": { "$ref": "#/$defs/outcome" }
+  },
+  "$defs": {
+    "text": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "uniqueTexts": { "type": "array", "maxItems": 128, "uniqueItems": true, "items": { "$ref": "#/$defs/text" } },
+    "runtimeSkillBinding": { "type": "object", "additionalProperties": false, "required": ["skill_id", "definition_version", "authority_source", "registry_source", "definition_digest"], "properties": { "skill_id": { "$ref": "#/$defs/text" }, "definition_version": { "$ref": "#/$defs/text" }, "authority_source": { "const": "backend/app/agents/runtime_skills/models.py" }, "registry_source": { "const": "backend/app/agents/runtime_skills/registry.py" }, "definition_digest": { "$ref": "#/$defs/digest" } } },
+    "identity": { "type": "object", "additionalProperties": false, "required": ["tenant_id", "owner_user_id", "run_id"], "properties": { "tenant_id": { "$ref": "#/$defs/text" }, "owner_user_id": { "$ref": "#/$defs/text" }, "run_id": { "$ref": "#/$defs/text" } } },
+    "binding": { "type": "object", "additionalProperties": false, "required": ["ref", "digest", "tenant_id", "owner_user_id", "run_id"], "properties": { "ref": { "$ref": "#/$defs/text" }, "digest": { "$ref": "#/$defs/digest" }, "tenant_id": { "$ref": "#/$defs/text" }, "owner_user_id": { "$ref": "#/$defs/text" }, "run_id": { "$ref": "#/$defs/text" } } },
+    "confirmationBinding": { "type": "object", "additionalProperties": false, "required": ["ref", "digest", "tenant_id", "owner_user_id", "run_id", "preview_digest", "version"], "properties": { "ref": { "$ref": "#/$defs/text" }, "digest": { "$ref": "#/$defs/digest" }, "tenant_id": { "$ref": "#/$defs/text" }, "owner_user_id": { "$ref": "#/$defs/text" }, "run_id": { "$ref": "#/$defs/text" }, "preview_digest": { "$ref": "#/$defs/digest" }, "version": { "type": "integer", "minimum": 1 } } },
+    "jointReview": { "type": "object", "additionalProperties": false, "required": ["required", "status", "reviewer", "receipt_ref"], "properties": { "required": { "type": "boolean" }, "status": { "enum": ["NOT_REQUIRED", "PENDING", "COMPLETED", "FAILED"] }, "reviewer": { "enum": ["none", "junjichu"] }, "receipt_ref": { "type": ["string", "null"], "minLength": 1, "maxLength": 256 } } },
+    "routing": { "type": "object", "additionalProperties": false, "required": ["mode", "ministries", "joint_review"], "properties": { "mode": { "enum": ["single", "multi"] }, "ministries": { "$ref": "#/$defs/uniqueTexts" }, "joint_review": { "$ref": "#/$defs/jointReview" } } },
+    "evidence": { "type": "object", "additionalProperties": false, "required": ["snapshot_ref", "status", "adopted_evidence_ids", "missing_evidence"], "properties": { "snapshot_ref": { "$ref": "#/$defs/text" }, "status": { "enum": ["RESOLVED", "PARTIAL", "BLOCKED", "UNAVAILABLE"] }, "adopted_evidence_ids": { "$ref": "#/$defs/uniqueTexts" }, "missing_evidence": { "$ref": "#/$defs/uniqueTexts" } } },
+    "responsibility": { "type": "object", "additionalProperties": false, "required": ["accountable_ministry", "responsible_bureaus", "authority_projection_ref"], "properties": { "accountable_ministry": { "$ref": "#/$defs/text" }, "responsible_bureaus": { "$ref": "#/$defs/uniqueTexts" }, "authority_projection_ref": { "$ref": "#/$defs/text" } } },
+    "humanConfirmation": { "type": "object", "additionalProperties": false, "required": ["required", "status", "work_product_ref", "receipt_ref"], "properties": { "required": { "type": "boolean" }, "status": { "enum": ["NOT_REQUIRED", "PENDING", "CONFIRMED", "REVISION_REQUIRED", "ESCALATED"] }, "work_product_ref": { "$ref": "#/$defs/text" }, "receipt_ref": { "type": ["string", "null"], "minLength": 1, "maxLength": 256 } } },
+    "execution": { "type": "object", "additionalProperties": false, "required": ["phase", "side_effect_class", "preview_digest", "human_confirmation"], "properties": { "phase": { "enum": ["PREVIEW", "EXECUTE"] }, "side_effect_class": { "enum": ["NONE", "INTERNAL_REVERSIBLE", "EXTERNAL_WRITE", "IRREVERSIBLE"] }, "preview_digest": { "$ref": "#/$defs/digest" }, "human_confirmation": { "$ref": "#/$defs/humanConfirmation" } } },
+    "toolPolicy": { "type": "object", "additionalProperties": false, "required": ["policy_ref", "requested_tool_ids", "decision", "decision_receipt_ref"], "properties": { "policy_ref": { "$ref": "#/$defs/text" }, "requested_tool_ids": { "$ref": "#/$defs/uniqueTexts" }, "decision": { "enum": ["DENY", "ALLOW_PREVIEW", "ALLOW_EXECUTE"] }, "decision_receipt_ref": { "type": ["string", "null"], "minLength": 1, "maxLength": 256 } } },
+    "outcome": { "type": "object", "additionalProperties": false, "required": ["status", "reason_codes", "retryable"], "properties": { "status": { "enum": ["READY", "DEGRADED", "BLOCKED", "FAILED"] }, "reason_codes": { "$ref": "#/$defs/uniqueTexts" }, "retryable": { "type": "boolean" } } }
+  },
+  "allOf": [
+    { "if": { "properties": { "routing": { "properties": { "mode": { "const": "multi" } }, "required": ["mode"] } } }, "then": { "properties": { "routing": { "properties": { "ministries": { "minItems": 2 }, "joint_review": { "properties": { "required": { "const": true }, "status": { "const": "COMPLETED" }, "reviewer": { "const": "junjichu" }, "receipt_ref": { "$ref": "#/$defs/text" } } } } } } } },
+    { "if": { "properties": { "execution": { "properties": { "phase": { "const": "PREVIEW" } } } } }, "then": { "properties": { "tool_policy": { "not": { "properties": { "decision": { "const": "ALLOW_EXECUTE" } }, "required": ["decision"] } } } } },
+    { "if": { "properties": { "outcome": { "properties": { "status": { "enum": ["BLOCKED", "FAILED"] } } } } }, "then": { "properties": { "tool_policy": { "properties": { "decision": { "const": "DENY" } } } } } },
+    { "if": { "properties": { "evidence": { "properties": { "status": { "enum": ["PARTIAL", "BLOCKED", "UNAVAILABLE"] } } } } }, "then": { "properties": { "outcome": { "not": { "properties": { "status": { "const": "READY" } }, "required": ["status"] } } } } },
+    { "if": { "properties": { "execution": { "properties": { "phase": { "const": "EXECUTE" }, "side_effect_class": { "enum": ["EXTERNAL_WRITE", "IRREVERSIBLE"] } } } } }, "then": { "properties": { "execution": { "properties": { "human_confirmation": { "properties": { "required": { "const": true }, "status": { "const": "CONFIRMED" }, "receipt_ref": { "$ref": "#/$defs/text" } } } } } } } }
+  ]
+}

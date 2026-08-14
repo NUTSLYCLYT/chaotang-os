@@ -1,0 +1,78 @@
+{
+  "schema_version": "1.0.0",
+  "capability_id": "decision-quality-gate",
+  "version": "0.1.0",
+  "status": "candidate",
+  "evaluation_scope": "synthetic-offline-only",
+  "production_boundary": "not-registered-no-execution-authority",
+  "content_digests": {
+    "prompt": "sha256:46bbd01a1cb2ddf2641d23375b122de3cb8c00ef358b57a8f8fa3a8e38fb0ed0",
+    "contract": "sha256:a69bfb4419966673d7cce3f02ad69489718c20152b8097bbb09b4557a0bd0c4e",
+    "policy": "sha256:271883f974e6fe4ae5528a8528687be30f67a834ea21346e07221fdac672cb29",
+    "evaluation": "sha256:6ee1647fb7285e3765a8e219bd223a3a94221988cf7e017ad2786c5e6e596e79"
+  },
+  "artifacts": {
+    "prompt": {
+      "path": "prompt.txt",
+      "digest": "sha256:46bbd01a1cb2ddf2641d23375b122de3cb8c00ef358b57a8f8fa3a8e38fb0ed0"
+    },
+    "contract": {
+      "path": "contract.json",
+      "digest": "sha256:a69bfb4419966673d7cce3f02ad69489718c20152b8097bbb09b4557a0bd0c4e"
+    },
+    "policy": {
+      "path": "policy.json",
+      "digest": "sha256:271883f974e6fe4ae5528a8528687be30f67a834ea21346e07221fdac672cb29"
+    },
+    "behavior": {
+      "path": "candidate.json",
+      "digest": "sha256:5c525318a0f81111bca27aa668b35b36947ea8bb23760d08ac52a4f7d1ff105c"
+    },
+    "adapter": {
+      "path": "adapter.txt",
+      "digest": "sha256:2110e134e010c91a7225b9c39f10096b54b096807011dee23b619fc2859c8040"
+    },
+    "evaluations": {
+      "path": "evaluations.json",
+      "digest": "sha256:6ee1647fb7285e3765a8e219bd223a3a94221988cf7e017ad2786c5e6e596e79"
+    },
+    "telemetry": {
+      "path": "telemetry.txt",
+      "digest": "sha256:b5efd51b25bafc31889ad846e68e78540caa0210806718a43eaa616eb8c81ef3"
+    },
+    "rollback": {
+      "path": "rollback.txt",
+      "digest": "sha256:cdf6522a5dc5625b98d9e8e654b6baa49e6afc41acb75868bdd5511d2f499b89"
+    },
+    "provenance": {
+      "repository": "origin/feature-chaotang-ext",
+      "commit": "939186f0331d9784bc8c4ceee393aeb197230ed0",
+      "path": "frontend/config/rites_brand_comms.registry.yaml"
+    }
+  },
+  "authority_ref": {
+    "issuer": "chaotang-os-root-harness",
+    "projection_digest": "sha256:e80192ba34325ed8411a29f24088bcf7d912fb66af2e0263a5032e394b99f449"
+  },
+  "requested_permissions": {
+    "tools": [],
+    "data_domains": [],
+    "may_write_external": false
+  },
+  "controls": {
+    "kill_switches": {
+      "capability_enabled": true,
+      "tenant_enabled": true,
+      "tools_enabled": true
+    },
+    "taint": {
+      "external_content_taints_context": true,
+      "tainted_context_allows_tools": false
+    },
+    "context_rent": {
+      "max_tokens": 1200,
+      "direct_fallback": true,
+      "minimum_expected_gain": 0.1
+    }
+  }
+}

@@ -415,7 +415,7 @@ def test_dpapi_native_contract_and_output_cleanup(
         memset_inputs.append((ctypes.string_at(destination, count), count))
         return real_memset(destination, value, count)
 
-    monkeypatch.setattr("app.jinyiwei.mcp.oauth.store.ctypes.WinDLL", fake_library)
+    monkeypatch.setattr("app.jinyiwei.mcp.oauth.store._windows_library", fake_library)
     monkeypatch.setattr("app.jinyiwei.mcp.oauth.store.ctypes.memset", recording_memset)
     monkeypatch.setattr("app.jinyiwei.mcp.oauth.store.os.name", "nt")
     protector = WindowsDpapiProtector()

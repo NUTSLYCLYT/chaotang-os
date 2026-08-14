@@ -559,19 +559,9 @@ def _module_identity(module) -> dict[str, str]:
 
 def _synthetic_diagnostics(provider=None) -> dict[str, object]:
     resolved = provider or _latest_accounting_provider
-    repository_root = Path(__file__).resolve().parents[2]
-    build_id_path = repository_root / "frontend" / ".next" / "BUILD_ID"
-    manifest_path = (
-        repository_root
-        / ".superpowers"
-        / "sdd"
-        / "dynamic-bureau-task-8-rounds"
-        / "freeze-manifest.json"
-    )
-    manifest = (
-        json.loads(manifest_path.read_text(encoding="utf-8-sig"))
-        if manifest_path.exists()
-        else {}
+    build_id = os.environ.get("CHAOTANG_SYNTHETIC_FRONTEND_BUILD_ID")
+    source_manifest_fingerprint = os.environ.get(
+        "CHAOTANG_SYNTHETIC_SOURCE_MANIFEST_FINGERPRINT"
     )
     return {
         "pid": os.getpid(),
@@ -588,8 +578,8 @@ def _synthetic_diagnostics(provider=None) -> dict[str, object]:
             "synthetic_app": _module_identity(__import__(__name__, fromlist=["app"])),
             "structured_invocation": _module_identity(structured_invocation_module),
         },
-        "build_id": build_id_path.read_text(encoding="utf-8").strip(),
-        "source_manifest_fingerprint": manifest.get("fingerprint"),
+        "build_id": build_id,
+        "source_manifest_fingerprint": source_manifest_fingerprint,
     }
 
 

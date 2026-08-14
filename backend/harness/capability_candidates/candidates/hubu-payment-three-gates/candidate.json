@@ -1,0 +1,9 @@
+{
+  "id": "hubu-payment-three-gates",
+  "name": "户部付款三闸",
+  "owner": "户部",
+  "purpose": "付款必须同时通过合同依据、验收/履约证据和授权审批三闸。",
+  "requiredAssertions": ["contract-basis", "acceptance-evidence", "tenant-unchanged", "authority-unchanged", "no-side-effects"],
+  "migrationVerdict": "rewrite-distill",
+  "authorization": "candidate-only"
+}

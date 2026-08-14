@@ -1,0 +1,16 @@
+{
+  "schema_version": "1.0.0",
+  "capability_id": "hubu-financial-grounding",
+  "version": "0.1.0",
+  "capsule_digest": "sha256:d05d0d8915b190687519639a4a28fdad7f1baf5c49d29a4e6c95d4627e86cbe9",
+  "objects": {
+    "adapter.txt": "sha256:9319868c6f4e9dfceaae45abe0528f415c7d99aa888394a43dfaed7139611f78",
+    "candidate.json": "sha256:c15d3b67ce46bf221c91655a3f6a4da2c1408ef88ba39a02f18f654dfacac7ef",
+    "contract.json": "sha256:dd0d822d6b23bd4821143ce63df465e661157d49bef6abe0c630f3bae0c370bd",
+    "evaluations.json": "sha256:e7589e148f05ff000f3ef027ef6423b5dca37ac54014311983eeb19d8b3006db",
+    "policy.json": "sha256:008cb4f1c01e550debad497a7faea9bd5b50df209283f5b1a9616443d67aab07",
+    "prompt.txt": "sha256:f5de7c06b64977ef1713f6e8a85800238c3756b2e1dfc69bf5c4b5268ab095ae",
+    "rollback.txt": "sha256:691e750b40fe654714fa796091d2c1a479ee166a4ff1c77c34a0aeb1c773c828",
+    "telemetry.txt": "sha256:197b6bb4153db5d58f71d26db39130cfeb6601a46450106c6c8f53342d4af55b"
+  }
+}

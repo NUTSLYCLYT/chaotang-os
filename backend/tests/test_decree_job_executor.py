@@ -136,6 +136,250 @@ def test_executor_does_not_fake_archive_and_publish_checkpoints(monkeypatch) -> 
     assert calls == ["archive", "publish"]
 
 
+def test_multi_archive_persists_real_reply_and_idempotently_closes_case(
+    tmp_path, monkeypatch
+) -> None:
+    import sqlite3
+
+    executor_module = _executor_module()
+    from app.agents.chancellor_draft.routing import (
+        ApprovedDepartmentRoute,
+        ApprovedRouteSnapshot,
+    )
+    from app.agents.runtime_skills.evidence_spine import route_snapshot_digest
+    from app.api.decrees import (
+        BureauOpinionResponse,
+        ChancellorDecreeResponse,
+        DeliveryKind,
+        MinistryOpinionResponse,
+        PreparedDecreeExecution,
+    )
+    from app.junjichu_cases import models as case_models
+    from app.junjichu_cases import storage as case_storage
+    from app.shiguan.archive_decree import (
+        ArchiveDecreeResult,
+        archive_chancellor_decree,
+    )
+    from app.shiguan.storage import list_archives
+    from tests.test_junjichu_runtime_report_storage import (
+        _council_report,
+        _ministry_report,
+    )
+
+    route = ApprovedRouteSnapshot(
+        departments=(
+            ApprovedDepartmentRoute(
+                department="户部", required_bureaus=("预算司",)
+            ),
+            ApprovedDepartmentRoute(
+                department="刑部", required_bureaus=("缺证核查司",)
+            ),
+        )
+    )
+    authority = {
+        "approved_route": route.model_dump(mode="json"),
+        "accounting_context": None,
+    }
+    job = replace(
+        _job(),
+        decree_text="请户部与刑部会审国库证据",
+        approved_route_json=json.dumps(authority, ensure_ascii=False),
+    )
+    case_path = tmp_path / "cases.sqlite3"
+    shiguan_path = tmp_path / "shiguan.sqlite3"
+    case = case_storage.open_case(
+        case_models.JunjichuCaseOpenInput(
+            decree_text=job.decree_text,
+            route_type="multi",
+            departments=["户部", "刑部"],
+            processing_path=["上书房", "军机处（召集）"],
+            run_id=job.job_id,
+            decree_id=job.job_id,
+            draft_fingerprint=job.draft_fingerprint,
+            route_digest=route_snapshot_digest(route),
+        ),
+        owner_user_id=job.owner_user_id,
+        db_path=case_path,
+    )
+    reports = (_ministry_report("户部"), _ministry_report("刑部"))
+    ministry_records = tuple(
+        case_storage.append_runtime_ministry_report(
+            case.id,
+            owner_user_id=job.owner_user_id,
+            run_id=job.job_id,
+            report=report,
+            db_path=case_path,
+        )
+        for report in reports
+    )
+    council_record = case_storage.append_runtime_council_report(
+        case.id,
+        owner_user_id=job.owner_user_id,
+        run_id=job.job_id,
+        report=_council_report(reports),
+        db_path=case_path,
+    )
+    case_storage.record_checkpoint(
+        case.id,
+        owner_user_id=job.owner_user_id,
+        status="CHANCELLOR_FINALIZING",
+        council_verdict="两部完成会审",
+        db_path=case_path,
+    )
+    response = ChancellorDecreeResponse(
+        status="ok",
+        chancellor="丞相",
+        route_type="multi",
+        rationale="交军机处会审",
+        processing_path=["上书房", "军机处（会审）", "丞相（最终汇总）"],
+        departments=["户部", "刑部"],
+        ministry_opinions=[
+            MinistryOpinionResponse(
+                department="户部",
+                bureau_opinions=[
+                    BureauOpinionResponse(bureau="预算司", opinion="已核验")
+                ],
+                opinion="同意",
+            ),
+            MinistryOpinionResponse(
+                department="刑部",
+                bureau_opinions=[
+                    BureauOpinionResponse(bureau="缺证核查司", opinion="已核验")
+                ],
+                opinion="同意",
+            ),
+        ],
+        council_verdict="两部完成会审",
+        final_verdict="准奏",
+        recommendations=["保留证据", "人工复核", "形成回奏"],
+        delivery_kind=DeliveryKind.NONE,
+    )
+    prepared = PreparedDecreeExecution(
+        response=response,
+        internal_result={
+            "approved_route": route,
+            "draft_version": 1,
+            "draft_fingerprint": job.draft_fingerprint,
+            "runtime_audit": None,
+        },
+        junjichu_case_id=case.id,
+        junjichu_ministry_report_digests=tuple(
+            record.content_digest for record in ministry_records
+        ),
+        junjichu_council_report_digest=council_record.content_digest,
+    )
+    job = replace(job, result_json=prepared.model_dump_json())
+    reply_attempts = 0
+
+    def archive_reply_with_ambiguous_first_commit(*args, **kwargs):
+        nonlocal reply_attempts
+        reply_attempts += 1
+        archived = archive_chancellor_decree(
+            *args, **kwargs, shiguan_db_path=shiguan_path
+        )
+        if reply_attempts == 1:
+            return ArchiveDecreeResult(
+                archived=False, reply_id=archived.reply_id
+            )
+        return archived
+
+    monkeypatch.setattr(
+        executor_module,
+        "archive_chancellor_decree",
+        archive_reply_with_ambiguous_first_commit,
+    )
+    monkeypatch.setattr(
+        executor_module,
+        "get_case",
+        lambda *args, **kwargs: case_storage.get_case(
+            *args, **kwargs, db_path=case_path
+        ),
+    )
+    monkeypatch.setattr(
+        executor_module,
+        "get_runtime_report_snapshot",
+        lambda *args, **kwargs: case_storage.get_runtime_report_snapshot(
+            *args, **kwargs, db_path=case_path
+        ),
+    )
+    attempts = 0
+
+    def archive_case_with_ambiguous_first_commit(*args, **kwargs):
+        nonlocal attempts
+        attempts += 1
+        archived = case_storage.archive_case(*args, **kwargs, db_path=case_path)
+        if attempts == 1:
+            raise sqlite3.OperationalError("ambiguous post-commit failure")
+        return archived
+
+    monkeypatch.setattr(
+        executor_module, "archive_case", archive_case_with_ambiguous_first_commit
+    )
+
+    wrong_report_checkpoint = prepared.model_copy(
+        update={"junjichu_council_report_digest": "f" * 64}
+    )
+    with pytest.raises(PermanentJobError, match="junjichu_archive_failed"):
+        executor_module.archive_prepared_decree(
+            replace(job, result_json=wrong_report_checkpoint.model_dump_json())
+        )
+    assert list_archives(
+        type="REPLY", owner_user_id=job.owner_user_id, db_path=shiguan_path
+    ) == []
+
+    wrong_case = case_storage.open_case(
+        case_models.JunjichuCaseOpenInput(
+            decree_text=job.decree_text,
+            route_type="multi",
+            departments=["户部", "刑部"],
+            processing_path=["上书房", "军机处（召集）"],
+            run_id="z" * 32,
+            decree_id="z" * 32,
+            draft_fingerprint=job.draft_fingerprint,
+            route_digest=route_snapshot_digest(route),
+        ),
+        owner_user_id=job.owner_user_id,
+        db_path=case_path,
+    )
+    case_storage.record_checkpoint(
+        wrong_case.id,
+        owner_user_id=job.owner_user_id,
+        status="CHANCELLOR_FINALIZING",
+        council_verdict="错误案卷也有结论",
+        db_path=case_path,
+    )
+    wrong_checkpoint = prepared.model_copy(
+        update={"junjichu_case_id": wrong_case.id}
+    )
+    with pytest.raises(PermanentJobError, match="junjichu_archive_failed"):
+        executor_module.archive_prepared_decree(
+            replace(job, result_json=wrong_checkpoint.model_dump_json())
+        )
+    assert list_archives(
+        type="REPLY", owner_user_id=job.owner_user_id, db_path=shiguan_path
+    ) == []
+
+    with pytest.raises(TransientJobError, match="reply_archive_failed"):
+        executor_module.archive_prepared_decree(job)
+    with pytest.raises(TransientJobError, match="junjichu_archive_failed"):
+        executor_module.archive_prepared_decree(job)
+    assert executor_module.archive_prepared_decree(job) == job.job_id
+    assert executor_module.archive_prepared_decree(job) == job.job_id
+    assert attempts == 3
+    assert reply_attempts == 4
+
+    archived_case = case_storage.get_case(
+        case.id, owner_user_id=job.owner_user_id, db_path=case_path
+    )
+    assert archived_case is not None
+    assert archived_case.status == "ARCHIVED"
+    assert archived_case.reply_id == job.job_id
+    replies = list_archives(
+        type="REPLY", owner_user_id=job.owner_user_id, db_path=shiguan_path
+    )
+    assert [reply.id for reply in replies] == [job.job_id]
+
+
 def test_archive_checkpoint_rehydrates_frozen_evidence_dataclass() -> None:
     executor_module = _executor_module()
     from app.agents.evidence_protocol import AgentEvidenceSnapshot

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sqlite3
 import threading
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
@@ -95,10 +96,67 @@ class DecreeJobControl:
         except LeaseConflict as exc:
             raise JobLeaseLost from exc
 
-    def raise_if_cancelled(self) -> None:
+    def checkpoint_result(self, result_json: str) -> DecreeJob:
+        """Persist the completed model phase before control returns to the worker."""
+
+        checkpoint_now = self._clock()
+        try:
+            self.raise_if_cancelled(now=checkpoint_now)
+        except (sqlite3.Error, OSError) as exc:
+            raise TransientJobError("result_checkpoint_failed") from exc
+        try:
+            checkpointed = self._store.checkpoint_result(
+                self._job.job_id,
+                self._worker_id,
+                result_json=result_json,
+                now=checkpoint_now,
+            )
+            if checkpointed.state is DecreeJobState.CANCELLED:
+                raise JobCancelled
+            return checkpointed
+        except LeaseConflict as exc:
+            raise JobLeaseLost from exc
+        except (sqlite3.Error, OSError) as exc:
+            try:
+                current = self._store.get_for_owner(
+                    self._job.job_id, self._job.owner_user_id
+                )
+            except (sqlite3.Error, OSError):
+                raise TransientJobError("result_checkpoint_failed") from exc
+            if current.state is DecreeJobState.CANCELLED:
+                raise JobCancelled from exc
+            if current.lease_owner != self._worker_id:
+                raise JobLeaseLost from exc
+            if (
+                current.state is DecreeJobState.RUNNING
+                and current.cancel_requested
+            ):
+                try:
+                    cancelled = self._store.cancel_at_boundary(
+                        self._job.job_id,
+                        self._worker_id,
+                        now=checkpoint_now,
+                    )
+                except LeaseConflict as cancel_exc:
+                    raise JobLeaseLost from cancel_exc
+                except (sqlite3.Error, OSError) as cancel_exc:
+                    raise TransientJobError(
+                        "result_checkpoint_failed"
+                    ) from cancel_exc
+                if cancelled.state is DecreeJobState.CANCELLED:
+                    raise JobCancelled from exc
+            if (
+                current.state is DecreeJobState.RESULT_READY
+                and current.result_json == result_json
+            ):
+                return current
+            raise TransientJobError("result_checkpoint_failed") from exc
+
+    def raise_if_cancelled(self, *, now: datetime | None = None) -> None:
+        boundary_now = now or self._clock()
         if self._lease_lost.is_set():
             raise JobLeaseLost
-        if self._clock() >= self._job.deadline_at:
+        if boundary_now >= self._job.deadline_at:
             raise JobDeadlineExceeded
         current = self._store.get_for_owner(
             self._job.job_id, self._job.owner_user_id
@@ -106,7 +164,7 @@ class DecreeJobControl:
         if not current.cancel_requested:
             return
         cancelled = self._store.cancel_at_boundary(
-            self._job.job_id, self._worker_id, now=self._clock()
+            self._job.job_id, self._worker_id, now=boundary_now
         )
         if cancelled.state is DecreeJobState.CANCELLED:
             raise JobCancelled
@@ -150,7 +208,7 @@ class DecreeJobWorker:
                         now=self.clock(),
                         lease_seconds=self.lease_seconds,
                     )
-                except (LeaseConflict, OSError):
+                except (LeaseConflict, sqlite3.Error, OSError):
                     lease_lost.set()
                     return
 
@@ -161,6 +219,48 @@ class DecreeJobWorker:
         )
         thread.start()
         return stopped, lease_lost, thread
+
+    def _record_failure(
+        self,
+        job: DecreeJob,
+        *,
+        model_phase: bool,
+        error_code: str,
+        error_stage: str,
+        error_category: str,
+        transient: bool,
+    ) -> None:
+        failure_now = self.clock()
+        try:
+            if model_phase:
+                self.store.fail_attempt(
+                    job.job_id,
+                    self.worker_id,
+                    error_code=error_code,
+                    error_stage=error_stage,
+                    error_category=error_category,
+                    transient=transient,
+                    retry_at=(
+                        failure_now + timedelta(seconds=self.retry_delay_seconds)
+                        if transient
+                        else failure_now
+                    ),
+                    now=failure_now,
+                )
+            else:
+                self.store.fail_checkpoint(
+                    job.job_id,
+                    self.worker_id,
+                    error_code=error_code,
+                    error_stage=error_stage,
+                    error_category=error_category,
+                    transient=transient,
+                    now=failure_now,
+                )
+        except (LeaseConflict, sqlite3.Error, OSError):
+            # A concurrent/ambiguous durable transition owns the truth. The next
+            # poll reloads it; a secondary error must never kill the worker loop.
+            return
 
     def run_once(self) -> bool:
         now = self.clock()
@@ -178,13 +278,18 @@ class DecreeJobWorker:
             if job.state is DecreeJobState.RUNNING:
                 control.raise_if_cancelled()
                 result_json = self.executor.execute(job, control)
-                control.raise_if_cancelled()
-                job = self.store.checkpoint_result(
-                    job.job_id,
-                    self.worker_id,
-                    result_json=result_json,
-                    now=self.clock(),
-                )
+                current = self.store.get_for_owner(job.job_id, job.owner_user_id)
+                if current.state is DecreeJobState.RUNNING:
+                    control.raise_if_cancelled()
+                    job = control.checkpoint_result(result_json)
+                elif (
+                    current.state is DecreeJobState.RESULT_READY
+                    and current.result_json == result_json
+                    and current.lease_owner == self.worker_id
+                ):
+                    job = current
+                else:
+                    raise JobLeaseLost
                 model_phase = False
             if job.state is DecreeJobState.RESULT_READY:
                 control.raise_if_cancelled()
@@ -213,83 +318,44 @@ class DecreeJobWorker:
         except JobLeaseLost:
             return True
         except JobDeadlineExceeded:
-            self.store.fail_attempt(
-                job.job_id,
-                self.worker_id,
+            self._record_failure(
+                job,
+                model_phase=True,
                 error_code="deadline_exceeded",
+                error_stage="execution",
                 error_category="deadline",
                 transient=False,
-                retry_at=self.clock(),
-                now=self.clock(),
             )
             return True
         except TransientJobError as exc:
-            if model_phase:
-                self.store.fail_attempt(
-                    job.job_id,
-                    self.worker_id,
-                    error_code=exc.code,
-                    error_stage=exc.stage,
-                    error_category=exc.category,
-                    transient=True,
-                    retry_at=self.clock()
-                    + timedelta(seconds=self.retry_delay_seconds),
-                    now=self.clock(),
-                )
-            else:
-                self.store.fail_checkpoint(
-                    job.job_id,
-                    self.worker_id,
-                    error_code=exc.code,
-                    error_stage=exc.stage,
-                    error_category=exc.category,
-                    transient=True,
-                    now=self.clock(),
-                )
+            self._record_failure(
+                job,
+                model_phase=model_phase,
+                error_code=exc.code,
+                error_stage=exc.stage,
+                error_category=exc.category,
+                transient=True,
+            )
             return True
         except PermanentJobError as exc:
-            if model_phase:
-                self.store.fail_attempt(
-                    job.job_id,
-                    self.worker_id,
-                    error_code=exc.code,
-                    error_stage=exc.stage,
-                    error_category=exc.category,
-                    transient=False,
-                    retry_at=self.clock(),
-                    now=self.clock(),
-                )
-            else:
-                self.store.fail_checkpoint(
-                    job.job_id,
-                    self.worker_id,
-                    error_code=exc.code,
-                    error_stage=exc.stage,
-                    error_category=exc.category,
-                    transient=False,
-                    now=self.clock(),
-                )
+            self._record_failure(
+                job,
+                model_phase=model_phase,
+                error_code=exc.code,
+                error_stage=exc.stage,
+                error_category=exc.category,
+                transient=False,
+            )
             return True
         except Exception:
-            if model_phase:
-                self.store.fail_attempt(
-                    job.job_id,
-                    self.worker_id,
-                    error_code="execution_failed",
-                    error_category="internal",
-                    transient=False,
-                    retry_at=self.clock(),
-                    now=self.clock(),
-                )
-            else:
-                self.store.fail_checkpoint(
-                    job.job_id,
-                    self.worker_id,
-                    error_code="side_effect_failed",
-                    error_category="internal",
-                    transient=True,
-                    now=self.clock(),
-                )
+            self._record_failure(
+                job,
+                model_phase=model_phase,
+                error_code="execution_failed" if model_phase else "side_effect_failed",
+                error_stage="execution" if model_phase else "side_effect",
+                error_category="internal",
+                transient=not model_phase,
+            )
             return True
         finally:
             heartbeat_stop.set()
@@ -297,7 +363,11 @@ class DecreeJobWorker:
 
     def _run(self) -> None:
         while not self._stop.is_set():
-            if not self.run_once():
+            try:
+                worked = self.run_once()
+            except (sqlite3.Error, OSError):
+                worked = False
+            if not worked:
                 self._stop.wait(self.poll_seconds)
 
     def start(self) -> None:

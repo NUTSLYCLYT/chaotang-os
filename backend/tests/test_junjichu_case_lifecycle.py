@@ -572,9 +572,16 @@ def test_invalid_request_returns_422_without_building_a_graph_or_case(monkeypatc
         "owner-a", "owner", "owner@example.test"
     )
     build_calls = []
+    store_calls = []
     monkeypatch.setattr(decrees_module, "get_chancellor_graph", lambda: build_calls.append(True))
+    monkeypatch.setattr(
+        decrees_module,
+        "get_decree_job_store",
+        lambda: store_calls.append(True),
+    )
 
     response = TestClient(app).post("/api/v1/decrees/chancellor", json={"decree_text": "   "})
 
     assert response.status_code == 422
     assert build_calls == []
+    assert store_calls == []

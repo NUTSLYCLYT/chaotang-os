@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-import base64
-import hashlib
 import importlib
 import json
 import os
-import re
 import subprocess
 import sys
 import threading
@@ -107,8 +104,12 @@ def test_stage_aware_accounting_provider_fails_closed_for_unknown_stage(
 
 
 def test_synthetic_diagnostics_exposes_process_identity_and_stage_ring(
-    synthetic_app: ModuleType,
+    synthetic_app: ModuleType, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    monkeypatch.setenv("CHAOTANG_SYNTHETIC_FRONTEND_BUILD_ID", "build-fixture")
+    monkeypatch.setenv(
+        "CHAOTANG_SYNTHETIC_SOURCE_MANIFEST_FINGERPRINT", "a" * 64
+    )
     provider = synthetic_app._SyntheticAccountingChatProvider()
     provider.invoke_structured([], stage="ministry_route")
 
@@ -128,6 +129,22 @@ def test_synthetic_diagnostics_exposes_process_identity_and_stage_ring(
         item["file"] and len(item["sha256"]) == 64
         for item in diagnostic["modules"].values()
     )
+    assert diagnostic["build_id"] == "build-fixture"
+    assert diagnostic["source_manifest_fingerprint"] == "a" * 64
+
+
+def test_synthetic_diagnostics_has_explicit_defaults_without_build_artifacts(
+    synthetic_app: ModuleType, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("CHAOTANG_SYNTHETIC_FRONTEND_BUILD_ID", raising=False)
+    monkeypatch.delenv(
+        "CHAOTANG_SYNTHETIC_SOURCE_MANIFEST_FINGERPRINT", raising=False
+    )
+
+    diagnostic = synthetic_app._synthetic_diagnostics()
+
+    assert diagnostic["build_id"] is None
+    assert diagnostic["source_manifest_fingerprint"] is None
 
 
 def test_synthetic_post_tool_failure_is_one_shot_and_after_graph_invoke(
@@ -553,38 +570,3 @@ def test_acceptance_runner_records_external_formal_round_number() -> None:
     assert '"command"' in source
     assert '"round": formal_round' in source
     assert '"exit_code": 0' in source
-
-
-def test_formal_wrapper_constructs_decree_from_ascii_base64() -> None:
-    wrapper = (
-        Path(__file__).resolve().parents[2]
-        / ".superpowers"
-        / "sdd"
-        / "run_task8_formal_rounds.ps1"
-    ).read_text(encoding="utf-8")
-
-    assert "FromBase64String" in wrapper
-    assert "$decreeUtf8Base64" in wrapper
-    assert '$decree = "请' not in wrapper
-    assert '$evidence.exit_code -ne 0' in wrapper
-    assert 'failure-{0:D2}.json' in wrapper
-    assert all(ord(character) < 128 for character in wrapper)
-    encoded = re.search(r'\$decreeUtf8Base64 = "([A-Za-z0-9+/=]+)"', wrapper)
-    assert encoded is not None
-    decree = base64.b64decode(encoded.group(1)).decode("utf-8")
-    assert hashlib.sha256(decree.encode()).hexdigest() == (
-        "e0a1f1e76c4155c9c9d23ca1f96f93f8123453d3f14b0abc5c927286625b9a9c"
-    )
-
-
-def test_formal_round_summary_records_native_exit_code() -> None:
-    summary_path = (
-        Path(__file__).resolve().parents[2]
-        / ".superpowers"
-        / "sdd"
-        / "dynamic-bureau-task-8-rounds"
-        / "round-01.json"
-    )
-    summary = json.loads(summary_path.read_text(encoding="utf-8-sig"))
-
-    assert summary["exit_code"] == 0

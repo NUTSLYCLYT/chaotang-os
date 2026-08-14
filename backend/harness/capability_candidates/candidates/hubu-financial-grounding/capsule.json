@@ -1,0 +1,78 @@
+{
+  "schema_version": "1.0.0",
+  "capability_id": "hubu-financial-grounding",
+  "version": "0.1.0",
+  "status": "candidate",
+  "evaluation_scope": "synthetic-offline-only",
+  "production_boundary": "not-registered-no-execution-authority",
+  "content_digests": {
+    "prompt": "sha256:f5de7c06b64977ef1713f6e8a85800238c3756b2e1dfc69bf5c4b5268ab095ae",
+    "contract": "sha256:dd0d822d6b23bd4821143ce63df465e661157d49bef6abe0c630f3bae0c370bd",
+    "policy": "sha256:008cb4f1c01e550debad497a7faea9bd5b50df209283f5b1a9616443d67aab07",
+    "evaluation": "sha256:e7589e148f05ff000f3ef027ef6423b5dca37ac54014311983eeb19d8b3006db"
+  },
+  "artifacts": {
+    "prompt": {
+      "path": "prompt.txt",
+      "digest": "sha256:f5de7c06b64977ef1713f6e8a85800238c3756b2e1dfc69bf5c4b5268ab095ae"
+    },
+    "contract": {
+      "path": "contract.json",
+      "digest": "sha256:dd0d822d6b23bd4821143ce63df465e661157d49bef6abe0c630f3bae0c370bd"
+    },
+    "policy": {
+      "path": "policy.json",
+      "digest": "sha256:008cb4f1c01e550debad497a7faea9bd5b50df209283f5b1a9616443d67aab07"
+    },
+    "behavior": {
+      "path": "candidate.json",
+      "digest": "sha256:c15d3b67ce46bf221c91655a3f6a4da2c1408ef88ba39a02f18f654dfacac7ef"
+    },
+    "adapter": {
+      "path": "adapter.txt",
+      "digest": "sha256:9319868c6f4e9dfceaae45abe0528f415c7d99aa888394a43dfaed7139611f78"
+    },
+    "evaluations": {
+      "path": "evaluations.json",
+      "digest": "sha256:e7589e148f05ff000f3ef027ef6423b5dca37ac54014311983eeb19d8b3006db"
+    },
+    "telemetry": {
+      "path": "telemetry.txt",
+      "digest": "sha256:197b6bb4153db5d58f71d26db39130cfeb6601a46450106c6c8f53342d4af55b"
+    },
+    "rollback": {
+      "path": "rollback.txt",
+      "digest": "sha256:691e750b40fe654714fa796091d2c1a479ee166a4ff1c77c34a0aeb1c773c828"
+    },
+    "provenance": {
+      "repository": "origin/feature-chaotang-ext",
+      "commit": "939186f0331d9784bc8c4ceee393aeb197230ed0",
+      "path": "backend/agent_design/buildAgent/三省六部体系/户部/skills/financial-analyst/SKILL.md"
+    }
+  },
+  "authority_ref": {
+    "issuer": "chaotang-os-root-harness",
+    "projection_digest": "sha256:31b6088450d2366d695a67b02a9d449d3e47e50d160712a8f30388ab3f6ac2ff"
+  },
+  "requested_permissions": {
+    "tools": [],
+    "data_domains": [],
+    "may_write_external": false
+  },
+  "controls": {
+    "kill_switches": {
+      "capability_enabled": true,
+      "tenant_enabled": true,
+      "tools_enabled": true
+    },
+    "taint": {
+      "external_content_taints_context": true,
+      "tainted_context_allows_tools": false
+    },
+    "context_rent": {
+      "max_tokens": 1200,
+      "direct_fallback": true,
+      "minimum_expected_gain": 0.1
+    }
+  }
+}

@@ -1,0 +1,78 @@
+{
+  "schema_version": "1.0.0",
+  "capability_id": "hubu-payment-three-gates",
+  "version": "0.1.0",
+  "status": "candidate",
+  "evaluation_scope": "synthetic-offline-only",
+  "production_boundary": "not-registered-no-execution-authority",
+  "content_digests": {
+    "prompt": "sha256:5c998180166d6bca0325744648c36380d184ef5c6bf62d8a55acfc8868d97f6c",
+    "contract": "sha256:92c04565808c9429e64af8296431a950d95bfe2326796e4de5ab8cf6e57b75da",
+    "policy": "sha256:163a411faaa22eaf614aeaa3246591eaa10551a4e4a9313ae82a6c462f5795fd",
+    "evaluation": "sha256:db5661928265d20bca399033730f13948f4e1c2056239bde42ca47add83b2b83"
+  },
+  "artifacts": {
+    "prompt": {
+      "path": "prompt.txt",
+      "digest": "sha256:5c998180166d6bca0325744648c36380d184ef5c6bf62d8a55acfc8868d97f6c"
+    },
+    "contract": {
+      "path": "contract.json",
+      "digest": "sha256:92c04565808c9429e64af8296431a950d95bfe2326796e4de5ab8cf6e57b75da"
+    },
+    "policy": {
+      "path": "policy.json",
+      "digest": "sha256:163a411faaa22eaf614aeaa3246591eaa10551a4e4a9313ae82a6c462f5795fd"
+    },
+    "behavior": {
+      "path": "candidate.json",
+      "digest": "sha256:ce6b79f83bcb5ba77c9c2e05dda2b8ed58c82ac6ab02667ebda41333244dfc9e"
+    },
+    "adapter": {
+      "path": "adapter.txt",
+      "digest": "sha256:81813282c537fd24b38eeacc53e5ca3267edebff541e0a448c535e9758183565"
+    },
+    "evaluations": {
+      "path": "evaluations.json",
+      "digest": "sha256:db5661928265d20bca399033730f13948f4e1c2056239bde42ca47add83b2b83"
+    },
+    "telemetry": {
+      "path": "telemetry.txt",
+      "digest": "sha256:06d703c699ed648469078a88eb92396ef8a5eecda451742cb6aa1984a600276c"
+    },
+    "rollback": {
+      "path": "rollback.txt",
+      "digest": "sha256:30fc4650ad81f2305d93d0ffe314dfe5a57d96691896c65d07707af3b11f1d7d"
+    },
+    "provenance": {
+      "repository": "origin/feature-chaotang-ext",
+      "commit": "939186f0331d9784bc8c4ceee393aeb197230ed0",
+      "path": "frontend/config/hubu.cfo_office.registry.yaml"
+    }
+  },
+  "authority_ref": {
+    "issuer": "chaotang-os-root-harness",
+    "projection_digest": "sha256:50f3f7aa0413c432eb0e3652821d246fa4b182d87d18091e1e661c87b9ec9fe7"
+  },
+  "requested_permissions": {
+    "tools": [],
+    "data_domains": [],
+    "may_write_external": false
+  },
+  "controls": {
+    "kill_switches": {
+      "capability_enabled": true,
+      "tenant_enabled": true,
+      "tools_enabled": true
+    },
+    "taint": {
+      "external_content_taints_context": true,
+      "tainted_context_allows_tools": false
+    },
+    "context_rent": {
+      "max_tokens": 1200,
+      "direct_fallback": true,
+      "minimum_expected_gain": 0.1
+    }
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "base": {
+    "schema_version": "1.0.0", "contract_role": "runtime-skill-compatibility-overlay-not-authority",
+    "runtime_skill_binding": { "skill_id": "hubu-accounting-analysis", "definition_version": "1.0.0", "authority_source": "backend/app/agents/runtime_skills/models.py", "registry_source": "backend/app/agents/runtime_skills/registry.py", "definition_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+    "identity": { "tenant_id": "tenant-1", "owner_user_id": "owner-1", "run_id": "run-1" },
+    "routing": { "mode": "single", "ministries": ["hubu"], "joint_review": { "required": false, "status": "NOT_REQUIRED", "reviewer": "none", "receipt_ref": null } },
+    "evidence": { "snapshot_ref": "evidence:run-1", "status": "RESOLVED", "adopted_evidence_ids": ["ev-1"], "missing_evidence": [] },
+    "responsibility": { "accountable_ministry": "hubu", "responsible_bureaus": ["hubu-accounting"], "authority_projection_ref": "authority:hubu-accounting" },
+    "execution": { "phase": "PREVIEW", "side_effect_class": "EXTERNAL_WRITE", "preview_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", "human_confirmation": { "required": true, "status": "PENDING", "work_product_ref": "work-product:1", "receipt_ref": null } },
+    "tool_policy": { "policy_ref": "tool-policy:hubu-accounting", "requested_tool_ids": ["archive-reply"], "decision": "ALLOW_PREVIEW", "decision_receipt_ref": "tool-decision:preview" },
+    "outcome": { "status": "READY", "reason_codes": [], "retryable": false }
+  },
+  "trusted_context": {
+    "runtime_skills": { "hubu-accounting-analysis": { "version": "1.0.0", "definition_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "enabled": true, "accountable_ministry": "hubu", "required_ministries": ["hubu"], "responsible_bureaus": ["hubu-accounting"], "allowed_tool_ids": ["archive-reply"] } },
+    "evidence_snapshots": { "evidence:run-1": { "tenant_id": "tenant-1", "owner_user_id": "owner-1", "run_id": "run-1", "status": "RESOLVED", "adopted_evidence_ids": ["ev-1"], "missing_evidence": [] } },
+    "authority_projections": { "authority:hubu-accounting": { "tenant_id": "tenant-1", "owner_user_id": "owner-1", "run_id": "run-1", "capability_id": "hubu-accounting-analysis" } },
+    "joint_review_receipts": { "joint-review:1": { "tenant_id": "tenant-1", "owner_user_id": "owner-1", "run_id": "run-1", "status": "COMPLETED", "reviewer": "junjichu", "ministries": ["hubu", "xingbu"] } },
+    "work_products": { "work-product:1": { "tenant_id": "tenant-1", "owner_user_id": "owner-1", "run_id": "run-1", "version": 1, "content_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc" } },
+    "confirmation_receipts": { "confirmation:1": { "tenant_id": "tenant-1", "owner_user_id": "owner-1", "run_id": "run-1", "work_product_ref": "work-product:1", "version": 1, "decision": "CONFIRMED" }, "confirmation:old": { "tenant_id": "tenant-1", "owner_user_id": "owner-1", "run_id": "run-1", "work_product_ref": "work-product:1", "version": 0, "decision": "CONFIRMED" } },
+    "tool_policies": { "tool-policy:hubu-accounting": { "tenant_id": "tenant-1", "owner_user_id": "owner-1", "run_id": "run-1", "capability_id": "hubu-accounting-analysis" } },
+    "tool_decisions": { "tool-decision:preview": { "tenant_id": "tenant-1", "owner_user_id": "owner-1", "run_id": "run-1", "policy_ref": "tool-policy:hubu-accounting", "requested_tool_ids": ["archive-reply"], "decision": "ALLOW_PREVIEW", "side_effect_class": "EXTERNAL_WRITE" }, "tool-decision:execute": { "tenant_id": "tenant-1", "owner_user_id": "owner-1", "run_id": "run-1", "policy_ref": "tool-policy:hubu-accounting", "requested_tool_ids": ["archive-reply"], "decision": "ALLOW_EXECUTE", "side_effect_class": "EXTERNAL_WRITE" } }
+  },
+  "valid_preview_patch": {},
+  "valid_confirmed_execution_patch": { "execution": { "phase": "EXECUTE", "human_confirmation": { "required": true, "status": "CONFIRMED", "receipt_ref": "confirmation:1" } }, "tool_policy": { "decision": "ALLOW_EXECUTE", "decision_receipt_ref": "tool-decision:execute" } },
+  "hostile_cases": [
+    { "id": "wrong-owner-type", "patch": { "identity": { "owner_user_id": null } }, "expected_error": "identity_invalid" },
+    { "id": "cross-owner-evidence-replay", "patch": { "identity": { "owner_user_id": "owner-2" } }, "expected_error": "evidence_invalid" },
+    { "id": "multi-route-skips-junjichu", "patch": { "routing": { "mode": "multi", "ministries": ["hubu", "xingbu"], "joint_review": { "required": false, "status": "NOT_REQUIRED", "reviewer": "none", "receipt_ref": null } } }, "expected_error": "joint_review_required" },
+    { "id": "model-self-confirms", "patch": { "execution": { "phase": "EXECUTE", "human_confirmation": { "required": true, "status": "CONFIRMED", "receipt_ref": "model-approved" } }, "tool_policy": { "decision": "ALLOW_EXECUTE", "decision_receipt_ref": "tool-decision:execute" } }, "expected_error": "human_confirmation_required" },
+    { "id": "confirmation-replays-old-version", "patch": { "execution": { "phase": "EXECUTE", "human_confirmation": { "required": true, "status": "CONFIRMED", "receipt_ref": "confirmation:old" } }, "tool_policy": { "decision": "ALLOW_EXECUTE", "decision_receipt_ref": "tool-decision:execute" } }, "expected_error": "human_confirmation_required" },
+    { "id": "preview-executes-tool", "patch": { "tool_policy": { "decision": "ALLOW_EXECUTE", "decision_receipt_ref": "tool-decision:execute" } }, "expected_error": "preview_cannot_execute_tools" },
+    { "id": "missing-tool-policy-receipt", "patch": { "tool_policy": { "decision": "ALLOW_EXECUTE", "decision_receipt_ref": null } }, "expected_error": "tool_policy_invalid" },
+    { "id": "side-effect-downgrade", "patch": { "execution": { "phase": "EXECUTE", "side_effect_class": "NONE", "human_confirmation": { "required": false, "status": "NOT_REQUIRED", "receipt_ref": null } }, "tool_policy": { "decision": "ALLOW_EXECUTE", "decision_receipt_ref": "tool-decision:execute" } }, "expected_error": "tool_policy_invalid" },
+    { "id": "partial-evidence-claims-ready", "patch": { "evidence": { "status": "PARTIAL", "missing_evidence": ["current-cash-balance"] } }, "expected_error": "evidence_invalid" },
+    { "id": "blocked-still-allows-tools", "patch": { "outcome": { "status": "BLOCKED", "reason_codes": ["authority_missing"] } }, "expected_error": "terminal_outcome_denies_tools" },
+    { "id": "accountable-ministry-not-routed", "patch": { "responsibility": { "accountable_ministry": "xingbu" } }, "expected_error": "responsibility_authority_invalid" },
+    { "id": "route-and-accountable-ministry-substitution", "patch": { "routing": { "ministries": ["xingbu"] }, "responsibility": { "accountable_ministry": "xingbu" } }, "expected_error": "responsibility_authority_invalid" },
+    { "id": "unknown-enums", "patch": { "execution": { "phase": "MAGIC" } }, "expected_error": "execution_invalid" },
+    { "id": "runtime-skill-substitution", "patch": { "runtime_skill_binding": { "skill_id": "forged-skill" } }, "expected_error": "runtime_skill_binding_invalid" },
+    { "id": "empty-tools-allowed", "patch": { "tool_policy": { "requested_tool_ids": [], "decision": "ALLOW_EXECUTE" } }, "expected_error": "tool_policy_invalid" }
+  ]
+}

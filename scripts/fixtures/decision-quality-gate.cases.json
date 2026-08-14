@@ -1,0 +1,773 @@
+{
+  "schema_version": "1.0.0",
+  "base_packet": {
+    "schema_version": "1.0.0",
+    "decision_id": "fixture-decision",
+    "action_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "status": "completed",
+    "source": {
+      "mode": "LIVE",
+      "label": "受验证的业务数据"
+    },
+    "claims": [
+      {
+        "claim_id": "claim-1",
+        "text": "关键结论",
+        "critical": true,
+        "evidence_refs": [
+          "evidence-1"
+        ]
+      }
+    ],
+    "evidence": [
+      {
+        "evidence_id": "evidence-1",
+        "provenance": "fixture://verified"
+      }
+    ],
+    "conflict_state": "none",
+    "conflicts": [],
+    "blocker_state": "none",
+    "blockers": [],
+    "risk_state": "present",
+    "risks": [
+      "仍需监测实施偏差"
+    ],
+    "data_gaps": [],
+    "limitations": [
+      "仅适用于当前输入快照"
+    ],
+    "next_action": "按当前结论进入下一项受控检查"
+  },
+  "cases": [
+    {
+      "case_id": "honest-live-completed-01",
+      "expected_pass": true,
+      "packet_patch": {}
+    },
+    {
+      "case_id": "honest-live-completed-02",
+      "expected_pass": true,
+      "packet_patch": {
+        "decision_id": "honest-02"
+      }
+    },
+    {
+      "case_id": "honest-live-multi-evidence-03",
+      "expected_pass": true,
+      "packet_patch": {
+        "evidence": [
+          {
+            "evidence_id": "evidence-1",
+            "provenance": "fixture://a"
+          },
+          {
+            "evidence_id": "evidence-2",
+            "provenance": "fixture://b"
+          }
+        ]
+      },
+      "trusted_context_patch": {
+        "verified_evidence_ids": [
+          "evidence-1",
+          "evidence-2"
+        ]
+      }
+    },
+    {
+      "case_id": "honest-live-noncritical-unverified-04",
+      "expected_pass": true,
+      "packet_patch": {
+        "claims": [
+          {
+            "claim_id": "claim-1",
+            "text": "关键结论",
+            "critical": true,
+            "evidence_refs": [
+              "evidence-1"
+            ]
+          },
+          {
+            "claim_id": "claim-2",
+            "text": "待验证观察",
+            "critical": false,
+            "evidence_refs": [
+              "evidence-2"
+            ]
+          }
+        ],
+        "evidence": [
+          {
+            "evidence_id": "evidence-1",
+            "provenance": "fixture://verified"
+          },
+          {
+            "evidence_id": "evidence-2",
+            "provenance": "fixture://unverified"
+          }
+        ]
+      },
+      "trusted_context_patch": {
+        "verified_evidence_ids": [
+          "evidence-1"
+        ]
+      }
+    },
+    {
+      "case_id": "honest-local-completed-05",
+      "expected_pass": true,
+      "packet_patch": {
+        "source": {
+          "mode": "LOCAL",
+          "label": "本地确定性计算"
+        }
+      }
+    },
+    {
+      "case_id": "honest-demo-degraded-06",
+      "expected_pass": true,
+      "packet_patch": {
+        "status": "degraded",
+        "source": {
+          "mode": "DEMO",
+          "label": "演示数据，非真实业务事实"
+        },
+        "data_gaps": [
+          "缺少真实业务输入"
+        ],
+        "next_action": "接入真实数据后重新评估"
+      }
+    },
+    {
+      "case_id": "honest-fallback-degraded-07",
+      "expected_pass": true,
+      "packet_patch": {
+        "status": "degraded",
+        "source": {
+          "mode": "FALLBACK",
+          "label": "上游不可用时的保守回退"
+        },
+        "limitations": [
+          "不能代表实时业务状态"
+        ],
+        "next_action": "等待上游恢复并重新验证"
+      }
+    },
+    {
+      "case_id": "honest-failed-blocked-08",
+      "expected_pass": true,
+      "packet_patch": {
+        "status": "failed",
+        "blocker_state": "present",
+        "blockers": [
+          "权威数据源不可用"
+        ],
+        "next_action": "恢复数据源后重试"
+      }
+    },
+    {
+      "case_id": "honest-degraded-gap-09",
+      "expected_pass": true,
+      "packet_patch": {
+        "status": "degraded",
+        "data_gaps": [
+          "缺少第三方确认"
+        ],
+        "next_action": "取得第三方确认后更新"
+      }
+    },
+    {
+      "case_id": "honest-degraded-conflict-10",
+      "expected_pass": true,
+      "packet_patch": {
+        "status": "degraded",
+        "conflict_state": "present",
+        "conflicts": [
+          "两份来源对日期定义不一致"
+        ],
+        "next_action": "由责任人裁定日期口径"
+      }
+    },
+    {
+      "case_id": "honest-degraded-blocker-11",
+      "expected_pass": true,
+      "packet_patch": {
+        "status": "degraded",
+        "blocker_state": "present",
+        "blockers": [
+          "合同尚未复核"
+        ],
+        "next_action": "提交合同复核"
+      }
+    },
+    {
+      "case_id": "honest-risk-none-12",
+      "expected_pass": true,
+      "packet_patch": {
+        "risk_state": "none",
+        "risks": []
+      }
+    },
+    {
+      "case_id": "honest-high-risk-approved-13",
+      "expected_pass": true,
+      "packet_patch": {},
+      "trusted_context_patch": {
+        "high_risk": true,
+        "human_confirmation": {
+          "required": true,
+          "status": "approved",
+          "approval_ref": "approval://owner/13"
+        }
+      }
+    },
+    {
+      "case_id": "honest-high-risk-pending-degraded-14",
+      "expected_pass": true,
+      "packet_patch": {
+        "status": "degraded",
+        "blocker_state": "present",
+        "blockers": [
+          "等待人工批准"
+        ],
+        "next_action": "等待责任人批准"
+      },
+      "trusted_context_patch": {
+        "high_risk": true,
+        "human_confirmation": {
+          "required": true,
+          "status": "pending",
+          "approval_ref": null
+        }
+      }
+    },
+    {
+      "case_id": "honest-high-risk-rejected-failed-15",
+      "expected_pass": true,
+      "packet_patch": {
+        "status": "failed",
+        "blocker_state": "present",
+        "blockers": [
+          "人工拒绝"
+        ],
+        "next_action": "停止执行并重新设计方案"
+      },
+      "trusted_context_patch": {
+        "high_risk": true,
+        "human_confirmation": {
+          "required": true,
+          "status": "rejected",
+          "approval_ref": "approval://owner/rejected-15"
+        }
+      }
+    },
+    {
+      "case_id": "honest-no-claims-failed-16",
+      "expected_pass": true,
+      "packet_patch": {
+        "status": "failed",
+        "claims": [],
+        "evidence": [],
+        "blocker_state": "present",
+        "blockers": [
+          "没有可形成结论的数据"
+        ],
+        "next_action": "补充数据后重新分析"
+      },
+      "trusted_context_patch": {
+        "verified_evidence_ids": []
+      }
+    },
+    {
+      "case_id": "honest-noncritical-no-evidence-17",
+      "expected_pass": true,
+      "packet_patch": {
+        "status": "degraded",
+        "claims": [
+          {
+            "claim_id": "claim-optional",
+            "text": "非关键建议",
+            "critical": false,
+            "evidence_refs": []
+          }
+        ],
+        "evidence": [],
+        "data_gaps": [
+          "该建议尚无事实证据"
+        ],
+        "next_action": "取得证据后再进入完成态"
+      },
+      "trusted_context_patch": {
+        "verified_evidence_ids": []
+      }
+    },
+    {
+      "case_id": "honest-multiple-claims-18",
+      "expected_pass": true,
+      "packet_patch": {
+        "claims": [
+          {
+            "claim_id": "claim-1",
+            "text": "结论一",
+            "critical": true,
+            "evidence_refs": [
+              "evidence-1"
+            ]
+          },
+          {
+            "claim_id": "claim-2",
+            "text": "结论二",
+            "critical": true,
+            "evidence_refs": [
+              "evidence-1"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "honest-explicit-limits-19",
+      "expected_pass": true,
+      "packet_patch": {
+        "limitations": [
+          "仅限当前租户",
+          "不包含未来预测"
+        ]
+      }
+    },
+    {
+      "case_id": "honest-action-specific-20",
+      "expected_pass": true,
+      "packet_patch": {
+        "next_action": "责任人在 2026-08-14 前核对 evidence-1"
+      }
+    },
+    {
+      "case_id": "honest-fallback-failed-21",
+      "expected_pass": true,
+      "packet_patch": {
+        "status": "failed",
+        "source": {
+          "mode": "FALLBACK",
+          "label": "保守回退也无法满足最低要求"
+        },
+        "blocker_state": "present",
+        "blockers": [
+          "回退数据过期"
+        ],
+        "next_action": "停止使用并等待新数据"
+      }
+    },
+    {
+      "case_id": "honest-demo-failed-22",
+      "expected_pass": true,
+      "packet_patch": {
+        "status": "failed",
+        "source": {
+          "mode": "DEMO",
+          "label": "仅用于演示"
+        },
+        "blocker_state": "present",
+        "blockers": [
+          "禁止作为正式事实"
+        ],
+        "next_action": "接入正式事实源"
+      }
+    },
+    {
+      "case_id": "reject-missing-source-label-01",
+      "expected_pass": false,
+      "expected_errors": [
+        "packet_shape_invalid"
+      ],
+      "packet_patch": {
+        "source": {
+          "mode": "LIVE",
+          "label": ""
+        }
+      }
+    },
+    {
+      "case_id": "reject-unknown-source-mode-02",
+      "expected_pass": false,
+      "expected_errors": [
+        "packet_shape_invalid"
+      ],
+      "packet_patch": {
+        "source": {
+          "mode": "REAL",
+          "label": "声称真实"
+        }
+      }
+    },
+    {
+      "case_id": "reject-critical-claim-no-evidence-03",
+      "expected_pass": false,
+      "expected_errors": [
+        "completed_claim_evidence_required",
+        "critical_claim_evidence_required"
+      ],
+      "packet_patch": {
+        "claims": [
+          {
+            "claim_id": "claim-1",
+            "text": "无证据关键结论",
+            "critical": true,
+            "evidence_refs": []
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "reject-dangling-evidence-ref-04",
+      "expected_pass": false,
+      "expected_errors": [
+        "claim_evidence_ref_unknown"
+      ],
+      "packet_patch": {
+        "claims": [
+          {
+            "claim_id": "claim-1",
+            "text": "悬空证据",
+            "critical": true,
+            "evidence_refs": [
+              "missing"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "reject-unverified-critical-evidence-05",
+      "expected_pass": false,
+      "expected_errors": [
+        "critical_claim_evidence_unverified"
+      ],
+      "packet_patch": {
+        "evidence": [
+          {
+            "evidence_id": "evidence-1",
+            "provenance": "fixture://unverified"
+          }
+        ]
+      },
+      "trusted_context_patch": {
+        "verified_evidence_ids": []
+      }
+    },
+    {
+      "case_id": "reject-duplicate-claim-id-06",
+      "expected_pass": false,
+      "expected_errors": [
+        "claim_id_duplicate"
+      ],
+      "packet_patch": {
+        "claims": [
+          {
+            "claim_id": "dup",
+            "text": "A",
+            "critical": true,
+            "evidence_refs": [
+              "evidence-1"
+            ]
+          },
+          {
+            "claim_id": "dup",
+            "text": "B",
+            "critical": true,
+            "evidence_refs": [
+              "evidence-1"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "reject-duplicate-evidence-id-07",
+      "expected_pass": false,
+      "expected_errors": [
+        "evidence_id_duplicate"
+      ],
+      "packet_patch": {
+        "evidence": [
+          {
+            "evidence_id": "dup",
+            "provenance": "fixture://a"
+          },
+          {
+            "evidence_id": "dup",
+            "provenance": "fixture://b"
+          }
+        ],
+        "claims": [
+          {
+            "claim_id": "claim-1",
+            "text": "结论",
+            "critical": true,
+            "evidence_refs": [
+              "dup"
+            ]
+          }
+        ]
+      },
+      "trusted_context_patch": {
+        "verified_evidence_ids": [
+          "dup"
+        ]
+      }
+    },
+    {
+      "case_id": "reject-completed-data-gap-08",
+      "expected_pass": false,
+      "expected_errors": [
+        "completed_with_data_gaps"
+      ],
+      "packet_patch": {
+        "data_gaps": [
+          "仍缺关键数据"
+        ]
+      }
+    },
+    {
+      "case_id": "reject-completed-conflict-09",
+      "expected_pass": false,
+      "expected_errors": [
+        "completed_with_conflicts"
+      ],
+      "packet_patch": {
+        "conflict_state": "present",
+        "conflicts": [
+          "来源冲突"
+        ]
+      }
+    },
+    {
+      "case_id": "reject-conflict-state-mismatch-10",
+      "expected_pass": false,
+      "expected_errors": [
+        "completed_with_conflicts",
+        "conflict_state_mismatch"
+      ],
+      "packet_patch": {
+        "conflict_state": "none",
+        "conflicts": [
+          "被隐藏的冲突"
+        ]
+      }
+    },
+    {
+      "case_id": "reject-blocker-state-mismatch-11",
+      "expected_pass": false,
+      "expected_errors": [
+        "blocker_state_mismatch",
+        "completed_with_blockers"
+      ],
+      "packet_patch": {
+        "blocker_state": "none",
+        "blockers": [
+          "被隐藏的阻断"
+        ]
+      }
+    },
+    {
+      "case_id": "reject-risk-state-mismatch-12",
+      "expected_pass": false,
+      "expected_errors": [
+        "risk_state_mismatch"
+      ],
+      "packet_patch": {
+        "risk_state": "none",
+        "risks": [
+          "被隐藏的风险"
+        ]
+      }
+    },
+    {
+      "case_id": "reject-completed-blocker-13",
+      "expected_pass": false,
+      "expected_errors": [
+        "completed_with_blockers"
+      ],
+      "packet_patch": {
+        "blocker_state": "present",
+        "blockers": [
+          "尚未解除"
+        ]
+      }
+    },
+    {
+      "case_id": "reject-high-risk-not-required-14",
+      "expected_pass": false,
+      "expected_errors": [
+        "completed_without_human_approval",
+        "high_risk_confirmation_required"
+      ],
+      "packet_patch": {},
+      "trusted_context_patch": {
+        "high_risk": true
+      }
+    },
+    {
+      "case_id": "reject-high-risk-pending-completed-15",
+      "expected_pass": false,
+      "expected_errors": [
+        "completed_without_human_approval"
+      ],
+      "packet_patch": {},
+      "trusted_context_patch": {
+        "high_risk": true,
+        "human_confirmation": {
+          "required": true,
+          "status": "pending",
+          "approval_ref": null
+        }
+      }
+    },
+    {
+      "case_id": "reject-high-risk-approved-no-ref-16",
+      "expected_pass": false,
+      "expected_errors": [
+        "human_approval_ref_required",
+        "human_confirmation_state_invalid"
+      ],
+      "packet_patch": {},
+      "trusted_context_patch": {
+        "high_risk": true,
+        "human_confirmation": {
+          "required": true,
+          "status": "approved",
+          "approval_ref": null
+        }
+      }
+    },
+    {
+      "case_id": "reject-low-risk-approved-ref-17",
+      "expected_pass": false,
+      "expected_errors": [
+        "human_confirmation_state_invalid"
+      ],
+      "packet_patch": {},
+      "trusted_context_patch": {
+        "human_confirmation": {
+          "required": false,
+          "status": "approved",
+          "approval_ref": "model-said-approved"
+        }
+      }
+    },
+    {
+      "case_id": "reject-missing-next-action-18",
+      "expected_pass": false,
+      "expected_errors": [
+        "packet_shape_invalid"
+      ],
+      "packet_patch": {
+        "next_action": ""
+      }
+    },
+    {
+      "case_id": "reject-demo-completed-19",
+      "expected_pass": false,
+      "expected_errors": [
+        "non_live_source_completed"
+      ],
+      "packet_patch": {
+        "source": {
+          "mode": "DEMO",
+          "label": "演示数据"
+        }
+      }
+    },
+    {
+      "case_id": "reject-fallback-completed-20",
+      "expected_pass": false,
+      "expected_errors": [
+        "non_live_source_completed"
+      ],
+      "packet_patch": {
+        "source": {
+          "mode": "FALLBACK",
+          "label": "回退数据"
+        }
+      }
+    },
+    {
+      "case_id": "reject-invalid-status-21",
+      "expected_pass": false,
+      "expected_errors": [
+        "packet_shape_invalid"
+      ],
+      "packet_patch": {
+        "status": "success"
+      }
+    },
+    {
+      "case_id": "reject-blank-critical-claim-22",
+      "expected_pass": false,
+      "expected_errors": [
+        "packet_shape_invalid"
+      ],
+      "packet_patch": {
+        "claims": [
+          {
+            "claim_id": "claim-1",
+            "text": "",
+            "critical": true,
+            "evidence_refs": [
+              "evidence-1"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "reject-blank-provenance-23",
+      "expected_pass": false,
+      "expected_errors": [
+        "packet_shape_invalid"
+      ],
+      "packet_patch": {
+        "evidence": [
+          {
+            "evidence_id": "evidence-1",
+            "provenance": ""
+          }
+        ]
+      },
+      "trusted_context_patch": {
+        "verified_evidence_ids": [
+          "evidence-1"
+        ]
+      }
+    },
+    {
+      "case_id": "reject-completed-failed-confirmation-24",
+      "expected_pass": false,
+      "expected_errors": [
+        "completed_without_human_approval"
+      ],
+      "packet_patch": {},
+      "trusted_context_patch": {
+        "high_risk": true,
+        "human_confirmation": {
+          "required": true,
+          "status": "rejected",
+          "approval_ref": "approval://rejected"
+        }
+      }
+    }
+  ],
+  "base_trusted_context": {
+    "decision_id": "fixture-decision",
+    "action_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "verified_evidence_ids": [
+      "evidence-1"
+    ],
+    "high_risk": false,
+    "human_confirmation": {
+      "required": false,
+      "status": "not_required",
+      "approval_ref": null
+    }
+  }
+}

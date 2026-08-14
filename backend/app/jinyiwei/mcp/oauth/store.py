@@ -67,14 +67,22 @@ def _blob(data: bytes) -> tuple[_DataBlob, ctypes.Array[ctypes.c_ubyte] | None]:
     return _DataBlob(len(data), ctypes.cast(buffer, ctypes.POINTER(ctypes.c_ubyte))), buffer
 
 
+def _windows_library(name: str, *, use_last_error: bool) -> object:
+    """Load a Windows native library behind an injectable cross-platform seam."""
+    loader = getattr(ctypes, "WinDLL", None)
+    if loader is None:
+        raise CredentialStoreError("dpapi_unavailable")
+    return loader(name, use_last_error=use_last_error)
+
+
 def _dpapi(operation: str, data: bytes, entropy: bytes) -> bytes:
     if os.name != "nt":
         raise CredentialStoreError("dpapi_unavailable")
     if not isinstance(data, bytes) or not isinstance(entropy, bytes) or not entropy:
         raise CredentialStoreError(f"dpapi_{operation}_failed")
 
-    crypt32 = ctypes.WinDLL("crypt32", use_last_error=True)
-    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    crypt32 = _windows_library("crypt32", use_last_error=True)
+    kernel32 = _windows_library("kernel32", use_last_error=True)
     input_blob, input_buffer = _blob(data)
     entropy_blob, entropy_buffer = _blob(entropy)
     output_blob = _DataBlob()

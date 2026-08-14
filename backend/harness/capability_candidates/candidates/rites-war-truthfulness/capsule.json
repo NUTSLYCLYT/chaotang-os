@@ -1,0 +1,78 @@
+{
+  "schema_version": "1.0.0",
+  "capability_id": "rites-war-truthfulness",
+  "version": "0.1.0",
+  "status": "candidate",
+  "evaluation_scope": "synthetic-offline-only",
+  "production_boundary": "not-registered-no-execution-authority",
+  "content_digests": {
+    "prompt": "sha256:dfa75f7cf05870be5287fddf661582707378af80ead78246fc61908371cfe8fc",
+    "contract": "sha256:c9fa6e6f5a8c936051523693ec37740c488377c31542c839dbb9470b415fa35b",
+    "policy": "sha256:ac6ae7d4a733a816d7613847de0a6cce9c1241ac84ad048535e50b0bd86c8e07",
+    "evaluation": "sha256:0bc31f6fcb6a0aafb52c3a6a30d9ecd1cbf5faa2fae862f06af3863ce804c51c"
+  },
+  "artifacts": {
+    "prompt": {
+      "path": "prompt.txt",
+      "digest": "sha256:dfa75f7cf05870be5287fddf661582707378af80ead78246fc61908371cfe8fc"
+    },
+    "contract": {
+      "path": "contract.json",
+      "digest": "sha256:c9fa6e6f5a8c936051523693ec37740c488377c31542c839dbb9470b415fa35b"
+    },
+    "policy": {
+      "path": "policy.json",
+      "digest": "sha256:ac6ae7d4a733a816d7613847de0a6cce9c1241ac84ad048535e50b0bd86c8e07"
+    },
+    "behavior": {
+      "path": "candidate.json",
+      "digest": "sha256:31e48bc027146d237d27a0421d93c3b67f08aaa03e195eb245c7efc25ddd345f"
+    },
+    "adapter": {
+      "path": "adapter.txt",
+      "digest": "sha256:89b1f071e6acf2e23bc0f73988b2b895d893622da28708d5e2782a5e3b3fdb7d"
+    },
+    "evaluations": {
+      "path": "evaluations.json",
+      "digest": "sha256:0bc31f6fcb6a0aafb52c3a6a30d9ecd1cbf5faa2fae862f06af3863ce804c51c"
+    },
+    "telemetry": {
+      "path": "telemetry.txt",
+      "digest": "sha256:197b6bb4153db5d58f71d26db39130cfeb6601a46450106c6c8f53342d4af55b"
+    },
+    "rollback": {
+      "path": "rollback.txt",
+      "digest": "sha256:ee684cc70cc75d45c77b380e0522f832c8e8da380a67fd5c3d0e2f962633825a"
+    },
+    "provenance": {
+      "repository": "origin/feature-chaotang-ext",
+      "commit": "939186f0331d9784bc8c4ceee393aeb197230ed0",
+      "path": "frontend/config/bingbu.cro_sales_office.registry.yaml"
+    }
+  },
+  "authority_ref": {
+    "issuer": "chaotang-os-root-harness",
+    "projection_digest": "sha256:88028815832f51a3ad1016a6ab068a6f02729195fbf21781824e073bef5c5af2"
+  },
+  "requested_permissions": {
+    "tools": [],
+    "data_domains": [],
+    "may_write_external": false
+  },
+  "controls": {
+    "kill_switches": {
+      "capability_enabled": true,
+      "tenant_enabled": true,
+      "tools_enabled": true
+    },
+    "taint": {
+      "external_content_taints_context": true,
+      "tainted_context_allows_tools": false
+    },
+    "context_rent": {
+      "max_tokens": 1200,
+      "direct_fallback": true,
+      "minimum_expected_gain": 0.1
+    }
+  }
+}

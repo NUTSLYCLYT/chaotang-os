@@ -1,0 +1,9 @@
+{
+  "id": "libu-responsibility-authority-chain",
+  "name": "吏部责任权限链",
+  "owner": "吏部",
+  "purpose": "责任人、授权范围、审批者和验收证据必须形成可追踪链。",
+  "requiredAssertions": ["owner-explicit", "authority-scope", "tenant-unchanged", "authority-unchanged", "no-side-effects"],
+  "migrationVerdict": "rewrite-distill",
+  "authorization": "candidate-only"
+}
