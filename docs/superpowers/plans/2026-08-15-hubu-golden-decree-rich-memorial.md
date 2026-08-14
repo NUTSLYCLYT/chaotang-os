@@ -6,11 +6,12 @@
 
 冻结事实：
 
-- 目标产品分支基线为 Gitee `ext-dev`；2026-08-15 同步点为 `2e6fea337a50c316e748b7e65f03da52905e3394`。
+- 目标产品分支基线为 Gitee `ext-dev`；2026-08-15 初始同步点为 `2e6fea337a50c316e748b7e65f03da52905e3394`，吸收验收加固与本治理蓝图后的当前远端点为 `70b25d48c3917ca1ae92725c058d0f0601accc3d`。
 - 隔离集成分支已在 `34248ae2df2da7496f63934291e62dc8a5f68fb7` 合并 `2d29614137391c699615c0d84370db42ae217813`，吸收 `5f2a6e9f3e402313ada0f4477795da3e193feec1` 与 `e1c2dd42144e14914f5d0ec3905d26d404695b12` 的 9 个主流程验收/文档文件，不含产品运行代码。
 - 现有唯一生产骨架是 46 个 RuntimeSkill；22 个活动能力族的业务成功计数仍为 0。
 - 军机处、史馆、锦衣卫、会计 WorkProduct/Confirmation 和六部 Evidence Spine 已存在，应复用而非迁移。
-- 当前根工作区 execution-authority v1 按设计永久返回 `STOP`，不能靠 amendment、摘要重钉或聊天确认激活；`ext-dev` 又缺根 `.harness/` 与 `scripts/execution-authority.mjs`。因此独立 activation v2 治理任务获得精确批准并完成前，所有产品写入均禁止。
+- 当前根工作区 execution-authority v1 按设计永久返回 `STOP`，不能靠 amendment、摘要重钉或聊天确认激活；`ext-dev` 又缺根 `.harness/` 与 `scripts/execution-authority.mjs`。因此独立 successor-authority 治理任务获得精确批准并完成前，所有产品写入均禁止。
+- 根分支的受管提交已经定义 `execution-authority.v2` 的 schema/manifest/resolver/CLI，但它只回答 `R0-W00..W09` 包。当前脏树把 manifest 改成 `GO / R0-W06`；W06 批准只覆盖 ArtifactManifest 与 PDF/DOCX/JSON，其 exact base `8feae838...` 不是当前根 HEAD `b20e2c78...` 的祖先，且批准路径依赖未跟踪文件。这个未受信 GO 既不能授权 ext 户部闭环，也不能作为新 authority 的批准证据。
 - clean `ext-dev` 的 `frontend/AGENTS.md` 与 ADR 0028 以既有同源 Next BFF 为现行事实源。脏根工作树里观察到的 no-BFF 文字不属于本候选事实，也不能约束或授权本任务；只有未来拟吸收该提案时才需独立治理裁定。
 - 根目录当前有大量来源未确认的未提交改动；本蓝图只在隔离 worktree 中工作，不 stash、不 reset、不 clean、不整树复制。
 
@@ -50,8 +51,8 @@ Bruce Schneier 视角：富内容扩大了 XSS、SSRF、跨 owner、伪证据和
 ## 3. 依赖图
 
 ```text
-Task 0 治理差距调查与 activation v2 草案（当前可执行）
-  -> 独立用户精确批准 + 独立安全复核 + 新治理任务实现 v2（当前未授权）
+Task 0 治理差距调查与 successor-authority 草案（当前可执行）
+  -> 独立用户精确批准 + 独立安全复核 + 新治理任务实现不冲突的 authority（当前未授权）
     -> 新机器权威对不可自授权候选返回 GO
       -> Task 1 closed schema / RED tests（未来另建 Ready 任务）
       -> Task 2 后端确定性投影
@@ -66,7 +67,7 @@ Task 0 治理差距调查与 activation v2 草案（当前可执行）
 
 ## 4. 施工包
 
-### Task 0：治理差距调查与 activation v2 草案
+### Task 0：治理差距调查与 successor-authority 草案
 
 上下文：当前产品逻辑已具备离线可信脊柱，但目标分支缺根级协调 Harness；另一根工作树又有大量未提交改动。直接复制或把聊天确认当成机器授权都会破坏治理。
 
@@ -74,13 +75,14 @@ Task 0 治理差距调查与 activation v2 草案（当前可执行）
 
 - 在新的干净治理 worktree 中调查并提出唯一 integration base，不使用脏根目录内容，也不在本蓝图中自行裁定。
 - 对根 `.harness`、前端 `.harness`、后端 `harness`、execution-authority v1 和共享 Git hook 做来源/digest/所有权清单；把脏根 no-BFF 文字只登记为未采信提案，clean `ext-dev` 的同源 BFF 规则继续是当前事实。
-- 只起草独立 activation v2 的 schema/manifest/consumer/change 设计：绑定任务 ID、逐文件允许路径、非目标、风险、rollback、独立用户批准和外部 attestation 要求；草案不是批准证据，不能消费本次“开始长任务”的高层确认。
+- 只起草独立 successor authority 的 schema/manifest/consumer/change 设计：绑定任务 ID、逐文件允许路径、非目标、风险、rollback、独立用户批准和外部 attestation 要求；草案不是批准证据，不能消费本次“开始长任务”的高层确认。版本/名称必须在治理任务中冻结，禁止与现有 root `execution-authority.v2` 的 identity 冲突。
+- 只可复用 root v2 中已独立评审的失效关闭设计思路；禁止复制 W06 manifest、ledger 状态、owner receipt、review digest 或 `approvedScope`，禁止把 R0 包 ID 映射为本任务的隐式授权。
 - 设计不可自授权链：候选 request 绑定已存在的 immutable parent/tree/pathspec，由仓库外 signer/required check 或等价独立 trust root 签发 post-commit attestation；禁止同一提交中的 manifest/文档同时批准自身，禁止 `HEAD`、分支名或可移动 ref 充当 commit 字段。
-- activation v2 的实现、批准、独立安全审查和平台 trust root 配置必须成为后续独立治理任务；v1 保持原样永久 STOP。
+- successor authority 的实现、批准、独立安全审查和平台 trust root 配置必须成为后续独立治理任务；v1 保持原样永久 STOP，现有 root v2 保持 R0 语义而不被扩权。
 
 验证：本阶段只验证草案完整性、v1 仍 STOP、根/前端/后端事实清单、攻击模型（错误 parent/tree/owner、扩大 path、过期批准、脏树、自授权提交、移动 ref）和 `git diff --check`；不得把草案 checker 的通过当作产品 GO。
 
-退出条件：当前阶段仅能产出治理差距清单与 v2 草案，状态保持 `Blocked`。只有后续独立任务取得用户对 exact scope 的明确批准、独立审查通过、平台 trust root 就绪且新 v2 consumer 对已签名候选返回 `GO`，才可另建 Ready 产品任务进入 Task 1。
+退出条件：当前阶段仅能产出治理差距清单与 successor-authority 草案，状态保持 `Blocked`。只有后续独立任务取得用户对 exact scope 的明确批准、独立审查通过、平台 trust root 就绪且新 consumer 对已签名候选返回 `GO`，才可另建 Ready 产品任务进入 Task 1。
 
 回滚：revert 独立治理提交即可恢复上一版 STOP；不得删除或覆盖根目录用户改动。
 
@@ -117,7 +119,7 @@ GREEN：canonical block enum 只允许 `heading`、`paragraph`、`fact_callout`�
 
 上下文：复用 `resolve_six_ministry_decision`、Accounting WorkProduct 和 adopted evidence；新模块只投影，不持有事实。
 
-未来候选文件（不是当前授权）：`backend/app/rich_memorial/__init__.py`、`backend/app/rich_memorial/compiler.py`、`backend/app/rich_memorial/models.py`、`backend/app/agents/runtime_skills/six_ministry_evidence_service.py`、`backend/tests/test_rich_memorial_compiler.py`、`backend/tests/test_rich_memorial_models.py`。若只读调用链勘察证明还需其他文件，必须先更新新 Ready 任务和 activation v2 pathspec，不能用通配扩权。
+未来候选文件（不是当前授权）：`backend/app/rich_memorial/__init__.py`、`backend/app/rich_memorial/compiler.py`、`backend/app/rich_memorial/models.py`、`backend/app/agents/runtime_skills/six_ministry_evidence_service.py`、`backend/tests/test_rich_memorial_compiler.py`、`backend/tests/test_rich_memorial_models.py`。若只读调用链勘察证明还需其他文件，必须先更新新 Ready 任务和 successor-authority pathspec，不能用通配扩权。
 
 RED：模型文本中的假金额不能进入 metric；缺证/冲突/过期必须成为 `missing_evidence` 或 `conflict`；同输入必须生成同 manifest digest；跨 owner 和不同 run 必须拒绝；rich schema/digest 故障不得吞掉核心 text-only 回奏，也不得保存部分 blocks 或在重试时生成第二条 `REPLY`。
 
@@ -189,7 +191,7 @@ GREEN：实现 closed renderer、确定性 ChartSpec renderer、来源抽屉、�
 
 正式命令矩阵必须在 Task 6 结束后冻结到新的 tracked baseline 文件，记录命令、cwd、超时、expected exit、精确测试计数和证据字段。Linux 从仓库根执行 `export CHAOTANG_ACCEPTANCE_PYTHON="$PWD/backend/.venv/bin/python"`，Windows 指向本工作树 `backend/.venv/Scripts/python.exe`；`test -x "$CHAOTANG_ACCEPTANCE_PYTHON"` 失败即 STOP，不能借用相邻 worktree 的环境。
 
-preflight 必须记录 `"$CHAOTANG_ACCEPTANCE_PYTHON" --version`、`node --version`、`npm --version`、`sha256sum backend/pyproject.toml frontend/package-lock.json`、candidate commit/tree、`git status --porcelain=v1` 和 v2 attestation verify 命令/退出码。工作树有非白名单改动、lock hash 漂移或 v2 验证失败时不得开始轮次。
+preflight 必须记录 `"$CHAOTANG_ACCEPTANCE_PYTHON" --version`、`node --version`、`npm --version`、`sha256sum backend/pyproject.toml frontend/package-lock.json`、candidate commit/tree、`git status --porcelain=v1` 和 successor attestation verify 命令/退出码。工作树有非白名单改动、lock hash 漂移或 successor authority 验证失败时不得开始轮次。
 
 | 范围 | 冻结命令 | 预期 |
 | --- | --- | --- |
@@ -241,6 +243,6 @@ preflight 必须记录 `"$CHAOTANG_ACCEPTANCE_PYTHON" --version`、`node --versi
 
 ## 6. 明日上午验收口径
 
-如果机器权威仍为 STOP，合格交付只能是：Gitee 同步、主流程验收精华吸收、治理差距清单、activation v2 设计草案和本蓝图，结论必须是 `CONDITIONAL PASS`，不得称产品闭环完成。
+如果机器权威仍为 STOP，合格交付只能是：Gitee 同步、主流程验收精华吸收、治理差距清单、successor-authority 设计草案和本蓝图，结论必须是 `CONDITIONAL PASS`，不得称产品闭环完成。
 
-只有未来 successor implementation task 获得独立 v2 权威后，完整满足其 Task 1–7、真实浏览器和同一候选 10/10 连续全绿，才允许对“户部黄金旨意与富奏折闭环”给出 `PASS`；本蓝图自身永远不能把当前 `Blocked` 提升为产品 PASS。
+只有未来 successor implementation task 获得与本任务 exact scope 绑定的独立权威后，完整满足其 Task 1–7、真实浏览器和同一候选 10/10 连续全绿，才允许对“户部黄金旨意与富奏折闭环”给出 `PASS`；本蓝图自身永远不能把当前 `Blocked` 提升为产品 PASS。

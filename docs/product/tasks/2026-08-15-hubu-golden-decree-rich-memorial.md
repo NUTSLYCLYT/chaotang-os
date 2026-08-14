@@ -16,7 +16,7 @@ Blocked
 
 ## Acceptance Criteria
 
-- [ ] 当前永久 `STOP` 的 execution-authority v1 不被修改、重钉或伪装成 `GO`；另一个独立治理任务先设计 activation v2，并在独立用户精确批准、安全复核和不可自授权的提交/签名链完成后，才可新建产品实施任务。
+- [ ] 当前永久 `STOP` 的 execution-authority v1 不被修改、重钉或伪装成 `GO`；根仓已占用的 `execution-authority.v2` 仅回答 R0 work package，不得导入其 W06 manifest/批准证据来授权本 ext 任务。另一个独立治理任务必须为本任务设计不冲突的 successor authority（名称/版本由该治理任务冻结），并在独立用户精确批准、安全复核和不可自授权的提交/签名链完成后，才可新建产品实施任务。
 - [ ] `RichMemorialEnvelope v1` 是 closed schema；只允许 `heading`、`paragraph`、`fact_callout`、`metric`、`table`、`chart`、`risk`、`conflict`、`missing_evidence`、`decision`、`next_action` 和 `artifact_link`。
 - [ ] 旧 text-only 回奏保持字节语义兼容；无富块时仍可完整、可访问、可打印地展示和召回。
 - [ ] 黄金旨意只能由已认证 owner 发起，owner/route/skill/evidence/authority 全部由服务端重载；浏览器不能提交 owner、tenant、verified、approved、tool、URL 或本地路径。
@@ -35,7 +35,7 @@ Blocked
 
 ## Delivery Constraints
 
-- 范围：当前只允许治理调查、任务契约、测试基线与证据修复；本任务不实施 activation v2，也不实施产品。未来只有在独立治理任务完成、用户对 exact scope 再批准且新机器权威放行后，才能另建 Ready 的户部纵切任务。
+- 范围：当前只允许治理调查、任务契约、测试基线与证据修复；本任务不实施 successor authority，也不实施产品。未来只有在独立治理任务完成、用户对 exact scope 再批准且新机器权威放行后，才能另建 Ready 的户部纵切任务。
 - 兼容性：保持 ADR 0028、46 个 RuntimeSkill 唯一注册表、四节点 LangGraph、单/多部路由、恰好三条建议、owner-only/tenant-null、唯一 `REPLY` 与现有 Excel 下载/确认行为。
 - 风险与限制：工作区根目录另有大量未提交改动，不得读取为批准事实、现行架构或提交内容；clean `ext-dev` 的 `frontend/AGENTS.md` 与 ADR 0028 以既有同源 Next BFF 为现行事实源。只有未来拟吸收另一分支的 no-BFF 提案时才需独立治理裁定；本任务不能提前采用该未批准观察。真实网络、provider、生产数据和外部行动继续禁用；任何身份、引用、状态或 digest 不可信时失败关闭。
 - 技能计划：`codex-pro-workflows`、仓库 `codex-engineering-workflow`、`test-driven-development`、`security-review`、`playwright`、`code-review`、`verification-loop`。
@@ -44,14 +44,14 @@ Blocked
 ## Affected Modules
 
 - 模块：当前仅“治理差距与富奏折候选设计”；未来候选模块“富奏折合同与投影器”将复用会计 WorkProduct/Confirmation、六部 Evidence Spine、史馆归档/召回和上书房展示。
-- 允许路径：当前仅 `docs/product/tasks/2026-08-15-hubu-golden-decree-rich-memorial.md` 与 `docs/superpowers/plans/2026-08-15-hubu-golden-decree-rich-memorial.md`。未来产品实施不得继承本文件的权限；必须在只读调用链/数据模型勘察后，由独立 activation v2 change 与新的 Ready 任务逐文件列出 schema、migration、API、后端、前端和测试路径，禁止 `/**`、“必要 API”或其他开放式通配。
+- 允许路径：当前仅 `docs/product/tasks/2026-08-15-hubu-golden-decree-rich-memorial.md` 与 `docs/superpowers/plans/2026-08-15-hubu-golden-decree-rich-memorial.md`。未来产品实施不得继承本文件的权限；必须在只读调用链/数据模型勘察后，由独立 successor-authority change 与新的 Ready 任务逐文件列出 schema、migration、API、后端、前端和测试路径，禁止 `/**`、“必要 API”或其他开放式通配。
 - 依赖模块：`CurrentUser`、`DecreeJob`、户部会计确定性内核、Evidence Spine、`WorkProductEnvelope`、`ConfirmationReceipt`、史馆 `REPLY`、RuntimeSkill registry。
 
 ## Technical Plan
 
 - 架构边界：采用“一个事实脊柱、一个富奏折投影、一个确认点、一条史馆记录、一条 outcome 账本”；富奏折只解释和呈现已有事实，不成为新的 authority 或运行时。
 - 接口与依赖：closed JSON Schema 是跨语言事实源；后端生成 manifest 与 digest，前端只渲染已验证 block；媒体和任意 HTML 不进入本期 MVP。
-- 实施顺序：当前仅治理差距调查与 activation v2 草案；未来另批任务才可按 schema 与攻击测试 → 后端确定性投影 → 自动归档/独立确认/合成 outcome → 类型化前端 renderer → 真实浏览器与安全负测 → 10 轮验收推进。
+- 实施顺序：当前仅治理差距调查与 successor-authority 草案；未来另批任务才可按 schema 与攻击测试 → 后端确定性投影 → 自动归档/独立确认/合成 outcome → 类型化前端 renderer → 真实浏览器与安全负测 → 10 轮验收推进。
 - 验证计划：详见 `docs/superpowers/plans/2026-08-15-hubu-golden-decree-rich-memorial.md`；每步先 RED、再最小 GREEN，最后在 exact candidate 上跑完整矩阵。
 - 技术风险：最大风险是把 preview/confirmation/archive 当成外部授权、把前端状态当事实、把图表数据从模型文本生成、以及在脏根工作树中误合并。对应控制为服务端重载、正交状态轴、确定性 ChartSpec、隔离 worktree 和白名单 pathspec。
 
@@ -62,7 +62,7 @@ Blocked
 - 验证：预备合并 `34248ae2df2da7496f63934291e62dc8a5f68fb7` 的父提交为 `2e6fea337a50c316e748b7e65f03da52905e3394` 和 `2d29614137391c699615c0d84370db42ae217813`；吸收源为 `5f2a6e9f3e402313ada0f4477795da3e193feec1` 与 `e1c2dd42144e14914f5d0ec3905d26d404695b12`。专项 `110 passed, 1 skipped`，后端全量 `4006 passed, 4 skipped`，Ruff/compileall 和 Harness 133/167/3/25 通过。
 - 实际使用的 skill：`codex-pro-workflows`、`codex-mastery-coach`、仓库 `codex-engineering-workflow`、`expert-perspective`、`blueprint`、`security-review`、`resolving-merge-conflicts`。
 - 验证命令与结果：见本轮提交与最终验收记录；上述结果仅证明测试/治理吸收，不证明本任务产品闭环完成。
-- 未运行项与原因：activation v2、产品实现、真实浏览器闭环、真实数据、网络、provider、生产写入和外部副作用均未运行；机器权威 v1 当前且按设计永久为 `STOP`。验证只使用隔离临时数据库写入。
+- 未运行项与原因：successor authority、产品实现、真实浏览器闭环、真实数据、网络、provider、生产写入和外部副作用均未运行；机器权威 v1 当前且按设计永久为 `STOP`。根仓已有 v2 的未提交 manifest 对 W06 返回 `GO`，但该范围仅为 R0 ArtifactManifest/PDF/DOCX/JSON，批准基线 `8feae838...` 不是当前根 HEAD `b20e2c78...` 的祖先，且证据路径依赖未跟踪文件；该脏树结果明确不授权本任务。验证只使用隔离临时数据库写入。
 - 剩余风险：根级三层 Harness 尚未在 `ext-dev` 收敛，执行权威尚未绑定本任务 exact HEAD，产品业务成功仍为 0/22。
 
 ## Acceptance Review
