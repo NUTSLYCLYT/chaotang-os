@@ -68,6 +68,49 @@ Blocked
 
 ## Acceptance Review
 
-- 验收结果：Blocked
-- 验收证据：当前根工作区 `node scripts/execution-authority.mjs --authorize` 返回 `STOP / AMENDMENT_APPROVAL_REQUIRED`；`ext-dev` 本身缺根级 `.harness/` 与该命令。
-- 未通过项：执行权威和根级治理未收敛；产品实现验收条件均未开始计数。
+- 验收结果：`CONDITIONAL PASS`，仅覆盖用户目标中“执行权威 STOP 时只交付获准治理/证据修复与可执行任务契约”的备选分支。产品任务状态仍为 `Blocked`，不得外推为户部闭环 PASS。
+- 被测治理父提交 P：`63c902d295eaa17a8659d8621b3af6a9b5bb3cff`；其 `backend` tree 为 `f7fb76192ee7f7afddfd5cf1aa72eccba693522e`，与全量后端验证时的 `70b25d48...:backend` 完全一致。本段是只含验收记录的 evidence wrapper，不宣称自身重跑了产品测试。
+
+### STOP 备选交付矩阵
+
+| 要求 | 当前证据 | 判定 |
+| --- | --- | --- |
+| 安全同步并上传已有合格成果 | Gitee `ext-dev` 与 P 同步；`origin/ext-dev...ext-dev = 0/0`；无 force push | `PASS` |
+| 收入主流程验收精华 | merge `34248ae2...` 只引入 5 个后端验收/运行器文件和 4 个证据文档；修复 ignored evidence 假绿与进程/端口回收 | `PASS` |
+| 可执行任务契约与施工蓝图 | 本文件 + `docs/superpowers/plans/2026-08-15-hubu-golden-decree-rich-memorial.md`；含 Task 0–7、精确非目标、候选 pathspec、验收命令与回滚边界 | `PASS` |
+| v1 不被伪激活 | 根 `node scripts/execution-authority.mjs --authorize` 返回 `STOP / AMENDMENT_APPROVAL_REQUIRED`，exit 2 | `PASS` |
+| 不误用 root v2/W06 授权 | root v2 只对 `R0-W06` 返回 GO；W06 范围仅 ArtifactManifest/PDF/DOCX/JSON，其脏 manifest、非祖先 base 和未跟踪证据明确列为不受信 | `PASS` |
+| successor authority 安全设计 | 独立 namespace 候选、G→S→C→A、外部 Ed25519 trust root、nonce/sequence/fencing、精确路径、fresh-clone 重算和 fail-closed CLI 均已冻结为草案 | `PASS`（设计） |
+| 不迁移或建第二运行时 | 从初始 ext 同步点到 P 的改动仅 5 个后端验收文件和 6 个文档；无军机处/史馆/锦衣卫运行时迁移，无第 47 个 RuntimeSkill | `PASS` |
+| 当前候选治理验证 | Harness `133/167/3/25`，冲突标记、凭据泄漏和 whitespace 守卫通过 | `PASS` |
+| 平台 trust root / required check | ext 分支尚无受管根 Harness、外部 signer 和 required check | `BLOCKED_EXTERNAL` |
+
+### 产品 Acceptance Criteria 审计
+
+| AC 范围 | 当前权威证据 | 状态 |
+| --- | --- | --- |
+| successor authority 实现与 exact-scope GO | 只有设计草案；无受信 signer/required check | `BLOCKED` |
+| RichMemorial schema、确定性投影、text-only 降级 | 仓库中只有蓝图，无 schema/compiler/runtime 文件 | `NOT_STARTED` |
+| 唯一 REPLY、确认状态轴、史馆 rich snapshot | 只有 ADR 0028 旧 text-only 基线；无本任务 rich manifest 持久化 | `NOT_STARTED` |
+| owner/租户、digest、安全负例 | 根脏树聚焦 `66/66` 只是另一分支的诊断证据，不是 ext 产品候选 | `UNVERIFIED` |
+| append-only synthetic Outcome | `businessSuccessMeasuredFamilies=0`；无本任务 outcome ledger/fixture | `NOT_STARTED` |
+| 真实浏览器正反闭环 | `frontend/node_modules` 不存在，无候选 build、Playwright、API/DB 绑定证据 | `UNVERIFIED` |
+| 宿主强制 egress-deny | 无平台 policy identity/rules digest | `UNVERIFIED` |
+| exact candidate 完整矩阵与 10 轮 | 产品候选不存在；`0/10` | `NOT_STARTED` |
+
+### 当前命令证据
+
+| 命令 | 退出/结果 | 证明范围 |
+| --- | --- | --- |
+| `git ls-remote --heads origin refs/heads/ext-dev` | exit 0，P 在验收时为远端 exact SHA | Gitee 上传；最终 evidence-wrapper SHA 由推送后另行反查 |
+| `git rev-list --left-right --count origin/ext-dev...ext-dev` | `0 0` | 验收时本地/远端同步 |
+| 四条 Harness/self-test | `133 / 167 / 3 / 25`，全部 exit 0 | ext 治理基线与失败探针 |
+| `node scripts/execution-authority.mjs --authorize`（root） | exit 2，`STOP` | 产品施工不得开始 |
+| `node scripts/harness-doctor.mjs`（root） | exit 1，`1 error / 1 warning` | 根治理仍未收口；不得宣称根 PASS |
+| `rg --files ... | rg 'rich[_-]memorial...'` | 仅命中 3 份任务/迁移/施工蓝图文档，无 schema/compiler/runtime 文件 | 产品实现未存在 |
+
+### 评分与恢复条件
+
+- 当前授权范围内的 STOP 备选交付：`9.4/10`。扣分来自根 doctor 仍红、环境不可候选内复现、以及平台 trust root 缺失。
+- 户部黄金旨意产品完成度：`0/10`（未实施，不是对代码质量的评分）。
+- 恢复条件：新的独立治理任务冻结 namespace/schema/pathspec，用户对 exact scope 独立批准，仓外 signer/required check 可验证，且 successor CLI 在干净 exact base 对本 task id 返回 `GO`。然后另建 `Ready` 产品任务，从 Task 1 的 RED 测试开始。
