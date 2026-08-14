@@ -5,7 +5,7 @@ import { createHash } from "node:crypto";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { evaluateFixtureSuite } from "./decision_quality_gate.mjs";
-import { buildSixMinistryInventory, PINNED_EXT_COMMIT } from "./stocktake_external_capabilities.mjs";
+import { PINNED_EXT_COMMIT, rebuildPinnedSixMinistryInventory } from "./stocktake_external_capabilities.mjs";
 import { resolveTrustedAuthority, validateCapabilityCapsule, verifyCapabilityLockfile } from "./capability_capsule.mjs";
 import { evaluateCandidateSuite, loadCandidateSuite } from "./capability_eval.mjs";
 import { buildOfflineShadowReport } from "./capability_shadow.mjs";
@@ -485,7 +485,7 @@ function sixMinistryRuntimeReadinessErrors({ readiness, familyMatrix, runtimePro
 function sixMinistryCapabilityRepositoryErrors(root) {
   try {
     const inventory = JSON.parse(readFileSync(join(root, "docs/migrations/2026-08-13-six-ministry-capability-inventory.json"), "utf8"));
-    const regenerated = buildSixMinistryInventory(root, PINNED_EXT_COMMIT, "HEAD");
+    const regenerated = rebuildPinnedSixMinistryInventory(root, inventory);
     const candidateRoot = join(root, "backend/harness/capability_candidates/candidates");
     const authorityManifest = JSON.parse(readFileSync(join(root, "backend/harness/capability_candidates/authority-manifest.json"), "utf8"));
     const capsules = SIX_MINISTRY_CANDIDATES.map((id) => {

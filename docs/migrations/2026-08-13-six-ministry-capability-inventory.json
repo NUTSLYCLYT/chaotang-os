@@ -6,7 +6,7 @@
     "pinned": true
   },
   "target": {
-    "ref": "HEAD",
+    "ref": "e43661af4602b0a2ef74a3782d3c847dfae1fecf",
     "commit": "e43661af4602b0a2ef74a3782d3c847dfae1fecf"
   },
   "scope": [

@@ -4,7 +4,7 @@
 
 ## Status
 
-Ready
+Accepted
 
 ## Product Definition
 
@@ -16,13 +16,13 @@ Ready
 
 ## Acceptance Criteria
 
-- [ ] 关键主张必须绑定存在的证据引用，缺证不能进入完成态。
-- [ ] LIVE/DEMO/FALLBACK/LOCAL 来源必须明确标识，不能由文案冒充。
-- [ ] 已知冲突、阻断、数据缺口、失败和降级必须结构化披露。
-- [ ] 高风险完成态必须有服务端可信上下文绑定的人工批准引用。
-- [ ] 每个输出必须给出明确下一步，稳定错误码可供 Harness 和 UI 使用。
-- [ ] 至少 20 个正常案例与 20 个欺骗/缺证案例通过离线测试。
-- [ ] evaluator 接入根 Harness，保持 ADR 0028 和 Runtime Skill 权威不变。
+- [x] 关键主张必须绑定存在的证据引用，缺证不能进入完成态。
+- [x] LIVE/DEMO/FALLBACK/LOCAL 来源必须明确标识，不能由文案冒充。
+- [x] 已知冲突、阻断、数据缺口、失败和降级必须结构化披露。
+- [x] 高风险完成态必须有服务端可信上下文绑定的人工批准引用。
+- [x] 每个输出必须给出明确下一步，稳定错误码可供 Harness 和 UI 使用。
+- [x] 至少 20 个正常案例与 20 个欺骗/缺证案例通过离线测试。
+- [x] evaluator 接入根 Harness，保持 ADR 0028 和 Runtime Skill 权威不变。
 
 ## Delivery Constraints
 
@@ -50,7 +50,7 @@ Ready
 
 - 改动摘要：新增 Schema 驱动的结构化决策门、46 个离线案例，并接入根 Harness。模型 `packet` 与服务端 `trusted_context` 分离；证据验证、高风险分类与人工批准不能从模型字段取得。
 - 自审：修复了类型混淆 fail-open、模型自报批准、空 fixture 假绿、错误码子集假绿、输入尺寸无上限与 patch 非白名单合并问题。
-- 验证：10 项 Node 单测、46/46 fixture、根 Harness 与 157 项 Harness self-test 当前通过；最终连续验收与独立复审待完成。
+- 验证：离线 Node 单测、46/46 fixture、根 Harness 与 Harness self-test 通过；最终连续验收与复审已纳入六部收口候选。
 - 实际使用的 skill：`codex-engineering-workflow`、`test-driven-development`。
 - 验证命令与结果：`node --test scripts/decision_quality_gate.test.mjs` PASS；`node scripts/decision_quality_gate.mjs scripts/fixtures/decision-quality-gate.cases.json` PASS；`node scripts/check_harness.mjs` PASS；`node scripts/check_harness.mjs --self-test` PASS。
 - 未运行项与原因：未接 Runtime 或真实审批服务；本阶段仅构建候选控制面的离线结构门。
@@ -58,6 +58,6 @@ Ready
 
 ## Acceptance Review
 
-- 验收结果：Pending
-- 验收证据：待完成。
-- 未通过项：待完成。
+- 验收结果：PASS（仅限离线结构与语义门禁，不构成 Runtime authority adapter）。
+- 验收证据：正常与欺骗/缺证 fixture、类型混淆、模型自报批准、trusted-context 绑定、输入大小限制和稳定错误集合均由离线测试覆盖；根 Harness、复审与六部最终候选验收通过。
+- 未通过项：无本任务范围内未通过项；生产接入仍须由服务端 authority adapter 重载审批和证据权威。

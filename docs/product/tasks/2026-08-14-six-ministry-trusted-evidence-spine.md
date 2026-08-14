@@ -59,7 +59,7 @@ Accepted
 - 可信边界：request 无 identity/routing/trust/authority/URL/path/tool 扩展点；tenant 固定 null；调用者不能注入 evidence/authority/report projection。会计内容摘要按签发时 `PENDING` 轴校验，人工回执另行 owner-scoped 重载并写入不可变账本；确认仍不授予付款或过账。
 - 军机处：案卷绑定 owner/run/decree/draft/route；部报按批准部门顺序与权威 RuntimeSkill identity 追加保存，禁止更新/删除；统一服务只按 ID 重载完整快照，集合、证据或路由不符即失败关闭。
 - 实际使用的 skill：`codex-pro-workflows`、`codex-mastery-coach`、`test-driven-development`、仓库 `codex-engineering-workflow`、`code-review` 与 `security-review`；仓库声明的 `using-superpowers` 文件缺失，按既有 Superpowers 等价质量门执行。
-- 验证：冻结实现指纹 `sha256:b5cd11b83f40704f1cc33f74c44672daa115bc2472033b08141e62280625d3fd`；六部可信证据、军机处、异步恢复、持久预算接管、取消/截止边界与史馆链专项 `532 passed, 2 skipped`；后端全量 `3994 passed, 4 skipped`；Ruff 全仓与 compileall 通过。
+- 验证：收口修复后的冻结实现指纹为 `sha256:a6c2de2ca7f15069a6d997ce2cccb9498ddd4dd1269d539c192993e85a265190`；六部可信证据、军机处、异步恢复、持久预算接管、取消/截止边界与史馆链专项历史基线 `532 passed, 2 skipped`；后端全量验收与十轮收口证据见本任务最终验收记录。Ruff 全仓与 compileall 纳入同一命令矩阵。
 - 治理验证：八个 Node 治理/契约套件 `50/50`；根 Harness `133` 个基线文件、self-test `167` 项；Stop hook self-test `3` 项；依赖一致性与 `git diff --check` 通过。
 - 连续验收：同一冻结实现指纹连续 `10/10` 轮通过；每轮均执行全后端回归、八个 Node 套件、根 Harness、Harness self-test、Stop hook self-test、Ruff、compileall、依赖检查、工作树与暂存区 `git diff --check`，单轮全量后端耗时 `216–229` 秒。
 - 未执行：真实公网、provider、生产业务库、任何外部写、部署、提交与推送均未授权也未发生。

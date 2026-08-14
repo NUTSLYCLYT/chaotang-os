@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 import {
   buildSixMinistryInventory,
   buildStocktake,
+  rebuildPinnedSixMinistryInventory,
 } from "./stocktake_external_capabilities.mjs";
 
 function git(root, args) {
@@ -159,6 +160,36 @@ test("builds a pinned, exhaustive six-ministry inventory with rich migration rec
     }
     assert.equal(result.assets.find((asset) => asset.path === ".claude/agents/gongbu-quality-gate.md").included, true);
     assert.equal(result.assets.find((asset) => asset.path === "README.md").included, false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("rebuilds a frozen inventory from its pinned commits after HEAD advances", () => {
+  const root = mkdtempSync(join(tmpdir(), "six-ministry-frozen-target-"));
+  try {
+    git(root, ["init", "-q"]);
+    git(root, ["config", "user.email", "stocktake@example.invalid"]);
+    git(root, ["config", "user.name", "Stocktake Test"]);
+    write(root, "backend/src/hubu_budget.py", "def budget_gate(): pass\n");
+    git(root, ["add", "."]);
+    git(root, ["commit", "-qm", "frozen target"]);
+    const frozenCommit = git(root, ["rev-parse", "HEAD"]);
+    const inventory = buildSixMinistryInventory(root, frozenCommit, frozenCommit);
+
+    write(root, "README.md", "HEAD moved after the inventory was frozen.\n");
+    git(root, ["add", "."]);
+    git(root, ["commit", "-qm", "advance head"]);
+
+    assert.notEqual(git(root, ["rev-parse", "HEAD"]), frozenCommit);
+    assert.deepEqual(rebuildPinnedSixMinistryInventory(root, inventory), inventory);
+    assert.throws(
+      () => rebuildPinnedSixMinistryInventory(root, {
+        ...inventory,
+        target: { ...inventory.target, commit: "HEAD" },
+      }),
+      /inventory target commit must be a full Git SHA/,
+    );
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

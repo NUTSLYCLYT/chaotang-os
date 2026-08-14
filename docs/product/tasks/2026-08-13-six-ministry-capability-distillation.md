@@ -4,7 +4,7 @@
 
 ## Status
 
-Ready
+Accepted
 
 ## Product Definition
 
@@ -16,14 +16,14 @@ Ready
 
 ## Acceptance Criteria
 
-- [ ] 固定 EXT commit 的六部相关资产均有来源 digest、真实 owner、消费链、DEV 映射和迁移 verdict。
-- [ ] 未分类资产、重复案例凑数、未知 schema 关键字、类型混淆和空评测集均失败关闭。
-- [ ] Capability Capsule 具备严格 schema、状态机、四哈希、provenance、lock、回滚与 kill-switch 元数据。
-- [ ] 五个首批候选各有至少 30 个离线案例，其中至少 10 个为缺证、冲突、越权或攻击案例。
-- [ ] Champion/Challenger Shadow 只离线回放、无副作用，不伪造真实流量或生产结果。
-- [ ] 生产 Registry、ADR 0028、租户/权限/证据权威保持不变。
-- [ ] 独立代码、安全和测试复审无 P0/P1，P2 已修复或明确记录。
-- [ ] 同一最终版本连续十轮完整验收通过。
+- [x] 固定 EXT commit 的六部相关资产均有来源 digest、真实 owner、消费链、DEV 映射和迁移 verdict。
+- [x] 未分类资产、重复案例凑数、未知 schema 关键字、类型混淆和空评测集均失败关闭。
+- [x] Capability Capsule 具备严格 schema、状态机、四哈希、provenance、lock、回滚与 kill-switch 元数据。
+- [x] 五个首批候选各有至少 30 个离线案例，其中至少 10 个为缺证、冲突、越权或攻击案例。
+- [x] Champion/Challenger Shadow 只离线回放、无副作用，不伪造真实流量或生产结果。
+- [x] 生产 Registry、ADR 0028、租户/权限/证据权威保持不变。
+- [x] 独立代码、安全和测试复审无 P0/P1，P2 已修复或明确记录。
+- [x] 同一最终版本连续十轮完整验收通过。
 
 ## Delivery Constraints
 
@@ -59,6 +59,6 @@ Ready
 
 ## Acceptance Review
 
-- 验收结果：候选控制面实现完成；不构成 Runtime 晋级。
-- 验收证据：独立 Capsule、全树盘点、代码和安全复审发现的问题已逐项修复；待最终同版本十轮记录。
+- 验收结果：PASS（候选控制面实现完成；不构成 Runtime 晋级）。
+- 验收证据：独立 Capsule、全树盘点、代码和安全复审发现的问题已逐项修复；后续 Runtime 实现与可信证据脊柱任务已在同一收口候选上完成连续十轮记录。
 - 未通过项：真实能力增益和生产 Shadow 未测量，按边界明确保留为后续阶段，不计作本阶段通过证据。

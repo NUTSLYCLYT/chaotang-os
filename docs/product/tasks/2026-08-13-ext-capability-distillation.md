@@ -4,7 +4,7 @@
 
 ## Status
 
-Ready
+Accepted
 
 ## Product Definition
 
@@ -56,6 +56,6 @@ Ready
 
 ## Acceptance Review
 
-- 验收结果：Pending
-- 验收证据：独立工程资产审计、Runtime 角色审计、架构会审和代码复审均已完成；最终十轮结果由当前 Codex 交付报告记录。
-- 未通过项：等待用户确认 EXP 精确来源后，才能开始首批候选的实现与 A/B 评测。
+- 验收结果：PASS（仅限固定来源盘点、去重与迁移设计，不授予 Runtime 晋级）。
+- 验收证据：独立工程资产审计、Runtime 角色审计、架构会审和代码复审均已完成；后续任务已将来源明确冻结为 `origin/feature-chaotang-ext@939186f0331d9784bc8c4ceee393aeb197230ed0`，并完成候选控制面、Runtime 映射与可信证据脊柱。
+- 未通过项：无本任务范围内未通过项；真实能力增益、生产 Shadow、Canary 与外部动作继续由后续任务单独授权和验收。

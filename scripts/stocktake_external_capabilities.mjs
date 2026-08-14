@@ -379,6 +379,18 @@ export function buildSixMinistryInventory(root, source, target = "HEAD") {
   };
 }
 
+export function rebuildPinnedSixMinistryInventory(root, inventory) {
+  const sourceCommit = inventory?.source?.commit;
+  const targetCommit = inventory?.target?.commit;
+  if (typeof sourceCommit !== "string" || !/^[0-9a-f]{40}$/u.test(sourceCommit)) {
+    throw new Error("inventory source commit must be a full Git SHA");
+  }
+  if (typeof targetCommit !== "string" || !/^[0-9a-f]{40}$/u.test(targetCommit)) {
+    throw new Error("inventory target commit must be a full Git SHA");
+  }
+  return buildSixMinistryInventory(root, sourceCommit, targetCommit);
+}
+
 export function buildStocktake(root, source, target) {
   const sourceCommit = resolveCommit(root, source);
   const targetCommit = resolveCommit(root, target);
