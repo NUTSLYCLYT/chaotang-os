@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-import base64
-import hashlib
 import importlib
 import json
 import os
-import re
 import subprocess
 import sys
 import threading
@@ -128,6 +125,49 @@ def test_synthetic_diagnostics_exposes_process_identity_and_stage_ring(
         item["file"] and len(item["sha256"]) == 64
         for item in diagnostic["modules"].values()
     )
+
+
+def test_synthetic_diagnostics_ignores_damaged_runtime_manifest_by_default(
+    synthetic_app: ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    provider = synthetic_app._SyntheticAccountingChatProvider()
+    ignored_runtime_root = "." + "superpowers"
+    original_exists = Path.exists
+    original_read_text = Path.read_text
+
+    def exists(path: Path) -> bool:
+        if ignored_runtime_root in path.parts:
+            return True
+        return original_exists(path)
+
+    def read_text(path: Path, *args, **kwargs) -> str:
+        if ignored_runtime_root in path.parts:
+            return "{damaged-json"
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "exists", exists)
+    monkeypatch.setattr(Path, "read_text", read_text)
+
+    diagnostic = synthetic_app._synthetic_diagnostics(provider)
+
+    assert diagnostic["source_manifest_fingerprint"] is None
+
+
+def test_synthetic_diagnostics_reads_explicit_source_manifest(
+    synthetic_app: ModuleType, tmp_path: Path
+) -> None:
+    manifest_path = tmp_path / "freeze-manifest.json"
+    manifest_path.write_text(
+        json.dumps({"fingerprint": "formal-candidate-fingerprint"}),
+        encoding="utf-8",
+    )
+
+    diagnostic = synthetic_app._synthetic_diagnostics(
+        synthetic_app._SyntheticAccountingChatProvider(),
+        source_manifest_path=manifest_path,
+    )
+
+    assert diagnostic["source_manifest_fingerprint"] == "formal-candidate-fingerprint"
 
 
 def test_synthetic_post_tool_failure_is_one_shot_and_after_graph_invoke(
@@ -544,6 +584,29 @@ def test_acceptance_runner_supports_frozen_decree_and_round_cli() -> None:
     assert "--rounds" in completed.stdout
 
 
+def test_acceptance_runner_loads_dynamic_matrix_from_script_context(
+    tmp_path: Path,
+) -> None:
+    runner_path = Path(__file__).with_name("run_accounting_synthetic_acceptance.py")
+    probe = (
+        "import runpy\n"
+        f"namespace = runpy.run_path({str(runner_path)!r}, run_name='acceptance_probe')\n"
+        "loader = namespace['_load_dynamic_layout_matrix']\n"
+        "print(loader().__name__)\n"
+    )
+
+    completed = subprocess.run(
+        [sys.executable, "-c", probe],
+        cwd=tmp_path,
+        env={**os.environ, "CHAOTANG_SYNTHETIC_ACCEPTANCE_TMP": str(tmp_path)},
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.stdout.strip() == "_run_dynamic_layout_matrix"
+
+
 def test_acceptance_runner_records_external_formal_round_number() -> None:
     source = (
         Path(__file__).with_name("run_accounting_synthetic_acceptance.py")
@@ -553,38 +616,3 @@ def test_acceptance_runner_records_external_formal_round_number() -> None:
     assert '"command"' in source
     assert '"round": formal_round' in source
     assert '"exit_code": 0' in source
-
-
-def test_formal_wrapper_constructs_decree_from_ascii_base64() -> None:
-    wrapper = (
-        Path(__file__).resolve().parents[2]
-        / ".superpowers"
-        / "sdd"
-        / "run_task8_formal_rounds.ps1"
-    ).read_text(encoding="utf-8")
-
-    assert "FromBase64String" in wrapper
-    assert "$decreeUtf8Base64" in wrapper
-    assert '$decree = "请' not in wrapper
-    assert '$evidence.exit_code -ne 0' in wrapper
-    assert 'failure-{0:D2}.json' in wrapper
-    assert all(ord(character) < 128 for character in wrapper)
-    encoded = re.search(r'\$decreeUtf8Base64 = "([A-Za-z0-9+/=]+)"', wrapper)
-    assert encoded is not None
-    decree = base64.b64decode(encoded.group(1)).decode("utf-8")
-    assert hashlib.sha256(decree.encode()).hexdigest() == (
-        "e0a1f1e76c4155c9c9d23ca1f96f93f8123453d3f14b0abc5c927286625b9a9c"
-    )
-
-
-def test_formal_round_summary_records_native_exit_code() -> None:
-    summary_path = (
-        Path(__file__).resolve().parents[2]
-        / ".superpowers"
-        / "sdd"
-        / "dynamic-bureau-task-8-rounds"
-        / "round-01.json"
-    )
-    summary = json.loads(summary_path.read_text(encoding="utf-8-sig"))
-
-    assert summary["exit_code"] == 0

@@ -12,6 +12,7 @@ from app.accounting_reports.models import (
     ReportPeriod,
     SourceRef,
 )
+from tests.run_accounting_synthetic_acceptance import ACCOUNTING_DECREE
 
 
 def test_exact_local_2025_analysis_is_controlled_accounting_analysis() -> None:
@@ -20,6 +21,14 @@ def test_exact_local_2025_analysis_is_controlled_accounting_analysis() -> None:
     )
 
     assert intent.request_kind is AccountingRequestKind.ACCOUNTING_ANALYSIS
+    assert intent.kind is report_models.ReportIntentKind.EXPLICIT_PERIOD
+    assert intent.period == ReportPeriod(2025, 2025)
+
+
+def test_synthetic_acceptance_default_decree_is_explicit_report() -> None:
+    intent = detect_accounting_report_intent(ACCOUNTING_DECREE)
+
+    assert intent.request_kind is AccountingRequestKind.ACCOUNTING_REPORT
     assert intent.kind is report_models.ReportIntentKind.EXPLICIT_PERIOD
     assert intent.period == ReportPeriod(2025, 2025)
 
