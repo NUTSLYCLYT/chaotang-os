@@ -1,0 +1,41 @@
+{
+  "schema_version": "execution-authority.ext.canonical-vectors.v1",
+  "cases": [
+    {
+      "id": "ordering",
+      "source_json": "{\"z\":1,\"a\":2}",
+      "canonical": "{\"a\":2,\"z\":1}",
+      "sha256": "sha256:c2985c5ba6f7d2a55e768f92490ca09388e95bc4cccb9fdf11b15f4d42f93e73"
+    },
+    {
+      "id": "array-null-bool",
+      "source_json": "[true,null,false]",
+      "canonical": "[true,null,false]",
+      "sha256": "sha256:06d8a96aea464335be2fd10437446421a052be2e032d3b16890e0239de635bf0"
+    },
+    {
+      "id": "numbers",
+      "source_json": "{\"minusZero\":0,\"million\":1000000,\"small\":1e-7,\"large\":1e+30}",
+      "canonical": "{\"large\":1e+30,\"million\":1000000,\"minusZero\":0,\"small\":1e-7}",
+      "sha256": "sha256:efd265bb4672d0bef419ca642083bb93e2781454e134e960ece246b83d44e056"
+    },
+    {
+      "id": "unicode-composed",
+      "source_json": "{\"value\":\"é\"}",
+      "canonical": "{\"value\":\"é\"}",
+      "sha256": "sha256:69e46f3f0688000ab7eeb9e40e6a516a254268cd644a24f4f69cf7ad063cf479"
+    },
+    {
+      "id": "unicode-decomposed",
+      "source_json": "{\"value\":\"é\"}",
+      "canonical": "{\"value\":\"é\"}",
+      "sha256": "sha256:1b986c631da83257beca64c93ff3e5174908d558af7bb9dfb36b25a6198f7c38"
+    },
+    {
+      "id": "escaping",
+      "source_json": "{\"control\":\"line\\n\\tquote\\\"slash\\\\\",\"multi\":\"朝堂\"}",
+      "canonical": "{\"control\":\"line\\n\\tquote\\\"slash\\\\\",\"multi\":\"朝堂\"}",
+      "sha256": "sha256:3c2ddca9249597962c42a0e8c68aa40eae8f42c0605f974fda94382c43584608"
+    }
+  ]
+}

@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chaotang-os.local/contracts/execution-authority-ext-grant.schema.json",
+  "title": "execution-authority.ext.v1 signed grant",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "payload", "signature"],
+  "properties": {
+    "schema_version": { "const": "execution-authority.ext.signed-grant.v1" },
+    "payload": { "$ref": "#/$defs/payload" },
+    "signature": { "$ref": "#/$defs/signature" }
+  },
+  "$defs": {
+    "sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "identifier": { "type": "string", "minLength": 3, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]+$" },
+    "timestamp": { "type": "string", "format": "date-time", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$" },
+    "repo_path": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*//)(?!.*[\\\\*?\\u0000])[^/]+(?:/[^/]+)*$"
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version", "authority_id", "task_id", "repository_identity", "base_commit", "base_tree",
+        "allowed_paths", "allowed_paths_digest", "non_goals_digest", "holder_identity", "lease_id",
+        "fencing_epoch", "sequence", "issued_at", "not_before", "expires_at", "key_id", "nonce"
+      ],
+      "properties": {
+        "schema_version": { "const": "execution-authority.ext.grant.v1" },
+        "authority_id": { "const": "execution-authority.ext.v1" },
+        "task_id": { "const": "EXT-GOV-AUTH-V1-20260815" },
+        "repository_identity": { "const": "gitee.com/msxn/chaotang-os" },
+        "base_commit": { "const": "017d3d34d0a56257fbbcdbd86cd6f1f6d9d0bcdd" },
+        "base_tree": { "const": "a05b69964fde283e243c11a312059706b6d3b2f3" },
+        "allowed_paths": {
+          "type": "array",
+          "minItems": 9,
+          "maxItems": 9,
+          "uniqueItems": true,
+          "prefixItems": [
+            { "const": ".github/workflows/harness.yml" },
+            { "const": "docs/contracts/execution-authority-ext-attestation.schema.json" },
+            { "const": "docs/contracts/execution-authority-ext-grant.schema.json" },
+            { "const": "docs/contracts/execution-authority-ext-trust-root.schema.json" },
+            { "const": "docs/product/tasks/2026-08-15-ext-successor-execution-authority.md" },
+            { "const": "docs/superpowers/plans/2026-08-15-ext-successor-execution-authority.md" },
+            { "const": "scripts/execution_authority_ext.mjs" },
+            { "const": "scripts/execution_authority_ext.test.mjs" },
+            { "const": "scripts/fixtures/execution-authority-ext-canonical-vectors.json" }
+          ],
+          "items": false
+        },
+        "allowed_paths_digest": { "$ref": "#/$defs/digest" },
+        "non_goals_digest": { "const": "sha256:4e0f74b806f32aef89def53653bdab0988ae1a450136f507753cd10204a6d548" },
+        "holder_identity": { "const": "codex-governance-worker" },
+        "lease_id": { "$ref": "#/$defs/identifier" },
+        "fencing_epoch": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+        "sequence": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+        "issued_at": { "$ref": "#/$defs/timestamp" },
+        "not_before": { "$ref": "#/$defs/timestamp" },
+        "expires_at": { "$ref": "#/$defs/timestamp" },
+        "key_id": { "$ref": "#/$defs/identifier" },
+        "nonce": { "type": "string", "minLength": 32, "maxLength": 128, "pattern": "^[A-Za-z0-9_-]+$" }
+      }
+    },
+    "signature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "key_id", "value"],
+      "properties": {
+        "algorithm": { "const": "Ed25519" },
+        "key_id": { "$ref": "#/$defs/identifier" },
+        "value": { "type": "string", "minLength": 86, "maxLength": 86, "pattern": "^[A-Za-z0-9_-]+$" }
+      }
+    }
+  }
+}

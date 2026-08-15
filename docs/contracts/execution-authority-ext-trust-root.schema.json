@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chaotang-os.local/contracts/execution-authority-ext-trust-root.schema.json",
+  "title": "execution-authority.ext.v1 host trust root",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "authority_id", "repository_identity", "keys", "min_sequence", "required_check", "checkpoint"],
+  "properties": {
+    "schema_version": { "const": "execution-authority.ext.trust-root.v1" },
+    "authority_id": { "const": "execution-authority.ext.v1" },
+    "repository_identity": { "const": "gitee.com/msxn/chaotang-os" },
+    "keys": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "items": { "$ref": "#/$defs/key" }
+    },
+    "min_sequence": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+    "required_check": { "$ref": "#/$defs/required_check" },
+    "checkpoint": { "$ref": "#/$defs/checkpoint" }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "identifier": { "type": "string", "minLength": 3, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]+$" },
+    "timestamp": { "type": "string", "format": "date-time", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$" },
+    "key": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key_id", "algorithm", "purposes", "public_key_pem", "public_key_sha256", "status", "not_before", "not_after"],
+      "properties": {
+        "key_id": { "$ref": "#/$defs/identifier" },
+        "algorithm": { "const": "Ed25519" },
+        "purposes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "uniqueItems": true,
+          "items": { "enum": ["GRANT", "ATTESTATION", "CHECKPOINT", "PLATFORM"] }
+        },
+        "public_key_pem": { "type": "string", "minLength": 64, "maxLength": 512, "pattern": "^-----BEGIN PUBLIC KEY-----" },
+        "public_key_sha256": { "$ref": "#/$defs/digest" },
+        "status": { "enum": ["ACTIVE", "REVOKED"] },
+        "not_before": { "$ref": "#/$defs/timestamp" },
+        "not_after": { "$ref": "#/$defs/timestamp" }
+      }
+    },
+    "required_check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["platform", "name", "policy_identity", "policy_digest"],
+      "properties": {
+        "platform": { "const": "gitee" },
+        "name": { "$ref": "#/$defs/identifier" },
+        "policy_identity": { "$ref": "#/$defs/identifier" },
+        "policy_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "checkpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["endpoint", "protocol", "timeout_ms"],
+      "properties": {
+        "endpoint": { "const": "/run/chaotang-os/execution-authority-ext/checkpoint.sock" },
+        "protocol": { "const": "chaotang-ext-checkpoint-v1" },
+        "timeout_ms": { "type": "integer", "minimum": 100, "maximum": 5000 }
+      }
+    },
+    "checkpoint_request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "authority_id", "task_id", "grant_digest", "nonce", "sequence", "fencing_epoch", "lease_id", "holder_identity", "request_challenge", "candidate_commit", "candidate_tree"],
+      "properties": {
+        "schema_version": { "const": "execution-authority.ext.checkpoint-request.v1" },
+        "authority_id": { "const": "execution-authority.ext.v1" },
+        "task_id": { "const": "EXT-GOV-AUTH-V1-20260815" },
+        "grant_digest": { "$ref": "#/$defs/digest" },
+        "nonce": { "type": "string", "minLength": 32, "maxLength": 128, "pattern": "^[A-Za-z0-9_-]+$" },
+        "sequence": { "type": "integer", "minimum": 1 },
+        "fencing_epoch": { "type": "integer", "minimum": 1 },
+        "lease_id": { "$ref": "#/$defs/identifier" },
+        "holder_identity": { "$ref": "#/$defs/identifier" },
+        "request_challenge": { "type": "string", "minLength": 43, "maxLength": 43, "pattern": "^[A-Za-z0-9_-]+$" },
+        "candidate_commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "candidate_tree": { "type": "string", "pattern": "^[0-9a-f]{40}$" }
+      }
+    },
+    "checkpoint_receipt_payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "authority_id", "task_id", "grant_digest", "nonce", "sequence", "fencing_epoch", "lease_id", "holder_identity", "request_challenge", "candidate_commit", "candidate_tree", "consumed", "checkpoint_time", "key_id"],
+      "properties": {
+        "schema_version": { "const": "execution-authority.ext.checkpoint-receipt.v1" },
+        "authority_id": { "const": "execution-authority.ext.v1" },
+        "task_id": { "const": "EXT-GOV-AUTH-V1-20260815" },
+        "grant_digest": { "$ref": "#/$defs/digest" },
+        "nonce": { "type": "string", "minLength": 32, "maxLength": 128, "pattern": "^[A-Za-z0-9_-]+$" },
+        "sequence": { "type": "integer", "minimum": 1 },
+        "fencing_epoch": { "type": "integer", "minimum": 1 },
+        "lease_id": { "$ref": "#/$defs/identifier" },
+        "holder_identity": { "$ref": "#/$defs/identifier" },
+        "request_challenge": { "type": "string", "minLength": 43, "maxLength": 43, "pattern": "^[A-Za-z0-9_-]+$" },
+        "candidate_commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "candidate_tree": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "consumed": { "const": true },
+        "checkpoint_time": { "$ref": "#/$defs/timestamp" },
+        "key_id": { "$ref": "#/$defs/identifier" }
+      }
+    }
+  }
+}
