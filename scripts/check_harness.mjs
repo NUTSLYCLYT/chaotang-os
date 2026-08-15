@@ -12,6 +12,23 @@ import { buildOfflineShadowReport } from "./capability_shadow.mjs";
 import { stableDigest } from "./capability_eval.mjs";
 import { buildCapabilityFamilyMatrix, buildRuntimeFamilyProjection } from "./capability_family_matrix.mjs";
 
+const ROOT_OBSERVATION_KERNEL_REQUIRED_FILES = [
+  ".harness/agents/project-owner.md",
+  ".harness/rules/project-boundaries.md",
+  ".harness/contracts/project-harness.schema.json",
+  ".harness/manifest/project-harness.json",
+  "scripts/harness-doctor.mjs",
+  "scripts/harness-doctor.test.mjs",
+  "docs/product/tasks/2026-08-16-ext-root-observation-kernel-g1.md",
+  "docs/superpowers/plans/2026-08-16-ext-root-observation-kernel-g1.md",
+];
+const ROOT_OBSERVATION_KERNEL_HARNESS_FILES = [
+  ".harness/agents/project-owner.md",
+  ".harness/contracts/project-harness.schema.json",
+  ".harness/manifest/project-harness.json",
+  ".harness/rules/project-boundaries.md",
+];
+
 const REQUIRED_FILES = [
   "README.md",
   "AGENTS.md",
@@ -31,6 +48,7 @@ const REQUIRED_FILES = [
   "docs/product-collaboration.md",
   "docs/product/tasks/TEMPLATE.md",
   "docs/tooling-compatibility.md",
+  ...ROOT_OBSERVATION_KERNEL_REQUIRED_FILES,
   "docs/decisions/0001-agentic-engineering-baseline.md",
   "docs/decisions/0002-dual-tool-harness-sharing.md",
   "docs/decisions/0003-codex-product-claude-delivery-handoff.md",
@@ -321,6 +339,17 @@ const SIX_MINISTRY_TRUSTED_SPINE_FILES = [
   "scripts/six_ministry_evidence_spine_contract.test.mjs",
 ].sort();
 
+// The 2026-08-14 review fingerprint included this checker itself. A checker
+// cannot safely attest its own future bytes, so G1 preserves the immutable
+// historical review fingerprint while independently pinning every runtime,
+// resolver, contract and regression file that review covered.
+const SIX_MINISTRY_REVIEWED_IMPLEMENTATION_FINGERPRINT = "sha256:a6c2de2ca7f15069a6d997ce2cccb9498ddd4dd1269d539c192993e85a265190";
+const SIX_MINISTRY_RUNTIME_CONTENT_FILES = SIX_MINISTRY_TRUSTED_SPINE_FILES
+  .filter((relativePath) => relativePath !== "scripts/check_harness.mjs");
+const SIX_MINISTRY_RUNTIME_CONTENT_FINGERPRINT = "sha256:fe726df35cd1f37fa9caf4db43b81eda54d5ba601876d15acc96b3fc562c6dab";
+const SIX_MINISTRY_REVIEWED_HARNESS_BASELINE_FILES = 133;
+const SIX_MINISTRY_REVIEWED_HARNESS_SELF_TESTS = 167;
+
 function sixMinistryImplementationFingerprint(root, files = SIX_MINISTRY_TRUSTED_SPINE_FILES) {
   const digest = createHash("sha256");
   for (const relativePath of files) {
@@ -386,11 +415,13 @@ function sixMinistryRuntimeReadinessErrors({ readiness, familyMatrix, runtimePro
   const rowIds = rows.map((row) => row?.familyId);
   const familyIds = families.map((family) => family?.id);
   const projectedById = new Map(projectedFamilies.map((family) => [family?.familyId, family]));
-  let currentFingerprint = null;
+  let currentRuntimeFingerprint = null;
   try {
-    currentFingerprint = root ? sixMinistryImplementationFingerprint(root) : null;
+    currentRuntimeFingerprint = root
+      ? sixMinistryImplementationFingerprint(root, SIX_MINISTRY_RUNTIME_CONTENT_FILES)
+      : null;
   } catch {
-    currentFingerprint = null;
+    currentRuntimeFingerprint = null;
   }
   const implementation = readiness?.implementationEvidence;
   const evidence = readiness?.validationEvidence;
@@ -400,7 +431,8 @@ function sixMinistryRuntimeReadinessErrors({ readiness, familyMatrix, runtimePro
   const implementationMatches = exactKeys(implementation, expectedImplementationKeys)
     && implementation?.algorithm === "sha256-path-null-content-null-v1"
     && JSON.stringify(implementation?.files) === JSON.stringify(SIX_MINISTRY_TRUSTED_SPINE_FILES)
-    && implementation?.fingerprint === currentFingerprint;
+    && implementation?.fingerprint === SIX_MINISTRY_REVIEWED_IMPLEMENTATION_FINGERPRINT
+    && currentRuntimeFingerprint === SIX_MINISTRY_RUNTIME_CONTENT_FINGERPRINT;
   const resolverMatches = Array.isArray(resolvers)
     && resolvers.length === expectedResolvers.length
     && resolvers.every((resolver, index) => exactKeys(resolver, expectedResolverKeys)
@@ -410,7 +442,7 @@ function sixMinistryRuntimeReadinessErrors({ readiness, familyMatrix, runtimePro
       && typeof resolver.purpose === "string" && resolver.purpose.trim()
       && typeof resolver.limitation === "string" && resolver.limitation.trim());
   const validationMatches = exactKeys(evidence, expectedEvidenceKeys)
-    && evidence?.implementationFingerprint === currentFingerprint
+    && evidence?.implementationFingerprint === SIX_MINISTRY_REVIEWED_IMPLEMENTATION_FINGERPRINT
     && evidenceRuns.every((run) => exactKeys(run, expectedRunKeys)
       && run.status === "passed"
       && Number.isInteger(run.passed) && run.passed > 0
@@ -418,12 +450,11 @@ function sixMinistryRuntimeReadinessErrors({ readiness, familyMatrix, runtimePro
       && run.failed === 0)
     && exactKeys(evidence?.harness, expectedHarnessKeys)
     && evidence?.harness?.status === "passed"
-    && evidence?.harness?.baselineFiles === REQUIRED_FILES.length
-    && Number.isInteger(evidence?.harness?.selfTests)
-    && evidence.harness.selfTests > 0
+    && evidence?.harness?.baselineFiles === SIX_MINISTRY_REVIEWED_HARNESS_BASELINE_FILES
+    && evidence?.harness?.selfTests === SIX_MINISTRY_REVIEWED_HARNESS_SELF_TESTS
     && exactKeys(reviews, expectedReviewKeys)
     && ["approved", "approved-with-notes"].includes(reviews?.status)
-    && reviews?.reviewedImplementationFingerprint === currentFingerprint
+    && reviews?.reviewedImplementationFingerprint === SIX_MINISTRY_REVIEWED_IMPLEMENTATION_FINGERPRINT
     && reviews?.p0 === 0
     && reviews?.p1 === 0
     && Number.isInteger(reviews?.p2) && reviews.p2 >= 0
@@ -628,7 +659,38 @@ const DECREE_FLOW_POLICY_ENTRIES = [
   ".codex/agents/test-engineer.toml",
 ];
 
-const LEGACY_META_HARNESS = [".harness", "frontend/.harness"];
+const LEGACY_META_HARNESS = ["frontend/.harness"];
+
+export function rootObservationKernelPathErrors(paths) {
+  if (!Array.isArray(paths)
+    || new Set(paths).size !== paths.length
+    || JSON.stringify([...paths].sort()) !== JSON.stringify(ROOT_OBSERVATION_KERNEL_HARNESS_FILES)) {
+    return ["根 observation harness 必须精确保持四个 G1 文件"];
+  }
+  return [];
+}
+
+function rootObservationKernelDiskPaths(root) {
+  const harnessRoot = join(root, ".harness");
+  if (!existsSync(harnessRoot) || !statSync(harnessRoot).isDirectory()) return [];
+  const paths = [];
+  const visit = (relativeDirectory) => {
+    for (const entry of readdirSync(join(root, relativeDirectory), { withFileTypes: true })) {
+      const relativePath = `${relativeDirectory}/${entry.name}`;
+      if (entry.isSymbolicLink()) {
+        paths.push(`SYMLINK:${relativePath}`);
+      } else if (entry.isDirectory()) {
+        visit(relativePath);
+      } else if (entry.isFile()) {
+        paths.push(relativePath);
+      } else {
+        paths.push(`OTHER:${relativePath}`);
+      }
+    }
+  };
+  visit(".harness");
+  return paths.sort();
+}
 
 // Codex 与 Claude Code 曾各存一份内容相同的 hook 脚本;现在统一收敛到
 // .agents/hooks/check-harness.mjs,旧路径不应该复活。
@@ -952,7 +1014,7 @@ const normalizeAdaptiveRoutingBody = (value) => value
   .replace(/\r\n?/gu, "\n");
 
 const ADAPTIVE_ROUTING_WHOLE_ENTRY_SHA256 = {
-  agents: "d2b08a22d00e191120bfb2e99a3ece6f1523ee417af9ed8764e930484b6b6e9b",
+  agents: "4fafc8ef02400e8bbdf7a586bf58d3b9ae9bdd4518cff2b2f3558055b44dc67e",
   guide: "c9dc6bec7917b4ae1441fa2df9c2b36cbc105d6946102c40d34add2c3194fa18",
   skill: "3a40fd5cfc75f4643b39f57e6471a79b9019a6418e4faf048ee4842a8ad17a06",
   prompt: "fe285fa01758c6f005cce119c6e63eb389f0f9f84a02cc33fee353cfde0d79bd",
@@ -1538,6 +1600,7 @@ export function validateHarness(root) {
   for (const path of LEGACY_META_HARNESS) {
     if (existsSync(join(root, path))) errors.push(`旧 meta-harness 不应继续存在: ${path}`);
   }
+  errors.push(...rootObservationKernelPathErrors(rootObservationKernelDiskPaths(root)));
 
   for (const path of LEGACY_DUPLICATED_HOOKS) {
     if (existsSync(join(root, path))) {
@@ -1755,6 +1818,14 @@ export function validateHarness(root) {
       "frontend/AGENTS.md",
       "backend/AGENTS.md",
       "node scripts/check_harness.mjs",
+      "node scripts/harness-doctor.mjs --check",
+      "node scripts/harness-doctor.mjs --status",
+      "node scripts/harness-doctor.mjs --ready",
+      ".harness/agents/project-owner.md",
+      ".harness/rules/project-boundaries.md",
+      ".harness/manifest/project-harness.json",
+      "BOOTSTRAP_OBSERVE",
+      "canExecuteProductWork=false",
       "node .agents/hooks/check-harness.mjs --self-test",
       "事实冲突",
       "先盘问",
@@ -2443,6 +2514,23 @@ Escalation: name observable evidence
     [
       "登记 adaptive-routing validator false-green failure record 为必需文件",
       REQUIRED_FILES.includes("docs/failures/2026-08-13-adaptive-routing-validator-false-green.md"),
+      true,
+    ],
+    [
+      "登记 G1 root observation kernel 文件",
+      ROOT_OBSERVATION_KERNEL_REQUIRED_FILES
+        .filter((path) => !REQUIRED_FILES.includes(path))
+        .map((path) => `缺少 REQUIRED_FILES 登记: ${path}`),
+      [],
+    ],
+    [
+      "接受精确四文件 root observation harness",
+      rootObservationKernelPathErrors(ROOT_OBSERVATION_KERNEL_HARNESS_FILES),
+      [],
+    ],
+    [
+      "拒绝 root observation harness 扩展为旧 control plane",
+      rootObservationKernelPathErrors([...ROOT_OBSERVATION_KERNEL_HARNESS_FILES, ".harness/wiki/architecture.md"]).length > 0,
       true,
     ],
     [

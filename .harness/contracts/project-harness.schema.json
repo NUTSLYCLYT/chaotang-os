@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chaotang-os.local/contracts/ext-project-harness.v1.schema.json",
+  "title": "Chaotang OS ext project harness observation manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "status",
+    "root",
+    "frontend",
+    "backend",
+    "observedAuthority",
+    "governanceGrantState"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "ext-project-harness.v1" },
+    "status": { "const": "BOOTSTRAP_OBSERVE" },
+    "root": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "entrypoint", "harnessRoot", "manifest", "doctor"],
+      "properties": {
+        "status": { "const": "READY_FOR_OBSERVE" },
+        "entrypoint": { "const": "AGENTS.md" },
+        "harnessRoot": { "const": ".harness" },
+        "manifest": { "const": ".harness/manifest/project-harness.json" },
+        "doctor": { "const": "scripts/harness-doctor.mjs" }
+      }
+    },
+    "frontend": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "entrypoint", "harnessRoot", "manifest", "doctor"],
+      "properties": {
+        "status": { "const": "ABSENT" },
+        "entrypoint": { "const": "frontend/AGENTS.md" },
+        "harnessRoot": { "const": "frontend/.harness" },
+        "manifest": { "type": "null" },
+        "doctor": { "type": "null" }
+      }
+    },
+    "backend": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "entrypoint", "harnessRoot", "manifest", "doctor"],
+      "properties": {
+        "status": { "const": "PARTIAL" },
+        "entrypoint": { "const": "backend/AGENTS.md" },
+        "harnessRoot": { "const": "backend/harness" },
+        "manifest": { "type": "null" },
+        "doctor": { "type": "null" }
+      }
+    },
+    "observedAuthority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["namespace", "decision", "canExecuteProductWork"],
+      "properties": {
+        "namespace": { "const": "execution-authority.ext.v1" },
+        "decision": { "const": "STOP" },
+        "canExecuteProductWork": { "const": false }
+      }
+    },
+    "governanceGrantState": { "const": "EXTERNAL_NOT_CONSUMED" }
+  }
+}

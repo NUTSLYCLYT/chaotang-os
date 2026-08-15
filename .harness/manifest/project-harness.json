@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "ext-project-harness.v1",
+  "status": "BOOTSTRAP_OBSERVE",
+  "root": {
+    "status": "READY_FOR_OBSERVE",
+    "entrypoint": "AGENTS.md",
+    "harnessRoot": ".harness",
+    "manifest": ".harness/manifest/project-harness.json",
+    "doctor": "scripts/harness-doctor.mjs"
+  },
+  "frontend": {
+    "status": "ABSENT",
+    "entrypoint": "frontend/AGENTS.md",
+    "harnessRoot": "frontend/.harness",
+    "manifest": null,
+    "doctor": null
+  },
+  "backend": {
+    "status": "PARTIAL",
+    "entrypoint": "backend/AGENTS.md",
+    "harnessRoot": "backend/harness",
+    "manifest": null,
+    "doctor": null
+  },
+  "observedAuthority": {
+    "namespace": "execution-authority.ext.v1",
+    "decision": "STOP",
+    "canExecuteProductWork": false
+  },
+  "governanceGrantState": "EXTERNAL_NOT_CONSUMED"
+}
