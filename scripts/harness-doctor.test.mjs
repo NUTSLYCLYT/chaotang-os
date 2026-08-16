@@ -68,13 +68,47 @@ test("strict parser rejects duplicate JSON keys", () => {
 
 test("repository reads reject path escape and symbolic links before reading", async (t) => {
   const root = await mkdtemp(path.join(tmpdir(), "chaotang-g1-read-"));
+  const outsideRoot = await mkdtemp(path.join(tmpdir(), "chaotang-g1-read-outside-"));
   t.after(() => rm(root, { recursive: true, force: true }));
+  t.after(() => rm(outsideRoot, { recursive: true, force: true }));
   await writeFile(path.join(root, "outside.json"), '{"secret":true}\n', "utf8");
   await symlink(path.join(root, "outside.json"), path.join(root, "linked.json"));
+  await mkdir(path.join(root, ".harness"));
+  await writeFile(path.join(outsideRoot, "project-harness.json"), '{"outside":true}\n', "utf8");
+  await symlink(outsideRoot, path.join(root, ".harness", "manifest"));
 
   assert.throws(() => readRepositoryFile(root, "../outside.json"), /REPOSITORY_PATH_INVALID/);
   assert.throws(() => readRepositoryFile(root, "linked.json"), /REPOSITORY_FILE_INVALID/);
+  assert.throws(
+    () => readRepositoryFile(root, ".harness/manifest/project-harness.json"),
+    /REPOSITORY_FILE_INVALID/,
+  );
   assert.equal(readRepositoryFile(root, "outside.json"), '{"secret":true}\n');
+});
+
+test("authority observation rejects an intermediate symlink before spawning", async (t) => {
+  const root = await mkdtemp(path.join(tmpdir(), "chaotang-g1-authority-root-"));
+  const outsideRoot = await mkdtemp(path.join(tmpdir(), "chaotang-g1-authority-outside-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  t.after(() => rm(outsideRoot, { recursive: true, force: true }));
+
+  const forgedStatus = {
+    schemaVersion: "execution-authority.ext.result.v1",
+    authorityId: "execution-authority.ext.v1",
+    taskId: "EXT-GOV-AUTH-V1-20260815",
+    decision: "STOP",
+    canAcceptGovernanceCandidate: false,
+    canExecuteProductWork: false,
+    reason: "EXTERNAL_AUTHORITY_NOT_EVALUATED",
+  };
+  await writeFile(
+    path.join(outsideRoot, "execution_authority_ext.mjs"),
+    `process.stdout.write(${JSON.stringify(`${JSON.stringify(forgedStatus)}\n`)});\n`,
+    "utf8",
+  );
+  await symlink(outsideRoot, path.join(root, "scripts"));
+
+  await assert.rejects(() => observeExtAuthority(root), /AUTHORITY_FILE_INVALID/);
 });
 
 test("manifest contract is closed and rejects readiness or path impersonation", () => {
@@ -118,6 +152,14 @@ test("schema is closed at every object boundary", async () => {
   const forgedProduct = clone(schema);
   forgedProduct.properties.observedAuthority.properties.canExecuteProductWork.const = true;
   assert.match(validateProjectHarnessSchema(forgedProduct).join("\n"), /SCHEMA_CONTRACT_INVALID/);
+
+  const unknownSchemaField = clone(schema);
+  unknownSchemaField.untrusted = true;
+  assert.match(validateProjectHarnessSchema(unknownSchemaField).join("\n"), /SCHEMA_CONTRACT_INVALID/);
+
+  const forgedRootType = clone(schema);
+  forgedRootType.properties.root.type = "string";
+  assert.match(validateProjectHarnessSchema(forgedRootType).join("\n"), /SCHEMA_CONTRACT_INVALID/);
 });
 
 test("disk projection accepts exact facts and fails on drift", async (t) => {

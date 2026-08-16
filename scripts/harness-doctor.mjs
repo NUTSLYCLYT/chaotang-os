@@ -1,16 +1,17 @@
 #!/usr/bin/env node
 
 import { spawnSync } from "node:child_process";
-import { existsSync, lstatSync, readFileSync } from "node:fs";
+import { lstatSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { parseJsonNoDuplicateKeys } from "./execution_authority_ext.mjs";
+import { digestCanonical, parseJsonNoDuplicateKeys } from "./execution_authority_ext.mjs";
 
 const RESULT_SCHEMA = "ext-project-harness.result.v1";
 const MANIFEST_RELATIVE_PATH = ".harness/manifest/project-harness.json";
 const SCHEMA_RELATIVE_PATH = ".harness/contracts/project-harness.schema.json";
 const AUTHORITY_RELATIVE_PATH = "scripts/execution_authority_ext.mjs";
+const EXPECTED_SCHEMA_DIGEST = "sha256:93df322b0ddced6f1da8a3e9cacc12f374a0458f73ffe8d67e5471e7761c3d9b";
 
 export const EXPECTED_MANIFEST = Object.freeze({
   schemaVersion: "ext-project-harness.v1",
@@ -107,14 +108,22 @@ export function validateProjectHarnessManifest(manifest) {
 }
 
 function pathKind(rootDir, relativePath) {
-  const absolutePath = path.join(rootDir, relativePath);
-  if (!existsSync(absolutePath)) return "missing";
-  const stat = lstatSync(absolutePath, { throwIfNoEntry: false });
-  if (!stat) return "missing";
-  if (stat.isSymbolicLink()) return "symlink";
-  if (stat.isFile()) return "file";
-  if (stat.isDirectory()) return "directory";
-  return "other";
+  let currentPath = rootDir;
+  const segments = relativePath.split("/");
+  for (const [index, segment] of segments.entries()) {
+    currentPath = path.join(currentPath, segment);
+    const stat = lstatSync(currentPath, { throwIfNoEntry: false });
+    if (!stat) return "missing";
+    if (stat.isSymbolicLink()) return "symlink";
+    if (index < segments.length - 1) {
+      if (!stat.isDirectory()) return "other";
+      continue;
+    }
+    if (stat.isFile()) return "file";
+    if (stat.isDirectory()) return "directory";
+    return "other";
+  }
+  return "missing";
 }
 
 export function readRepositoryFile(rootDir, relativePath) {
@@ -165,6 +174,12 @@ export function schemaClosureErrors(schema) {
 
 export function validateProjectHarnessSchema(schema) {
   const errors = [...schemaClosureErrors(schema)];
+  let schemaDigest = null;
+  try {
+    schemaDigest = digestCanonical(schema);
+  } catch {
+    schemaDigest = null;
+  }
   const expectedLeaves = [
     [["properties", "schemaVersion", "const"], "ext-project-harness.v1"],
     [["properties", "status", "const"], "BOOTSTRAP_OBSERVE"],
@@ -192,6 +207,7 @@ export function validateProjectHarnessSchema(schema) {
   if (schema?.$schema !== "https://json-schema.org/draft/2020-12/schema"
     || schema?.$id !== "https://chaotang-os.local/contracts/ext-project-harness.v1.schema.json"
     || schema?.type !== "object"
+    || schemaDigest !== EXPECTED_SCHEMA_DIGEST
     || expectedLeaves.some(([keys, expected]) => valueAt(keys) !== expected)) {
     add(errors, "SCHEMA_CONTRACT_INVALID");
   }
@@ -199,6 +215,7 @@ export function validateProjectHarnessSchema(schema) {
 }
 
 export async function observeExtAuthority(rootDir) {
+  if (pathKind(rootDir, AUTHORITY_RELATIVE_PATH) !== "file") throw new Error("AUTHORITY_FILE_INVALID");
   const authorityPath = path.join(rootDir, AUTHORITY_RELATIVE_PATH);
   const result = spawnSync(process.execPath, [authorityPath, "--status"], {
     cwd: rootDir,
