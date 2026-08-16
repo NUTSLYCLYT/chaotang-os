@@ -3,10 +3,10 @@
 ## 1. Contract
 
 - Task：`DUAL-ORCHESTRATION-CONTRACT-V1-20260816`
-- Base/tree：`54c87e620e4157ba05ad10f92bab0f0737538c32` /
-  `f34359f258f337013843fcbc8b6d51951f0bf66c`
-- Reapproval：原批准随六部 readiness 验证器治理修复落地主线而失效；只重钉基线身份，不改变
-  task、6 条产品路径、非目标、合同设计或验证矩阵。
+- Base/tree：`9283375334fa22a0396a5f7f976a296eba5c559f` /
+  `995a615426bcbe457f2553e6f209ec6875810a70`
+- Reapproval：前次批准随六部 readiness provenance 前向修复链落地主线而失效；只重钉基线身份，
+  不改变 task、6 条产品路径、非目标、合同设计或验证矩阵。
 - Shared source：`origin/ext-dev`。
 - Product candidate：approval commit 的精确单亲子，只允许任务文件中的 6 个产品路径。
 - Exit：公共合同和 24 案例存在但没有运行时接线；Direct/Graph adapter 均未实现。

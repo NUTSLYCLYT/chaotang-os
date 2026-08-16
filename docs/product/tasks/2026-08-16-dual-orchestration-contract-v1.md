@@ -13,8 +13,9 @@ Ready
 
 - 用户确认：Owner 于 2026-08-16 确认采用“一个产品、一个代码主线、Direct 与 LangGraph
   两个编排赛道”的方向，并要求按顺序执行。M0 approval manifest digest 尚待 Owner 单独确认。
-- 基线恢复：原 approval 绑定的旧基线已被六部 readiness 验证器治理修复取代；本次只把同一任务、
-  同一 6 条产品路径和同一验证矩阵重钉到已落地主线 `54c87e620...`，不扩大产品范围。
+- 基线恢复：前次 reapproval `61971de5c...` 已被六部 readiness provenance 前向修复链
+  `c8c146f6c... -> 928337533...` 取代；本次只把同一任务、同一 6 条产品路径和同一验证矩阵
+  重钉到已落地主线 `928337533...`，不扩大产品范围。
 - 问题：当前业务代码直接依赖 LangGraph 与 `app.langgraph_runtime`，旧无 LangGraph 分支又不是
   相同业务底盘；没有中立合同和同源案例，无法公平并行开发或比较两个编排器。
 - 目标用户：维护朝堂 OS 的产品 Owner、后端实现者和验收者。
@@ -41,8 +42,8 @@ Ready
 
 ## Delivery Constraints
 
-- Base：`54c87e620e4157ba05ad10f92bab0f0737538c32`
-- Base tree：`f34359f258f337013843fcbc8b6d51951f0bf66c`
+- Base：`9283375334fa22a0396a5f7f976a296eba5c559f`
+- Base tree：`995a615426bcbe457f2553e6f209ec6875810a70`
 - 范围：只允许修改 `Affected Modules` 中列出的 6 个产品路径。
 - 兼容性：现有 `/study`、下旨、DecreeJob、军机处、46 RuntimeSkills、Evidence Spine、成果、确认、
   史馆和前端行为必须字节级不受本任务接线影响；本任务没有运行时接线。

@@ -7,8 +7,8 @@
     "targetBranch": "ext-dev"
   },
   "request": {
-    "baseCommit": "54c87e620e4157ba05ad10f92bab0f0737538c32",
-    "baseTree": "f34359f258f337013843fcbc8b6d51951f0bf66c",
+    "baseCommit": "9283375334fa22a0396a5f7f976a296eba5c559f",
+    "baseTree": "995a615426bcbe457f2553e6f209ec6875810a70",
     "approvalPath": ".harness/approvals/DUAL-ORCHESTRATION-CONTRACT-V1-20260816.json",
     "approvalCommitPaths": [
       ".harness/approvals/DUAL-ORCHESTRATION-CONTRACT-V1-20260816.json",
