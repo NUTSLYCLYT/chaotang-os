@@ -1,0 +1,90 @@
+{
+  "schemaVersion": "product-authority.m0.approval.v1",
+  "authorityId": "product-authority.m0.v1",
+  "taskId": "DUAL-ORCHESTRATION-CONTRACT-V1-CORRECTIVE-20260817",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "1648687933058eee8611c4810561173d8fef1e24",
+    "baseTree": "954f274cc3f2da3cccaf2c3d97775df6ae0e6eb8",
+    "approvalPath": ".harness/approvals/DUAL-ORCHESTRATION-CONTRACT-V1-CORRECTIVE-20260817.json",
+    "approvalCommitPaths": [
+      ".harness/approvals/DUAL-ORCHESTRATION-CONTRACT-V1-CORRECTIVE-20260817.json",
+      "docs/product/tasks/2026-08-17-dual-orchestration-contract-v1-corrective.md",
+      "docs/superpowers/plans/2026-08-17-dual-orchestration-contract-v1-corrective.md"
+    ],
+    "productPaths": [
+      "backend/app/orchestration/contracts.py",
+      "backend/tests/test_orchestration_contracts.py"
+    ]
+  },
+  "nonGoals": [
+    "ADR_0028_CHANGE",
+    "API_BEHAVIOR_CHANGE",
+    "BUSINESS_LOGIC_CHANGE",
+    "DATABASE_MIGRATION",
+    "DIRECT_ADAPTER_IMPLEMENTATION",
+    "EXTERNAL_NETWORK",
+    "FRONTEND_CHANGE",
+    "HARNESS_CHANGE",
+    "LANGGRAPH_ADAPTER_IMPLEMENTATION",
+    "MERGE_SQUASH_FORCE",
+    "OTHER_PRODUCT_PATHS",
+    "PRODUCTION_DEPLOYMENT",
+    "PROVIDER_CALLS",
+    "RUNTIME_WIRING"
+  ],
+  "verification": [
+    {
+      "id": "backend-full-pytest",
+      "tool": "python3",
+      "args": ["-m", "pytest", "-q"],
+      "cwd": "backend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "backend-ruff",
+      "tool": "python3",
+      "args": [
+        "-m",
+        "ruff",
+        "check",
+        "app/orchestration",
+        "tests/test_orchestration_comparison_cases.py",
+        "tests/test_orchestration_contracts.py"
+      ],
+      "cwd": "backend",
+      "timeoutMs": 120000
+    },
+    {
+      "id": "contract-pytest",
+      "tool": "python3",
+      "args": [
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_orchestration_contracts.py",
+        "tests/test_orchestration_comparison_cases.py"
+      ],
+      "cwd": "backend",
+      "timeoutMs": 120000
+    },
+    {
+      "id": "product-authority-regression",
+      "tool": "node",
+      "args": ["--test", "scripts/product-authority.test.mjs"],
+      "cwd": ".",
+      "timeoutMs": 120000
+    },
+    {
+      "id": "root-harness",
+      "tool": "node",
+      "args": ["scripts/check_harness.mjs"],
+      "cwd": ".",
+      "timeoutMs": 120000
+    }
+  ],
+  "state": "APPROVED_FOR_ONE_CHILD"
+}
