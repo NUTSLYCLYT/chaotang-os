@@ -13,6 +13,18 @@ _ROOT = Path(__file__).resolve().parents[2]
 _REPORT = _ROOT / "docs/migrations/2026-08-14-six-ministry-runtime-readiness.json"
 _MATRIX = _ROOT / "docs/migrations/2026-08-14-six-ministry-capability-family-matrix.json"
 _SCHEMA = _ROOT / "docs/contracts/six-ministry-runtime-readiness.schema.json"
+_HISTORICAL_REVIEWED_FINGERPRINT = (
+    "sha256:a6c2de2ca7f15069a6d997ce2cccb9498ddd4dd1269d539c192993e85a265190"
+)
+_CURRENT_CONTENT_FINGERPRINT = (
+    "sha256:6f4158f5c03fdd898a37377dee21f1c47dee2bca40b0adbd9d16fa031a43196c"
+)
+_CURRENT_CONTENT_EXCLUSIONS = (
+    "backend/tests/test_six_ministry_readiness_report.py",
+    "scripts/check_harness.mjs",
+)
+_HISTORICAL_FILE_COUNT = 69
+_CURRENT_FILE_COUNT = 67
 
 
 def test_readiness_report_satisfies_a_closed_json_schema() -> None:
@@ -52,23 +64,43 @@ def test_readiness_report_covers_every_family_and_is_honest_about_authority() ->
 def test_readiness_evidence_is_bound_to_current_implementation() -> None:
     report = json.loads(_REPORT.read_text(encoding="utf-8"))
     implementation = report["implementationEvidence"]
+    files = implementation["files"]
     digest = hashlib.sha256()
 
-    assert implementation["files"] == sorted(implementation["files"])
-    for relative_path in implementation["files"]:
+    assert files == sorted(files)
+    assert len(files) == len(set(files)) == _HISTORICAL_FILE_COUNT
+    assert all(files.count(relative_path) == 1 for relative_path in _CURRENT_CONTENT_EXCLUSIONS)
+
+    current_content_files = [
+        relative_path
+        for relative_path in files
+        if relative_path not in _CURRENT_CONTENT_EXCLUSIONS
+    ]
+    assert len(current_content_files) == _CURRENT_FILE_COUNT
+
+    for relative_path in files:
         path = _ROOT / relative_path
         assert path.is_file()
+    for relative_path in current_content_files:
+        path = _ROOT / relative_path
         digest.update(relative_path.encode("utf-8"))
         digest.update(b"\0")
         digest.update(path.read_bytes())
         digest.update(b"\0")
 
     current = f"sha256:{digest.hexdigest()}"
-    assert implementation["fingerprint"] == current
-    assert report["validationEvidence"]["implementationFingerprint"] == current
+    assert current == _CURRENT_CONTENT_FINGERPRINT
+    assert implementation["fingerprint"] == _HISTORICAL_REVIEWED_FINGERPRINT
+    assert (
+        report["validationEvidence"]["implementationFingerprint"]
+        == _HISTORICAL_REVIEWED_FINGERPRINT
+    )
     reviews = report["validationEvidence"]["independentReviews"]
     if reviews["status"] in {"approved", "approved-with-notes"}:
-        assert reviews["reviewedImplementationFingerprint"] == current
+        assert (
+            reviews["reviewedImplementationFingerprint"]
+            == _HISTORICAL_REVIEWED_FINGERPRINT
+        )
 
 
 def test_readiness_lists_only_the_six_server_owned_resolver_boundaries() -> None:

@@ -349,16 +349,45 @@ const SIX_MINISTRY_TRUSTED_SPINE_FILES = [
   "scripts/six_ministry_evidence_spine_contract.test.mjs",
 ].sort();
 
-// The 2026-08-14 review fingerprint included this checker itself. A checker
-// cannot safely attest its own future bytes, so G1 preserves the immutable
-// historical review fingerprint while independently pinning every runtime,
-// resolver, contract and regression file that review covered.
+// The 2026-08-14 review fingerprint included both readiness validators. A
+// validator cannot safely attest its own future bytes, so G1 preserves the
+// immutable historical review fingerprint while independently pinning every
+// non-validator runtime, resolver, contract and regression file that review
+// covered. Both validators remain mandatory members of the historical list.
 const SIX_MINISTRY_REVIEWED_IMPLEMENTATION_FINGERPRINT = "sha256:a6c2de2ca7f15069a6d997ce2cccb9498ddd4dd1269d539c192993e85a265190";
-const SIX_MINISTRY_RUNTIME_CONTENT_FILES = SIX_MINISTRY_TRUSTED_SPINE_FILES
-  .filter((relativePath) => relativePath !== "scripts/check_harness.mjs");
-const SIX_MINISTRY_RUNTIME_CONTENT_FINGERPRINT = "sha256:fe726df35cd1f37fa9caf4db43b81eda54d5ba601876d15acc96b3fc562c6dab";
+const SIX_MINISTRY_RUNTIME_CONTENT_EXCLUSIONS = Object.freeze([
+  "backend/tests/test_six_ministry_readiness_report.py",
+  "scripts/check_harness.mjs",
+]);
+const SIX_MINISTRY_HISTORICAL_FILE_COUNT = 69;
+const SIX_MINISTRY_RUNTIME_CONTENT_FILE_COUNT = 67;
+const SIX_MINISTRY_RUNTIME_CONTENT_FINGERPRINT = "sha256:6f4158f5c03fdd898a37377dee21f1c47dee2bca40b0adbd9d16fa031a43196c";
 const SIX_MINISTRY_REVIEWED_HARNESS_BASELINE_FILES = 133;
 const SIX_MINISTRY_REVIEWED_HARNESS_SELF_TESTS = 167;
+
+function sixMinistryRuntimeContentFiles(reviewedFiles, exclusions = SIX_MINISTRY_RUNTIME_CONTENT_EXCLUSIONS) {
+  if (
+    !Array.isArray(reviewedFiles)
+    || reviewedFiles.length !== SIX_MINISTRY_HISTORICAL_FILE_COUNT
+    || new Set(reviewedFiles).size !== SIX_MINISTRY_HISTORICAL_FILE_COUNT
+    || JSON.stringify(reviewedFiles) !== JSON.stringify([...reviewedFiles].sort())
+    || JSON.stringify(exclusions) !== JSON.stringify(SIX_MINISTRY_RUNTIME_CONTENT_EXCLUSIONS)
+    || exclusions.some((relativePath) => reviewedFiles.filter((item) => item === relativePath).length !== 1)
+  ) throw new Error("invalid six-ministry runtime-content boundary");
+
+  const runtimeContentFiles = reviewedFiles.filter(
+    (relativePath) => !exclusions.includes(relativePath),
+  );
+  if (
+    runtimeContentFiles.length !== SIX_MINISTRY_RUNTIME_CONTENT_FILE_COUNT
+    || new Set(runtimeContentFiles).size !== SIX_MINISTRY_RUNTIME_CONTENT_FILE_COUNT
+  ) throw new Error("invalid six-ministry runtime-content file count");
+  return Object.freeze(runtimeContentFiles);
+}
+
+const SIX_MINISTRY_RUNTIME_CONTENT_FILES = sixMinistryRuntimeContentFiles(
+  SIX_MINISTRY_TRUSTED_SPINE_FILES,
+);
 
 function sixMinistryImplementationFingerprint(root, files = SIX_MINISTRY_TRUSTED_SPINE_FILES) {
   const digest = createHash("sha256");
@@ -2394,6 +2423,29 @@ Escalation: name observable evidence
     [
       "启用六部能力蒸馏静态守卫",
       STATIC_POLICY_GUARDS.some((guard) => guard.name === "six-ministry-capability-distillation"),
+      true,
+    ],
+    [
+      "六部 Runtime 当前内容边界固定排除恰好两个验证器",
+      (() => {
+        const invalidExclusionSets = [
+          SIX_MINISTRY_RUNTIME_CONTENT_EXCLUSIONS.slice(1),
+          [...SIX_MINISTRY_RUNTIME_CONTENT_EXCLUSIONS, "backend/app/api/decrees.py"],
+        ];
+        const rejectsBoundaryChanges = invalidExclusionSets.every((exclusions) => {
+          try {
+            sixMinistryRuntimeContentFiles(SIX_MINISTRY_TRUSTED_SPINE_FILES, exclusions);
+            return false;
+          } catch {
+            return true;
+          }
+        });
+        return rejectsBoundaryChanges
+          && SIX_MINISTRY_RUNTIME_CONTENT_FILES.length === SIX_MINISTRY_RUNTIME_CONTENT_FILE_COUNT
+          && SIX_MINISTRY_RUNTIME_CONTENT_EXCLUSIONS.every(
+            (relativePath) => !SIX_MINISTRY_RUNTIME_CONTENT_FILES.includes(relativePath),
+          );
+      })(),
       true,
     ],
     [
