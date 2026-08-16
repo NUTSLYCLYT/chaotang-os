@@ -355,6 +355,7 @@ const SIX_MINISTRY_TRUSTED_SPINE_FILES = [
 // non-validator runtime, resolver, contract and regression file that review
 // covered. Both validators remain mandatory members of the historical list.
 const SIX_MINISTRY_REVIEWED_IMPLEMENTATION_FINGERPRINT = "sha256:a6c2de2ca7f15069a6d997ce2cccb9498ddd4dd1269d539c192993e85a265190";
+const SIX_MINISTRY_REVIEW_STATUS = "approved-with-notes";
 const SIX_MINISTRY_RUNTIME_CONTENT_EXCLUSIONS = Object.freeze([
   "backend/tests/test_six_ministry_readiness_report.py",
   "scripts/check_harness.mjs",
@@ -492,7 +493,7 @@ function sixMinistryRuntimeReadinessErrors({ readiness, familyMatrix, runtimePro
     && evidence?.harness?.baselineFiles === SIX_MINISTRY_REVIEWED_HARNESS_BASELINE_FILES
     && evidence?.harness?.selfTests === SIX_MINISTRY_REVIEWED_HARNESS_SELF_TESTS
     && exactKeys(reviews, expectedReviewKeys)
-    && ["approved", "approved-with-notes"].includes(reviews?.status)
+    && reviews?.status === SIX_MINISTRY_REVIEW_STATUS
     && reviews?.reviewedImplementationFingerprint === SIX_MINISTRY_REVIEWED_IMPLEMENTATION_FINGERPRINT
     && reviews?.p0 === 0
     && reviews?.p1 === 0
@@ -2494,6 +2495,25 @@ Escalation: name observable evidence
             independentReviews: {
               ...sixMinistryRuntimeReadinessFixture.validationEvidence.independentReviews,
               reviewedImplementationFingerprint: `sha256:${"0".repeat(64)}`,
+            },
+          },
+        },
+        familyMatrix: sixMinistryFamilyMatrixFixture,
+        runtimeProjection: sixMinistryRuntimeProjectionFixture,
+        root: selfTestRoot,
+      }).length > 0,
+      true,
+    ],
+    [
+      "六部 Runtime 就绪门禁拒绝历史复审状态抬升",
+      sixMinistryRuntimeReadinessErrors({
+        readiness: {
+          ...sixMinistryRuntimeReadinessFixture,
+          validationEvidence: {
+            ...sixMinistryRuntimeReadinessFixture.validationEvidence,
+            independentReviews: {
+              ...sixMinistryRuntimeReadinessFixture.validationEvidence.independentReviews,
+              status: "approved",
             },
           },
         },

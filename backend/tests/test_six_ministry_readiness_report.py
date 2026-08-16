@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from pathlib import Path
 
 import jsonschema
+import pytest
 
 from app.agents.runtime_skills.family_runtime import load_capability_family_bindings
 from app.agents.runtime_skills.registry import build_default_downstream_skill_registry
@@ -13,6 +15,7 @@ _ROOT = Path(__file__).resolve().parents[2]
 _REPORT = _ROOT / "docs/migrations/2026-08-14-six-ministry-runtime-readiness.json"
 _MATRIX = _ROOT / "docs/migrations/2026-08-14-six-ministry-capability-family-matrix.json"
 _SCHEMA = _ROOT / "docs/contracts/six-ministry-runtime-readiness.schema.json"
+_HARNESS = _ROOT / "scripts/check_harness.mjs"
 _HISTORICAL_REVIEWED_FINGERPRINT = (
     "sha256:a6c2de2ca7f15069a6d997ce2cccb9498ddd4dd1269d539c192993e85a265190"
 )
@@ -23,8 +26,59 @@ _CURRENT_CONTENT_EXCLUSIONS = (
     "backend/tests/test_six_ministry_readiness_report.py",
     "scripts/check_harness.mjs",
 )
+_HISTORICAL_REVIEW_STATUS = "approved-with-notes"
 _HISTORICAL_FILE_COUNT = 69
 _CURRENT_FILE_COUNT = 67
+
+
+def _assert_historical_review_identity(reviews: dict[str, object]) -> None:
+    assert reviews["status"] == _HISTORICAL_REVIEW_STATUS
+    assert reviews["reviewedImplementationFingerprint"] == (
+        _HISTORICAL_REVIEWED_FINGERPRINT
+    )
+
+
+def _read_harness_json_constant(source: str, name: str) -> object:
+    match = re.search(
+        rf"^const {re.escape(name)} = (?P<literal>.+);$",
+        source,
+        flags=re.MULTILINE,
+    )
+    assert match is not None
+    return json.loads(match.group("literal"))
+
+
+def _read_harness_exclusions(source: str) -> tuple[str, ...]:
+    match = re.search(
+        r"^const SIX_MINISTRY_RUNTIME_CONTENT_EXCLUSIONS = Object\.freeze\(\[\n"
+        r"(?P<items>(?:  \"[^\"\n]+\",\n)+)"
+        r"\]\);$",
+        source,
+        flags=re.MULTILINE,
+    )
+    assert match is not None
+    return tuple(
+        json.loads(line.strip().removesuffix(","))
+        for line in match.group("items").splitlines()
+    )
+
+
+@pytest.mark.parametrize(
+    "review_drift",
+    [
+        {"status": "changes-requested", "reviewedImplementationFingerprint": None},
+        {"status": "approved"},
+        {"status": "approved-with-notes", "reviewedImplementationFingerprint": None},
+    ],
+)
+def test_historical_review_identity_fails_closed_on_provenance_drift(
+    review_drift: dict[str, object],
+) -> None:
+    report = json.loads(_REPORT.read_text(encoding="utf-8"))
+    reviews = {**report["validationEvidence"]["independentReviews"], **review_drift}
+
+    with pytest.raises(AssertionError):
+        _assert_historical_review_identity(reviews)
 
 
 def test_readiness_report_satisfies_a_closed_json_schema() -> None:
@@ -96,11 +150,37 @@ def test_readiness_evidence_is_bound_to_current_implementation() -> None:
         == _HISTORICAL_REVIEWED_FINGERPRINT
     )
     reviews = report["validationEvidence"]["independentReviews"]
-    if reviews["status"] in {"approved", "approved-with-notes"}:
-        assert (
-            reviews["reviewedImplementationFingerprint"]
-            == _HISTORICAL_REVIEWED_FINGERPRINT
+    _assert_historical_review_identity(reviews)
+
+
+def test_python_and_harness_validators_share_the_exact_content_policy() -> None:
+    source = _HARNESS.read_text(encoding="utf-8")
+
+    assert _read_harness_exclusions(source) == _CURRENT_CONTENT_EXCLUSIONS
+    assert (
+        _read_harness_json_constant(source, "SIX_MINISTRY_REVIEW_STATUS")
+        == _HISTORICAL_REVIEW_STATUS
+    )
+    assert (
+        _read_harness_json_constant(
+            source, "SIX_MINISTRY_REVIEWED_IMPLEMENTATION_FINGERPRINT"
         )
+        == _HISTORICAL_REVIEWED_FINGERPRINT
+    )
+    assert (
+        _read_harness_json_constant(source, "SIX_MINISTRY_HISTORICAL_FILE_COUNT")
+        == _HISTORICAL_FILE_COUNT
+    )
+    assert (
+        _read_harness_json_constant(source, "SIX_MINISTRY_RUNTIME_CONTENT_FILE_COUNT")
+        == _CURRENT_FILE_COUNT
+    )
+    assert (
+        _read_harness_json_constant(
+            source, "SIX_MINISTRY_RUNTIME_CONTENT_FINGERPRINT"
+        )
+        == _CURRENT_CONTENT_FINGERPRINT
+    )
 
 
 def test_readiness_lists_only_the_six_server_owned_resolver_boundaries() -> None:
