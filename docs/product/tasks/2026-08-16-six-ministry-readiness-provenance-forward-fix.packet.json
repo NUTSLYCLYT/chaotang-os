@@ -1,0 +1,116 @@
+{
+  "schemaVersion": "governance-repair.packet.v1",
+  "taskId": "SIX-MINISTRY-READINESS-PROVENANCE-FORWARD-FIX-20260816",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "61971de5c2375be20462372582d8465c6e789a26",
+    "baseTree": "0f83ce146163588d1a820fe2a74b2e3d460bf813",
+    "approvalCommitPaths": [
+      "docs/product/tasks/2026-08-16-six-ministry-readiness-provenance-forward-fix.md",
+      "docs/product/tasks/2026-08-16-six-ministry-readiness-provenance-forward-fix.packet.json",
+      "docs/superpowers/plans/2026-08-16-six-ministry-readiness-provenance-forward-fix.md"
+    ],
+    "candidatePaths": [
+      "backend/tests/test_six_ministry_readiness_report.py",
+      "scripts/check_harness.mjs"
+    ]
+  },
+  "policy": {
+    "commitProtocol": "EXACT_SINGLE_PARENT_AND_PATHS_OWNER_CONFIRMED",
+    "forwardOnly": true,
+    "forcePushAllowed": false,
+    "historicalFileCount": 69,
+    "historicalReviewStatus": "approved-with-notes",
+    "historicalReviewedFingerprint": "sha256:a6c2de2ca7f15069a6d997ce2cccb9498ddd4dd1269d539c192993e85a265190",
+    "currentFileCount": 67,
+    "currentContentFingerprint": "sha256:6f4158f5c03fdd898a37377dee21f1c47dee2bca40b0adbd9d16fa031a43196c",
+    "excludedValidators": [
+      "backend/tests/test_six_ministry_readiness_report.py",
+      "scripts/check_harness.mjs"
+    ]
+  },
+  "nonGoals": [
+    "ADR_0028_CHANGE",
+    "API_BEHAVIOR_CHANGE",
+    "BUSINESS_LOGIC_CHANGE",
+    "DATABASE_MIGRATION",
+    "EXTERNAL_NETWORK",
+    "FORCE_PUSH_OR_HISTORY_REWRITE",
+    "FRONTEND_CHANGE",
+    "PRODUCTION_DEPLOYMENT",
+    "PROVIDER_CALLS",
+    "READINESS_REPORT_CHANGE",
+    "READINESS_SCHEMA_CHANGE",
+    "REVIEW_FINGERPRINT_CHANGE",
+    "RUNTIME_SKILL_CHANGE"
+  ],
+  "verification": [
+    {
+      "id": "backend-full-pytest",
+      "tool": "python3",
+      "args": ["-m", "pytest", "-q"],
+      "cwd": "backend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "harness-doctor-check",
+      "tool": "node",
+      "args": ["scripts/harness-doctor.mjs", "--check"],
+      "cwd": ".",
+      "timeoutMs": 120000
+    },
+    {
+      "id": "harness-doctor-tests",
+      "tool": "node",
+      "args": ["--test", "scripts/harness-doctor.test.mjs"],
+      "cwd": ".",
+      "timeoutMs": 120000
+    },
+    {
+      "id": "harness-hook-self-test",
+      "tool": "node",
+      "args": [".agents/hooks/check-harness.mjs", "--self-test"],
+      "cwd": ".",
+      "timeoutMs": 120000
+    },
+    {
+      "id": "product-authority-regression",
+      "tool": "node",
+      "args": ["--test", "scripts/product-authority.test.mjs"],
+      "cwd": ".",
+      "timeoutMs": 120000
+    },
+    {
+      "id": "product-flow-self-test",
+      "tool": "node",
+      "args": [".agents/skills/product-flow/scripts/run-claude-delivery.mjs", "--self-test"],
+      "cwd": ".",
+      "timeoutMs": 120000
+    },
+    {
+      "id": "readiness-report-pytest",
+      "tool": "python3",
+      "args": ["-m", "pytest", "-q", "tests/test_six_ministry_readiness_report.py"],
+      "cwd": "backend",
+      "timeoutMs": 120000
+    },
+    {
+      "id": "root-harness",
+      "tool": "node",
+      "args": ["scripts/check_harness.mjs"],
+      "cwd": ".",
+      "timeoutMs": 120000
+    },
+    {
+      "id": "root-harness-self-test",
+      "tool": "node",
+      "args": ["scripts/check_harness.mjs", "--self-test"],
+      "cwd": ".",
+      "timeoutMs": 120000
+    }
+  ],
+  "state": "READY_FOR_OWNER_CONFIRMATION"
+}
