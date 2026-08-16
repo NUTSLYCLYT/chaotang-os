@@ -27,5 +27,13 @@
     "decision": "STOP",
     "canExecuteProductWork": false
   },
+  "productAuthority": {
+    "namespace": "product-authority.m0.v1",
+    "status": "CONSUMER_AVAILABLE",
+    "consumer": "scripts/product-authority.mjs",
+    "approvalSchema": ".harness/contracts/product-approval.schema.json",
+    "decision": "STOP",
+    "canExecuteProductWork": false
+  },
   "governanceGrantState": "EXTERNAL_NOT_CONSUMED"
 }

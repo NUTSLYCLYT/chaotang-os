@@ -16,6 +16,9 @@
 - Frontend Harness：`ABSENT`。
 - Backend Harness：`PARTIAL`。
 - Product authority：`STOP / canExecuteProductWork=false`。
+- M0 consumer：`CONSUMER_AVAILABLE`；无 task 参数的默认决定：`STOP`。
 
 `node scripts/harness-doctor.mjs --check` 只证明结构一致；`--status` 只报告观察态；`--ready`
-固定返回 `NOT_READY`。任何后续 G2、M0 或产品工作均须新的 exact task 和 Owner 批准。
+固定返回 `NOT_READY`。M0 consumer 只机械核验先落地的 approval commit 和其单亲子候选；Owner
+仍须分别确认 manifest digest、candidate SHA/tree 与 Git 外部动作。Deferred G2 不是产品前置；
+G2 与产品任务如被选择，仍各自使用独立 exact task。

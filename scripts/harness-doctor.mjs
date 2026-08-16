@@ -11,7 +11,8 @@ const RESULT_SCHEMA = "ext-project-harness.result.v1";
 const MANIFEST_RELATIVE_PATH = ".harness/manifest/project-harness.json";
 const SCHEMA_RELATIVE_PATH = ".harness/contracts/project-harness.schema.json";
 const AUTHORITY_RELATIVE_PATH = "scripts/execution_authority_ext.mjs";
-const EXPECTED_SCHEMA_DIGEST = "sha256:93df322b0ddced6f1da8a3e9cacc12f374a0458f73ffe8d67e5471e7761c3d9b";
+const EXPECTED_SCHEMA_DIGEST = "sha256:ee6d32ba167c77af125b07027439389e46fbafa21148331a1ecc6360b183f81d";
+const PRODUCT_AUTHORITY_RELATIVE_PATH = "scripts/product-authority.mjs";
 
 export const EXPECTED_MANIFEST = Object.freeze({
   schemaVersion: "ext-project-harness.v1",
@@ -39,6 +40,14 @@ export const EXPECTED_MANIFEST = Object.freeze({
   }),
   observedAuthority: Object.freeze({
     namespace: "execution-authority.ext.v1",
+    decision: "STOP",
+    canExecuteProductWork: false,
+  }),
+  productAuthority: Object.freeze({
+    namespace: "product-authority.m0.v1",
+    status: "CONSUMER_AVAILABLE",
+    consumer: PRODUCT_AUTHORITY_RELATIVE_PATH,
+    approvalSchema: ".harness/contracts/product-approval.schema.json",
     decision: "STOP",
     canExecuteProductWork: false,
   }),
@@ -74,9 +83,26 @@ export function parseProjectHarnessText(text) {
 
 export function validateProjectHarnessManifest(manifest) {
   const errors = [];
-  const topFields = ["schemaVersion", "status", "root", "frontend", "backend", "observedAuthority", "governanceGrantState"];
+  const topFields = [
+    "schemaVersion",
+    "status",
+    "root",
+    "frontend",
+    "backend",
+    "observedAuthority",
+    "productAuthority",
+    "governanceGrantState",
+  ];
   const layerFields = ["status", "entrypoint", "harnessRoot", "manifest", "doctor"];
   const authorityFields = ["namespace", "decision", "canExecuteProductWork"];
+  const productAuthorityFields = [
+    "namespace",
+    "status",
+    "consumer",
+    "approvalSchema",
+    "decision",
+    "canExecuteProductWork",
+  ];
 
   if (!hasExactFields(manifest, topFields)) add(errors, "MANIFEST_FIELDS_INVALID");
   if (manifest?.schemaVersion !== EXPECTED_MANIFEST.schemaVersion) add(errors, "MANIFEST_SCHEMA_VERSION_INVALID");
@@ -95,12 +121,17 @@ export function validateProjectHarnessManifest(manifest) {
     || !sameScalarFields(manifest?.observedAuthority, EXPECTED_MANIFEST.observedAuthority)) {
     add(errors, "AUTHORITY_PROJECTION_INVALID");
   }
+  if (!hasExactFields(manifest?.productAuthority, productAuthorityFields)
+    || !sameScalarFields(manifest?.productAuthority, EXPECTED_MANIFEST.productAuthority)) {
+    add(errors, "PRODUCT_AUTHORITY_PROJECTION_INVALID");
+  }
   if (manifest?.governanceGrantState !== "EXTERNAL_NOT_CONSUMED") add(errors, "GOVERNANCE_GRANT_STATE_INVALID");
 
   const repositoryPaths = ["root", "frontend", "backend"].flatMap((layer) => {
     const value = manifest?.[layer];
     return [value?.entrypoint, value?.harnessRoot, value?.manifest, value?.doctor].filter((entry) => entry !== null && entry !== undefined);
   });
+  repositoryPaths.push(manifest?.productAuthority?.consumer, manifest?.productAuthority?.approvalSchema);
   if (repositoryPaths.some((entry) => !isSafeRepositoryPath(entry))) add(errors, "MANIFEST_PATH_INVALID");
   const normalized = repositoryPaths.map((entry) => entry.toLowerCase());
   if (new Set(normalized).size !== normalized.length) add(errors, "MANIFEST_PATHS_NOT_UNIQUE");
@@ -144,6 +175,8 @@ export function validateProjectHarnessDisk(rootDir, manifest) {
     manifest.root.doctor,
     manifest.frontend.entrypoint,
     manifest.backend.entrypoint,
+    manifest.productAuthority.consumer,
+    manifest.productAuthority.approvalSchema,
   ];
   if (exactFiles.some((entry) => pathKind(rootDir, entry) !== "file")) add(errors, "REQUIRED_FILE_DRIFT");
   if (pathKind(rootDir, manifest.root.harnessRoot) !== "directory") add(errors, "ROOT_HARNESS_DRIFT");
@@ -201,6 +234,12 @@ export function validateProjectHarnessSchema(schema) {
     [["properties", "observedAuthority", "properties", "namespace", "const"], "execution-authority.ext.v1"],
     [["properties", "observedAuthority", "properties", "decision", "const"], "STOP"],
     [["properties", "observedAuthority", "properties", "canExecuteProductWork", "const"], false],
+    [["properties", "productAuthority", "properties", "namespace", "const"], "product-authority.m0.v1"],
+    [["properties", "productAuthority", "properties", "status", "const"], "CONSUMER_AVAILABLE"],
+    [["properties", "productAuthority", "properties", "consumer", "const"], PRODUCT_AUTHORITY_RELATIVE_PATH],
+    [["properties", "productAuthority", "properties", "approvalSchema", "const"], ".harness/contracts/product-approval.schema.json"],
+    [["properties", "productAuthority", "properties", "decision", "const"], "STOP"],
+    [["properties", "productAuthority", "properties", "canExecuteProductWork", "const"], false],
     [["properties", "governanceGrantState", "const"], "EXTERNAL_NOT_CONSUMED"],
   ];
   const valueAt = (keys) => keys.reduce((value, key) => value?.[key], schema);
@@ -244,6 +283,51 @@ export async function observeExtAuthority(rootDir) {
   return authority;
 }
 
+export async function observeProductAuthority(rootDir) {
+  if (pathKind(rootDir, PRODUCT_AUTHORITY_RELATIVE_PATH) !== "file") {
+    throw new Error("PRODUCT_AUTHORITY_FILE_INVALID");
+  }
+  const authorityPath = path.join(rootDir, PRODUCT_AUTHORITY_RELATIVE_PATH);
+  const result = spawnSync(process.execPath, [authorityPath, "--status"], {
+    cwd: rootDir,
+    encoding: "utf8",
+    env: { PATH: process.env.PATH ?? "" },
+    timeout: 5_000,
+  });
+  if (result.error || result.status !== 0 || result.signal || result.stderr) {
+    throw new Error("PRODUCT_AUTHORITY_STATUS_FAILED");
+  }
+  const authority = parseProjectHarnessText(result.stdout.trim());
+  if (!hasExactFields(authority, [
+    "schemaVersion",
+    "authorityId",
+    "command",
+    "taskId",
+    "decision",
+    "canExecuteProductWork",
+    "canAcceptProductCandidate",
+    "approvalDigest",
+    "candidateCommit",
+    "candidateTree",
+    "evidenceDigest",
+    "reason",
+  ]) || authority.schemaVersion !== "product-authority.m0.result.v1"
+    || authority.authorityId !== EXPECTED_MANIFEST.productAuthority.namespace
+    || authority.command !== "status"
+    || authority.taskId !== null
+    || authority.decision !== "STOP"
+    || authority.canExecuteProductWork !== false
+    || authority.canAcceptProductCandidate !== false
+    || authority.approvalDigest !== null
+    || authority.candidateCommit !== null
+    || authority.candidateTree !== null
+    || authority.evidenceDigest !== null
+    || authority.reason !== "APPROVAL_NOT_SELECTED") {
+    throw new Error("PRODUCT_AUTHORITY_OBSERVATION_INVALID");
+  }
+  return authority;
+}
+
 async function inspectRepository(rootDir) {
   const schema = parseProjectHarnessText(readRepositoryFile(rootDir, SCHEMA_RELATIVE_PATH));
   const manifest = parseProjectHarnessText(readRepositoryFile(rootDir, MANIFEST_RELATIVE_PATH));
@@ -254,6 +338,7 @@ async function inspectRepository(rootDir) {
   ];
   if (errors.length) throw new Error(errors.join(","));
   await observeExtAuthority(rootDir);
+  await observeProductAuthority(rootDir);
   return manifest;
 }
 

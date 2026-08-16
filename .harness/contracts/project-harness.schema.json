@@ -11,6 +11,7 @@
     "frontend",
     "backend",
     "observedAuthority",
+    "productAuthority",
     "governanceGrantState"
   ],
   "properties": {
@@ -58,6 +59,26 @@
       "required": ["namespace", "decision", "canExecuteProductWork"],
       "properties": {
         "namespace": { "const": "execution-authority.ext.v1" },
+        "decision": { "const": "STOP" },
+        "canExecuteProductWork": { "const": false }
+      }
+    },
+    "productAuthority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "namespace",
+        "status",
+        "consumer",
+        "approvalSchema",
+        "decision",
+        "canExecuteProductWork"
+      ],
+      "properties": {
+        "namespace": { "const": "product-authority.m0.v1" },
+        "status": { "const": "CONSUMER_AVAILABLE" },
+        "consumer": { "const": "scripts/product-authority.mjs" },
+        "approvalSchema": { "const": ".harness/contracts/product-approval.schema.json" },
         "decision": { "const": "STOP" },
         "canExecuteProductWork": { "const": false }
       }

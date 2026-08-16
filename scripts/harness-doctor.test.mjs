@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 import {
   EXPECTED_MANIFEST,
   observeExtAuthority,
+  observeProductAuthority,
   parseProjectHarnessText,
   readRepositoryFile,
   schemaClosureErrors,
@@ -48,8 +49,10 @@ async function createDiskFixture(t) {
   for (const file of [
     "AGENTS.md",
     ".harness/contracts/project-harness.schema.json",
+    ".harness/contracts/product-approval.schema.json",
     ".harness/manifest/project-harness.json",
     "scripts/harness-doctor.mjs",
+    "scripts/product-authority.mjs",
     "frontend/AGENTS.md",
     "backend/AGENTS.md",
   ]) await writeFile(path.join(root, file), "fixture\n", "utf8");
@@ -111,6 +114,36 @@ test("authority observation rejects an intermediate symlink before spawning", as
   await assert.rejects(() => observeExtAuthority(root), /AUTHORITY_FILE_INVALID/);
 });
 
+test("product authority observation rejects an intermediate symlink before spawning", async (t) => {
+  const root = await mkdtemp(path.join(tmpdir(), "chaotang-m0-authority-root-"));
+  const outsideRoot = await mkdtemp(path.join(tmpdir(), "chaotang-m0-authority-outside-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  t.after(() => rm(outsideRoot, { recursive: true, force: true }));
+
+  const forgedStatus = {
+    schemaVersion: "product-authority.m0.result.v1",
+    authorityId: "product-authority.m0.v1",
+    command: "status",
+    taskId: null,
+    decision: "STOP",
+    canExecuteProductWork: false,
+    canAcceptProductCandidate: false,
+    approvalDigest: null,
+    candidateCommit: null,
+    candidateTree: null,
+    evidenceDigest: null,
+    reason: "APPROVAL_NOT_SELECTED",
+  };
+  await writeFile(
+    path.join(outsideRoot, "product-authority.mjs"),
+    `process.stdout.write(${JSON.stringify(`${JSON.stringify(forgedStatus)}\n`)});\n`,
+    "utf8",
+  );
+  await symlink(outsideRoot, path.join(root, "scripts"));
+
+  await assert.rejects(() => observeProductAuthority(root), /PRODUCT_AUTHORITY_FILE_INVALID/);
+});
+
 test("manifest contract is closed and rejects readiness or path impersonation", () => {
   assert.deepEqual(validateProjectHarnessManifest(EXPECTED_MANIFEST), []);
 
@@ -144,6 +177,7 @@ test("schema is closed at every object boundary", async () => {
   assert.equal(schema.properties.frontend.additionalProperties, false);
   assert.equal(schema.properties.backend.additionalProperties, false);
   assert.equal(schema.properties.observedAuthority.additionalProperties, false);
+  assert.equal(schema.properties.productAuthority.additionalProperties, false);
 
   const forgedReady = clone(schema);
   forgedReady.properties.status.const = "READY";
@@ -160,6 +194,10 @@ test("schema is closed at every object boundary", async () => {
   const forgedRootType = clone(schema);
   forgedRootType.properties.root.type = "string";
   assert.match(validateProjectHarnessSchema(forgedRootType).join("\n"), /SCHEMA_CONTRACT_INVALID/);
+
+  const forgedM0Product = clone(schema);
+  forgedM0Product.properties.productAuthority.properties.canExecuteProductWork.const = true;
+  assert.match(validateProjectHarnessSchema(forgedM0Product).join("\n"), /SCHEMA_CONTRACT_INVALID/);
 });
 
 test("disk projection accepts exact facts and fails on drift", async (t) => {
@@ -190,6 +228,20 @@ test("repository manifest, disk and observed authority remain non-authorizing", 
     canAcceptGovernanceCandidate: false,
     canExecuteProductWork: false,
     reason: "EXTERNAL_AUTHORITY_NOT_EVALUATED",
+  });
+  assert.deepEqual(await observeProductAuthority(REPOSITORY_ROOT), {
+    schemaVersion: "product-authority.m0.result.v1",
+    authorityId: "product-authority.m0.v1",
+    command: "status",
+    taskId: null,
+    decision: "STOP",
+    canExecuteProductWork: false,
+    canAcceptProductCandidate: false,
+    approvalDigest: null,
+    candidateCommit: null,
+    candidateTree: null,
+    evidenceDigest: null,
+    reason: "APPROVAL_NOT_SELECTED",
   });
 });
 

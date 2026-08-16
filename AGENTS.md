@@ -11,6 +11,7 @@
 4. 运行 `node scripts/check_harness.mjs` 和 `node scripts/harness-doctor.mjs --check`。
 5. `node scripts/harness-doctor.mjs --status` 只报告 `BOOTSTRAP_OBSERVE`；
    `node scripts/harness-doctor.mjs --ready` 在后续门禁完成前固定 `NOT_READY`。
+6. 产品任务还须运行 `node scripts/product-authority.mjs --status`；无 task 参数时不选择 approval，固定 STOP。
 
 ## 三层边界
 
@@ -24,6 +25,10 @@
 
 - 当前产品 authority 为 `STOP`，`canExecuteProductWork=false`。Harness PASS、文档、聊天、测试或
   `BOOTSTRAP_OBSERVE` 均不能产生产品 GO。
+- `product-authority.m0.v1` 是唯一产品施工 consumer。只有 Owner 已确认 digest 的 approval manifest
+  先以独立提交落地，且 `--authorize --task <exact-id>` 返回 GO，才允许该 manifest 的一次产品施工。
+- 产品候选必须是 approval commit 的精确单亲子，并通过 `--verify-candidate --task <exact-id>`；候选
+  SHA/tree 仍须 Owner 第二次确认，commit/push/merge/deploy 继续分别授权。
 - 任何实质任务先冻结 goal、base/tree、exact paths、non-goals、验收和证明命令；机器门返回 STOP
   时只做获批的治理、事故、证据或只读工作。
 - 行为变更先建立 RED，再做最小 GREEN；同一最终候选按任务合同完成完整验证。
@@ -56,6 +61,7 @@
 
 - `node scripts/check_harness.mjs --self-test`
 - `node --test scripts/harness-doctor.test.mjs`
+- `node --test scripts/product-authority.test.mjs`
 - `node .agents/hooks/check-harness.mjs --self-test`
 - `node .agents/skills/product-flow/scripts/run-claude-delivery.mjs --self-test`
 

@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chaotang-os.local/contracts/product-authority.m0.approval.v1.schema.json",
+  "title": "Chaotang OS M0 solo-owner product approval",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "authorityId",
+    "taskId",
+    "repository",
+    "request",
+    "nonGoals",
+    "verification",
+    "state"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "product-authority.m0.approval.v1" },
+    "authorityId": { "const": "product-authority.m0.v1" },
+    "taskId": { "$ref": "#/$defs/taskId" },
+    "repository": { "$ref": "#/$defs/repository" },
+    "request": { "$ref": "#/$defs/request" },
+    "nonGoals": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 3,
+        "maxLength": 128,
+        "pattern": "^[A-Z][A-Z0-9_]+$"
+      }
+    },
+    "verification": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "items": { "$ref": "#/$defs/verification" }
+    },
+    "state": { "const": "APPROVED_FOR_ONE_CHILD" }
+  },
+  "$defs": {
+    "sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "taskId": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 128,
+      "pattern": "^[A-Z0-9][A-Z0-9._-]+$"
+    },
+    "repoPath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*//)(?!.*[\\u0000-\\u001F\\u007F\\\\*?])[^/]+(?:/[^/]+)*$"
+    },
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["identity", "targetBranch"],
+      "properties": {
+        "identity": { "const": "gitee.com/msxn/chaotang-os" },
+        "targetBranch": { "const": "ext-dev" }
+      }
+    },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["baseCommit", "baseTree", "approvalPath", "approvalCommitPaths", "productPaths"],
+      "properties": {
+        "baseCommit": { "$ref": "#/$defs/sha" },
+        "baseTree": { "$ref": "#/$defs/sha" },
+        "approvalPath": { "$ref": "#/$defs/repoPath" },
+        "approvalCommitPaths": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/repoPath" }
+        },
+        "productPaths": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 128,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/repoPath" }
+        }
+      }
+    },
+    "verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "tool", "args", "cwd", "timeoutMs"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]+$"
+        },
+        "tool": { "enum": ["node", "npm", "python3"] },
+        "args": {
+          "type": "array",
+          "maxItems": 64,
+          "items": { "type": "string", "maxLength": 4096 }
+        },
+        "cwd": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "pattern": "^(?:\\.|(?!/)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*//)(?!.*[\\u0000-\\u001F\\u007F\\\\*?])[^/]+(?:/[^/]+)*)$"
+        },
+        "timeoutMs": { "type": "integer", "minimum": 1000, "maximum": 300000 }
+      }
+    }
+  }
+}

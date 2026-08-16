@@ -11,6 +11,7 @@ import { evaluateCandidateSuite, loadCandidateSuite } from "./capability_eval.mj
 import { buildOfflineShadowReport } from "./capability_shadow.mjs";
 import { stableDigest } from "./capability_eval.mjs";
 import { buildCapabilityFamilyMatrix, buildRuntimeFamilyProjection } from "./capability_family_matrix.mjs";
+import { parseJsonStrict, validateApprovalManifest } from "./product-authority.mjs";
 
 const ROOT_OBSERVATION_KERNEL_REQUIRED_FILES = [
   ".harness/agents/project-owner.md",
@@ -25,8 +26,16 @@ const ROOT_OBSERVATION_KERNEL_REQUIRED_FILES = [
 const ROOT_OBSERVATION_KERNEL_HARNESS_FILES = [
   ".harness/agents/project-owner.md",
   ".harness/contracts/project-harness.schema.json",
+  ".harness/contracts/product-approval.schema.json",
   ".harness/manifest/project-harness.json",
   ".harness/rules/project-boundaries.md",
+];
+const M0_PRODUCT_AUTHORITY_REQUIRED_FILES = [
+  ".harness/contracts/product-approval.schema.json",
+  "scripts/product-authority.mjs",
+  "scripts/product-authority.test.mjs",
+  "docs/product/tasks/2026-08-16-m0-solo-owner-product-authority.md",
+  "docs/superpowers/plans/2026-08-16-m0-solo-owner-product-authority.md",
 ];
 
 const REQUIRED_FILES = [
@@ -49,6 +58,7 @@ const REQUIRED_FILES = [
   "docs/product/tasks/TEMPLATE.md",
   "docs/tooling-compatibility.md",
   ...ROOT_OBSERVATION_KERNEL_REQUIRED_FILES,
+  ...M0_PRODUCT_AUTHORITY_REQUIRED_FILES,
   "docs/decisions/0001-agentic-engineering-baseline.md",
   "docs/decisions/0002-dual-tool-harness-sharing.md",
   "docs/decisions/0003-codex-product-claude-delivery-handoff.md",
@@ -662,12 +672,17 @@ const DECREE_FLOW_POLICY_ENTRIES = [
 const LEGACY_META_HARNESS = ["frontend/.harness"];
 
 export function rootObservationKernelPathErrors(paths) {
-  if (!Array.isArray(paths)
-    || new Set(paths).size !== paths.length
-    || JSON.stringify([...paths].sort()) !== JSON.stringify(ROOT_OBSERVATION_KERNEL_HARNESS_FILES)) {
-    return ["根 observation harness 必须精确保持四个 G1 文件"];
+  if (!Array.isArray(paths) || new Set(paths).size !== paths.length) {
+    return ["根 Harness 路径必须唯一且可枚举"];
   }
-  return [];
+  const sorted = [...paths].sort();
+  const missing = ROOT_OBSERVATION_KERNEL_HARNESS_FILES.filter((entry) => !sorted.includes(entry));
+  const unexpected = sorted.filter((entry) => !ROOT_OBSERVATION_KERNEL_HARNESS_FILES.includes(entry)
+    && !/^\.harness\/approvals\/[A-Z0-9][A-Z0-9._-]{2,127}\.json$/.test(entry));
+  const errors = [];
+  if (missing.length) errors.push(`根 Harness 缺少 M0 静态文件: ${missing.join(", ")}`);
+  if (unexpected.length) errors.push(`根 Harness 含未授权 control-plane 路径: ${unexpected.join(", ")}`);
+  return errors;
 }
 
 function rootObservationKernelDiskPaths(root) {
@@ -1014,7 +1029,7 @@ const normalizeAdaptiveRoutingBody = (value) => value
   .replace(/\r\n?/gu, "\n");
 
 const ADAPTIVE_ROUTING_WHOLE_ENTRY_SHA256 = {
-  agents: "4fafc8ef02400e8bbdf7a586bf58d3b9ae9bdd4518cff2b2f3558055b44dc67e",
+  agents: "323915a436a36631c206cf3a3b4f1ed5ff38cc3c905a36099058ee519d788bed",
   guide: "c9dc6bec7917b4ae1441fa2df9c2b36cbc105d6946102c40d34add2c3194fa18",
   skill: "3a40fd5cfc75f4643b39f57e6471a79b9019a6418e4faf048ee4842a8ad17a06",
   prompt: "fe285fa01758c6f005cce119c6e63eb389f0f9f84a02cc33fee353cfde0d79bd",
@@ -1600,7 +1615,18 @@ export function validateHarness(root) {
   for (const path of LEGACY_META_HARNESS) {
     if (existsSync(join(root, path))) errors.push(`旧 meta-harness 不应继续存在: ${path}`);
   }
-  errors.push(...rootObservationKernelPathErrors(rootObservationKernelDiskPaths(root)));
+  const rootHarnessPaths = rootObservationKernelDiskPaths(root);
+  errors.push(...rootObservationKernelPathErrors(rootHarnessPaths));
+  for (const approvalPath of rootHarnessPaths.filter((entry) => entry.startsWith(".harness/approvals/"))) {
+    try {
+      const approval = validateApprovalManifest(parseJsonStrict(readFileSync(join(root, approvalPath), "utf8")));
+      if (approval.request.approvalPath !== approvalPath) {
+        errors.push(`M0 approval manifest 文件名与 task 不一致: ${approvalPath}`);
+      }
+    } catch (error) {
+      errors.push(`M0 approval manifest 无效: ${approvalPath} (${error?.code ?? "INVALID"})`);
+    }
+  }
 
   for (const path of LEGACY_DUPLICATED_HOOKS) {
     if (existsSync(join(root, path))) {
@@ -1821,6 +1847,10 @@ export function validateHarness(root) {
       "node scripts/harness-doctor.mjs --check",
       "node scripts/harness-doctor.mjs --status",
       "node scripts/harness-doctor.mjs --ready",
+      "node scripts/product-authority.mjs --status",
+      "--authorize --task <exact-id>",
+      "--verify-candidate --task <exact-id>",
+      "product-authority.m0.v1",
       ".harness/agents/project-owner.md",
       ".harness/rules/project-boundaries.md",
       ".harness/manifest/project-harness.json",
@@ -2524,14 +2554,29 @@ Escalation: name observable evidence
       [],
     ],
     [
-      "接受精确四文件 root observation harness",
+      "接受 G1+M0 精确静态 root Harness",
       rootObservationKernelPathErrors(ROOT_OBSERVATION_KERNEL_HARNESS_FILES),
+      [],
+    ],
+    [
+      "接受 closed M0 approval 扩展点",
+      rootObservationKernelPathErrors([
+        ...ROOT_OBSERVATION_KERNEL_HARNESS_FILES,
+        ".harness/approvals/H1-HUBU-RICH-MEMORIAL-20260816.json",
+      ]),
       [],
     ],
     [
       "拒绝 root observation harness 扩展为旧 control plane",
       rootObservationKernelPathErrors([...ROOT_OBSERVATION_KERNEL_HARNESS_FILES, ".harness/wiki/architecture.md"]).length > 0,
       true,
+    ],
+    [
+      "登记 M0 product authority 文件",
+      M0_PRODUCT_AUTHORITY_REQUIRED_FILES
+        .filter((path) => !REQUIRED_FILES.includes(path))
+        .map((path) => `缺少 REQUIRED_FILES 登记: ${path}`),
+      [],
     ],
     [
       "登记确定性证据交付文件",
