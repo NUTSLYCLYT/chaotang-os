@@ -146,6 +146,37 @@ def test_request_contract_is_frozen_closed_and_digest_bound() -> None:
         request.model_copy(update={"decree_text": "tampered decree"})
 
 
+@pytest.mark.parametrize(
+    ("field", "invalid_value"),
+    [
+        ("identity", _identity().model_dump()),
+        ("engine_kind", "DIRECT"),
+        ("departments", ["户部"]),
+        ("steps", list(_plan().steps)),
+    ],
+)
+def test_python_contract_input_rejects_implicit_coercion(field: str, invalid_value: object) -> None:
+    plan = _plan()
+    values = {name: getattr(plan, name) for name in type(plan).model_fields}
+    values[field] = invalid_value
+
+    with pytest.raises(ValidationError):
+        ExecutionPlan.model_validate(values)
+
+
+def test_identity_rejects_bytes_and_json_round_trip_remains_supported() -> None:
+    with pytest.raises(ValidationError):
+        ExecutionIdentity(
+            owner_user_id=b"owner-a",  # type: ignore[arg-type]
+            run_id="run-001",
+            decree_id="decree-001",
+        )
+
+    plan = _plan()
+    assert ExecutionPlan.model_validate_json(plan.model_dump_json()) == plan
+    assert plan.model_copy(update={"engine_version": "1.0.1"}).engine_version == "1.0.1"
+
+
 @pytest.mark.parametrize("invalid_value", [True, "1", -1])
 def test_provider_budget_is_strict_and_safe_copy_revalidates(
     invalid_value: object,
@@ -648,6 +679,16 @@ def test_resume_trace_and_replay_close_cross_object_invariants() -> None:
         ExecutionTrace(request=request, plan=plan, events=terminal_events, result=success).result
         == success
     )
+    with pytest.raises(ValidationError, match="archive_event_step_must_match_result_ready_step"):
+        ExecutionTrace(
+            request=request,
+            plan=plan,
+            events=(
+                *terminal_events[:-1],
+                terminal_events[-1].model_copy(update={"step_id": "finalize"}),
+            ),
+            result=success,
+        )
     with pytest.raises(ValidationError, match="usable_result_requires_adopted_evidence"):
         ExecutionTrace(
             request=request,

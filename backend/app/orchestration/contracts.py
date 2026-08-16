@@ -5,13 +5,26 @@ import json
 import re
 from collections.abc import Mapping
 from enum import StrEnum
-from typing import Any, Self
+from typing import Any, Self, get_args, get_origin
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationInfo,
+    field_validator,
+    model_validator,
+)
 
 _DIGEST_PATTERN = re.compile(r"^sha256:[0-9a-f]{64}$")
 _SEMANTIC_VERSION = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
 _FAILURE_CODE = re.compile(r"^[A-Z][A-Z0-9_]{2,127}$")
+
+
+def _contains_model_type(annotation: Any) -> bool:
+    if isinstance(annotation, type) and issubclass(annotation, BaseModel):
+        return True
+    return any(_contains_model_type(argument) for argument in get_args(annotation))
 
 
 class EngineKind(StrEnum):
@@ -54,7 +67,31 @@ class _FrozenContract(BaseModel):
         frozen=True,
         extra="forbid",
         revalidate_instances="always",
+        strict=True,
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def reject_python_nested_model_coercion(cls, values: Any, info: ValidationInfo) -> Any:
+        if not isinstance(values, Mapping):
+            return values
+        if info.mode == "json":
+            normalized = dict(values)
+            for name, field in cls.model_fields.items():
+                if get_origin(field.annotation) is tuple and isinstance(normalized.get(name), list):
+                    normalized[name] = tuple(normalized[name])
+            return normalized
+        for name, field in cls.model_fields.items():
+            if name not in values or not _contains_model_type(field.annotation):
+                continue
+            value = values[name]
+            if isinstance(value, Mapping) or (
+                get_origin(field.annotation) is tuple
+                and isinstance(value, tuple)
+                and any(isinstance(item, Mapping) for item in value)
+            ):
+                raise ValueError("nested_contract_requires_model_instance")
+        return values
 
     def model_copy(
         self,
@@ -64,7 +101,7 @@ class _FrozenContract(BaseModel):
     ) -> Self:
         """Return a validated copy instead of Pydantic's unchecked update copy."""
 
-        values = self.model_dump(mode="python", round_trip=True)
+        values = {name: getattr(self, name) for name in type(self).model_fields}
         if update:
             values.update(update)
         # Validation rebuilds every nested frozen contract, so both shallow and
@@ -670,16 +707,12 @@ class ExecutionTrace(_FrozenContract):
         }
         if usable:
             adoption_events = [
-                event
-                for event in self.events
-                if event.kind is ExecutionEventKind.EVIDENCE_ADOPTED
+                event for event in self.events if event.kind is ExecutionEventKind.EVIDENCE_ADOPTED
             ]
             if not adoption_events:
                 raise ValueError("usable_result_requires_adopted_evidence")
             adopted_evidence = tuple(
-                evidence_ref
-                for event in adoption_events
-                for evidence_ref in event.evidence_refs
+                evidence_ref for event in adoption_events for evidence_ref in event.evidence_refs
             )
             if len(set(adopted_evidence)) != len(adopted_evidence):
                 raise ValueError("adopted_evidence_must_be_unique")
@@ -687,6 +720,8 @@ class ExecutionTrace(_FrozenContract):
                 raise ValueError("evidence_must_be_adopted_before_result_ready")
             if adopted_evidence != self.result.evidence_refs:
                 raise ValueError("result_evidence_must_match_adopted_evidence")
+            if len(reply_archived) == 1 and reply_archived[0].step_id != result_ready[0].step_id:
+                raise ValueError("archive_event_step_must_match_result_ready_step")
             if (
                 len(reply_archived) != 1
                 or result_ready[0].sequence != len(self.events) - 1
