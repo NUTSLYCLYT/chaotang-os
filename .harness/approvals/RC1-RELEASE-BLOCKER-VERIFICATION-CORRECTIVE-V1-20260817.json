@@ -1,0 +1,164 @@
+{
+  "schemaVersion": "product-authority.m0.approval.v1",
+  "authorityId": "product-authority.m0.v1",
+  "taskId": "RC1-RELEASE-BLOCKER-VERIFICATION-CORRECTIVE-V1-20260817",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "639e8186790877898d2883be58fd41894ea45ea3",
+    "baseTree": "e3c2449dd8b28b09a6694230802df934e6241167",
+    "approvalPath": ".harness/approvals/RC1-RELEASE-BLOCKER-VERIFICATION-CORRECTIVE-V1-20260817.json",
+    "approvalCommitPaths": [
+      ".harness/approvals/RC1-RELEASE-BLOCKER-VERIFICATION-CORRECTIVE-V1-20260817.json",
+      "docs/product/tasks/2026-08-18-rc1-release-blocker-verification-corrective-v1.md",
+      "docs/superpowers/plans/2026-08-18-rc1-release-blocker-verification-corrective-v1.md"
+    ],
+    "productPaths": [
+      "backend/Dockerfile",
+      "backend/app/health.py",
+      "backend/app/operations/__init__.py",
+      "backend/app/operations/sqlite_backup.py",
+      "backend/requirements-runtime.lock",
+      "backend/tests/test_health.py",
+      "backend/tests/test_runtime_lock.py",
+      "backend/tests/test_sqlite_backup.py",
+      "deploy/Caddyfile",
+      "deploy/README.md",
+      "deploy/base-images.env",
+      "deploy/compose.yaml",
+      "deploy/release-manifest.schema.json",
+      "frontend/Dockerfile",
+      "frontend/package-lock.json",
+      "scripts/build_offline_release.mjs",
+      "scripts/build_offline_release.test.mjs",
+      "scripts/check_deployment.mjs",
+      "scripts/check_deployment.test.mjs",
+      "scripts/run_rc1_release_acceptance.mjs",
+      "scripts/run_rc1_release_acceptance.test.mjs",
+      "scripts/verify_offline_release.mjs",
+      "scripts/verify_offline_release.test.mjs"
+    ]
+  },
+  "nonGoals": [
+    "ADR_0028_CHANGE",
+    "BROWSER_AUTOMATION_FRAMEWORK",
+    "BUILD_TIME_EGRESS_WITHOUT_SEPARATE_AUTHORIZATION",
+    "BUSINESS_BEHAVIOR_CHANGE",
+    "BUSINESS_PROVIDER_OR_RUNTIME_NETWORK_ENABLEMENT",
+    "CANDIDATE_SCOPE_EXPANSION",
+    "CI_OR_HARNESS_CHANGE",
+    "DATABASE_SCHEMA_CHANGE",
+    "DIRECT_OR_LANGGRAPH_ORCHESTRATION_CHANGE",
+    "DOMAIN_TLS_OR_PUBLIC_INGRESS",
+    "HEALTH_VERSION_FALLBACK",
+    "INSTALLED_METADATA_BYPASS",
+    "M0_DOCKER_OR_UNTRUSTED_NETWORK_EXECUTION",
+    "NETWORK_DURING_M0_VERIFICATION",
+    "P0_CONTRACT_TRIAGE_IMPLEMENTATION",
+    "PRODUCTION_DATA_WRITE_OR_MIGRATION",
+    "PRODUCTION_DEPLOYMENT_OR_SECRET_INJECTION",
+    "SECOND_RELEASE_OR_BACKUP_SYSTEM"
+  ],
+  "verification": [
+    {
+      "id": "backend-focused",
+      "tool": "python3",
+      "args": [
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_health.py",
+        "tests/test_runtime_lock.py",
+        "tests/test_sqlite_backup.py"
+      ],
+      "cwd": "backend",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "backend-full-installed-shard-1",
+      "tool": "python3",
+      "args": [
+        "-I",
+        "-B",
+        "tests/test_runtime_lock.py",
+        "--installed-pytest-shard",
+        "1/2"
+      ],
+      "cwd": "backend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "backend-full-installed-shard-2",
+      "tool": "python3",
+      "args": [
+        "-I",
+        "-B",
+        "tests/test_runtime_lock.py",
+        "--installed-pytest-shard",
+        "2/2"
+      ],
+      "cwd": "backend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "backend-ruff",
+      "tool": "python3",
+      "args": [
+        "-m",
+        "ruff",
+        "check",
+        "app/health.py",
+        "app/operations/__init__.py",
+        "app/operations/sqlite_backup.py",
+        "tests/test_health.py",
+        "tests/test_runtime_lock.py",
+        "tests/test_sqlite_backup.py"
+      ],
+      "cwd": "backend",
+      "timeoutMs": 120000
+    },
+    {
+      "id": "deployment-check",
+      "tool": "node",
+      "args": ["scripts/check_deployment.mjs"],
+      "cwd": ".",
+      "timeoutMs": 120000
+    },
+    {
+      "id": "deployment-tests",
+      "tool": "node",
+      "args": ["--test", "scripts/check_deployment.test.mjs"],
+      "cwd": ".",
+      "timeoutMs": 120000
+    },
+    {
+      "id": "product-authority-regression",
+      "tool": "node",
+      "args": ["--test", "scripts/product-authority.test.mjs"],
+      "cwd": ".",
+      "timeoutMs": 120000
+    },
+    {
+      "id": "release-tool-tests",
+      "tool": "node",
+      "args": [
+        "--test",
+        "scripts/build_offline_release.test.mjs",
+        "scripts/run_rc1_release_acceptance.test.mjs",
+        "scripts/verify_offline_release.test.mjs"
+      ],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "root-harness",
+      "tool": "node",
+      "args": ["scripts/check_harness.mjs"],
+      "cwd": ".",
+      "timeoutMs": 120000
+    }
+  ],
+  "state": "APPROVED_FOR_ONE_CHILD"
+}
