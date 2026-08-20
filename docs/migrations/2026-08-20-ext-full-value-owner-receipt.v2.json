@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "ext-full-value-owner-receipt.v2",
+  "receiptId": "EXT-FULL-VALUE-CONVERGENCE-V2-OWNER-20260821",
+  "proposalDigest": "sha256:567832800198fc3cbbb7b504da9128c54107534617d088ec55f1a88a439e96a4",
+  "proposalArtifact": {
+    "targetRef": "origin/ext-dev",
+    "proposalPath": "docs/migrations/2026-08-20-ext-full-value-owner-review.v1.json",
+    "receiptPath": "docs/migrations/2026-08-20-ext-full-value-owner-receipt.v2.json",
+    "proposalCommit": "01494975ff9da7c7ac736586109f557cf5ed7751",
+    "proposalTree": "39849336ace40a5eeae8d0e8a54a877d06c78064",
+    "proposalBlob": "a7e5f2e817ba5b31b4c45d74f20c8ab32d3b2428",
+    "proposalFileSha256": "6eb3e8640b484675e5b89071730cd6047cb6338090455a926a17347be3817c35"
+  },
+  "confirmingAuthority": "REPOSITORY_OWNER_VIA_TARGET_HEAD",
+  "decision": "CONFIRM_SEMANTIC_LIST_AS_PROPOSED",
+  "confirmationScope": "SEMANTIC_LIST_ONLY",
+  "unavailableSourceDecisions": [
+    {
+      "reviewUnitId": "unavailable-worktree:ctc-ext-20260812-edf245a7",
+      "decision": "KEEP_BLOCKED",
+      "evidenceRefs": [],
+      "reason": "The missing ctc-ext-20260812 worktree remains blocked and is not treated as inspected content."
+    }
+  ],
+  "overrides": [],
+  "confirmedReviewUnitCount": 823,
+  "ownerStatement": "Confirm the V2 semantic list as proposed, keep ctc-ext-20260812 blocked, and grant no Packet or product authority.",
+  "issuedAt": "2026-08-20T21:01:03.581Z",
+  "nonAuthorizing": true,
+  "productAuthorityGranted": false,
+  "packetMigrationAuthorized": false,
+  "state": "OWNER_CONFIRMED_LIST_WITH_BLOCKED_SOURCE"
+}
