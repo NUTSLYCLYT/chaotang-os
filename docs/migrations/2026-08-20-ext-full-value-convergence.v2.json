@@ -1,0 +1,466 @@
+{
+  "schemaVersion": "ext-full-value-convergence.v2",
+  "snapshot": {
+    "capturedAt": "2026-08-20T13:40:19.811Z",
+    "targetRef": "origin/ext-dev",
+    "targetHead": "8b548215518c2bf0eebbf53d0c087902715c4aa4",
+    "targetTree": "a2e4b9aa3ed56a199881497d9592032ab2270dc1",
+    "mode": "READ_ONLY_FREEZE",
+    "authorityDecision": "STOP",
+    "authorityCanExecuteProductWork": false
+  },
+  "policy": {
+    "sourceFreezeRule": "Every source must be represented by a committed catalog hash or a blocked uncommitted snapshot before packet selection.",
+    "deduplicationOrder": [
+      "exact-git-tip",
+      "exact-git-tree",
+      "source-sha256",
+      "catalog-declared-duplicate",
+      "semantic-capability-review"
+    ],
+    "allowedDispositions": [
+      "ABSORB_ADAPT",
+      "REBUILD",
+      "SUPERSEDED_VERIFY",
+      "ARCHIVE",
+      "REJECT",
+      "DUPLICATE",
+      "BLOCKED_WIP"
+    ],
+    "packetGateOrder": [
+      "freeze-base-and-donor",
+      "obtain-exact-authority",
+      "establish-red-baseline",
+      "implement-minimal-adaptation",
+      "verify-target-and-rollback",
+      "independent-review",
+      "owner-acceptance"
+    ],
+    "uncommittedSourceRule": "Uncommitted paths are inventory-only and BLOCKED_UNCOMMITTED; they cannot be donors until committed or independently content-frozen.",
+    "destructiveActionsAllowed": false
+  },
+  "sourceCatalogs": [
+    {
+      "id": "legacy-99-ref-ledger",
+      "kind": "legacy-branch-ledger",
+      "path": "docs/migrations/2026-08-03-ext-legacy-99-ref-ledger.v1.json",
+      "sha256": "55036a85c93f57c83d938c086e2ed75a59bc5601d4b7815316f5d8cf12128827",
+      "itemCount": 99,
+      "classifiedItemCount": 99,
+      "groupCount": 47,
+      "uniqueContentCount": 98,
+      "dispositionCounts": {
+        "ABSORB_ADAPT": 14,
+        "ARCHIVE": 25,
+        "BLOCKED_WIP": 4,
+        "DUPLICATE": 8,
+        "REBUILD": 15,
+        "REJECT": 2,
+        "SUPERSEDED_VERIFY": 31
+      },
+      "status": "FROZEN"
+    },
+    {
+      "id": "only-worktree-108",
+      "kind": "worktree-dispositions",
+      "path": "docs/migrations/2026-07-27-only-worktree-dispositions.json",
+      "sha256": "885e6229ff8be0209dd560d7f02b058b43b4a0f6fb7c0c6065ddd49e3479d5b9",
+      "itemCount": 108,
+      "classifiedItemCount": 108,
+      "groupCount": 3,
+      "uniqueContentCount": 104,
+      "dispositionCounts": {
+        "integrated": 28,
+        "rejected": 25,
+        "superseded": 55
+      },
+      "status": "FROZEN"
+    },
+    {
+      "id": "ext-capability-stocktake-738",
+      "kind": "ext-capability-stocktake",
+      "path": "docs/migrations/2026-08-13-ext-capability-stocktake.json",
+      "sha256": "3540eef76ce2c4371b2534522547b32f0941434e39075cce1ae9f4b08a17cf22",
+      "itemCount": 738,
+      "classifiedItemCount": 738,
+      "groupCount": 10,
+      "uniqueContentCount": 408,
+      "dispositionCounts": {},
+      "status": "FROZEN"
+    },
+    {
+      "id": "six-ministry-tree-8045",
+      "kind": "six-ministry-inventory",
+      "path": "docs/migrations/2026-08-13-six-ministry-capability-inventory.json",
+      "sha256": "13cf4c1c1f80fb0b92b1f9c7bb9aeba8408b02b862ffba4bf59e3efe4608d49b",
+      "itemCount": 8045,
+      "classifiedItemCount": 8045,
+      "groupCount": 2,
+      "uniqueContentCount": null,
+      "dispositionCounts": {
+        "EXCLUDED": 6268,
+        "INCLUDED": 1777
+      },
+      "status": "FROZEN"
+    },
+    {
+      "id": "six-ministry-families-23",
+      "kind": "six-ministry-family-matrix",
+      "path": "docs/migrations/2026-08-14-six-ministry-capability-family-matrix.json",
+      "sha256": "c439bdeff21f018eae9b360ba9d782225b81c1263a7b5b77f5d40e91fcab6afc",
+      "itemCount": 1777,
+      "classifiedItemCount": 1777,
+      "groupCount": 23,
+      "uniqueContentCount": 1399,
+      "dispositionCounts": {
+        "enhance": 17,
+        "existing": 4,
+        "new": 1,
+        "retire": 1
+      },
+      "status": "FROZEN"
+    },
+    {
+      "id": "capability-islands-31",
+      "kind": "capability-island-inventory",
+      "path": "docs/migrations/2026-08-14-capability-island-inventory.json",
+      "sha256": "94603e01945e612e04e5d5e5fa57ab4e0ca5f2a9ff262b3d178d962fbc40d03d",
+      "itemCount": 31,
+      "classifiedItemCount": 31,
+      "groupCount": 31,
+      "uniqueContentCount": 31,
+      "dispositionCounts": {
+        "contract-eval-only": 7,
+        "direct-adapt": 3,
+        "independent-integration": 3,
+        "quarantine": 3,
+        "reference-only": 5,
+        "retire": 1,
+        "rewrite-distill": 9
+      },
+      "status": "FROZEN"
+    },
+    {
+      "id": "runtime-readiness-23",
+      "kind": "runtime-readiness",
+      "path": "docs/migrations/2026-08-14-six-ministry-runtime-readiness.json",
+      "sha256": "41ddc029cae5a2eca61c71413618da86560af87d43ed41c5bf95e25b9e7caff5",
+      "itemCount": 23,
+      "classifiedItemCount": 23,
+      "groupCount": 3,
+      "uniqueContentCount": 23,
+      "dispositionCounts": {
+        "ACTIVE": 22,
+        "BUSINESS_SUCCESS_MEASURED": 0,
+        "RETIRED": 1
+      },
+      "status": "FROZEN"
+    },
+    {
+      "id": "current-ref-snapshot-286",
+      "kind": "ref-snapshot",
+      "path": "docs/migrations/2026-08-20-ext-source-ref-snapshot.json",
+      "sha256": "714d63236f0c6f582144356a1cac453510e5b36bf0194e7624747037ff38b1e5",
+      "itemCount": 286,
+      "classifiedItemCount": 286,
+      "groupCount": 5,
+      "uniqueContentCount": 216,
+      "dispositionCounts": {
+        "DUPLICATE_TIP_REVIEW_REQUIRED": 77,
+        "DUPLICATE_TREE_REVIEW_REQUIRED": 12,
+        "TARGET": 4,
+        "TARGET_CONTAINED": 42,
+        "UNIQUE_TREE_REVIEW_REQUIRED": 151
+      },
+      "status": "FROZEN"
+    },
+    {
+      "id": "all-worktrees-uncommitted-567",
+      "kind": "worktree-snapshot",
+      "path": "docs/migrations/2026-08-20-ext-uncommitted-source-snapshot.json",
+      "sha256": "bc87779199af87d10f1659847bfee63ccc5d90ce56de9f06f6d477cde2f5d225",
+      "itemCount": 567,
+      "classifiedItemCount": 0,
+      "groupCount": 51,
+      "uniqueContentCount": 484,
+      "dispositionCounts": {
+        "BLOCKED_UNCOMMITTED": 567
+      },
+      "status": "BLOCKED_UNCOMMITTED"
+    },
+    {
+      "id": "semantic-review-ledger-756",
+      "kind": "semantic-ledger",
+      "path": "docs/migrations/2026-08-20-ext-full-value-semantic-ledger.v2.json",
+      "sha256": "a71817fcebc6bbb82aa7f8995a7a6abf9c163f8500289538fd2db354057ae8ad",
+      "itemCount": 756,
+      "classifiedItemCount": 0,
+      "groupCount": 22,
+      "uniqueContentCount": 673,
+      "dispositionCounts": {
+        "ABSORB_ADAPT": 23,
+        "ARCHIVE": 31,
+        "BLOCKED_WIP": 592,
+        "DUPLICATE": 6,
+        "REBUILD": 23,
+        "REJECT": 2,
+        "SUPERSEDED_VERIFY": 79
+      },
+      "status": "FROZEN_REVIEW_REQUIRED"
+    },
+    {
+      "id": "external-capability-sources-67",
+      "kind": "external-capability-sources",
+      "path": "docs/migrations/2026-08-20-ext-external-capability-source-snapshot.v1.json",
+      "sha256": "24a7292719a0aced002e621152b6da51379d3c31cb4410fdfbb468196e81139f",
+      "itemCount": 67,
+      "classifiedItemCount": 67,
+      "groupCount": 31,
+      "uniqueContentCount": 54,
+      "dispositionCounts": {
+        "BLOCKED_REVIEW_REQUIRED": 21,
+        "FROZEN": 46
+      },
+      "status": "FROZEN_REVIEW_REQUIRED"
+    },
+    {
+      "id": "owner-review-proposal-824",
+      "kind": "owner-review-proposal",
+      "path": "docs/migrations/2026-08-20-ext-full-value-owner-review.v1.json",
+      "sha256": "6eb3e8640b484675e5b89071730cd6047cb6338090455a926a17347be3817c35",
+      "itemCount": 824,
+      "classifiedItemCount": 0,
+      "groupCount": 69,
+      "uniqueContentCount": 824,
+      "dispositionCounts": {
+        "ABSORB_ADAPT": 30,
+        "ARCHIVE": 31,
+        "BLOCKED_WIP": 616,
+        "DUPLICATE": 6,
+        "KEEP_BLOCKED": 1,
+        "REBUILD": 38,
+        "REJECT": 5,
+        "SUPERSEDED_VERIFY": 97
+      },
+      "status": "FROZEN_REVIEW_REQUIRED"
+    }
+  ],
+  "capabilityIndex": {
+    "catalogId": "capability-islands-31",
+    "capabilityCount": 31,
+    "semanticCoverageStatus": "REVIEW_REQUIRED",
+    "unresolvedRefTreeCount": 189,
+    "unresolvedWorktreeEntryCount": 567,
+    "unavailableWorktreeCount": 1,
+    "migrationAuthorizedCount": 0
+  },
+  "proposedPackets": [
+    {
+      "id": "packet-01-battery-safety",
+      "capabilityId": "battery-physical-safety-gate",
+      "priority": 1,
+      "disposition": "ABSORB_ADAPT",
+      "status": "PROPOSED_NOT_AUTHORIZED",
+      "targetOwners": [
+        "backend"
+      ],
+      "authorityTask": null,
+      "blockedReason": "Wave 0 is read-only; exact backend paths, RED evidence and product authority have not been approved."
+    },
+    {
+      "id": "packet-02-pack-kernel",
+      "capabilityId": "pack-battery-rd-kernel",
+      "priority": 2,
+      "disposition": "REBUILD",
+      "status": "PROPOSED_NOT_AUTHORIZED",
+      "targetOwners": [
+        "backend"
+      ],
+      "authorityTask": null,
+      "blockedReason": "Wave 0 is read-only; deterministic kernel boundaries and donor hunks require an exact Packet contract."
+    },
+    {
+      "id": "packet-03-battery-rd-adapter",
+      "capabilityId": "battery-rd-os-domain-system",
+      "priority": 3,
+      "disposition": "REBUILD",
+      "status": "PROPOSED_NOT_AUTHORIZED",
+      "targetOwners": [
+        "backend"
+      ],
+      "authorityTask": null,
+      "blockedReason": "The external domain system must stay authoritative; only a read-only adapter may be proposed under separate authority."
+    },
+    {
+      "id": "packet-04-shiguan-outcomes",
+      "capabilityId": "shiguan-outcome-learning",
+      "priority": 4,
+      "disposition": "REBUILD",
+      "status": "PROPOSED_NOT_AUTHORIZED",
+      "targetOwners": [
+        "backend",
+        "frontend"
+      ],
+      "authorityTask": null,
+      "blockedReason": "Outcome append-only semantics, owner scope and browser acceptance need a cross-line Packet."
+    },
+    {
+      "id": "packet-05-xingbu-legal-kernel",
+      "capabilityId": "xingbu-deterministic-legal-kernel",
+      "priority": 5,
+      "disposition": "REBUILD",
+      "status": "PROPOSED_NOT_AUTHORIZED",
+      "targetOwners": [
+        "backend",
+        "frontend"
+      ],
+      "authorityTask": null,
+      "blockedReason": "The deterministic triage contract and fail-closed signing rules require exact product authority."
+    },
+    {
+      "id": "packet-06-hubu-accounting",
+      "capabilityId": "hubu-professional-accounting",
+      "priority": 6,
+      "disposition": "REBUILD",
+      "status": "PROPOSED_NOT_AUTHORIZED",
+      "targetOwners": [
+        "backend",
+        "frontend"
+      ],
+      "authorityTask": null,
+      "blockedReason": "Existing workbook evidence must be reconciled with the UI and confirmation flow before migration."
+    },
+    {
+      "id": "packet-07-secure-ingest",
+      "capabilityId": "secure-ingest-product-acceptance",
+      "priority": 7,
+      "disposition": "ABSORB_ADAPT",
+      "status": "PROPOSED_NOT_AUTHORIZED",
+      "targetOwners": [
+        "backend",
+        "frontend"
+      ],
+      "authorityTask": null,
+      "blockedReason": "Secure ingest is currently contract/eval evidence only and requires a separately approved product vertical."
+    },
+    {
+      "id": "packet-08-temporal-falsification",
+      "capabilityId": "qintian-prediction-falsification-loop",
+      "priority": 8,
+      "disposition": "REBUILD",
+      "status": "PROPOSED_NOT_AUTHORIZED",
+      "targetOwners": [
+        "backend",
+        "frontend"
+      ],
+      "authorityTask": null,
+      "blockedReason": "Prediction claims need immutable outcome evidence and browser-level falsification acceptance."
+    },
+    {
+      "id": "packet-09-release-evidence",
+      "capabilityId": "certification-release-evidence",
+      "priority": 9,
+      "disposition": "SUPERSEDED_VERIFY",
+      "status": "PROPOSED_NOT_AUTHORIZED",
+      "targetOwners": [
+        "root",
+        "backend",
+        "frontend"
+      ],
+      "authorityTask": null,
+      "blockedReason": "Release and recovery work follows functional convergence and remains separately authorized."
+    },
+    {
+      "id": "packet-10-claim-evidence-gate",
+      "capabilityId": "claim-evidence-truth-gate",
+      "priority": 10,
+      "disposition": "ABSORB_ADAPT",
+      "status": "PROPOSED_NOT_AUTHORIZED",
+      "targetOwners": [
+        "root",
+        "backend"
+      ],
+      "authorityTask": null,
+      "blockedReason": "The cross-domain truth gate needs a target contract, negative tests and authority before runtime adoption."
+    },
+    {
+      "id": "packet-11-jinyiwei-source-adapters",
+      "capabilityId": "jinyiwei-evidence-source-adapters",
+      "priority": 11,
+      "disposition": "REBUILD",
+      "status": "PROPOSED_NOT_AUTHORIZED",
+      "targetOwners": [
+        "backend",
+        "frontend"
+      ],
+      "authorityTask": null,
+      "blockedReason": "Three semantic sibling implementations must be distilled by source, credential and fail-closed behavior."
+    },
+    {
+      "id": "packet-12-guoli-truth-read-model",
+      "capabilityId": "guoli-truth-metrics-read-model",
+      "priority": 12,
+      "disposition": "REBUILD",
+      "status": "PROPOSED_NOT_AUTHORIZED",
+      "targetOwners": [
+        "backend",
+        "frontend"
+      ],
+      "authorityTask": null,
+      "blockedReason": "P8 read-model siblings require a single truth-ledger contract and browser acceptance before integration."
+    },
+    {
+      "id": "packet-13-hanlin-evaluation-read-model",
+      "capabilityId": "hanlin-evaluation-read-model",
+      "priority": 13,
+      "disposition": "REBUILD",
+      "status": "PROPOSED_NOT_AUTHORIZED",
+      "targetOwners": [
+        "backend",
+        "frontend"
+      ],
+      "authorityTask": null,
+      "blockedReason": "P9 evaluation read-model variants need one owner, sourceLabel contract and measured acceptance."
+    },
+    {
+      "id": "packet-14-trusted-artifact-delivery",
+      "capabilityId": "trusted-artifact-delivery",
+      "priority": 14,
+      "disposition": "REBUILD",
+      "status": "PROPOSED_NOT_AUTHORIZED",
+      "targetOwners": [
+        "backend",
+        "frontend"
+      ],
+      "authorityTask": null,
+      "blockedReason": "Duplicate W06 worktrees target an obsolete backend/web layout and must be rebuilt into the current app boundary."
+    },
+    {
+      "id": "packet-15-offline-release-recovery",
+      "capabilityId": "release-backup-offline-verification-runtime",
+      "priority": 15,
+      "disposition": "REBUILD",
+      "status": "PROPOSED_NOT_AUTHORIZED",
+      "targetOwners": [
+        "root",
+        "backend",
+        "frontend"
+      ],
+      "authorityTask": null,
+      "blockedReason": "RC1 runtime candidates are near-duplicates with an unresolved test conflict and no current release authority."
+    },
+    {
+      "id": "packet-16-memorial-visual-system",
+      "capabilityId": "memorial-reply-visual-system",
+      "priority": 16,
+      "disposition": "BLOCKED_WIP",
+      "status": "PROPOSED_NOT_AUTHORIZED",
+      "targetOwners": [
+        "frontend",
+        "backend"
+      ],
+      "authorityTask": null,
+      "blockedReason": "Only four uncommitted governance and design documents exist; no authorized implementation or browser baseline exists."
+    }
+  ]
+}
