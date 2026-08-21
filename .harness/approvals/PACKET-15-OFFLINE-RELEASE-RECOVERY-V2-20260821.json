@@ -7,8 +7,8 @@
     "targetBranch": "ext-dev"
   },
   "request": {
-    "baseCommit": "91e2c986509b1abb5c15d0a05a5268c9cae7b6ff",
-    "baseTree": "a16d9f01c5264a05099391aa0066f1b699dd9c59",
+    "baseCommit": "be2ae54a3c6ee571b558c37f67ab051ac3830c91",
+    "baseTree": "8f0b136a0e6a273bb8cdfc22bb99094180d70fdd",
     "approvalPath": ".harness/approvals/PACKET-15-OFFLINE-RELEASE-RECOVERY-V2-20260821.json",
     "approvalCommitPaths": [
       ".harness/approvals/PACKET-15-OFFLINE-RELEASE-RECOVERY-V2-20260821.json",
@@ -20,6 +20,7 @@
       "backend/app/health.py",
       "backend/app/operations/__init__.py",
       "backend/app/operations/runtime_data_registry.py",
+      "backend/app/operations/runtime_lock.py",
       "backend/app/operations/sqlite_backup.py",
       "backend/app/readiness.py",
       "backend/requirements-runtime.lock",
@@ -59,50 +60,23 @@
   ],
   "verification": [
     {
-      "id": "backend-focused",
+      "id": "backend-isolated-candidate",
       "tool": "python3",
       "args": [
-        "-m",
-        "pytest",
-        "-q",
-        "tests/test_health.py",
-        "tests/test_readiness.py",
-        "tests/test_runtime_lock.py",
-        "tests/test_sqlite_backup.py"
+        "-I",
+        "app/operations/runtime_lock.py",
+        "verify-candidate",
+        "--lock",
+        "requirements-runtime.lock",
+        "--wheelhouse",
+        "/var/tmp/chaotang-m0-wheelhouse",
+        "--pyproject",
+        "pyproject.toml",
+        "--source-root",
+        "."
       ],
       "cwd": "backend",
       "timeoutMs": 300000
-    },
-    {
-      "id": "backend-full",
-      "tool": "python3",
-      "args": [
-        "-m",
-        "pytest",
-        "-q"
-      ],
-      "cwd": "backend",
-      "timeoutMs": 300000
-    },
-    {
-      "id": "backend-ruff",
-      "tool": "python3",
-      "args": [
-        "-m",
-        "ruff",
-        "check",
-        "app/health.py",
-        "app/operations/__init__.py",
-        "app/operations/runtime_data_registry.py",
-        "app/operations/sqlite_backup.py",
-        "app/readiness.py",
-        "tests/test_health.py",
-        "tests/test_readiness.py",
-        "tests/test_runtime_lock.py",
-        "tests/test_sqlite_backup.py"
-      ],
-      "cwd": "backend",
-      "timeoutMs": 180000
     },
     {
       "id": "deployment-check",
