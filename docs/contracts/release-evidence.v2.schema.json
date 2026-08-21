@@ -1,0 +1,650 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chaotang-os.invalid/contracts/release-evidence.v2.schema.json",
+  "title": "Chaotang Release Evidence v2",
+  "description": "Closed, content-addressed, non-authorizing release evidence. This contract validates evidence; it never runs commands or authorizes deployment.",
+  "x-chaotang-reviewedContract": {
+    "path": "docs/migrations/2026-08-21-packet-09-release-evidence-contract.draft.md",
+    "sha256": "27728301f51c7fe7bd929d99b45de86c76807b4c9c5eba22e7e42b0e18e8acc5",
+    "availability": "GOVERNANCE_SOURCE_PINNED_BY_APPROVAL_TASK_NOT_PRODUCT_CHILD"
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "contractDigest",
+    "releaseId",
+    "releaseMode",
+    "repository",
+    "candidate",
+    "previousRelease",
+    "packetSet",
+    "environmentSet",
+    "commandRegistryDigest",
+    "checks",
+    "browserJourneys",
+    "storageSet",
+    "artifacts",
+    "reviews",
+    "rollback",
+    "conclusion",
+    "nonAuthorizing",
+    "productionDeploymentAuthorized",
+    "startedAt",
+    "completedAt",
+    "evidenceDigest"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "chaotang.release-evidence.v2" },
+    "contractDigest": { "$ref": "#/$defs/digest" },
+    "releaseId": { "type": "string", "pattern": "^release-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+    "releaseMode": { "enum": ["BOOTSTRAP", "UPGRADE"] },
+    "repository": { "$ref": "#/$defs/repository" },
+    "candidate": { "$ref": "#/$defs/candidate" },
+    "previousRelease": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/previousRelease" }] },
+    "packetSet": { "type": "array", "maxItems": 256, "items": { "$ref": "#/$defs/packet" } },
+    "environmentSet": { "type": "array", "maxItems": 256, "items": { "$ref": "#/$defs/environment" } },
+    "commandRegistryDigest": { "$ref": "#/$defs/digest" },
+    "checks": { "type": "array", "maxItems": 1024, "items": { "$ref": "#/$defs/check" } },
+    "browserJourneys": { "type": "array", "maxItems": 256, "items": { "$ref": "#/$defs/journey" } },
+    "storageSet": { "type": "array", "maxItems": 256, "items": { "$ref": "#/$defs/storage" } },
+    "artifacts": { "type": "array", "maxItems": 4096, "items": { "$ref": "#/$defs/artifact" } },
+    "reviews": { "type": "array", "maxItems": 256, "items": { "$ref": "#/$defs/review" } },
+    "rollback": { "$ref": "#/$defs/rollback" },
+    "conclusion": { "$ref": "#/$defs/conclusion" },
+    "nonAuthorizing": { "const": true },
+    "productionDeploymentAuthorized": { "const": false },
+    "startedAt": { "$ref": "#/$defs/timestamp" },
+    "completedAt": { "$ref": "#/$defs/timestamp" },
+    "evidenceDigest": { "$ref": "#/$defs/digest" }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "gitIdentity": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "timestamp": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{6}Z$" },
+    "nullableTimestamp": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/timestamp" }] },
+    "nullableDigest": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/digest" }] },
+    "nullableString": { "type": ["string", "null"] },
+    "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" },
+    "idSet": { "type": "array", "maxItems": 4096, "uniqueItems": true, "items": { "$ref": "#/$defs/id" } },
+    "digestSet": { "type": "array", "maxItems": 4096, "uniqueItems": true, "items": { "$ref": "#/$defs/digest" } },
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repositoryId", "targetRef", "targetRemoteUrlDigest"],
+      "properties": {
+        "repositoryId": { "const": "gitee.com/msxn/chaotang-os" },
+        "targetRef": { "const": "origin/ext-dev" },
+        "targetRemoteUrlDigest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["commit", "tree", "parentCommit", "approvalDigests", "sourceDirty", "remoteHeadBefore", "remoteHeadAfter"],
+      "properties": {
+        "commit": { "$ref": "#/$defs/gitIdentity" },
+        "tree": { "$ref": "#/$defs/gitIdentity" },
+        "parentCommit": { "$ref": "#/$defs/gitIdentity" },
+        "approvalDigests": { "$ref": "#/$defs/digestSet" },
+        "sourceDirty": { "const": false },
+        "remoteHeadBefore": { "$ref": "#/$defs/gitIdentity" },
+        "remoteHeadAfter": { "$ref": "#/$defs/gitIdentity" }
+      }
+    },
+    "previousRelease": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["releaseId", "commit", "tree", "bundleDigest", "coldBackupManifestDigest"],
+      "properties": {
+        "releaseId": { "$ref": "#/$defs/id" },
+        "commit": { "$ref": "#/$defs/gitIdentity" },
+        "tree": { "$ref": "#/$defs/gitIdentity" },
+        "bundleDigest": { "$ref": "#/$defs/digest" },
+        "coldBackupManifestDigest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "packet": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["packetId", "disposition", "contractDigest", "approvalDigest", "candidateCommit", "candidateTree", "ownerAcceptanceDigest", "status"],
+      "properties": {
+        "packetId": { "$ref": "#/$defs/id" },
+        "disposition": { "enum": ["ABSORB_ADAPT", "REBUILD", "SUPERSEDED_VERIFY", "ARCHIVE", "REJECT", "BLOCKED_WIP"] },
+        "contractDigest": { "$ref": "#/$defs/digest" },
+        "approvalDigest": { "$ref": "#/$defs/digest" },
+        "candidateCommit": { "$ref": "#/$defs/gitIdentity" },
+        "candidateTree": { "$ref": "#/$defs/gitIdentity" },
+        "ownerAcceptanceDigest": { "$ref": "#/$defs/digest" },
+        "status": { "enum": ["ACCEPTED", "DEFERRED_PRESERVED", "BLOCKED", "REJECTED"] }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["environmentId", "class", "os", "architecture", "toolchainDigest", "dependencyLockDigests", "containerImageDigests", "networkMode", "dataClass", "startedAt", "completedAt", "environmentDigest"],
+      "properties": {
+        "environmentId": { "$ref": "#/$defs/id" },
+        "class": { "enum": ["LOCAL_ISOLATED", "CI", "DISPOSABLE_HOST", "REAL_BROWSER"] },
+        "os": { "$ref": "#/$defs/id" },
+        "architecture": { "$ref": "#/$defs/id" },
+        "toolchainDigest": { "$ref": "#/$defs/digest" },
+        "dependencyLockDigests": { "$ref": "#/$defs/digestSet" },
+        "containerImageDigests": { "$ref": "#/$defs/digestSet" },
+        "networkMode": { "enum": ["NONE", "LOOPBACK_ONLY", "ALLOWLIST_READ_ONLY"] },
+        "dataClass": { "enum": ["SYNTHETIC", "REDACTED_FIXTURE"] },
+        "startedAt": { "$ref": "#/$defs/timestamp" },
+        "completedAt": { "$ref": "#/$defs/timestamp" },
+        "environmentDigest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["checkId", "commandId", "environmentId", "status", "startedAt", "completedAt", "exitCode", "stdoutDigest", "stdoutBytes", "stdoutArtifactRef", "stderrDigest", "stderrBytes", "stderrArtifactRef", "resultProjection", "stdoutRedactionReceiptRef", "stderrRedactionReceiptRef", "artifactRefs", "limitationCodes", "checkDigest"],
+      "properties": {
+        "checkId": { "$ref": "#/$defs/id" },
+        "commandId": { "$ref": "#/$defs/id" },
+        "environmentId": { "$ref": "#/$defs/id" },
+        "status": { "enum": ["PASS", "FAIL", "NOT_RUN", "BLOCKED"] },
+        "startedAt": { "$ref": "#/$defs/nullableTimestamp" },
+        "completedAt": { "$ref": "#/$defs/nullableTimestamp" },
+        "exitCode": { "type": ["integer", "null"] },
+        "stdoutDigest": { "$ref": "#/$defs/nullableDigest" },
+        "stdoutBytes": { "type": ["integer", "null"], "minimum": 0 },
+        "stdoutArtifactRef": { "$ref": "#/$defs/nullableString" },
+        "stderrDigest": { "$ref": "#/$defs/nullableDigest" },
+        "stderrBytes": { "type": ["integer", "null"], "minimum": 0 },
+        "stderrArtifactRef": { "$ref": "#/$defs/nullableString" },
+        "resultProjection": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/resultProjection" }] },
+        "stdoutRedactionReceiptRef": { "$ref": "#/$defs/nullableString" },
+        "stderrRedactionReceiptRef": { "$ref": "#/$defs/nullableString" },
+        "artifactRefs": { "$ref": "#/$defs/idSet" },
+        "limitationCodes": { "$ref": "#/$defs/idSet" },
+        "checkDigest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "resultProjection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "projectionKind", "inventoryDigest", "collectedCount", "passedCount", "failedCount", "blockedCount", "notRunCount", "subjectArtifactRefs", "projectionDigest"],
+      "properties": {
+        "schemaVersion": { "const": "chaotang.command-result-projection.v1" },
+        "projectionKind": { "enum": ["TEST_RUN", "COMMAND_ONLY", "TYPED_RECEIPT"] },
+        "inventoryDigest": { "$ref": "#/$defs/nullableDigest" },
+        "collectedCount": { "type": ["integer", "null"], "minimum": 0 },
+        "passedCount": { "type": ["integer", "null"], "minimum": 0 },
+        "failedCount": { "type": ["integer", "null"], "minimum": 0 },
+        "blockedCount": { "type": ["integer", "null"], "minimum": 0 },
+        "notRunCount": { "type": ["integer", "null"], "minimum": 0 },
+        "subjectArtifactRefs": { "$ref": "#/$defs/idSet" },
+        "projectionDigest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "redactionReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "producerCheckId", "streamRole", "outputArtifactId", "inputDigest", "inputBytes", "outputDigest", "outputBytes", "policyDigest", "canarySetDigest", "status", "receiptDigest"],
+      "properties": {
+        "schemaVersion": { "const": "chaotang.redaction-receipt.v1" },
+        "producerCheckId": { "$ref": "#/$defs/id" },
+        "streamRole": { "enum": ["COMMAND_STDOUT", "COMMAND_STDERR"] },
+        "outputArtifactId": { "$ref": "#/$defs/id" },
+        "inputDigest": { "$ref": "#/$defs/digest" },
+        "inputBytes": { "type": "integer", "minimum": 0 },
+        "outputDigest": { "$ref": "#/$defs/digest" },
+        "outputBytes": { "type": "integer", "minimum": 0 },
+        "policyDigest": { "$ref": "#/$defs/digest" },
+        "canarySetDigest": { "$ref": "#/$defs/digest" },
+        "status": { "enum": ["CLEAN", "REDACTED_VERIFIED"] },
+        "receiptDigest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "typedSubjectReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "artifactKind", "producerCheckId", "releaseId", "candidateCommit", "candidateTree", "subjectId", "subjectDigest", "relatedArtifactRefs", "status", "receiptDigest"],
+      "properties": {
+        "schemaVersion": { "const": "chaotang.release-subject-receipt.v1" },
+        "artifactKind": { "enum": ["BACKUP_MANIFEST", "RESTORE_RECEIPT", "RELEASE_MANIFEST", "BUNDLE_VERIFY_RECEIPT", "REVIEW_REPORT", "ROLLBACK_RECEIPT", "RESULT_RECEIPT"] },
+        "producerCheckId": { "$ref": "#/$defs/id" },
+        "releaseId": { "$ref": "#/$defs/id" },
+        "candidateCommit": { "$ref": "#/$defs/gitIdentity" },
+        "candidateTree": { "$ref": "#/$defs/gitIdentity" },
+        "subjectId": { "$ref": "#/$defs/id" },
+        "subjectDigest": { "$ref": "#/$defs/digest" },
+        "relatedArtifactRefs": { "$ref": "#/$defs/idSet" },
+        "status": { "const": "PASS" },
+        "receiptDigest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "browserTraceReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "producerCheckId", "releaseId", "candidateCommit", "candidateTree", "journeyId", "journeyDigest", "viewport", "stepRouteDigests", "networkAssertionDigest", "consoleAssertionDigest", "screenshotRefs", "status", "receiptDigest"],
+      "properties": {
+        "schemaVersion": { "const": "chaotang.browser-trace-receipt.v1" },
+        "producerCheckId": { "$ref": "#/$defs/id" },
+        "releaseId": { "$ref": "#/$defs/id" },
+        "candidateCommit": { "$ref": "#/$defs/gitIdentity" },
+        "candidateTree": { "$ref": "#/$defs/gitIdentity" },
+        "journeyId": { "$ref": "#/$defs/id" },
+        "journeyDigest": { "$ref": "#/$defs/digest" },
+        "viewport": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["width", "height", "deviceScaleFactor"],
+          "properties": {
+            "width": { "type": "integer", "minimum": 320, "maximum": 7680 },
+            "height": { "type": "integer", "minimum": 320, "maximum": 4320 },
+            "deviceScaleFactor": { "type": "integer", "minimum": 1, "maximum": 4 }
+          }
+        },
+        "stepRouteDigests": { "$ref": "#/$defs/digestSet" },
+        "networkAssertionDigest": { "$ref": "#/$defs/digest" },
+        "consoleAssertionDigest": { "$ref": "#/$defs/digest" },
+        "screenshotRefs": { "$ref": "#/$defs/idSet" },
+        "status": { "const": "PASS" },
+        "receiptDigest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "storage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["storageId", "kind", "manifestDigest", "contentDigest", "bytes", "retentionReceiptDigest"],
+      "properties": {
+        "storageId": { "$ref": "#/$defs/id" },
+        "kind": { "enum": ["EVIDENCE_ARCHIVE", "P15_RELEASE_BUNDLE", "P15_COLD_BACKUP"] },
+        "manifestDigest": { "$ref": "#/$defs/digest" },
+        "contentDigest": { "$ref": "#/$defs/digest" },
+        "bytes": { "type": "integer", "minimum": 0, "maximum": 68719476736 },
+        "retentionReceiptDigest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifactId", "kind", "artifactRole", "storageId", "relativePath", "mediaType", "bytes", "sha256", "producerCheckId", "candidateCommit", "candidateTree", "createdAt", "redactionStatus", "artifactDigest"],
+      "properties": {
+        "artifactId": { "$ref": "#/$defs/id" },
+        "kind": { "enum": ["COMMAND_OUTPUT", "REDACTION_RECEIPT", "RESULT_RECEIPT", "TEST_LOG", "BUILD_OUTPUT", "BROWSER_SCREENSHOT", "BROWSER_TRACE", "BACKUP_MANIFEST", "RESTORE_RECEIPT", "RELEASE_MANIFEST", "BUNDLE_VERIFY_RECEIPT", "HARNESS_RESULT", "REVIEW_REPORT", "ROLLBACK_RECEIPT"] },
+        "artifactRole": { "enum": ["COMMAND_STDOUT", "COMMAND_STDERR", "REDACTION", "RESULT_PROJECTION", "SUPPORTING"] },
+        "storageId": { "$ref": "#/$defs/id" },
+        "relativePath": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "mediaType": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "bytes": { "type": "integer", "minimum": 0, "maximum": 34359738368 },
+        "sha256": { "$ref": "#/$defs/digest" },
+        "producerCheckId": { "$ref": "#/$defs/id" },
+        "candidateCommit": { "$ref": "#/$defs/gitIdentity" },
+        "candidateTree": { "$ref": "#/$defs/gitIdentity" },
+        "createdAt": { "$ref": "#/$defs/timestamp" },
+        "redactionStatus": { "enum": ["CLEAN", "REDACTED_VERIFIED"] },
+        "artifactDigest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "journey": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["journeyId", "environmentId", "baseUrlDigest", "frontendCommit", "backendCommit", "authenticatedOwnerFixtureId", "steps", "networkAssertions", "consoleAssertions", "artifactRefs", "status", "journeyDigest"],
+      "properties": {
+        "journeyId": { "$ref": "#/$defs/id" },
+        "environmentId": { "$ref": "#/$defs/id" },
+        "baseUrlDigest": { "$ref": "#/$defs/digest" },
+        "frontendCommit": { "$ref": "#/$defs/gitIdentity" },
+        "backendCommit": { "$ref": "#/$defs/gitIdentity" },
+        "authenticatedOwnerFixtureId": { "$ref": "#/$defs/id" },
+        "steps": { "type": "array", "maxItems": 1024, "items": { "$ref": "#/$defs/journeyStep" } },
+        "networkAssertions": { "type": "array", "maxItems": 1024, "items": { "$ref": "#/$defs/journeyAssertion" } },
+        "consoleAssertions": { "type": "array", "maxItems": 1024, "items": { "$ref": "#/$defs/journeyAssertion" } },
+        "artifactRefs": { "$ref": "#/$defs/idSet" },
+        "status": { "enum": ["PASS", "FAIL", "BLOCKED"] },
+        "journeyDigest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "journeyStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ordinal", "action", "routeDigest", "requestDigest", "responseDigest", "status", "artifactRefs"],
+      "properties": {
+        "ordinal": { "type": "integer", "minimum": 1 },
+        "action": { "enum": ["REGISTER_LOGIN", "DRAFT_DECREE", "ACCEPT_DECREE", "POLL_JOB", "VERIFY_SHIGUAN_REPLY", "VERIFY_XLSX_WORK_PRODUCT", "CONFIRM_WORK_PRODUCT", "DOWNLOAD_AND_HASH", "VERIFY_CROSS_OWNER_404"] },
+        "routeDigest": { "$ref": "#/$defs/digest" },
+        "requestDigest": { "$ref": "#/$defs/digest" },
+        "responseDigest": { "$ref": "#/$defs/digest" },
+        "status": { "enum": ["PASS", "FAIL", "BLOCKED"] },
+        "artifactRefs": { "$ref": "#/$defs/idSet" }
+      }
+    },
+    "journeyAssertion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["assertionId", "kind", "expectedDigest", "observedDigest", "status"],
+      "properties": {
+        "assertionId": { "$ref": "#/$defs/id" },
+        "kind": { "enum": ["REAL_BACKEND", "NO_ROUTE_INTERCEPTION", "NO_HIDDEN_FALLBACK", "OWNER_SCOPED_404", "NO_CONSOLE_ERRORS", "NO_NETWORK_ERRORS"] },
+        "expectedDigest": { "$ref": "#/$defs/digest" },
+        "observedDigest": { "$ref": "#/$defs/digest" },
+        "status": { "enum": ["PASS", "FAIL", "BLOCKED"] }
+      }
+    },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reviewId", "role", "candidateCommit", "candidateTree", "scopeDigest", "reviewerClass", "verdict", "findings", "reportArtifactRef", "completedAt", "reviewDigest"],
+      "properties": {
+        "reviewId": { "$ref": "#/$defs/id" },
+        "role": { "enum": ["code", "javascript", "security", "release-operations", "browser-ui"] },
+        "candidateCommit": { "$ref": "#/$defs/gitIdentity" },
+        "candidateTree": { "$ref": "#/$defs/gitIdentity" },
+        "scopeDigest": { "$ref": "#/$defs/digest" },
+        "reviewerClass": { "enum": ["INDEPENDENT_AGENT", "HUMAN_OWNER"] },
+        "verdict": { "enum": ["GO", "NO_GO"] },
+        "findings": { "type": "array", "maxItems": 1024, "items": { "$ref": "#/$defs/finding" } },
+        "reportArtifactRef": { "$ref": "#/$defs/id" },
+        "completedAt": { "$ref": "#/$defs/timestamp" },
+        "reviewDigest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["findingId", "priority", "state", "descriptionDigest", "evidenceRefs", "disposition"],
+      "properties": {
+        "findingId": { "$ref": "#/$defs/id" },
+        "priority": { "enum": ["P0", "P1", "P2", "P3"] },
+        "state": { "enum": ["OPEN", "CLOSED"] },
+        "descriptionDigest": { "$ref": "#/$defs/digest" },
+        "evidenceRefs": { "$ref": "#/$defs/idSet" },
+        "disposition": { "enum": ["FIXED", "NOT_APPLICABLE_WITH_EVIDENCE", "DEFERRED_P3"] }
+      }
+    },
+    "rollback": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["strategy", "previousReleaseId", "previousBundleDigest", "coldBackupManifestDigest", "restoreRehearsalDigest", "compatibilityDecision", "rollbackTestStatus", "rollbackReceiptRef", "rollbackDigest"],
+      "properties": {
+        "strategy": { "enum": ["REMOVE_NEW_STACK_PRESERVE_DATA_AND_EVIDENCE", "RESTORE_PREVIOUS_RELEASE"] },
+        "previousReleaseId": { "$ref": "#/$defs/nullableString" },
+        "previousBundleDigest": { "$ref": "#/$defs/nullableDigest" },
+        "coldBackupManifestDigest": { "$ref": "#/$defs/nullableDigest" },
+        "restoreRehearsalDigest": { "$ref": "#/$defs/nullableDigest" },
+        "compatibilityDecision": { "enum": ["COMPATIBLE", "INCOMPATIBLE", "INCOMPLETE"] },
+        "rollbackTestStatus": { "enum": ["PASS", "FAIL", "NOT_RUN", "BLOCKED"] },
+        "rollbackReceiptRef": { "$ref": "#/$defs/nullableString" },
+        "rollbackDigest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "conclusion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "mandatoryCheckIds", "passedCheckIds", "failedCheckIds", "notRunCheckIds", "blockedCheckIds", "requiredJourneyIds", "passedJourneyIds", "unresolvedFindingIds", "releaseEvidenceComplete", "businessSuccessMeasured", "reasonCodes", "conclusionDigest"],
+      "properties": {
+        "status": { "enum": ["VERIFIED", "REJECTED", "INCOMPLETE"] },
+        "mandatoryCheckIds": { "$ref": "#/$defs/idSet" },
+        "passedCheckIds": { "$ref": "#/$defs/idSet" },
+        "failedCheckIds": { "$ref": "#/$defs/idSet" },
+        "notRunCheckIds": { "$ref": "#/$defs/idSet" },
+        "blockedCheckIds": { "$ref": "#/$defs/idSet" },
+        "requiredJourneyIds": { "$ref": "#/$defs/idSet" },
+        "passedJourneyIds": { "$ref": "#/$defs/idSet" },
+        "unresolvedFindingIds": { "$ref": "#/$defs/idSet" },
+        "releaseEvidenceComplete": { "type": "boolean" },
+        "businessSuccessMeasured": { "type": "boolean" },
+        "reasonCodes": { "$ref": "#/$defs/idSet" },
+        "conclusionDigest": { "$ref": "#/$defs/digest" }
+      }
+    }
+  },
+  "x-chaotang-limits": {
+    "envelopeBytes": 8388608,
+    "jsonDepth": 32,
+    "jsonNodes": 100000,
+    "checks": 1024,
+    "artifacts": 4096,
+    "journeys": 256,
+    "reviews": 256,
+    "archiveBytes": 68719476736,
+    "archiveEntryBytes": 34359738368,
+    "evidenceArtifactBytes": 67108864,
+    "archiveEntries": 4096,
+    "pathBytes": 512,
+    "pathSegments": 16,
+    "commandStreamBytes": 67108864,
+    "redactionReceiptBytes": 16384,
+    "resultProjectionBytes": 65536,
+    "checkEvidenceBytes": 135266304
+  },
+  "x-chaotang-digestWrappers": {
+    "evidenceDigest": "chaotang.release-evidence-envelope-digest.v1",
+    "environmentDigest": "chaotang.release-environment-digest.v1",
+    "checkDigest": "chaotang.release-check-digest.v1",
+    "artifactDigest": "chaotang.release-artifact-digest.v1",
+    "journeyDigest": "chaotang.release-browser-journey-digest.v1",
+    "reviewDigest": "chaotang.release-review-digest.v1",
+    "rollbackDigest": "chaotang.release-rollback-digest.v1",
+    "conclusionDigest": "chaotang.release-conclusion-digest.v1",
+    "projectionDigest": "chaotang.command-result-projection-digest.v1",
+    "receiptDigest": "chaotang.redaction-receipt-digest.v1",
+    "typedSubjectReceiptDigest": "chaotang.release-subject-receipt-digest.v1",
+    "browserTraceReceiptDigest": "chaotang.browser-trace-receipt-digest.v1",
+    "commandRegistryDigest": "chaotang.command-registry-digest.v1"
+  },
+  "x-chaotang-blockedSourceIds": [
+    "certification-release-evidence:01",
+    "certification-release-evidence:04",
+    "certification-release-evidence:05",
+    "certification-release-evidence:06"
+  ],
+  "x-chaotang-blockedSourceRoots": [
+    "/home/ubuntu/Projects/chaotang-ext-certification",
+    "/home/ubuntu/Projects/chaotang-release-evidence",
+    "/home/ubuntu/chaotang-archive",
+    "/home/ubuntu/chaotang-logs"
+  ],
+  "x-chaotang-commandRegistry": [
+    {
+      "commandId": "backend-affected-745",
+      "owner": "backend",
+      "cwdClass": "BACKEND_ROOT",
+      "argvTemplate": ["python3", "-m", "pytest", "${AFFECTED_TEST_PATHS}", "-q"],
+      "timeoutSeconds": 1800,
+      "requiredEnvironmentClass": "LOCAL_ISOLATED",
+      "requiredForProfiles": ["BATCH1"],
+      "projectionKind": "TEST_RUN",
+      "requiredArtifactRoles": ["COMMAND_STDERR", "COMMAND_STDOUT", "REDACTION", "RESULT_PROJECTION"],
+      "requiredSubjectKinds": []
+    },
+    {
+      "commandId": "backend-full-suite",
+      "owner": "backend",
+      "cwdClass": "BACKEND_ROOT",
+      "argvTemplate": ["python3", "-m", "pytest", "tests", "-q"],
+      "timeoutSeconds": 3600,
+      "requiredEnvironmentClass": "LOCAL_ISOLATED",
+      "requiredForProfiles": ["BATCH1"],
+      "projectionKind": "TEST_RUN",
+      "requiredArtifactRoles": ["COMMAND_STDERR", "COMMAND_STDOUT", "REDACTION", "RESULT_PROJECTION"],
+      "requiredSubjectKinds": []
+    },
+    {
+      "commandId": "backend-ruff",
+      "owner": "backend",
+      "cwdClass": "BACKEND_ROOT",
+      "argvTemplate": ["ruff", "check", "."],
+      "timeoutSeconds": 600,
+      "requiredEnvironmentClass": "LOCAL_ISOLATED",
+      "requiredForProfiles": ["BATCH1"],
+      "projectionKind": "COMMAND_ONLY",
+      "requiredArtifactRoles": ["COMMAND_STDERR", "COMMAND_STDOUT", "REDACTION", "RESULT_PROJECTION"],
+      "requiredSubjectKinds": []
+    },
+    {
+      "commandId": "batch1-real-browser-journey",
+      "owner": "frontend",
+      "cwdClass": "REPOSITORY_ROOT",
+      "argvTemplate": ["${APPROVED_BROWSER_RUNNER}", "--profile", "batch1-real"],
+      "timeoutSeconds": 1800,
+      "requiredEnvironmentClass": "REAL_BROWSER",
+      "requiredForProfiles": ["BATCH1"],
+      "projectionKind": "TYPED_RECEIPT",
+      "requiredArtifactRoles": ["COMMAND_STDERR", "COMMAND_STDOUT", "REDACTION", "RESULT_PROJECTION"],
+      "requiredSubjectKinds": ["BROWSER_SCREENSHOT", "BROWSER_TRACE"]
+    },
+    {
+      "commandId": "deployment-contract",
+      "owner": "operations",
+      "cwdClass": "REPOSITORY_ROOT",
+      "argvTemplate": ["node", "scripts/check_deployment.mjs", "--check"],
+      "timeoutSeconds": 600,
+      "requiredEnvironmentClass": "LOCAL_ISOLATED",
+      "requiredForProfiles": ["BATCH1"],
+      "projectionKind": "COMMAND_ONLY",
+      "requiredArtifactRoles": ["COMMAND_STDERR", "COMMAND_STDOUT", "REDACTION", "RESULT_PROJECTION"],
+      "requiredSubjectKinds": []
+    },
+    {
+      "commandId": "frontend-674",
+      "owner": "frontend",
+      "cwdClass": "FRONTEND_ROOT",
+      "argvTemplate": ["npm", "test", "--", "--runInBand"],
+      "timeoutSeconds": 1800,
+      "requiredEnvironmentClass": "LOCAL_ISOLATED",
+      "requiredForProfiles": ["BATCH1"],
+      "projectionKind": "TEST_RUN",
+      "requiredArtifactRoles": ["COMMAND_STDERR", "COMMAND_STDOUT", "REDACTION", "RESULT_PROJECTION"],
+      "requiredSubjectKinds": []
+    },
+    {
+      "commandId": "frontend-lint",
+      "owner": "frontend",
+      "cwdClass": "FRONTEND_ROOT",
+      "argvTemplate": ["npm", "run", "lint"],
+      "timeoutSeconds": 600,
+      "requiredEnvironmentClass": "LOCAL_ISOLATED",
+      "requiredForProfiles": ["BATCH1"],
+      "projectionKind": "COMMAND_ONLY",
+      "requiredArtifactRoles": ["COMMAND_STDERR", "COMMAND_STDOUT", "REDACTION", "RESULT_PROJECTION"],
+      "requiredSubjectKinds": []
+    },
+    {
+      "commandId": "frontend-production-build",
+      "owner": "frontend",
+      "cwdClass": "FRONTEND_ROOT",
+      "argvTemplate": ["npm", "run", "build"],
+      "timeoutSeconds": 1800,
+      "requiredEnvironmentClass": "LOCAL_ISOLATED",
+      "requiredForProfiles": ["BATCH1"],
+      "projectionKind": "COMMAND_ONLY",
+      "requiredArtifactRoles": ["COMMAND_STDERR", "COMMAND_STDOUT", "REDACTION", "RESULT_PROJECTION"],
+      "requiredSubjectKinds": []
+    },
+    {
+      "commandId": "frontend-typecheck",
+      "owner": "frontend",
+      "cwdClass": "FRONTEND_ROOT",
+      "argvTemplate": ["npm", "run", "typecheck"],
+      "timeoutSeconds": 600,
+      "requiredEnvironmentClass": "LOCAL_ISOLATED",
+      "requiredForProfiles": ["BATCH1"],
+      "projectionKind": "COMMAND_ONLY",
+      "requiredArtifactRoles": ["COMMAND_STDERR", "COMMAND_STDOUT", "REDACTION", "RESULT_PROJECTION"],
+      "requiredSubjectKinds": []
+    },
+    {
+      "commandId": "independent-review-matrix",
+      "owner": "review",
+      "cwdClass": "REPOSITORY_ROOT",
+      "argvTemplate": ["${APPROVED_REVIEW_COLLECTOR}", "--candidate", "${CANDIDATE_COMMIT}"],
+      "timeoutSeconds": 900,
+      "requiredEnvironmentClass": "LOCAL_ISOLATED",
+      "requiredForProfiles": ["BATCH1"],
+      "projectionKind": "TYPED_RECEIPT",
+      "requiredArtifactRoles": ["COMMAND_STDERR", "COMMAND_STDOUT", "REDACTION", "RESULT_PROJECTION"],
+      "requiredSubjectKinds": ["REVIEW_REPORT"]
+    },
+    {
+      "commandId": "p15-backup-verify-rehearse",
+      "owner": "operations",
+      "cwdClass": "REPOSITORY_ROOT",
+      "argvTemplate": ["${P15_RUNNER}", "backup-verify-rehearse", "--release", "${RELEASE_ID}"],
+      "timeoutSeconds": 3600,
+      "requiredEnvironmentClass": "DISPOSABLE_HOST",
+      "requiredForProfiles": ["BATCH1"],
+      "projectionKind": "TYPED_RECEIPT",
+      "requiredArtifactRoles": ["COMMAND_STDERR", "COMMAND_STDOUT", "REDACTION", "RESULT_PROJECTION"],
+      "requiredSubjectKinds": ["BACKUP_MANIFEST", "RESTORE_RECEIPT"]
+    },
+    {
+      "commandId": "p15-offline-bundle-verify",
+      "owner": "operations",
+      "cwdClass": "REPOSITORY_ROOT",
+      "argvTemplate": ["${P15_RUNNER}", "offline-bundle-verify", "--release", "${RELEASE_ID}"],
+      "timeoutSeconds": 3600,
+      "requiredEnvironmentClass": "DISPOSABLE_HOST",
+      "requiredForProfiles": ["BATCH1"],
+      "projectionKind": "TYPED_RECEIPT",
+      "requiredArtifactRoles": ["COMMAND_STDERR", "COMMAND_STDOUT", "REDACTION", "RESULT_PROJECTION"],
+      "requiredSubjectKinds": ["BUNDLE_VERIFY_RECEIPT", "RELEASE_MANIFEST"]
+    },
+    {
+      "commandId": "product-authority-status-and-candidate",
+      "owner": "root",
+      "cwdClass": "REPOSITORY_ROOT",
+      "argvTemplate": ["node", "scripts/product-authority.mjs", "--verify-candidate", "--task", "${TASK_ID}"],
+      "timeoutSeconds": 300,
+      "requiredEnvironmentClass": "LOCAL_ISOLATED",
+      "requiredForProfiles": ["BATCH1"],
+      "projectionKind": "COMMAND_ONLY",
+      "requiredArtifactRoles": ["COMMAND_STDERR", "COMMAND_STDOUT", "REDACTION", "RESULT_PROJECTION"],
+      "requiredSubjectKinds": []
+    },
+    {
+      "commandId": "remote-head-stability",
+      "owner": "root",
+      "cwdClass": "REPOSITORY_ROOT",
+      "argvTemplate": ["${P09_REMOTE_HEAD_OBSERVER}", "--target", "ext-dev"],
+      "timeoutSeconds": 120,
+      "requiredEnvironmentClass": "LOCAL_ISOLATED",
+      "requiredForProfiles": ["BATCH1"],
+      "projectionKind": "TYPED_RECEIPT",
+      "requiredArtifactRoles": ["COMMAND_STDERR", "COMMAND_STDOUT", "REDACTION", "RESULT_PROJECTION"],
+      "requiredSubjectKinds": ["RESULT_RECEIPT"]
+    },
+    {
+      "commandId": "rollback-rehearsal",
+      "owner": "operations",
+      "cwdClass": "REPOSITORY_ROOT",
+      "argvTemplate": ["${APPROVED_ROLLBACK_RUNNER}", "--release", "${RELEASE_ID}"],
+      "timeoutSeconds": 3600,
+      "requiredEnvironmentClass": "DISPOSABLE_HOST",
+      "requiredForProfiles": ["BATCH1"],
+      "projectionKind": "TYPED_RECEIPT",
+      "requiredArtifactRoles": ["COMMAND_STDERR", "COMMAND_STDOUT", "REDACTION", "RESULT_PROJECTION"],
+      "requiredSubjectKinds": ["ROLLBACK_RECEIPT"]
+    },
+    {
+      "commandId": "root-harness-and-doctor",
+      "owner": "root",
+      "cwdClass": "REPOSITORY_ROOT",
+      "argvTemplate": ["${APPROVED_ROOT_HARNESS_RUNNER}", "--check-harness", "--check-doctor"],
+      "timeoutSeconds": 300,
+      "requiredEnvironmentClass": "LOCAL_ISOLATED",
+      "requiredForProfiles": ["BATCH1"],
+      "projectionKind": "COMMAND_ONLY",
+      "requiredArtifactRoles": ["COMMAND_STDERR", "COMMAND_STDOUT", "REDACTION", "RESULT_PROJECTION"],
+      "requiredSubjectKinds": []
+    },
+    {
+      "commandId": "v2-convergence-and-owner-receipt",
+      "owner": "root",
+      "cwdClass": "REPOSITORY_ROOT",
+      "argvTemplate": ["node", "scripts/ext-full-value-convergence.mjs", "--check"],
+      "timeoutSeconds": 300,
+      "requiredEnvironmentClass": "LOCAL_ISOLATED",
+      "requiredForProfiles": ["BATCH1"],
+      "projectionKind": "COMMAND_ONLY",
+      "requiredArtifactRoles": ["COMMAND_STDERR", "COMMAND_STDOUT", "REDACTION", "RESULT_PROJECTION"],
+      "requiredSubjectKinds": []
+    }
+  ]
+}
