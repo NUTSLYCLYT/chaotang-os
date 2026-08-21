@@ -13,8 +13,13 @@ RC1 合成验收能力。它不授权产品实现、commit、push、镜像拉取
 ## 1. 冻结身份与处置
 
 - 唯一目标：`gitee.com/msxn/chaotang-os:origin/ext-dev`。
-- 当前 amendment evidence base：`40251be7f302f0ab7ad94b3b0619f1c4a051c29a`。
-- 当前 amendment evidence base tree：`314c4484a513ead8cb00744d2f17ef6449297704`。
+- 当前 follow-up amendment evidence base：`3f794c07763802ac95fb6b8548f17f0bcd857f12`。
+- 当前 follow-up amendment evidence base tree：`c9f484dbaac34ddf9984d5548e12a8cbf3a8d4bf`。
+- 上一版 amendment contract SHA-256
+  `28b60ff5fd97f2095d028f0522fd5124be60bd7d8757281351703becc112e37c` 已以单文件治理提交
+  `3f794c07763802ac95fb6b8548f17f0bcd857f12` 落地；生成新 M0 三件套时发现现有
+  product-authority 不会向未知未来 candidate 注入 commit/tree/work-root 参数，因此该版只保留审计证据，
+  不得据此生成产品授权。本 follow-up 只更正验证器/authority 接口语义和对应计划文字，不扩大 26 条产品路径。
 - V2 推荐处置：`REBUILD`。
 - V2 证据：51 个 semantic review units；`eligibleDonorSourceCount=0`；状态
   `PROPOSED_NOT_AUTHORIZED`。
@@ -288,8 +293,11 @@ writerStopEvidence, databases, artifacts, manifestDigest`。
   多余/缺失 METADATA；METADATA 流式读取到 4 MiB+1 即 STOP。zip bomb 与 duplicate METADATA 负测必须
   在 M0 no-network/no-daemon 层运行。
 - 标准库-only verifier 落在 `backend/app/operations/runtime_lock.py`，以 duplicate-key rejecting parser
-  验证 lock、pyproject raw digest、wheelhouse exact inventory、wheel/METADATA/closure，并只在调用者给出的
-  新空目录生成各 scope 的临时 requirements；不得读取用户 site、pip cache 或网络。Docker build使用
+  验证 lock、pyproject raw digest、wheelhouse exact inventory、wheel/METADATA/closure。它只允许在 canonical
+  `/tmp` 下用 verifier-owned `mkdtemp` 创建 mode 0700 的唯一新空工作根；创建后立即记录并重验
+  `(device,inode,type,uid,mode,nlink)`，所有 BUILD/TEST/config/requirements 子根都必须位于该根内，清理时只删除
+  本轮创建且身份仍 exact 的根。不得接受调用者任意 work root、复用已有目录、跟随 symlink，或读取用户 site、
+  pip cache和网络。Docker build使用
   verified lock/wheelhouse 生成临时 requirements，并固定
   `pip install --no-index --require-hashes --only-binary=:all: --no-deps --find-links <verified-wheelhouse>`；
   builder 先只安装 hashed build closure，再以 `--no-build-isolation --no-deps` 构建应用 wheel；runtime stage
@@ -308,8 +316,13 @@ M0 首先运行 lock/parser 的离线负例；candidate 身份锁定后，由另
 provision 到 root-owned、candidate 不可写的 `/var/tmp/chaotang-m0-wheelhouse`。机器 verification 由
 `/usr/bin/python3 -I backend/app/operations/runtime_lock.py verify-candidate` 完成以下唯一流程：
 
-1. 从 source root 的 Git object database 重算当前 exact candidate commit/tree，并与 product-authority 传入身份
-   exact；dirty、replace object、shallow/缺 object 或身份漂移立即 STOP。
+1. 外层 product-authority 在调用 verification matrix 前后分别重算并钉住同一 clean candidate HEAD，且确保
+   candidate 是 approval commit 的 exact single child；这是 candidate authority binding，不要求 authority
+   注入一个在 approval 生成时尚不存在的 future SHA 参数。verifier 必须独立从 source root 的 Git object
+   database 在开始/结束各重算 candidate commit/tree、parent与clean state，两次结果 exact，并把
+   `candidateCommit,candidateTree,parentCommit` 写入 canonical stdout evidence；dirty、replace object、
+   shallow/缺 object、非单亲或身份漂移立即 STOP。product-authority 对 stdout 取 digest并在每个 command
+   前后再次验证 HEAD/clean，因此外层与内层共同形成唯一身份证明，不能由调用者覆盖 resolver或 expected identity。
 2. 从已验证 wheelhouse 在 checkout 外的新空根创建 BUILD venv；所有 pip 子进程固定
    `--isolated --no-cache-dir --no-index --require-hashes --only-binary=:all:`，并使用空 HOME、
    `PIP_CONFIG_FILE=/dev/null`、空用户 config/cache。只安装 lock 的 BUILD closure。
