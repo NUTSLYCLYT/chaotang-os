@@ -3,10 +3,10 @@
 ## Contract
 
 - Task：`PACKET-14-TRUSTED-ARTIFACT-DELIVERY-GAP-FIX-V1-20260822`
-- Base：`0af8f2c833c5337199902f7f64461872904a70cc`
-- Base tree：`d54ae79ac097be2d038cecce1d376ce03ec08611`
-- Contract SHA-256：`e5584434a25244b2f5230be3b9cffdeba9e08f738e3893d7af3ae764d0700c8b`
-- Product scope：approval manifest 中按字典序冻结的20条路径；第20条只允许 P15 synthetic runtime 三项机械兼容修正。
+- Base：`4f32ddff8c9b7ea151dc1f3253ae1fac946a74d1`
+- Base tree：`fb87583f550f28d183674559f738b5e06a01afbe`
+- Contract SHA-256：`8a40347854ad88d75ca92dd6dba5771ffb7d722f93f7d01b3db101d293fad1dc`
+- Product scope：approval manifest 中按字典序冻结的21条路径；路径 4 只允许 P15 synthetic runtime 三项机械兼容修正，路径 11 只允许六部旧测试 fixture/error expectation 与已审 P14 语义对齐。
 - Transition：authorize → RED → V2 trigger expand → app/API/BFF/UI adapt → real-stack/full verification → one product child。
 
 ## Execution Sequence
@@ -20,14 +20,15 @@
 7. **UI**：只在服务端回显 PUBLISHED 后主动加载并展示一次性确认；legacy 无 WorkProduct 保持 download-only。
 8. **Synthetic compatibility**：仅在 `backend/app/operations/sqlite_backup.py` 让 synthetic WorkProduct 使用真实
    semantic digest、`synthetic-reply` 和 `user:synthetic-owner`；不得改变 backup/rehearse/writer-stop/release 语义。
-9. **Verify**：后端全量与精准矩阵、P15 synthetic backup/rehearse、前端全矩阵/build、P09/P15、V2、Harness，随后真实双 owner browser journey。
+9. **Verify**：P15 隔离锁定环境执行后端全量与 Ruff，确认全量测试集合包含 P14 精准文件与第 21 条六部测试；不得再用宿主/user-site Python 生成冗余精准矩阵。随后验证 P15 synthetic backup/rehearse、前端全矩阵/build、P09/P15、V2、Harness 与真实双 owner browser journey。
 10. **Review**：独立 backend/frontend/security review；任何 P0/P1 或 NOT_RUN 阻断 candidate。
-11. **Handoff**：机器 verify-candidate PASS 后报告 candidate SHA/tree、20路径 diff、证据与回滚，等待 Owner 产品推送决定。
+11. **Handoff**：机器 verify-candidate PASS 后报告 candidate SHA/tree、21路径 diff、证据与回滚，等待 Owner 产品推送决定。
 
 ## Stop Conditions
 
 - origin/ext-dev 不再等于 approval commit，或 machine authority 非 GO；
-- 需要第21条产品路径、新表/列、新 API namespace、新格式、上传、自动发布或第二 ledger；
+- 需要第22条产品路径、新表/列、新 API namespace、新格式、上传、自动发布或第二 ledger；
+- `backend/tests/test_six_ministry_accounting_evidence_adapter.py` 的修改超出 publish-before-confirm、真实 management XLSX binding 与 tamper non-enumerating expectation 三类机械测试对齐；
 - `backend/app/operations/sqlite_backup.py` 的修改超出合同冻结的 synthetic digest、reply_id、actor 三项；
 - M0/候选需要真实用户数据、secret、外网、真实模型、生产路径、raw trace/HAR、持久 activation 或部署；
 - P09-A、P15 registry/readiness/backup/release 身份或 digest 不能精确重放；

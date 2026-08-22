@@ -18,10 +18,10 @@ receipt 不泄露 actor_ref；P14 V2 trigger 纳入 P15 唯一 runtime-data regi
 
 - Repository：`gitee.com/msxn/chaotang-os`
 - Target：`origin/ext-dev`
-- Base commit：`0af8f2c833c5337199902f7f64461872904a70cc`
-- Base tree：`d54ae79ac097be2d038cecce1d376ce03ec08611`
+- Base commit：`4f32ddff8c9b7ea151dc1f3253ae1fac946a74d1`
+- Base tree：`fb87583f550f28d183674559f738b5e06a01afbe`
 - Contract：`docs/migrations/2026-08-21-packet-14-trusted-artifact-delivery-contract.draft.md`
-- Contract SHA-256：`e5584434a25244b2f5230be3b9cffdeba9e08f738e3893d7af3ae764d0700c8b`
+- Contract SHA-256：`8a40347854ad88d75ca92dd6dba5771ffb7d722f93f7d01b3db101d293fad1dc`
 - Accepted P09-A product：`91e2c986509b1abb5c15d0a05a5268c9cae7b6ff`
 - Accepted P15 product：`fa3cc24e49703bb61b4ac0dfaf9c1cc41f00d14e`
 
@@ -31,21 +31,22 @@ receipt 不泄露 actor_ref；P14 V2 trigger 纳入 P15 唯一 runtime-data regi
 - [ ] PENDING、ABORTED、cross-run、digest drift 与伪 actor 均零 receipt；PUBLISHED exact binding 只允许一个终局决定。
 - [ ] 64 MiB 有界下载、稳定 FD、process/owner lease、same-origin raw parsers、公开 DTO 脱敏和 PUBLISHED-only UI 全绿。
 - [ ] P14 V2 trigger、P15 registry/readiness/backup/release digest 同源，tamper 全部失败关闭。
-- [ ] 后端全量、P14精准矩阵、P15 synthetic backup/rehearse、前端测试/lint/typecheck/build、P09/P15、V2、Root Harness/doctor 全绿。
+- [ ] P15 隔离锁定环境中的后端全量+Ruff（全量必须包含 P14 精准集合与第 21 条六部测试）、P15 synthetic backup/rehearse、前端测试/lint/typecheck/build、P09/P15、V2、Root Harness/doctor 全绿；不得用宿主/user-site Python 另造精准矩阵证据。
 - [ ] 真实 production Next + FastAPI + 临时 SQLite + deterministic provider + 双 owner 浏览器 journey PASS。
 - [ ] 独立 backend/frontend/security review 无 P0/P1，机器 `--verify-candidate` 返回 canAcceptProductCandidate=true。
 
 ## Delivery Constraints
 
-只允许 approval manifest 的20条产品路径。新增的第20条仅可修正 P15 synthetic WorkProduct digest、reply_id
-与内部 actor 三项兼容绑定。产品 M0 前不得新增产品修改；M0 与候选不得读取生产数据库、
+只允许 approval manifest 的21条产品路径。路径 4 仅可修正 P15 synthetic WorkProduct digest、reply_id
+与内部 actor 三项兼容绑定；路径 11 仅可更新六部旧测试 fixture/error expectation 以匹配已审 P14 安全语义，
+不得修改产品逻辑或放宽 PENDING/ABORTED confirmation。产品 M0 前不得新增产品修改；M0 与候选不得读取生产数据库、
 真实用户工作簿、secret、已有浏览器 profile，不得使用真实模型/外网、raw trace/HAR、历史 donor 整树或预制 PASS。
 持久库 activation、停写、cold backup、restore、部署和产品 push 均需后续独立 authority。
 
 ## Affected Modules
 
 - 模块：会计产物存储/确认 API、P15 runtime registry/readiness、P14 FastAPI/Next BFF、Study 产物 UI。
-- 允许路径：严格等于 approval manifest `request.productPaths` 的20条路径。
+- 允许路径：严格等于 approval manifest `request.productPaths` 的21条路径。
 - 非目标：新表/列、第二 ledger、上传、新格式、新 API namespace、自动发布、P06/P09-B、P15 非 synthetic 兼容修改或生产部署。
 
 ## Technical Plan
@@ -55,7 +56,8 @@ exclusive V2 trigger expand → application/API/BFF/UI adapt →真实链与全�
 
 ## Implementation Report
 
-已有 P14 产品草稿仍停在未提交工作树，未获新版 M0，不得继续修改或提交。除已确认的
+六部继任兼容治理 candidate 已形成新的精确 base；已有 P14 产品草稿仍停在未提交工作树，未获新版 M0，
+不得继续修改或提交。除已确认的
 PENDING/ABORTED/cross-run、actor_ref、无界 JSON/download 和 UI gate RED 外，follow-up 还确认 P15 synthetic
 runtime 的占位 digest、reply_id 与 actor 旧绑定会被 V2 安全底座正确拒绝；禁止放宽安全门来换取回归通过。
 
