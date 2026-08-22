@@ -1,32 +1,21 @@
-"""Response model and version resolution for GET /health."""
+"""Response model and installed-distribution version for ``GET /health``."""
 
 from __future__ import annotations
 
-import tomllib
-from pathlib import Path
+from importlib import metadata
 
 from pydantic import BaseModel
 
-_PYPROJECT_PATH = Path(__file__).resolve().parent.parent / "pyproject.toml"
-_FALLBACK_VERSION = "0.0.0"
+_DISTRIBUTION_NAME = "chaotang-os-backend"
 
 
 def get_service_version() -> str:
-    """Read the backend service version straight from ``pyproject.toml``.
+    """Return the version embedded in the installed application wheel.
 
-    Reading the file directly (instead of relying on installed package
-    metadata via ``importlib.metadata``) keeps the value correct whether the
-    project is running from an editable install, a plain ``PYTHONPATH``
-    checkout, or a container without full package metadata. Falls back to
-    ``0.0.0`` if the file is missing or malformed so the health endpoint
-    never fails purely because of a metadata read issue.
+    A missing distribution is a broken image and deliberately fails closed;
+    source files are not a second version fact source.
     """
-    try:
-        with _PYPROJECT_PATH.open("rb") as pyproject_file:
-            data = tomllib.load(pyproject_file)
-        return str(data["project"]["version"])
-    except (OSError, KeyError, tomllib.TOMLDecodeError):
-        return _FALLBACK_VERSION
+    return metadata.version(_DISTRIBUTION_NAME)
 
 
 class HealthResponse(BaseModel):

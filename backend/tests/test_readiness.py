@@ -1,21 +1,31 @@
 from __future__ import annotations
 
+import json
 import os
 import sqlite3
 import subprocess
 from contextlib import closing
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 
-from fastapi.testclient import TestClient
+import pytest
 
+from app.agents.runtime_skills.execution_ledger import RuntimeBindingLedger
+from app.jinyiwei import db as jinyiwei_db
 from app.main import app
+from app.operations.runtime_data_registry import (
+    RUNTIME_DATA_ENTRIES,
+    RUNTIME_DATA_REGISTRY,
+    RUNTIME_DATA_REGISTRY_DIGEST,
+)
 from app.readiness import (
     ReadinessResult,
     ReadinessSettings,
     _local_credential_available,
     run_readiness_preflight,
 )
+from app.shiguan import db as shiguan_db
 
 
 def _settings(tmp_path: Path) -> ReadinessSettings:
@@ -47,12 +57,9 @@ def test_readyz_is_additive_and_preserves_all_existing_routes(monkeypatch) -> No
         SimpleNamespace(is_alive=lambda: True),
         raising=False,
     )
-    client = TestClient(app)
-
-    assert client.get("/health").status_code == 200
-    response = client.get("/readyz")
+    response = main.readiness()
     assert response.status_code == 200
-    assert response.json() == {"codes": ["ready"]}
+    assert json.loads(response.body) == {"codes": ["ready"]}
     assert {
         "/health",
         "/readyz",
@@ -78,10 +85,10 @@ def test_readyz_rejects_a_missing_or_stopped_decree_worker(monkeypatch) -> None:
     monkeypatch.setattr(main, "run_readiness_preflight", lambda: ReadinessResult(()))
     monkeypatch.delattr(main.app.state, "decree_job_worker", raising=False)
 
-    missing_response = TestClient(app).get("/readyz")
+    missing_response = main.readiness()
 
     assert missing_response.status_code == 503
-    assert missing_response.json() == {"codes": ["worker_not_running"]}
+    assert json.loads(missing_response.body) == {"codes": ["worker_not_running"]}
 
     monkeypatch.setattr(
         main.app.state,
@@ -90,32 +97,56 @@ def test_readyz_rejects_a_missing_or_stopped_decree_worker(monkeypatch) -> None:
         raising=False,
     )
 
-    response = TestClient(app).get("/readyz")
+    response = main.readiness()
 
     assert response.status_code == 503
-    assert response.json() == {"codes": ["worker_not_running"]}
+    assert json.loads(response.body) == {"codes": ["worker_not_running"]}
 
 
 def test_readyz_reports_stable_unready_and_exception_codes(monkeypatch) -> None:
     import app.main as main
 
-    client = TestClient(app)
     monkeypatch.setattr(
         main,
         "run_readiness_preflight",
         lambda: ReadinessResult(("provider_credential_missing",)),
     )
-    response = client.get("/readyz")
+    response = main.readiness()
     assert response.status_code == 503
-    assert response.json() == {"codes": ["provider_credential_missing"]}
+    assert json.loads(response.body) == {"codes": ["provider_credential_missing"]}
 
     def fail_preflight() -> ReadinessResult:
         raise RuntimeError("sensitive implementation detail")
 
     monkeypatch.setattr(main, "run_readiness_preflight", fail_preflight)
-    response = client.get("/readyz")
+    response = main.readiness()
     assert response.status_code == 503
-    assert response.json() == {"codes": ["readiness_check_failed"]}
+    assert json.loads(response.body) == {"codes": ["readiness_check_failed"]}
+
+
+def test_readiness_rejects_a_symlinked_data_root(tmp_path: Path) -> None:
+    settings_root = tmp_path / "settings"
+    settings_root.mkdir()
+    settings = _settings(settings_root)
+    settings.data_dir.rmdir()
+    real_root = tmp_path / "real-data"
+    real_root.mkdir()
+    settings.data_dir.symlink_to(real_root, target_is_directory=True)
+
+    assert "data_volume_missing" in run_readiness_preflight(settings).codes
+
+
+def test_readiness_rejects_a_symlinked_data_root_parent(tmp_path: Path) -> None:
+    real_parent = tmp_path / "real-parent"
+    real_parent.mkdir()
+    (real_parent / "data").mkdir()
+    linked_parent = tmp_path / "linked-parent"
+    linked_parent.symlink_to(real_parent, target_is_directory=True)
+    settings_root = tmp_path / "settings"
+    settings_root.mkdir()
+    settings = replace(_settings(settings_root), data_dir=linked_parent / "data")
+
+    assert "data_volume_missing" in run_readiness_preflight(settings).codes
 
 
 def test_readiness_checks_existing_decree_job_schema(tmp_path: Path) -> None:
@@ -129,12 +160,44 @@ def test_readiness_checks_existing_decree_job_schema(tmp_path: Path) -> None:
 
 def test_readiness_accepts_current_shiguan_v5_and_jinyiwei_v5(tmp_path: Path) -> None:
     settings = _settings(tmp_path)
-    for filename, version in (("shiguan.sqlite3", 5), ("jinyiwei.sqlite3", 5)):
-        with closing(sqlite3.connect(settings.data_dir / filename)) as connection:
-            connection.execute(f"PRAGMA user_version = {version}")
-            connection.commit()
+    jinyiwei_db.initialize_database(settings.data_dir / "jinyiwei.sqlite3")
+    with closing(shiguan_db.get_connection(settings.data_dir / "shiguan.sqlite3")):
+        pass
 
     assert run_readiness_preflight(settings).codes == ()
+
+
+def test_runtime_data_registry_is_closed_and_includes_all_seven_stores() -> None:
+    assert tuple(entry.name for entry in RUNTIME_DATA_ENTRIES) == (
+        "decree_jobs.sqlite3",
+        "jinyiwei.sqlite3",
+        "junjichu_cases.sqlite3",
+        "qintianjian.sqlite3",
+        "report_artifacts.sqlite3",
+        "runtime_bindings.sqlite3",
+        "shiguan.sqlite3",
+    )
+    assert RUNTIME_DATA_REGISTRY["schemaVersion"] == ("chaotang.runtime-data-registry.v2")
+    assert RUNTIME_DATA_REGISTRY["registryDigest"] == RUNTIME_DATA_REGISTRY_DIGEST
+    assert RUNTIME_DATA_REGISTRY_DIGEST.startswith("sha256:")
+    assert len(RUNTIME_DATA_REGISTRY_DIGEST) == 71
+
+
+def test_readiness_accepts_exact_runtime_binding_schema(tmp_path: Path) -> None:
+    settings = _settings(tmp_path)
+    RuntimeBindingLedger(settings.data_dir / "runtime_bindings.sqlite3")
+
+    assert run_readiness_preflight(settings).codes == ()
+
+
+def test_readiness_rejects_runtime_binding_schema_without_append_only_triggers(
+    tmp_path: Path,
+) -> None:
+    settings = _settings(tmp_path)
+    with sqlite3.connect(settings.data_dir / "runtime_bindings.sqlite3") as connection:
+        connection.execute("CREATE TABLE runtime_resource_bindings(binding_id TEXT)")
+
+    assert run_readiness_preflight(settings).codes == ("storage_schema_unsupported",)
 
 
 def test_readiness_accepts_explicit_local_credential_source(tmp_path: Path) -> None:
@@ -188,5 +251,75 @@ def test_readiness_rejects_report_artifact_directory_resolving_outside_volume(
         )
     else:
         link.symlink_to(outside, target_is_directory=True)
+
+    assert run_readiness_preflight(settings).codes == ("storage_layout_invalid",)
+
+
+def test_readiness_rejects_report_artifact_directory_symlink_inside_volume(
+    tmp_path: Path,
+) -> None:
+    settings = _settings(tmp_path)
+    target = settings.data_dir / "actual-artifacts"
+    target.mkdir()
+    (settings.data_dir / "report_artifacts").symlink_to(target, target_is_directory=True)
+
+    assert run_readiness_preflight(settings).codes == ("storage_layout_invalid",)
+
+
+@pytest.mark.parametrize("entry_name", ["unknown.sqlite3", "credentials"])
+def test_readiness_rejects_unknown_or_sensitive_runtime_entry(
+    tmp_path: Path,
+    entry_name: str,
+) -> None:
+    settings = _settings(tmp_path)
+    unexpected = settings.data_dir / entry_name
+    if entry_name == "credentials":
+        unexpected.mkdir()
+        (unexpected / "must-not-be-read").write_text("secret", encoding="utf-8")
+    else:
+        unexpected.write_bytes(b"not a registered database")
+
+    assert run_readiness_preflight(settings).codes == ("storage_layout_invalid",)
+
+
+@pytest.mark.parametrize(
+    "entry_name",
+    ["decree_jobs.sqlite3-wal", "decree_jobs.sqlite3-shm", "report_artifacts"],
+)
+def test_readiness_rejects_orphan_runtime_sidecar_or_artifact_root(
+    tmp_path: Path,
+    entry_name: str,
+) -> None:
+    settings = _settings(tmp_path)
+    orphan = settings.data_dir / entry_name
+    if entry_name == "report_artifacts":
+        orphan.mkdir()
+    else:
+        orphan.write_bytes(b"orphan")
+
+    assert run_readiness_preflight(settings).codes == ("storage_layout_invalid",)
+
+
+def test_readiness_rejects_registered_artifact_database_without_its_root(
+    tmp_path: Path,
+) -> None:
+    from app.accounting_reports.storage import ArtifactStorage
+
+    settings = _settings(tmp_path)
+    ArtifactStorage(
+        settings.data_dir / "report_artifacts",
+        settings.data_dir / "report_artifacts.sqlite3",
+    )
+    (settings.data_dir / "report_artifacts").rmdir()
+
+    assert run_readiness_preflight(settings).codes == ("storage_layout_invalid",)
+
+
+def test_readiness_rejects_symlinked_sidecar_for_registered_database(tmp_path: Path) -> None:
+    settings = _settings(tmp_path)
+    RuntimeBindingLedger(settings.data_dir / "runtime_bindings.sqlite3")
+    outside = tmp_path / "outside-wal"
+    outside.write_bytes(b"not a sidecar")
+    (settings.data_dir / "runtime_bindings.sqlite3-wal").symlink_to(outside)
 
     assert run_readiness_preflight(settings).codes == ("storage_layout_invalid",)

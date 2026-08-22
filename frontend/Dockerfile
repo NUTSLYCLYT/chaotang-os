@@ -1,5 +1,4 @@
-ARG NODE_IMAGE
-FROM ${NODE_IMAGE} AS dependencies
+FROM --platform=linux/amd64 docker.io/library/node@sha256:2a49bdf71e9fd965a58c1703fd9ddd205b34e5782b692a72dd1d248abb0beb43 AS dependencies
 
 WORKDIR /app
 COPY package.json package-lock.json ./
@@ -11,7 +10,15 @@ ENV NEXT_TELEMETRY_DISABLED=1
 COPY . .
 RUN npm run build
 
-FROM ${NODE_IMAGE} AS runner
+FROM --platform=linux/amd64 docker.io/library/node@sha256:2a49bdf71e9fd965a58c1703fd9ddd205b34e5782b692a72dd1d248abb0beb43 AS runner
+
+ARG SOURCE_REVISION
+ARG SOURCE_TREE
+ARG SOURCE_CREATED
+LABEL org.opencontainers.image.source="https://gitee.com/msxn/chaotang-os" \
+      org.opencontainers.image.revision="${SOURCE_REVISION}" \
+      io.chaotang.source.tree="${SOURCE_TREE}" \
+      org.opencontainers.image.created="${SOURCE_CREATED}"
 
 ENV HOSTNAME=0.0.0.0 \
     PORT=3000 \

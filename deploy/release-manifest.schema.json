@@ -1,0 +1,296 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gitee.com/msxn/chaotang-os/schemas/chaotang-offline-release.v2.json",
+  "title": "Chaotang OS offline release manifest v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "platform",
+    "runtimeRegistryDigest",
+    "source",
+    "tools",
+    "locks",
+    "deployment",
+    "images",
+    "files"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "chaotang-offline-release.v2"
+    },
+    "platform": {
+      "const": "linux/amd64"
+    },
+    "runtimeRegistryDigest": {
+      "const": "sha256:014a4d2e5467b70cb2e12b7ab2954771040dc0f6c9f170ae20cf5759d9dcaf52"
+    },
+    "source": {
+      "$ref": "#/$defs/source"
+    },
+    "tools": {
+      "$ref": "#/$defs/tools"
+    },
+    "locks": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "uniqueItems": true,
+      "prefixItems": [
+        {
+          "allOf": [
+            { "$ref": "#/$defs/digestedPath" },
+            {
+              "properties": {
+                "path": { "const": "locks/backend.requirements-runtime.lock" }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/$defs/digestedPath" },
+            {
+              "properties": {
+                "path": { "const": "locks/frontend.package-lock.json" }
+              }
+            }
+          ]
+        }
+      ],
+      "items": false
+    },
+    "deployment": {
+      "$ref": "#/$defs/deployment"
+    },
+    "images": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "uniqueItems": true,
+      "prefixItems": [
+        {
+          "allOf": [
+            { "$ref": "#/$defs/applicationImage" },
+            { "properties": { "name": { "const": "backend" } } }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/$defs/upstreamImage" },
+            { "properties": { "name": { "const": "caddy" } } }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/$defs/applicationImage" },
+            { "properties": { "name": { "const": "frontend" } } }
+          ]
+        }
+      ],
+      "items": false
+    },
+    "files": {
+      "type": "array",
+      "minItems": 15,
+      "maxItems": 15,
+      "uniqueItems": true,
+      "prefixItems": [
+        { "allOf": [{ "$ref": "#/$defs/file" }, { "properties": { "path": { "const": "deploy/Caddyfile" }, "kind": { "const": "deployment" } } }] },
+        { "allOf": [{ "$ref": "#/$defs/file" }, { "properties": { "path": { "const": "deploy/compose.yaml" }, "kind": { "const": "deployment" } } }] },
+        { "allOf": [{ "$ref": "#/$defs/file" }, { "properties": { "path": { "const": "deploy/images.env" }, "kind": { "const": "deployment" } } }] },
+        { "allOf": [{ "$ref": "#/$defs/file" }, { "properties": { "path": { "const": "deploy/README.md" }, "kind": { "const": "documentation" } } }] },
+        { "allOf": [{ "$ref": "#/$defs/file" }, { "properties": { "path": { "const": "images/backend.oci.tar" }, "kind": { "const": "oci-archive" } } }] },
+        { "allOf": [{ "$ref": "#/$defs/file" }, { "properties": { "path": { "const": "images/backend.provenance.json" }, "kind": { "const": "provenance" } } }] },
+        { "allOf": [{ "$ref": "#/$defs/file" }, { "properties": { "path": { "const": "images/backend.sbom.json" }, "kind": { "const": "sbom" } } }] },
+        { "allOf": [{ "$ref": "#/$defs/file" }, { "properties": { "path": { "const": "images/caddy.oci.tar" }, "kind": { "const": "oci-archive" } } }] },
+        { "allOf": [{ "$ref": "#/$defs/file" }, { "properties": { "path": { "const": "images/caddy.provenance.json" }, "kind": { "const": "provenance" } } }] },
+        { "allOf": [{ "$ref": "#/$defs/file" }, { "properties": { "path": { "const": "images/caddy.sbom.json" }, "kind": { "const": "sbom" } } }] },
+        { "allOf": [{ "$ref": "#/$defs/file" }, { "properties": { "path": { "const": "images/frontend.oci.tar" }, "kind": { "const": "oci-archive" } } }] },
+        { "allOf": [{ "$ref": "#/$defs/file" }, { "properties": { "path": { "const": "images/frontend.provenance.json" }, "kind": { "const": "provenance" } } }] },
+        { "allOf": [{ "$ref": "#/$defs/file" }, { "properties": { "path": { "const": "images/frontend.sbom.json" }, "kind": { "const": "sbom" } } }] },
+        { "allOf": [{ "$ref": "#/$defs/file" }, { "properties": { "path": { "const": "locks/backend.requirements-runtime.lock" }, "kind": { "const": "lock" } } }] },
+        { "allOf": [{ "$ref": "#/$defs/file" }, { "properties": { "path": { "const": "locks/frontend.package-lock.json" }, "kind": { "const": "lock" } } }] }
+      ],
+      "items": false
+    }
+  },
+  "$defs": {
+    "gitObject": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^(?!.*//)(?!.*(?:^|/)\\.\\.?(?:/|$))[A-Za-z0-9][A-Za-z0-9._-]*(?:/[A-Za-z0-9][A-Za-z0-9._-]*){0,15}$"
+    },
+    "imageReference": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*(?::[0-9]+)?(?:/[a-z0-9]+(?:[._-][a-z0-9]+)*)*@sha256:[0-9a-f]{64}$"
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]*$"
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["commit", "tree", "sourceDateEpoch"],
+      "properties": {
+        "commit": { "$ref": "#/$defs/gitObject" },
+        "tree": { "$ref": "#/$defs/gitObject" },
+        "sourceDateEpoch": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "tools": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "docker",
+        "buildx",
+        "buildkit",
+        "node",
+        "python",
+        "caddy",
+        "syft",
+        "grype"
+      ],
+      "properties": {
+        "docker": { "$ref": "#/$defs/version" },
+        "buildx": { "$ref": "#/$defs/version" },
+        "buildkit": { "$ref": "#/$defs/version" },
+        "node": { "$ref": "#/$defs/version" },
+        "python": { "$ref": "#/$defs/version" },
+        "caddy": { "$ref": "#/$defs/version" },
+        "syft": { "$ref": "#/$defs/version" },
+        "grype": { "$ref": "#/$defs/version" }
+      }
+    },
+    "digestedPath": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": { "$ref": "#/$defs/relativePath" },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "deployment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "composePath",
+        "composeSha256",
+        "caddyfilePath",
+        "caddyfileSha256",
+        "imagesEnvPath",
+        "imagesEnvSha256"
+      ],
+      "properties": {
+        "composePath": { "const": "deploy/compose.yaml" },
+        "composeSha256": { "$ref": "#/$defs/sha256" },
+        "caddyfilePath": { "const": "deploy/Caddyfile" },
+        "caddyfileSha256": { "$ref": "#/$defs/sha256" },
+        "imagesEnvPath": { "const": "deploy/images.env" },
+        "imagesEnvSha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "imageCore": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "reference",
+        "archivePath",
+        "archiveSha256",
+        "sbomPath",
+        "sbomSha256",
+        "provenancePath",
+        "provenanceSha256",
+        "sourceRevision",
+        "sourceTree"
+      ],
+      "properties": {
+        "name": {
+          "enum": ["backend", "caddy", "frontend"]
+        },
+        "reference": { "$ref": "#/$defs/imageReference" },
+        "archivePath": { "$ref": "#/$defs/relativePath" },
+        "archiveSha256": { "$ref": "#/$defs/sha256" },
+        "sbomPath": { "$ref": "#/$defs/relativePath" },
+        "sbomSha256": { "$ref": "#/$defs/sha256" },
+        "provenancePath": { "$ref": "#/$defs/relativePath" },
+        "provenanceSha256": { "$ref": "#/$defs/sha256" },
+        "sourceRevision": {
+          "oneOf": [
+            { "$ref": "#/$defs/gitObject" },
+            { "type": "null" }
+          ]
+        },
+        "sourceTree": {
+          "oneOf": [
+            { "$ref": "#/$defs/gitObject" },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
+    "applicationImage": {
+      "allOf": [
+        { "$ref": "#/$defs/imageCore" },
+        {
+          "properties": {
+            "sourceRevision": { "$ref": "#/$defs/gitObject" },
+            "sourceTree": { "$ref": "#/$defs/gitObject" }
+          }
+        }
+      ]
+    },
+    "upstreamImage": {
+      "allOf": [
+        { "$ref": "#/$defs/imageCore" },
+        {
+          "properties": {
+            "sourceRevision": { "type": "null" },
+            "sourceTree": { "type": "null" }
+          }
+        }
+      ]
+    },
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "bytes", "sha256", "kind"],
+      "properties": {
+        "path": { "$ref": "#/$defs/relativePath" },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 8589934592
+        },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "kind": {
+          "enum": [
+            "deployment",
+            "documentation",
+            "lock",
+            "oci-archive",
+            "provenance",
+            "sbom"
+          ]
+        }
+      }
+    }
+  }
+}

@@ -1,25 +1,29 @@
+name: chaotang-os
 services:
   backend:
-    image: ${BACKEND_IMAGE:?set BACKEND_IMAGE}
+    image: ${BACKEND_IMAGE:?set digest-pinned BACKEND_IMAGE}
+    pull_policy: never
     user: "10002:10002"
     read_only: true
+    command: [python, -m, uvicorn, app.main:app, --host, 0.0.0.0, --port, "8000", --workers, "1", --no-access-log]
     env_file:
       - ${PRODUCTION_ENV_FILE:-/etc/chaotang-os/production.env}
     environment:
       CHAOTANG_DECREE_JOB_WORKER_ENABLED: "true"
       JINYIWEI_EXTERNAL_NETWORK_ENABLED: "false"
+      CHAOTANG_ACCOUNTING_SOURCE_DIR: /app/accounting
     volumes:
       - /srv/chaotang-os/data:/app/data
-      - /srv/chaotang-os/artifacts:/app/artifacts
       - /srv/chaotang-os/accounting:/app/accounting:ro
     expose: ["8000"]
-    networks: [app, egress]
-    tmpfs: [/tmp]
+    networks: [app]
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,mode=1777
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
     restart: unless-stopped
     healthcheck:
-      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/readyz', timeout=3)"]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -27,14 +31,16 @@ services:
       driver: json-file
       options: {max-size: 10m, max-file: "3"}
   frontend:
-    image: ${FRONTEND_IMAGE:?set FRONTEND_IMAGE}
+    image: ${FRONTEND_IMAGE:?set digest-pinned FRONTEND_IMAGE}
+    pull_policy: never
     user: "10001:10001"
     read_only: true
     environment:
       BACKEND_BASE_URL: http://backend:8000
     expose: ["3000"]
     networks: [edge, app]
-    tmpfs: [/tmp]
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,mode=1777
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
     restart: unless-stopped
@@ -47,20 +53,20 @@ services:
       retries: 5
     logging: *logging
   caddy:
-    image: ${CADDY_IMAGE:?set CADDY_IMAGE}
+    image: ${CADDY_IMAGE:?set digest-pinned CADDY_IMAGE}
+    pull_policy: never
+    user: "10003:10003"
     read_only: true
     ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"
+      - "127.0.0.1:8080:8080"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - /srv/chaotang-os/caddy-data:/data
-      - /srv/chaotang-os/caddy-config:/config
     networks: [edge]
-    tmpfs: [/tmp]
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,mode=1777
+      - /data:rw,noexec,nosuid,nodev,mode=0700,uid=10003,gid=10003
+      - /config:rw,noexec,nosuid,nodev,mode=0700,uid=10003,gid=10003
     cap_drop: [ALL]
-    cap_add: [NET_BIND_SERVICE]
     security_opt: [no-new-privileges:true]
     restart: unless-stopped
     depends_on:
@@ -72,7 +78,7 @@ services:
       retries: 5
     logging: *logging
 networks:
-  edge: {}
-  egress: {}
+  edge:
+    internal: true
   app:
     internal: true

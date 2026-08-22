@@ -1,62 +1,49 @@
-"""Tests for GET /health: path, status code, and response contract."""
+"""Tests for the installed-package health version contract."""
 
 from __future__ import annotations
 
-import tomllib
-from pathlib import Path
+from importlib.metadata import PackageNotFoundError
 
-from fastapi.testclient import TestClient
+import pytest
 
-from app.main import app
-
-client = TestClient(app)
+from app.health import get_service_version
+from app.main import app, health
 
 
-def _expected_version() -> str:
-    pyproject_path = Path(__file__).resolve().parent.parent / "pyproject.toml"
-    with pyproject_path.open("rb") as pyproject_file:
-        data = tomllib.load(pyproject_file)
-    return str(data["project"]["version"])
+def test_health_uses_installed_distribution_metadata(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[str] = []
 
+    def installed_version(distribution_name: str) -> str:
+        calls.append(distribution_name)
+        return "9.8.7+candidate"
 
-def test_health_returns_200_ok():
-    response = client.get("/health")
-    assert response.status_code == 200
+    monkeypatch.setattr("app.health.metadata.version", installed_version)
+    response = health()
 
-
-def test_health_returns_json_content_type():
-    response = client.get("/health")
-    assert response.headers["content-type"].startswith("application/json")
-
-
-def test_health_response_body_matches_contract():
-    response = client.get("/health")
-    body = response.json()
-    assert body == {
+    assert response.model_dump() == {
         "status": "ok",
         "service": "chaotang-os-backend",
-        "version": _expected_version(),
+        "version": "9.8.7+candidate",
     }
+    assert calls == ["chaotang-os-backend"]
 
 
-def test_health_version_matches_pinned_pyproject_literal():
-    """Guard against ``_expected_version()`` and ``get_service_version()``
-    silently agreeing on a *wrong* parse of ``pyproject.toml``.
+def test_health_version_does_not_fall_back_when_distribution_is_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def missing_distribution(_distribution_name: str) -> str:
+        raise PackageNotFoundError("chaotang-os-backend")
 
-    ``_expected_version()`` above re-derives its expectation by re-reading
-    ``pyproject.toml`` the same way ``app.health.get_service_version()`` does,
-    so a bug shared by both implementations (e.g. reading the wrong TOML key)
-    would still make ``test_health_response_body_matches_contract`` pass. This
-    test instead hard-codes the current contract literal so a real drift
-    between the response and the actual ``pyproject.toml`` version is caught
-    even if both readers are wrong the same way. Update this literal in the
-    same change that bumps ``[project].version`` in ``pyproject.toml``.
-    """
-    response = client.get("/health")
-    assert response.json()["version"] == "0.1.0"
+    monkeypatch.setattr("app.health.metadata.version", missing_distribution)
+    with pytest.raises(PackageNotFoundError):
+        get_service_version()
 
 
-def test_health_response_has_only_expected_fields():
-    response = client.get("/health")
-    body = response.json()
-    assert set(body.keys()) == {"status", "service", "version"}
+def test_health_response_has_only_expected_fields(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("app.health.metadata.version", lambda _name: "0.1.0")
+    assert set(health().model_dump()) == {"status", "service", "version"}
+
+
+def test_health_route_remains_public_get() -> None:
+    route = next(route for route in app.routes if getattr(route, "path", None) == "/health")
+    assert route.methods == {"GET"}

@@ -1,4 +1,9 @@
-app.mingshuoxny.com {
+{
+  admin off
+  auto_https off
+}
+
+:8080 {
   @welcomeAssets path /assets/v5-pre-auth/*
   header @welcomeAssets >Cache-Control "public, max-age=604800"
 
@@ -7,8 +12,14 @@ app.mingshuoxny.com {
 
   header {
     X-Content-Type-Options nosniff
+    X-Frame-Options DENY
     Referrer-Policy strict-origin-when-cross-origin
-    Content-Security-Policy "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'"
+    Content-Security-Policy "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'"
   }
-  reverse_proxy frontend:3000
+  reverse_proxy frontend:3000 {
+    transport http {
+      dial_timeout 5s
+      response_header_timeout 900s
+    }
+  }
 }
