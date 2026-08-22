@@ -1,6 +1,6 @@
 # Packet 14 — 可信产物交付合同草案
 
-> 状态：`CONTRACT_DRAFT / KNOWN_GAP / NONAUTHORIZING / PRODUCT_NOT_STARTED`
+> 状态：`CONTRACT_AMENDMENT_DRAFT / KNOWN_GAP / NONAUTHORIZING / PRODUCT_STOP`
 >
 > Packet：`packet-14-trusted-artifact-delivery`
 >
@@ -9,6 +9,30 @@
 本合同只定义 Batch 1 中“会计工作产物可追溯、仅在产物真实发布后可由本人作一次人工确认、
 并可由本人安全下载”的修复与验收边界。它不授权产品代码、commit、push、真实用户数据、生产
 数据库、部署、网络、模型、文件上传或旧 W06R 整树合并。
+
+### Follow-up amendment（2026-08-22）
+
+已接受的 P14 合同证据 commit 为 `90bb3abd53af4cbb988d74fb818ec76c731576f5`，已接受的首版
+P14 治理三件套 commit 为 `963d313310c3a2a35158428de81e83073096fec8`。首版 M0 的19条路径
+在实现 RED 后暴露出一个跨 Packet 的真实兼容缺口：P14 V2 application/trigger 要求 immutable
+WorkProduct semantic digest 自洽、`reply_id` 与唯一 artifact binding 一致、内部 actor exact 为
+`user:<owner_user_id>`；P15 既有 `backend/app/operations/sqlite_backup.py::_create_synthetic_runtime()`
+仍创建占位 `content_digest="3333333333333333333333333333333333333333333333333333333333333333"`、
+不一致的 `rc1-synthetic-reply`，并用旧 `synthetic-owner`
+直接写 confirmation receipt。结果是 P14 专项链通过，但 approval 强制的 backend-full 与
+`test_sqlite_backup.py` synthetic backup/rehearse 在 V2 安全底座上必然失败。
+
+本 follow-up 只把 `backend/app/operations/sqlite_backup.py` 加为第20条产品路径，并允许三项
+机械兼容修正：从同一个 `WorkProductEnvelope` 按现有 `semantic_digest` 生成真实 content digest；
+把 synthetic WorkProduct `reply_id` 对齐已写入 artifact 的 `synthetic-reply`；把 synthetic receipt
+actor 改为 `user:synthetic-owner`。禁止改变 backup/verify/rehearse、writer-stop、registry、retention、
+真实数据或 release authority 语义，也禁止为 synthetic ID 建生产特例、放宽 V2 trigger 或 application
+guard。修正后必须由既有 synthetic CLI、P14 精准矩阵和 backend-full 同时证明。
+
+该 amendment 本身仍不授权产品施工、commit、push 或部署。它必须先作为单文件治理证据独立
+commit/push；随后从其远端 exact head 重新生成并审查 P14 三件套，Owner 接受新 canonical approval
+digest 且新版 `product-authority --authorize` 返回 GO 后，才允许恢复当前 P14 产品草稿。旧 approval
+在 amendment 成为远端头后必须返回 STOP，不得继续消费。
 
 当前 `ext-dev` 已有 substantive 纵切，但只证明了 happy path。只读复现已确认：确认事务只校验
 WorkProduct 自身的 `READY_FOR_HUMAN_CONFIRMATION + PENDING`，没有在同一事务中核对绑定 artifact
@@ -295,30 +319,32 @@ P14-G 是 Batch 1 的产品修复 Packet，不能由本合同、Batch 1 方向�
 以下 exact product paths、RED nodes、单提交回滚和唯一单亲子；只有
 `node scripts/product-authority.mjs --authorize --task <exact-P14-task-id>` 返回 GO 后才可施工。
 
-未来 P14-G `productPaths` 必须严格等于以下 19 条，按字典序冻结；不得用目录、glob 或“对应测试”
+未来 P14-G `productPaths` 必须严格等于以下 20 条，按字典序冻结；不得用目录、glob 或“对应测试”
 扩面：
 
 1. `backend/app/accounting_reports/storage.py`
 2. `backend/app/api/report_artifacts.py`
 3. `backend/app/operations/runtime_data_registry.py`
-4. `backend/app/readiness.py`
-5. `backend/tests/test_accounting_confirmation_api.py`
-6. `backend/tests/test_accounting_report_storage.py`
-7. `backend/tests/test_accounting_work_product_storage.py`
-8. `backend/tests/test_readiness.py`
-9. `backend/tests/test_report_artifacts_api.py`
-10. `backend/tests/test_sqlite_backup.py`
-11. `frontend/src/app/api/report-artifacts/[id]/confirmation/handler.ts`
-12. `frontend/src/app/api/report-artifacts/[id]/confirmation/route.test.ts`
-13. `frontend/src/app/api/report-artifacts/[id]/handler.ts`
-14. `frontend/src/app/api/report-artifacts/[id]/route.test.ts`
-15. `frontend/src/features/study-visual/StudyArtifactConfirmation.test.ts`
-16. `frontend/src/features/study-visual/StudyArtifactLinks.test.ts`
-17. `frontend/src/features/study-visual/StudyArtifactLinks.ts`
-18. `frontend/src/lib/backendClient.test.ts`
-19. `frontend/src/lib/backendClient.ts`
+4. `backend/app/operations/sqlite_backup.py`
+5. `backend/app/readiness.py`
+6. `backend/tests/test_accounting_confirmation_api.py`
+7. `backend/tests/test_accounting_report_storage.py`
+8. `backend/tests/test_accounting_work_product_storage.py`
+9. `backend/tests/test_readiness.py`
+10. `backend/tests/test_report_artifacts_api.py`
+11. `backend/tests/test_sqlite_backup.py`
+12. `frontend/src/app/api/report-artifacts/[id]/confirmation/handler.ts`
+13. `frontend/src/app/api/report-artifacts/[id]/confirmation/route.test.ts`
+14. `frontend/src/app/api/report-artifacts/[id]/handler.ts`
+15. `frontend/src/app/api/report-artifacts/[id]/route.test.ts`
+16. `frontend/src/features/study-visual/StudyArtifactConfirmation.test.ts`
+17. `frontend/src/features/study-visual/StudyArtifactLinks.test.ts`
+18. `frontend/src/features/study-visual/StudyArtifactLinks.ts`
+19. `frontend/src/lib/backendClient.test.ts`
+20. `frontend/src/lib/backendClient.ts`
 
-路径 13 只允许收紧现有 download BFF 对 Content-Length/stream contract 的验证，不得改变 URL、MIME、
+路径 4 只允许修复本节冻结的 P15 synthetic semantic digest、reply 与 actor 三项，不得改变任何真实
+backup/release 行为。路径 14 只允许收紧现有 download BFF 对 Content-Length/stream contract 的验证，不得改变 URL、MIME、
 Content-Disposition 或认证语义。
 任何确实需要的新表、列、API namespace、artifact 格式、上传、自动发布或历史清理都属于新迁移
 合同，不得塞入 P14-G。
@@ -417,6 +443,6 @@ P14-R 的安全只读/临时 RED 与回归、整理 evidence、编制独立 P14-
 提交、推送、部署、读取真实
 用户数据或把历史 PASS 当当前 release 证明。
 
-下一安全动作是锁定本文 SHA，完成独立 code/security contract review，并把已确认 RED 与 19 条
+下一安全动作是锁定本文 SHA，完成独立 code/security contract review，并把已确认 RED 与 20 条
 exact paths 转成 P14-G machine-readable M0 候选。只有 Owner 接受该 approval 且机器
 `--authorize` 返回 GO 后才进入产品施工；P14 不能再以“已覆盖”跳过修复。
