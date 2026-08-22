@@ -319,7 +319,42 @@ P14-G 是 Batch 1 的产品修复 Packet，不能由本合同、Batch 1 方向�
 以下 exact product paths、RED nodes、单提交回滚和唯一单亲子；只有
 `node scripts/product-authority.mjs --authorize --task <exact-P14-task-id>` 返回 GO 后才可施工。
 
-未来 P14-G `productPaths` 必须严格等于以下 20 条，按字典序冻结；不得用目录、glob 或“对应测试”
+P14 20 路径候选的 backend-full RED 又揭示一处继任兼容缺口：历史六部测试仍通过直接确认
+`PENDING` artifact 构造 ESCALATED/CONFIRMED fixture，而本合同的核心安全不变量明确要求只有
+`PUBLISHED` 且 payload/manifest/file digest 完整绑定的唯一 artifact 才能产生终局 confirmation。
+同时，2026-08-14 六部 readiness 的 69 文件历史审查集合包含 P14 接管的
+`backend/app/accounting_reports/storage.py` 与对应六部适配测试；原 67 文件 current-content
+指纹策略无法区分未授权漂移与已批准后继 Packet，因此任何合法 P14 修改都会令 Root Harness 永久失败。
+
+继任兼容修复必须先于新 P14 M0 落地，并满足以下封闭策略：
+
+- 六部报告的历史 69 文件清单、历史独立 review 指纹 `sha256:a6c2de2c...a265190`、review status、
+  reviewer 与 P0/P1 结论完全不改；不得冒领旧 review 覆盖 P14 新语义。
+- Python verifier 与 Root Harness 的 current-content exclusions 从两个自引用 validator 精确扩为四条：
+  `backend/app/accounting_reports/storage.py`、
+  `backend/tests/test_six_ministry_accounting_evidence_adapter.py`、
+  `backend/tests/test_six_ministry_readiness_report.py`、`scripts/check_harness.mjs`。
+- 剩余 current-content 集合必须恰好 65 条，继续使用
+  `sha256-path-null-content-null-v1`，精确 digest 为
+  `sha256:013bfb8272e936be85c2d470033787c3b7f105ad6eae2dfe680373df023b5e69`；第五条排除、
+  任一剩余文件漂移或两 validator 策略不一致都失败关闭。
+- 两条 P14-owned exclusions 不得成为永久盲区。两个 validator 必须另按相同算法、相同排序计算这两条
+  路径的 composite fingerprint，并只允许两个完整状态：旧 base pair
+  `sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924`，或本文冻结的
+  P14 reviewed pair
+  `sha256:d98fbc113e5d620eea902ed132a6c4d638023f5e4d55d0ce5162f3ab621648d9`。旧/新混搭、单条漂移、
+  第三种状态均失败关闭；后继新语义仍须由 P14-R、backend-full、Root Harness、独立 code/security review
+  与 exact product candidate receipt 覆盖。
+- 六部 accounting fixture 只能改成先建立正确 `management_report_xlsx` digest 绑定、发布 artifact、再确认；
+  tampered durable payload 在 storage read boundary 失败后保持 non-enumerating
+  `accounting_evidence_unavailable`。不得放宽 PENDING/ABORTED confirmation、actor、digest 或 V2 trigger。
+
+该继任兼容修复必须使用独立 governance repair packet，approval commit 只含其 task/packet/plan；
+candidate commit 只含本文、Python verifier 与 Root Harness 三路径。两提交均须 exact single-parent、
+exact paths、独立 code/security review 与 Owner commit/tree 确认。它落到远端后，旧 20 路径 P14 approval
+继续保持已消费/失效，必须在新 base 上重新生成 21 路径 M0；不得把治理修复与产品候选合并为一提交。
+
+未来 P14-G `productPaths` 必须严格等于以下 21 条，按字典序冻结；不得用目录、glob 或“对应测试”
 扩面：
 
 1. `backend/app/accounting_reports/storage.py`
@@ -332,19 +367,21 @@ P14-G 是 Batch 1 的产品修复 Packet，不能由本合同、Batch 1 方向�
 8. `backend/tests/test_accounting_work_product_storage.py`
 9. `backend/tests/test_readiness.py`
 10. `backend/tests/test_report_artifacts_api.py`
-11. `backend/tests/test_sqlite_backup.py`
-12. `frontend/src/app/api/report-artifacts/[id]/confirmation/handler.ts`
-13. `frontend/src/app/api/report-artifacts/[id]/confirmation/route.test.ts`
-14. `frontend/src/app/api/report-artifacts/[id]/handler.ts`
-15. `frontend/src/app/api/report-artifacts/[id]/route.test.ts`
-16. `frontend/src/features/study-visual/StudyArtifactConfirmation.test.ts`
-17. `frontend/src/features/study-visual/StudyArtifactLinks.test.ts`
-18. `frontend/src/features/study-visual/StudyArtifactLinks.ts`
-19. `frontend/src/lib/backendClient.test.ts`
-20. `frontend/src/lib/backendClient.ts`
+11. `backend/tests/test_six_ministry_accounting_evidence_adapter.py`
+12. `backend/tests/test_sqlite_backup.py`
+13. `frontend/src/app/api/report-artifacts/[id]/confirmation/handler.ts`
+14. `frontend/src/app/api/report-artifacts/[id]/confirmation/route.test.ts`
+15. `frontend/src/app/api/report-artifacts/[id]/handler.ts`
+16. `frontend/src/app/api/report-artifacts/[id]/route.test.ts`
+17. `frontend/src/features/study-visual/StudyArtifactConfirmation.test.ts`
+18. `frontend/src/features/study-visual/StudyArtifactLinks.test.ts`
+19. `frontend/src/features/study-visual/StudyArtifactLinks.ts`
+20. `frontend/src/lib/backendClient.test.ts`
+21. `frontend/src/lib/backendClient.ts`
 
 路径 4 只允许修复本节冻结的 P15 synthetic semantic digest、reply 与 actor 三项，不得改变任何真实
-backup/release 行为。路径 14 只允许收紧现有 download BFF 对 Content-Length/stream contract 的验证，不得改变 URL、MIME、
+backup/release 行为。路径 11 只允许修正过时 fixture/expected error，不得改变任何产品代码或放宽
+confirmation。路径 15 只允许收紧现有 download BFF 对 Content-Length/stream contract 的验证，不得改变 URL、MIME、
 Content-Disposition 或认证语义。
 任何确实需要的新表、列、API namespace、artifact 格式、上传、自动发布或历史清理都属于新迁移
 合同，不得塞入 P14-G。
@@ -443,6 +480,7 @@ P14-R 的安全只读/临时 RED 与回归、整理 evidence、编制独立 P14-
 提交、推送、部署、读取真实
 用户数据或把历史 PASS 当当前 release 证明。
 
-下一安全动作是锁定本文 SHA，完成独立 code/security contract review，并把已确认 RED 与 20 条
-exact paths 转成 P14-G machine-readable M0 候选。只有 Owner 接受该 approval 且机器
-`--authorize` 返回 GO 后才进入产品施工；P14 不能再以“已覆盖”跳过修复。
+下一安全动作是先落地本节冻结的继任兼容 governance approval/candidate，再从其远端 exact head 把
+已确认 RED 与 21 条 exact paths 转成新的 P14-G machine-readable M0 候选。只有 Owner 接受新版
+approval 且机器 `--authorize` 返回 GO 后才恢复产品施工；旧 20 路径 approval 不得继续消费，P14 也
+不能以“已覆盖”跳过修复。

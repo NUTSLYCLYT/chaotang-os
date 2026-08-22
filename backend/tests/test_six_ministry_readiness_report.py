@@ -20,15 +20,35 @@ _HISTORICAL_REVIEWED_FINGERPRINT = (
     "sha256:a6c2de2ca7f15069a6d997ce2cccb9498ddd4dd1269d539c192993e85a265190"
 )
 _CURRENT_CONTENT_FINGERPRINT = (
-    "sha256:6f4158f5c03fdd898a37377dee21f1c47dee2bca40b0adbd9d16fa031a43196c"
+    "sha256:013bfb8272e936be85c2d470033787c3b7f105ad6eae2dfe680373df023b5e69"
 )
 _CURRENT_CONTENT_EXCLUSIONS = (
+    "backend/app/accounting_reports/storage.py",
+    "backend/tests/test_six_ministry_accounting_evidence_adapter.py",
     "backend/tests/test_six_ministry_readiness_report.py",
     "scripts/check_harness.mjs",
 )
+_SUCCESSOR_CONTENT_PATHS = (
+    "backend/app/accounting_reports/storage.py",
+    "backend/tests/test_six_ministry_accounting_evidence_adapter.py",
+)
+_SUCCESSOR_CONTENT_FINGERPRINTS = (
+    "sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924",
+    "sha256:d98fbc113e5d620eea902ed132a6c4d638023f5e4d55d0ce5162f3ab621648d9",
+)
 _HISTORICAL_REVIEW_STATUS = "approved-with-notes"
 _HISTORICAL_FILE_COUNT = 69
-_CURRENT_FILE_COUNT = 67
+_CURRENT_FILE_COUNT = 65
+
+
+def _content_fingerprint(root: Path, files: tuple[str, ...] | list[str]) -> str:
+    digest = hashlib.sha256()
+    for relative_path in files:
+        digest.update(relative_path.encode("utf-8"))
+        digest.update(b"\0")
+        digest.update((root / relative_path).read_bytes())
+        digest.update(b"\0")
+    return f"sha256:{digest.hexdigest()}"
 
 
 def _assert_historical_review_identity(reviews: dict[str, object]) -> None:
@@ -119,7 +139,6 @@ def test_readiness_evidence_is_bound_to_current_implementation() -> None:
     report = json.loads(_REPORT.read_text(encoding="utf-8"))
     implementation = report["implementationEvidence"]
     files = implementation["files"]
-    digest = hashlib.sha256()
 
     assert files == sorted(files)
     assert len(files) == len(set(files)) == _HISTORICAL_FILE_COUNT
@@ -135,15 +154,11 @@ def test_readiness_evidence_is_bound_to_current_implementation() -> None:
     for relative_path in files:
         path = _ROOT / relative_path
         assert path.is_file()
-    for relative_path in current_content_files:
-        path = _ROOT / relative_path
-        digest.update(relative_path.encode("utf-8"))
-        digest.update(b"\0")
-        digest.update(path.read_bytes())
-        digest.update(b"\0")
-
-    current = f"sha256:{digest.hexdigest()}"
+    current = _content_fingerprint(_ROOT, current_content_files)
     assert current == _CURRENT_CONTENT_FINGERPRINT
+    assert _content_fingerprint(_ROOT, _SUCCESSOR_CONTENT_PATHS) in (
+        _SUCCESSOR_CONTENT_FINGERPRINTS
+    )
     assert implementation["fingerprint"] == _HISTORICAL_REVIEWED_FINGERPRINT
     assert (
         report["validationEvidence"]["implementationFingerprint"]
@@ -157,6 +172,14 @@ def test_python_and_harness_validators_share_the_exact_content_policy() -> None:
     source = _HARNESS.read_text(encoding="utf-8")
 
     assert _read_harness_exclusions(source) == _CURRENT_CONTENT_EXCLUSIONS
+    assert tuple(
+        _read_harness_json_constant(source, "SIX_MINISTRY_SUCCESSOR_CONTENT_PATHS")
+    ) == _SUCCESSOR_CONTENT_PATHS
+    assert tuple(
+        _read_harness_json_constant(
+            source, "SIX_MINISTRY_SUCCESSOR_CONTENT_FINGERPRINTS"
+        )
+    ) == _SUCCESSOR_CONTENT_FINGERPRINTS
     assert (
         _read_harness_json_constant(source, "SIX_MINISTRY_REVIEW_STATUS")
         == _HISTORICAL_REVIEW_STATUS
@@ -180,6 +203,22 @@ def test_python_and_harness_validators_share_the_exact_content_policy() -> None:
             source, "SIX_MINISTRY_RUNTIME_CONTENT_FINGERPRINT"
         )
         == _CURRENT_CONTENT_FINGERPRINT
+    )
+
+
+def test_successor_pair_rejects_partial_or_third_state_drift(tmp_path: Path) -> None:
+    for relative_path in _SUCCESSOR_CONTENT_PATHS:
+        target = tmp_path / relative_path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes((_ROOT / relative_path).read_bytes())
+
+    assert _content_fingerprint(tmp_path, _SUCCESSOR_CONTENT_PATHS) in (
+        _SUCCESSOR_CONTENT_FINGERPRINTS
+    )
+    drifted = tmp_path / _SUCCESSOR_CONTENT_PATHS[0]
+    drifted.write_bytes(drifted.read_bytes() + b"\n# successor drift\n")
+    assert _content_fingerprint(tmp_path, _SUCCESSOR_CONTENT_PATHS) not in (
+        _SUCCESSOR_CONTENT_FINGERPRINTS
     )
 
 
