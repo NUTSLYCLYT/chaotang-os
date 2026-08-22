@@ -7,8 +7,8 @@
     "targetBranch": "ext-dev"
   },
   "request": {
-    "baseCommit": "90bb3abd53af4cbb988d74fb818ec76c731576f5",
-    "baseTree": "be98a2dfc1e981ab40946f1d8f909460522aa583",
+    "baseCommit": "0af8f2c833c5337199902f7f64461872904a70cc",
+    "baseTree": "d54ae79ac097be2d038cecce1d376ce03ec08611",
     "approvalPath": ".harness/approvals/PACKET-14-TRUSTED-ARTIFACT-DELIVERY-GAP-FIX-V1-20260822.json",
     "approvalCommitPaths": [
       ".harness/approvals/PACKET-14-TRUSTED-ARTIFACT-DELIVERY-GAP-FIX-V1-20260822.json",
@@ -19,6 +19,7 @@
       "backend/app/accounting_reports/storage.py",
       "backend/app/api/report_artifacts.py",
       "backend/app/operations/runtime_data_registry.py",
+      "backend/app/operations/sqlite_backup.py",
       "backend/app/readiness.py",
       "backend/tests/test_accounting_confirmation_api.py",
       "backend/tests/test_accounting_report_storage.py",
@@ -42,7 +43,8 @@
     "DATABASE_TABLE_COLUMN_OR_SECOND_LEDGER_ADDITION",
     "HISTORICAL_DONOR_TREE_COPY_MERGE_OR_CHERRY_PICK",
     "NEW_ARTIFACT_FORMAT_UPLOAD_API_NAMESPACE_OR_AUTO_PUBLISH",
-    "P06_P09_P15_OR_OTHER_PACKET_IMPLEMENTATION",
+    "P06_P09_OR_OTHER_PACKET_IMPLEMENTATION",
+    "P15_CHANGE_BEYOND_EXACT_SYNTHETIC_COMPATIBILITY_FIX",
     "PRODUCTION_DATABASE_ARTIFACT_BACKUP_RESTORE_OR_DEPLOYMENT",
     "PRODUCTION_SECRET_USER_WORKBOOK_OR_EXISTING_BROWSER_PROFILE_READ",
     "REAL_MODEL_EXTERNAL_NETWORK_OR_UNBOUNDED_BROWSER_TRACE",
