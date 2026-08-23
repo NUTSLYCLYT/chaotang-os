@@ -1,0 +1,244 @@
+{
+  "schemaVersion": "product-authority.m0.approval.v1",
+  "authorityId": "product-authority.m0.v1",
+  "taskId": "PACKET-14-FIXTURE-PROVENANCE-V3-R2-20260823",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "82fed66aed5f622982f527e62920dfe828a3fd1b",
+    "baseTree": "faa76cfa648d78e3798008c559ca62e5194170b0",
+    "approvalPath": ".harness/approvals/PACKET-14-FIXTURE-PROVENANCE-V3-R2-20260823.json",
+    "approvalCommitPaths": [
+      ".harness/approvals/PACKET-14-FIXTURE-PROVENANCE-V3-R2-20260823.json",
+      "docs/product/tasks/2026-08-23-packet-14-fixture-provenance-v3-r2.md",
+      "docs/superpowers/plans/2026-08-23-packet-14-fixture-provenance-v3-r2.md"
+    ],
+    "productPaths": [
+      "backend/app/accounting_reports/storage.py",
+      "backend/app/api/report_artifacts.py",
+      "backend/app/main.py",
+      "backend/app/operations/runtime_data_registry.py",
+      "backend/app/operations/sqlite_backup.py",
+      "backend/app/readiness.py",
+      "backend/tests/test_accounting_confirmation_api.py",
+      "backend/tests/test_accounting_report_storage.py",
+      "backend/tests/test_accounting_work_product_storage.py",
+      "backend/tests/test_decree_async_integration.py",
+      "backend/tests/test_readiness.py",
+      "backend/tests/test_report_artifacts_api.py",
+      "backend/tests/test_six_ministry_accounting_evidence_adapter.py",
+      "backend/tests/test_sqlite_backup.py",
+      "deploy/release-manifest.schema.json",
+      "frontend/src/app/api/report-artifacts/[id]/confirmation/handler.ts",
+      "frontend/src/app/api/report-artifacts/[id]/confirmation/route.test.ts",
+      "frontend/src/app/api/report-artifacts/[id]/handler.ts",
+      "frontend/src/app/api/report-artifacts/[id]/route.test.ts",
+      "frontend/src/app/api/report-artifacts/[id]/work-product/handler.ts",
+      "frontend/src/app/api/report-artifacts/[id]/work-product/route.test.ts",
+      "frontend/src/features/study-visual/StudyArtifactConfirmation.test.ts",
+      "frontend/src/features/study-visual/StudyArtifactLinks.test.ts",
+      "frontend/src/features/study-visual/StudyArtifactLinks.ts",
+      "frontend/src/lib/backendClient.test.ts",
+      "frontend/src/lib/backendClient.ts",
+      "scripts/build_offline_release.mjs",
+      "scripts/build_offline_release.test.mjs",
+      "scripts/run_rc1_release_acceptance.mjs",
+      "scripts/run_rc1_release_acceptance.test.mjs",
+      "scripts/verify_offline_release.mjs",
+      "scripts/verify_offline_release.test.mjs"
+    ]
+  },
+  "nonGoals": [
+    "AMENDMENT_CONTRACT_HASH_DRIFT_OR_BYPASS",
+    "AUTHORITY_HARNESS_CI_ADR_OR_READINESS_FINGERPRINT_CHANGE",
+    "CANDIDATE_ACCEPTANCE_COMMIT_PUSH_MERGE_RELEASE_OR_DEPLOYMENT",
+    "DELIVERY_FIXTURE_AS_GENERATION_PROOF_OR_PRODUCTION_FEATURE",
+    "HISTORICAL_DONOR_TREE_COPY_MERGE_OR_CHERRY_PICK",
+    "JUNJICHU_STAGE_B_OR_OTHER_PACKET_IMPLEMENTATION",
+    "NEW_FRONTEND_ROUTE_PROXY_OR_SECOND_FACT_SOURCE",
+    "PRODUCTION_DATABASE_TABLE_COLUMN_OR_API_NAMESPACE_CHANGE",
+    "PRODUCTION_DATA_SECRET_USER_WORKBOOK_EXISTING_BROWSER_PROFILE_OR_EXTERNAL_EFFECT",
+    "REAL_MODEL_PUBLIC_NETWORK_OR_UNBOUNDED_BROWSER_TRACE",
+    "ROOT_HARNESS_FAILURE_WAIVER_OR_QUALITY_GATE_RELAXATION",
+    "SECOND_LEDGER_OR_PRODUCT_FACT_SOURCE_ADDITION",
+    "UNRELATED_REFACTOR"
+  ],
+  "verification": [
+    {
+      "id": "backend-focused-pytest",
+      "tool": "python3",
+      "args": [
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_accounting_confirmation_api.py",
+        "tests/test_accounting_report_storage.py",
+        "tests/test_accounting_work_product_storage.py",
+        "tests/test_decree_async_integration.py",
+        "tests/test_readiness.py",
+        "tests/test_report_artifacts_api.py",
+        "tests/test_six_ministry_accounting_evidence_adapter.py",
+        "tests/test_sqlite_backup.py"
+      ],
+      "cwd": "backend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "backend-full-pytest",
+      "tool": "python3",
+      "args": [
+        "-m",
+        "pytest",
+        "-q"
+      ],
+      "cwd": "backend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "backend-ruff",
+      "tool": "python3",
+      "args": [
+        "-m",
+        "ruff",
+        "check",
+        "."
+      ],
+      "cwd": "backend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "candidate-acceptance-blocked",
+      "tool": "node",
+      "args": [
+        "-e",
+        "process.exit(1)"
+      ],
+      "cwd": ".",
+      "timeoutMs": 5000
+    },
+    {
+      "id": "frontend-build",
+      "tool": "npm",
+      "args": [
+        "run",
+        "build"
+      ],
+      "cwd": "frontend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "frontend-lint",
+      "tool": "npm",
+      "args": [
+        "run",
+        "lint"
+      ],
+      "cwd": "frontend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "frontend-tests",
+      "tool": "npm",
+      "args": [
+        "test"
+      ],
+      "cwd": "frontend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "frontend-typecheck",
+      "tool": "npm",
+      "args": [
+        "run",
+        "typecheck"
+      ],
+      "cwd": "frontend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "product-authority-regression",
+      "tool": "node",
+      "args": [
+        "--test",
+        "scripts/product-authority.test.mjs"
+      ],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "release-evidence-regression",
+      "tool": "node",
+      "args": [
+        "--test",
+        "scripts/release-evidence.test.mjs"
+      ],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "release-recovery-regression",
+      "tool": "node",
+      "args": [
+        "--test",
+        "scripts/build_offline_release.test.mjs",
+        "scripts/check_deployment.test.mjs",
+        "scripts/run_rc1_release_acceptance.test.mjs",
+        "scripts/verify_offline_release.test.mjs"
+      ],
+      "cwd": ".",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "root-harness",
+      "tool": "node",
+      "args": [
+        "scripts/check_harness.mjs"
+      ],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "root-harness-doctor",
+      "tool": "node",
+      "args": [
+        "scripts/harness-doctor.mjs",
+        "--check"
+      ],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "root-harness-doctor-regression",
+      "tool": "node",
+      "args": [
+        "--test",
+        "scripts/harness-doctor.test.mjs"
+      ],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v2-convergence",
+      "tool": "node",
+      "args": [
+        "scripts/ext-full-value-convergence.mjs",
+        "--check"
+      ],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v2-convergence-regression",
+      "tool": "node",
+      "args": [
+        "--test",
+        "scripts/ext-full-value-convergence.test.mjs"
+      ],
+      "cwd": ".",
+      "timeoutMs": 180000
+    }
+  ],
+  "state": "APPROVED_FOR_ONE_CHILD"
+}
