@@ -1,6 +1,6 @@
 # Packet 14 — Reviewed Draft and Reachability Remediation M0 Task
 
-> 状态：`M0_APPROVAL_DRAFT / NOT_LANDED / PRODUCT_STOP`
+> 状态：`GOVERNANCE_LANDED / SUPERSEDED_BY_V2 / PRODUCT_NOT_ACCEPTED`
 >
 > Task ID：`PACKET-14-REVIEWED-DRAFT-AND-REACHABILITY-REMEDIATION-V1-20260823`
 >
@@ -89,5 +89,58 @@
 
 ## Current decision
 
-`PENDING_OWNER_M0_DECISION / PRODUCT_STOP`。本文件不表示 Owner 已接受上述 exact manifest digest，也不授权任何提交、
-推送、产品施工或现实副作用。
+`SUPERSEDED_BY_V2 / PRODUCT_NOT_ACCEPTED`。Owner 已精确接受本任务的治理 manifest，三件套已作为提交
+`49634a4a857e1c29ff1819ca0fd661f4ca5fa148` 落地主线；V1 因完整取消传播需要额外两个既有 BFF 路径而停止，未形成、
+提交、推送或接受产品 candidate。产品后续由 V2 或其获批 successor 管理，本文件不授权新的产品施工或现实副作用。
+
+## Status
+
+Blocked
+
+`SUPERSEDED / GOVERNANCE_LANDED / PRODUCT_IMPLEMENTATION_NOT_ACCEPTED`。本节只修复任务模板完整性，不改变历史批准范围、
+产品路径或验收标准。
+
+## Product Definition
+
+产品定义仍是本文件 `Goal` 与 `Required remediation` 中冻结的 P14 artifact safety、bounded BFF、三份独立证明和诚实证据
+闭环。V1 只允许 approval manifest 中 exact30；不新增 API、数据库结构、事实源、生产开关或第31条产品路径。
+
+## Acceptance Criteria
+
+- [ ] exact30 内的全部安全不变量、三份真实证明、完整测试矩阵和独立复审通过；不得以静态 fixture 或客户端自报代替。
+- [ ] 最终 successor fingerprints、Root Harness、candidate verification 与 Owner candidate 决策完成。
+- [x] V1 在发现 BFF cancellation 需要范围外路径时按 stop condition 终止，并由 V2 successor 接管。
+
+## Delivery Constraints
+
+- 本任务历史批准只覆盖 approval manifest 的 exact30，且禁止第31路径、产品 commit/push/merge/release/deploy。
+- 本次模板修复是治理字节变更，不追认任何产品实现，也不允许复用 V1 approval 施工。
+- 若这些任务文档作为新提交落地主线，既有 one-child approval 的远端头约束将发生变化，必须重新走 successor
+  task/plan/approval 与 Owner 精确摘要确认；不得把格式修复解释为产品 GO。
+
+## Affected Modules
+
+- 模块：P14 artifact safety、BFF bounded fetch、真实三证据与离线 release 验证。
+- 允许路径：严格等于 V1 approval manifest `request.productPaths` 的 exact30。
+- 依赖模块：Root Harness、product authority、六部 successor compatibility。
+
+历史产品影响面严格等于
+`.harness/approvals/PACKET-14-REVIEWED-DRAFT-AND-REACHABILITY-REMEDIATION-V1-20260823.json` 的 exact30。
+本次 Phase 1 只修改本任务文档，不修改其中任何产品模块或 approval manifest。
+
+## Technical Plan
+
+历史技术顺序保持不变：先在 exact30 内建立 RED，闭合 artifact/storage/BFF/parser 安全，再生成同一 candidate-bound 的
+REALSTACK、GENERATION、DELIVERY-BROWSER 三证据，完成全量验证与独立复审，最后另立 compatibility 和最终 M0。
+V1 在需要第31路径时停止，没有继续越界实施。
+
+## Implementation Report
+
+- 治理三件套已落地，产品实现未落地主线。
+- V1 隔离产品草稿没有形成可接受 candidate；发现 cancellation reachability 缺口后未把范围外修改混入 V1。
+- V2 已作为 successor 扩展为 exact32；本文件不声称 V2 或最终 P14 已完成。
+
+## Acceptance Review
+
+结论：`NOT_ACCEPTED / SUPERSEDED`。V1 没有完成三份真实证明、最终 fingerprints、完整 Harness 或 candidate acceptance，
+因此不能作为已交付产品或 release evidence。历史停止决定正确，后续只能由新的精确治理链继续。
