@@ -364,12 +364,18 @@ const SIX_MINISTRY_RUNTIME_CONTENT_EXCLUSIONS = Object.freeze([
   "scripts/check_harness.mjs",
 ]);
 const SIX_MINISTRY_SUCCESSOR_CONTENT_PATHS = ["backend/app/accounting_reports/storage.py","backend/tests/test_six_ministry_accounting_evidence_adapter.py"];
-const SIX_MINISTRY_SUCCESSOR_CONTENT_FINGERPRINTS = ["sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924","sha256:d98fbc113e5d620eea902ed132a6c4d638023f5e4d55d0ce5162f3ab621648d9"];
+const SIX_MINISTRY_CONTENT_FINGERPRINT_PAIRS = [["sha256:013bfb8272e936be85c2d470033787c3b7f105ad6eae2dfe680373df023b5e69","sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"],["sha256:c95630be3d79f2641ff6e483f4096b0763b9e5071544f1e0ead0d7e24eb1cba5","sha256:e37061b0e7087451b0b5d342423bcdc737364c588ef9b9d5243d806e65600fb3"]];
 const SIX_MINISTRY_HISTORICAL_FILE_COUNT = 69;
 const SIX_MINISTRY_RUNTIME_CONTENT_FILE_COUNT = 65;
-const SIX_MINISTRY_RUNTIME_CONTENT_FINGERPRINT = "sha256:013bfb8272e936be85c2d470033787c3b7f105ad6eae2dfe680373df023b5e69";
 const SIX_MINISTRY_REVIEWED_HARNESS_BASELINE_FILES = 133;
 const SIX_MINISTRY_REVIEWED_HARNESS_SELF_TESTS = 167;
+
+function sixMinistryContentFingerprintPairAllowed(runtimeFingerprint, successorFingerprint) {
+  return SIX_MINISTRY_CONTENT_FINGERPRINT_PAIRS.some(
+    ([allowedRuntime, allowedSuccessor]) => runtimeFingerprint === allowedRuntime
+      && successorFingerprint === allowedSuccessor,
+  );
+}
 
 function sixMinistryRuntimeContentFiles(reviewedFiles, exclusions = SIX_MINISTRY_RUNTIME_CONTENT_EXCLUSIONS) {
   if (
@@ -482,8 +488,10 @@ function sixMinistryRuntimeReadinessErrors({ readiness, familyMatrix, runtimePro
     && implementation?.algorithm === "sha256-path-null-content-null-v1"
     && JSON.stringify(implementation?.files) === JSON.stringify(SIX_MINISTRY_TRUSTED_SPINE_FILES)
     && implementation?.fingerprint === SIX_MINISTRY_REVIEWED_IMPLEMENTATION_FINGERPRINT
-    && currentRuntimeFingerprint === SIX_MINISTRY_RUNTIME_CONTENT_FINGERPRINT
-    && SIX_MINISTRY_SUCCESSOR_CONTENT_FINGERPRINTS.includes(currentSuccessorFingerprint);
+    && sixMinistryContentFingerprintPairAllowed(
+      currentRuntimeFingerprint,
+      currentSuccessorFingerprint,
+    );
   const resolverMatches = Array.isArray(resolvers)
     && resolvers.length === expectedResolvers.length
     && resolvers.every((resolver, index) => exactKeys(resolver, expectedResolverKeys)
@@ -2455,13 +2463,32 @@ Escalation: name observable evidence
         return rejectsBoundaryChanges
           && SIX_MINISTRY_RUNTIME_CONTENT_FILES.length === SIX_MINISTRY_RUNTIME_CONTENT_FILE_COUNT
           && SIX_MINISTRY_SUCCESSOR_CONTENT_PATHS.length === 2
-          && SIX_MINISTRY_SUCCESSOR_CONTENT_FINGERPRINTS.length === 2
+          && SIX_MINISTRY_CONTENT_FINGERPRINT_PAIRS.length === 2
+          && SIX_MINISTRY_CONTENT_FINGERPRINT_PAIRS.every(
+            (pair) => Array.isArray(pair) && pair.length === 2,
+          )
           && SIX_MINISTRY_SUCCESSOR_CONTENT_PATHS.every(
             (relativePath) => SIX_MINISTRY_RUNTIME_CONTENT_EXCLUSIONS.includes(relativePath),
           )
           && SIX_MINISTRY_RUNTIME_CONTENT_EXCLUSIONS.every(
             (relativePath) => !SIX_MINISTRY_RUNTIME_CONTENT_FILES.includes(relativePath),
           );
+      })(),
+      true,
+    ],
+    [
+      "六部 Runtime 指纹门禁拒绝 legacy/final 混搭与未知第三状态",
+      (() => {
+        const [[legacyRuntime, legacySuccessor], [finalRuntime, finalSuccessor]] = (
+          SIX_MINISTRY_CONTENT_FINGERPRINT_PAIRS
+        );
+        const unknown = `sha256:${"0".repeat(64)}`;
+        return sixMinistryContentFingerprintPairAllowed(legacyRuntime, legacySuccessor)
+          && sixMinistryContentFingerprintPairAllowed(finalRuntime, finalSuccessor)
+          && !sixMinistryContentFingerprintPairAllowed(legacyRuntime, finalSuccessor)
+          && !sixMinistryContentFingerprintPairAllowed(finalRuntime, legacySuccessor)
+          && !sixMinistryContentFingerprintPairAllowed(unknown, legacySuccessor)
+          && !sixMinistryContentFingerprintPairAllowed(legacyRuntime, unknown);
       })(),
       true,
     ],
