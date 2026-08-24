@@ -7,8 +7,8 @@
     "targetBranch": "ext-dev"
   },
   "request": {
-    "baseCommit": "4f189fb2abd688e747517cbe8e69028ad9f96cbb",
-    "baseTree": "a4f086549866aeeb801627088fb7eda48e67a5da",
+    "baseCommit": "94135d0e3c7b24a9359573a27c9bd385484d8bc6",
+    "baseTree": "cab89b02b63c05c9cd252daa3df70362a1a94eaf",
     "approvalPath": ".harness/approvals/PACKET-14-EXACT30-CANDIDATE-SUCCESSOR-V4-20260824.json",
     "approvalCommitPaths": [
       ".harness/approvals/PACKET-14-EXACT30-CANDIDATE-SUCCESSOR-V4-20260824.json",
