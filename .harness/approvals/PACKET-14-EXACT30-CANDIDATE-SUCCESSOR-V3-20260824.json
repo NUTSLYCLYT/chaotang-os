@@ -7,8 +7,8 @@
     "targetBranch": "ext-dev"
   },
   "request": {
-    "baseCommit": "aade8f8e6a1a5fc8a5c39a420394eec9d8e70622",
-    "baseTree": "225901d002e2b36661fa4bb87fc4cfcc497015e9",
+    "baseCommit": "13a78831395c40b2b1bc73d4d6ff9d89d6854af4",
+    "baseTree": "d7d9d4a9b41e93e029436ae4f95a4c2fd1af7afd",
     "approvalPath": ".harness/approvals/PACKET-14-EXACT30-CANDIDATE-SUCCESSOR-V3-20260824.json",
     "approvalCommitPaths": [
       ".harness/approvals/PACKET-14-EXACT30-CANDIDATE-SUCCESSOR-V3-20260824.json",
@@ -61,6 +61,7 @@
     "PRODUCTION_DATA_SECRET_USER_WORKBOOK_EXISTING_BROWSER_PROFILE_OR_EXTERNAL_EFFECT",
     "REAL_MODEL_PUBLIC_NETWORK_OR_UNBOUNDED_BROWSER_TRACE",
     "ROOT_HARNESS_FAILURE_WAIVER_OR_QUALITY_GATE_RELAXATION",
+    "TOOLCHAIN_VERSION_DRIFT_OR_BUILDX_DOWNGRADE",
     "UNRELATED_REFACTOR"
   ],
   "verification": [
