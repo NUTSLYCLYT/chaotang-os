@@ -7,8 +7,8 @@
     "targetBranch": "ext-dev"
   },
   "request": {
-    "baseCommit": "02546eeb85cc84c944942673ab194c1e28972378",
-    "baseTree": "6fac9e4c67974bbec4ddb150bb0e603d6c1e1f54",
+    "baseCommit": "aade8f8e6a1a5fc8a5c39a420394eec9d8e70622",
+    "baseTree": "225901d002e2b36661fa4bb87fc4cfcc497015e9",
     "approvalPath": ".harness/approvals/PACKET-14-EXACT30-CANDIDATE-SUCCESSOR-V3-20260824.json",
     "approvalCommitPaths": [
       ".harness/approvals/PACKET-14-EXACT30-CANDIDATE-SUCCESSOR-V3-20260824.json",
@@ -56,6 +56,7 @@
     "DELIVERY_FIXTURE_AS_GENERATION_PROOF_OR_PRODUCTION_FEATURE",
     "EXACT32_SCOPE_REPLAY_OR_HIDDEN_PATH_EXPANSION",
     "HISTORICAL_DONOR_TREE_COPY_MERGE_OR_CHERRY_PICK",
+    "HOST_OR_USER_SITE_PYTHON_AS_INSTALLED_CANDIDATE_EVIDENCE",
     "JUNJICHU_STAGE_B_OR_OTHER_PACKET_IMPLEMENTATION",
     "PRODUCTION_DATA_SECRET_USER_WORKBOOK_EXISTING_BROWSER_PROFILE_OR_EXTERNAL_EFFECT",
     "REAL_MODEL_PUBLIC_NETWORK_OR_UNBOUNDED_BROWSER_TRACE",
@@ -78,17 +79,6 @@
         "tests/test_report_artifacts_api.py",
         "tests/test_six_ministry_accounting_evidence_adapter.py",
         "tests/test_sqlite_backup.py"
-      ],
-      "cwd": "backend",
-      "timeoutMs": 300000
-    },
-    {
-      "id": "backend-full-pytest",
-      "tool": "python3",
-      "args": [
-        "-m",
-        "pytest",
-        "-q"
       ],
       "cwd": "backend",
       "timeoutMs": 300000

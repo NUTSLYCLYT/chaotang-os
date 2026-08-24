@@ -1,28 +1,33 @@
 # Packet 14 — Exact30 Candidate Successor V3
 
-> 状态：`IN_PROGRESS / REVIEWS_GO / AUTHORITY_REANCHOR_REQUIRED / PRODUCT_STOP`
+> 状态：`IN_PROGRESS / PRODUCT_BYTES_GO / VERIFICATION_CONTRACT_AMENDMENT_REQUIRED / PRODUCT_STOP`
 >
 > Task ID：`PACKET-14-EXACT30-CANDIDATE-SUCCESSOR-V3-20260824`
 >
-> Proposed manifest digest：`sha256:bec419736cb245db06684d2ed5b0dbbb1cad003851bc95a4a8e642a6a8fe5f88`
+> Proposed manifest digest：`sha256:934da038a53f8cd7fd2d5306b91e4e8990c96959234112cdd29a932ae0340f46`
 
 ## Status
 
 In Progress
 
-本 V3 是 P14 的唯一 exact30 收敛入口。authority-correction 与六部继任指纹 amendment 已依次落地；后者把远端推进到
-`02546eeb85cc84c944942673ab194c1e28972378` 后，干净副本中的 canonical product authority 按设计返回
-`STOP / APPROVAL_COMMIT_PARENT_INVALID`，因为旧 approval manifest 仍绑定 `6fc07f4b...`。
+本 V3 是 P14 的唯一 exact30 收敛入口。现行三件套已作为
+`aade8f8e6a1a5fc8a5c39a420394eec9d8e70622` 落地，canonical product authority 对产品施工返回 GO；本地 exact30
+候选 `86f5b12c4064f6ed2bfefef800cbd2091b6fd439` / tree
+`baa188f961a1fbe0464f730912678f2627d4019c` 已通过 installed-wheel runtime-lock：4200 collected、4195 passed、5 skipped、
+0 failed。
 
-本次 re-anchor 只把 manifest、task、plan 的基线推进到已落地的 `02546eeb...`，不改变 exact30/exact2 边界、验证矩阵、
-non-goals 或产品字节。Owner 精确接受新 manifest 与 packet digest、三件套成为冻结基线的直接单亲子、远端双读稳定且
-canonical product authority 返回精确 GO 前，产品保持停止。
+候选验收 authority 随后在 raw host Python 的 `backend-full-pytest` 上返回 `STOP / VERIFICATION_FAILED`。复现证明 4 个失败
+全部来自未安装 `chaotang-os-backend` distribution metadata；同一候选的 focused 255/255 与仓外临时安装 wheel 全量均通过。
+独立终审判定这是 P1 验证环境合同回归：把 checkout 源码与持久 user-site metadata 拼接会形成 split-brain，不能作为修复。
+本 amendment 只重锚 manifest/task/plan，删除该冗余 raw-host gate，保留绑定候选 commit/tree、wheel digest、app 路径、
+dist-info 路径并自动清理的 runtime-lock 全量门禁；exact30/exact2、产品字节与其他验证项不变。新三件套获批、落地、远端
+双读且 canonical authority 重新返回精确 GO/PASS 前，产品保持停止。
 
 ## Product Definition
 
 - Target：`gitee.com/msxn/chaotang-os` / `origin/ext-dev`。
-- Base commit/tree：`02546eeb85cc84c944942673ab194c1e28972378` /
-  `6fac9e4c67974bbec4ddb150bb0e603d6c1e1f54`。
+- Base commit/tree：`aade8f8e6a1a5fc8a5c39a420394eec9d8e70622` /
+  `225901d002e2b36661fa4bb87fc4cfcc497015e9`。
 - 范围：approval manifest 中逐字排序的 exact30；两个 work-product BFF cancellation 路径继续由独立 exact2 Packet 处理，
   不得重放 exact32 或暗增第31/32路径。
 - 并行 R3：远端 `PACKET-14-FIXTURE-PROVENANCE-V3-R3-20260824` 是 exact32 reviewed-bytes 包，包含故意非零的
@@ -67,14 +72,16 @@ canonical product authority 返回精确 GO 前，产品保持停止。
 
 ## Acceptance Criteria
 
-- [ ] Owner 精确接受 re-anchor manifest 与三件套 packet digest；治理提交严格三路径、直接单亲、普通 fast-forward。
+- [ ] Owner 精确接受 verification-contract amendment manifest 与三件套 packet digest；治理提交严格三路径、直接单亲、普通
+  fast-forward。
 - [ ] `origin/ext-dev` canonical product authority 对 exact Task ID 返回 GO，approval digest 与 Owner 接受值精确一致。
 - [ ] 共享主工作区的 legacy execution-authority 保持 fail-closed；它不属于 P14 authority chain，不得被修改、伪装、移植或解释为
   P14 GO。事实依据：目标分支不包含该 consumer；legacy V1 固定 `AMENDMENT_REQUIRED / INACTIVE / STOP`；legacy V2 无 active
   work package 且没有 P14 task identity。
 - [x] 产品 changed paths 逐字等于 exact30；需要第31路径立即 STOP。
 - [x] 四个 P1、两个 P2 与 oracle 完整派生矩阵逐项先 RED 后 GREEN。
-- [ ] backend focused/full/Ruff/isolated candidate、frontend tests/lint/typecheck/build、release、authority、Root Harness/Doctor/V2 全绿。
+- [ ] backend focused/Ruff/installed-wheel isolated full candidate、frontend tests/lint/typecheck/build、release、authority、Root
+  Harness/Doctor/V2 全绿；不得用 host/user-site Python 替代 installed candidate 证据。
 - [ ] root + Docker + Chromium 双 Owner + nft + RED 真实预推绑定同一 commit/tree；REALSTACK、GENERATION、DELIVERY-BROWSER
   三证明互不替代。
 - [x] code/Python/TypeScript/security 独立终审 P0=P1=P2=P3=0。
@@ -85,6 +92,7 @@ canonical product authority 返回精确 GO 前，产品保持停止。
 
 - 不 reset、clean、stash、覆盖主工作树、用户未提交资产、生产数据、existing browser profile 或 secret。
 - 不复制、merge、rebase、cherry-pick 旧 dirty candidate；逐路径重放经证明的最小语义。
+- 不向 host 或 user-site Python 安装候选，不把 checkout `app` 与持久 site-packages metadata 拼接为验收证据。
 - sealed oracle expected 与 candidate actual 独立；禁止 actual-as-expected、client 自报 PASS 或 fixture 冒充 generation。
 - 治理提交、产品 candidate、release/deploy 分别授权。
 
@@ -101,7 +109,7 @@ canonical product authority 返回精确 GO 前，产品保持停止。
 
 ## Technical Plan
 
-1. 三件套获批后只提交推送三条治理路径并双读；产品仍 STOP。
+1. verification-contract 三件套获批后只提交推送三条治理路径并双读；产品仍 STOP。
 2. 在干净、隔离的 `origin/ext-dev` 身份上取得 canonical product authority 精确 GO 后，才建立产品 child；共享主工作区 legacy
    authority 继续 fail-closed，不把活字计划 inventory 漂移带入或解释为 P14 权限。
 3. 在 exact30 内融合两个 donor、oracle correction 与并行 R3 安全修复，不吸收 exact2/exact32。
@@ -122,16 +130,24 @@ canonical product authority 返回精确 GO 前，产品保持停止。
   fail-closed，canonical product authority 对 exact Task ID 返回 GO 后才恢复隔离施工。
 - 六部继任指纹 amendment 已作为 `02546eeb85cc84c944942673ab194c1e28972378` 普通快进推送并双读；在该干净 HEAD
   重新运行 canonical product authority 返回 `STOP / APPROVAL_COMMIT_PARENT_INVALID`，证明旧 approval 不能跨越后继治理提交复用。
-- 本 re-anchor 仅更新 approval/task/plan 的 base/tree 与 manifest digest；productPaths、verification、nonGoals、exact2 隔离和
+- 前次 re-anchor 仅更新 approval/task/plan 的 base/tree 与 manifest digest；productPaths、verification、nonGoals、exact2 隔离和
   legacy fail-closed 语义逐字保持不变。
 - exact30 当前严格 30 路径，`git diff --check` 与 Ruff 通过；runner 51 passed / 1 sandbox-only skip，offline build 19/19，
   offline verify 27/27，backend 受影响矩阵 250/250，frontend 703/703 且 lint/typecheck/build 全绿。
 - 独立代码终审与安全终审均为 GO，P0=P1=P2=P3=0。继任内容指纹为
-  `sha256:268cab13e516d0f716f600819f2bddc8242269312d392eca4ed1be2de05ce051`；本 amendment 只把该精确值加入与
+  `sha256:268cab13e516d0f716f600819f2bddc8242269312d392eca4ed1be2de05ce051`；该六部继任指纹 amendment 只把该精确值加入与
   runtime 指纹 `sha256:c95630be3d79f2641ff6e483f4096b0763b9e5071544f1e0ead0d7e24eb1cba5` 配对的封闭允许集合。
+- re-anchor 三件套已作为 `aade8f8e6a1a5fc8a5c39a420394eec9d8e70622` 推送；exact30 V3 候选
+  `86f5b12c4064f6ed2bfefef800cbd2091b6fd439` / tree `baa188f961a1fbe0464f730912678f2627d4019c`
+  已完成 isolated runtime-lock：4200 collected、4195 passed、5 skipped、0 failed，candidate wheel digest
+  `sha256:ae4ea737ec025cbb3e4ec6d871093128e4a2a247b38ae710ba3d442d7007e3c2`。
+- candidate authority 的 focused gate 在相同净化环境中 255/255 通过；raw full gate 为 4192 passed、4 skipped、4 failed，
+  失败均为 host Python 缺失 installed distribution metadata。独立终审定级 P1/NO_GO，并禁止写 user site。相同 runtime-lock
+  在 300 秒硬限下再次以 239.92 秒全绿，证明保留 gate 可在 authority 上限内完成且没有降低覆盖。
 
 ## Acceptance Review
 
-Pending。exact30 实现与独立代码/安全终审已经完成，但 canonical authority 当前因旧 approval 基线返回 STOP。本三件套 re-anchor
-获批并落地后，必须重新取得 authority GO，再运行 Root Harness/Doctor、全回归与 root + Docker + Chromium + nft + RED 真实预推。
-当前不证明产品候选可提交、推送或部署；下一决策点是 Owner 是否接受本三件套 re-anchor packet digest。
+Pending。exact30 产品字节、独立代码/安全终审与 installed-wheel 全量已经完成，但 candidate authority 因 raw host Python 与
+installed-metadata-only 健康合同冲突而 STOP。本三件套 verification-contract amendment 获批并落地后，必须重新取得 authority
+GO/PASS，再运行 Root Harness/Doctor、其余全回归与 root + Docker + Chromium + nft + RED 真实预推。当前不证明候选可推送、
+发布或部署；下一决策点是 Owner 是否接受本三件套 amendment packet digest。
