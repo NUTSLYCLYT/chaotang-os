@@ -4,21 +4,21 @@
 >
 > Task ID：`PACKET-14-EXACT30-CANDIDATE-SUCCESSOR-V3-20260824`
 >
-> Proposed manifest digest：`sha256:9a312f9c29a0ac0b49a898e0c3e7e3873d67998e7dd0ffde9fcfdb7b6733d126`
+> Proposed manifest digest：`sha256:fcb9c22f03d636b6a67e7cd41c65bb2e2f29a0372b853211fbe084e62292559b`
 
 ## Status
 
 Draft
 
-本 V3 是 P14 的唯一 exact30 收敛入口。三件套只存在于隔离草案区；Owner 精确接受 manifest 与 packet digest、三件套成为
-冻结 base 的直接单亲子、远端双读稳定、canonical product authority 返回 GO，且项目级 execution authority 不再 STOP 前，
-产品保持停止。
+本 V3 是 P14 的唯一 exact30 收敛入口。首个三件套已落地，但其中误写了一个目标分支不存在且机器不可达的第二 authority；
+本次重签只纠正该条件并把 base 推进到首个三件套。Owner 精确接受新 manifest 与 packet digest、重签三件套成为冻结 base 的
+直接单亲子、远端双读稳定且 `origin/ext-dev` canonical product authority 返回精确 GO 前，产品保持停止。
 
 ## Product Definition
 
 - Target：`gitee.com/msxn/chaotang-os` / `origin/ext-dev`。
-- Base commit/tree：`a0a2c9793bb13035be3be7214ccde8a17663932d` /
-  `7b0d0e190f5dd0ebb191c25174608119b06c286a`。
+- Base commit/tree：`6fc07f4b4fb52a11b164f44bc2fbe9c9532a6c54` /
+  `f23a79e4dc14353b61a26f49feb1d81bd23d3966`。
 - 范围：approval manifest 中逐字排序的 exact30；两个 work-product BFF cancellation 路径继续由独立 exact2 Packet 处理，
   不得重放 exact32 或暗增第31/32路径。
 - 并行 R3：远端 `PACKET-14-FIXTURE-PROVENANCE-V3-R3-20260824` 是 exact32 reviewed-bytes 包，包含故意非零的
@@ -64,8 +64,10 @@ Draft
 ## Acceptance Criteria
 
 - [ ] Owner 精确接受 manifest 与三件套 packet digest；治理提交严格三路径、直接单亲、普通 fast-forward。
-- [ ] canonical product authority 对 exact Task ID 返回 GO；项目级 execution authority 同时返回 GO。当前后者因未登记的
-  `docs/plans/CHAOTANG_MOVABLE_TYPE_LANGGRAPH_IMPLEMENTATION_BLUEPRINT_V1.md` 返回 STOP，只能通过独立治理修复，不能绕过。
+- [ ] `origin/ext-dev` canonical product authority 对 exact Task ID 返回 GO，approval digest 与 Owner 接受值精确一致。
+- [ ] 共享主工作区的 legacy execution-authority 保持 fail-closed；它不属于 P14 authority chain，不得被修改、伪装、移植或解释为
+  P14 GO。事实依据：目标分支不包含该 consumer；legacy V1 固定 `AMENDMENT_REQUIRED / INACTIVE / STOP`；legacy V2 无 active
+  work package 且没有 P14 task identity。
 - [ ] 产品 changed paths 逐字等于 exact30；需要第31路径立即 STOP。
 - [ ] 四个 P1、两个 P2 与 oracle 完整派生矩阵逐项先 RED 后 GREEN。
 - [ ] backend focused/full/Ruff/isolated candidate、frontend tests/lint/typecheck/build、release、authority、Root Harness/Doctor/V2 全绿。
@@ -96,7 +98,8 @@ Draft
 ## Technical Plan
 
 1. 三件套获批后只提交推送三条治理路径并双读；产品仍 STOP。
-2. 独立解除项目级活字计划 inventory STOP；canonical product authority 与项目 authority 均 GO 才建立产品 child。
+2. 在干净、隔离的 `origin/ext-dev` 身份上取得 canonical product authority 精确 GO 后，才建立产品 child；共享主工作区 legacy
+   authority 继续 fail-closed，不把活字计划 inventory 漂移带入或解释为 P14 权限。
 3. 在 exact30 内融合两个 donor、oracle correction 与并行 R3 安全修复，不吸收 exact2/exact32。
 4. 四个 P1、两个 P2 逐项 RED/GREEN，随后运行全部确定性矩阵。
 5. 独立代码与安全终审后，运行 root + Docker + Chromium + nft + RED 真实预推。
@@ -106,12 +109,13 @@ Draft
 
 - 旧 V2 三文件治理 commit `f8aaeae36847231007882c4bc3ea2f4defbfe457` 在本地创建后，因远端并行前进被普通 push
   安全拒绝；未强推、未进入远端。
-- 并行 exact32 R3 已在远端落地并返回 product-work GO，但项目 execution authority 仍 STOP，且 R3 明确不能接受 candidate。
+- 并行 exact32 R3 已在远端落地并返回 product-work GO，但 R3 明确不能接受 candidate，也不作为本 exact30 authority。
 - V2 预检证据继续作为非授权基线：authority 12/12、release evidence 15/15、release recovery 115/115、Convergence
   20 passed / 1 skipped、Root Harness 与 Doctor PASS。
-- 当前只编制 V3 治理草案；未修改、提交或推送产品文件。
+- 首个 V3 三件套已作为 `6fc07f4b4fb52a11b164f44bc2fbe9c9532a6c54` 推送；机器核验后发现任务文档额外要求的
+  legacy GO 在目标分支不存在、在共享主线又按规范不可达。当前只重签原三件套；未修改、提交或推送产品文件。
 
 ## Acceptance Review
 
-Pending。当前只证明两个并行 P14 方向已收敛到一个 exact30 合同，不证明产品候选或真实链路完成。下一决策点是 Owner 是否接受
-V3 三件套摘要；即使治理落地，项目级 execution authority STOP 仍必须独立解除。
+Pending。当前只证明两个并行 P14 方向已收敛到一个 exact30 合同，并纠正了不可达的 legacy authority 条件；不证明产品候选或
+真实链路完成。下一决策点是 Owner 是否接受重签后的 V3 三件套摘要。

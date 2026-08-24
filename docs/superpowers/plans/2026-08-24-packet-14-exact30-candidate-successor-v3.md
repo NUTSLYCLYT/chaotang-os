@@ -4,19 +4,20 @@
 
 - Task：`PACKET-14-EXACT30-CANDIDATE-SUCCESSOR-V3-20260824`
 - Target：`origin/ext-dev`
-- Base/tree：`a0a2c9793bb13035be3be7214ccde8a17663932d` / `7b0d0e190f5dd0ebb191c25174608119b06c286a`
-- Proposed manifest digest：`sha256:9a312f9c29a0ac0b49a898e0c3e7e3873d67998e7dd0ffde9fcfdb7b6733d126`
+- Base/tree：`6fc07f4b4fb52a11b164f44bc2fbe9c9532a6c54` / `f23a79e4dc14353b61a26f49feb1d81bd23d3966`
+- Proposed manifest digest：`sha256:fcb9c22f03d636b6a67e7cd41c65bb2e2f29a0372b853211fbe084e62292559b`
 - Scope：exact30；两个 work-product BFF cancellation 路径保持独立 exact2；不激活远端 exact32 R3。
 - Remediation：artifact no-replace、real generation evidence、observed cleanup、bearer zero-persistence 四个 P1；visible provenance、
   confirmation/download fairness 两个 P2；1689-byte sealed oracle 全派生矩阵。
-- Exit：exact30 候选通过双 authority、全部测试、独立终审和真实预推并获 Owner 产品授权；随后 exact2。
+- Exit：exact30 候选通过目标分支 canonical authority、全部测试、独立终审和真实预推并获 Owner 产品授权；随后 exact2。
 
 ## Sequence
 
 1. 验证 base/tree、closed schema、exact30、oracle source、三文件摘要和远端稳定性。
 2. Owner 精确接受摘要后，只普通快进三文件治理包并远端双读。
-3. 独立修复项目级活字 LangGraph 计划 inventory drift；不得修改或绕过 ext-dev canonical authority。
-4. canonical product authority 与项目 execution authority 均 GO 后，建立全新 exact30 product child。
+3. 共享主工作区 legacy authority 保持 fail-closed；不得修改、移植或把它解释为 P14 GO，也不得把活字 LangGraph inventory
+   漂移带入 `ext-dev`。
+4. 目标分支 canonical product authority 返回精确 GO 后，建立全新 exact30 product child。
 5. 逐路径核对 23 条 donor 差异，吸收并行 R3 的安全语义，不复制工作树、不吸收 exact2/exact32。
 6. artifact collision、generation graph、cleanup lifecycle、bearer canary 四组 P1 先 RED 后 GREEN。
 7. UI provenance、stable-FD confirmation、Owner-fair download lease 两组 P2 先 RED 后 GREEN。
@@ -34,7 +35,8 @@
 - Privacy：raw bearer crash/failure full-tree canary；generation raw/prefixed/structured contamination。
 - Cleanup：11-resource lifecycle、terminal probes、residual/identity/daemon/late-recreate negatives。
 - Release：evidence 15/15、offline build/verify 46/46、deployment/RC1 69/69，并在最终候选重跑。
-- Governance：product authority 12/12、Root Harness/Doctor、Convergence 20/1 与双 authority 状态。
+- Governance：product authority 12/12、Root Harness/Doctor、Convergence 20/1、目标分支 canonical authority 精确 GO 与 legacy
+  authority fail-closed 状态。
 - Real chain：root、Docker identity、Chromium 双 Owner、nft deny、RED、REALSTACK/GENERATION/DELIVERY-BROWSER。
 
 ## Stop Conditions
