@@ -4,9 +4,10 @@
 
 - Task：`PACKET-14-EXACT30-CANDIDATE-SUCCESSOR-V4-20260824`
 - Target：`origin/ext-dev`
-- Governance base/tree：`525acd21e38dd388a77c5361c9ef89257cd23de5` /
-  `cb42dd9d7fb4d695d04bbe3e10b2d12e6ae11b88`
-- Execution state：`DRAFT / NON_AUTHORIZING / PRODUCT_STOP`
+- Gate A approval base/tree：`4f189fb2abd688e747517cbe8e69028ad9f96cbb` /
+  `a4f086549866aeeb801627088fb7eda48e67a5da`
+- Proposed approval digest：`sha256:cdca1cbe4d69fc8eb8286c033935a8036cece0fec13eb8b39f0dfcc5d9cc96d4`
+- Execution state：`READY_FOR_OWNER_DIGEST / NON_AUTHORIZING_UNTIL_MACHINE_GO / PRODUCT_STOP`
 - Scope：V3 exact30；exact2、protected Harness/authority/readiness consumers 与配置源文件保持范围外。
 - Only new remediation：installed-wheel layout、external runner pin、cleanup absolute deadline。
 
@@ -23,11 +24,11 @@
 
 ## Phase G1 — Governance landing（requires new Owner authorization）
 
-1. 只创建恰含三份草案路径的单亲治理 commit；parent 必须是 `525acd…de5`。
-2. 普通 fast-forward 推送并双读 commit/tree/paths；禁止强推、merge、release 或 deploy。
-3. 基于新 parent 编制 closed **V4-A implementation approval**，复用 V3 exact30，但明确只允许本地物化 candidate；禁止正式 release
-   acceptance、trusted identity、产品提交/推送。
-4. Owner 精确确认 V4-A digest 并落地；canonical product authority 对 V4-A 返回 GO 前保持产品 STOP。
+1. Release-closure amendment/task/plan 已作为 `4f189fb…6cbb` 普通快进推送并远端双读。
+2. 当前 Gate A packet 严格三路径：machine approval、同名 task、同名 plan；base 必须为 `4f189fb…6cbb`。
+3. approval 复用 V3 exact30 与既有 15 项 verification，新增排序后的第16项 `candidate-acceptance-blocked`；内层稳定 exit `86`，外层 authority 稳定 `STOP / VERIFICATION_FAILED`，使 Gate A child 永远不能由本 approval 接受。
+4. Owner 精确确认 proposed approval digest 与三文件 bundle 后，才可创建本地单亲 commit；另行确认 commit/tree 后才可普通快进。
+5. canonical product authority 对 V4 返回 GO 前保持产品 STOP；GO 之后也只允许隔离 worktree 物化，禁止正式 release acceptance、trusted identity、产品提交/推送。
 
 ## Phase P0 — Clean replacement child
 
@@ -106,7 +107,7 @@
 
 ## Rollback
 
-- G0：放弃隔离 worktree 的三份新增草案。
+- G0：放弃隔离 worktree 的三文件 Gate A packet（新增 approval、修改 task/plan）。
 - G1：未推送 commit 可放弃；已推送治理历史只能 forward successor。
 - Product：保留失败 evidence，放弃未推送 child；不 reset、clean、stash 或覆盖用户资产。
 - External cleanup：acceptance 超时后只允许人工、独立记录的运维清理，不能回写本轮 PASS。

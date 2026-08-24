@@ -1,16 +1,16 @@
 # Packet 14 — Exact30 Candidate Successor V4
 
-> 状态：`DRAFT / RELEASE_ACCEPTANCE_CLOSURE / PRODUCT_STOP`
+> 状态：`READY_FOR_OWNER_DIGEST / GATE_A_IMPLEMENTATION_ONLY / PRODUCT_STOP`
 >
 > Task ID：`PACKET-14-EXACT30-CANDIDATE-SUCCESSOR-V4-20260824`
 >
-> Product authority：`NOT_YET_ISSUED`
+> Proposed approval digest：`sha256:cdca1cbe4d69fc8eb8286c033935a8036cece0fec13eb8b39f0dfcc5d9cc96d4`
 
 ## Status
 
-Draft
+Ready
 
-当前只有治理准备授权；本 task 不授予产品施工、提交或推送权限。
+Gate A approval 三件套已编制但尚未获 Owner 摘要确认、提交或推送；当前仍不授予产品施工、提交或推送权限。
 
 ## Product Definition
 
@@ -19,8 +19,9 @@ Draft
 ## Canonical identity
 
 - Repository/branch：`gitee.com/msxn/chaotang-os` / `ext-dev`
-- Governance base：`525acd21e38dd388a77c5361c9ef89257cd23de5`
-- Governance base tree：`cb42dd9d7fb4d695d04bbe3e10b2d12e6ae11b88`
+- Gate A approval base：`4f189fb2abd688e747517cbe8e69028ad9f96cbb`
+- Gate A approval base tree：`a4f086549866aeeb801627088fb7eda48e67a5da`
+- Release-closure amendment：已作为上述 base 的三文件治理提交落地并远端双读。
 - Supersedes：`PACKET-14-EXACT30-CANDIDATE-SUCCESSOR-V3-20260824`
 - Product paths：逐字等于 V3 approval exact30；path-set digest
   `45a46a2e70a4e8a526287cadef3740e3b6e833159ba5168e5236576f0ba8c276`
@@ -77,8 +78,10 @@ Draft
 
 ## Acceptance Criteria
 
-- [ ] 三文件治理草案经独立复审，Owner 精确确认摘要后才允许另行提交/推送。
+- [x] Release-closure amendment 三文件治理包经三轮独立复审，作为 `4f189fb…6cbb` 普通快进落地并远端双读。
+- [ ] Owner 精确确认 Gate A approval/task/plan 三文件摘要后，才允许另行创建并推送该治理提交。
 - [ ] Gate A machine GO 只授权本地物化；Gate B product-authority GO 只授权 product child；独立 supervisor-authority GO 才授权候选外执行，三者不得混用。
+- [x] Gate A verification matrix 含永久 `candidate-acceptance-blocked`：内层稳定 exit `86 / GATE_A_IMPLEMENTATION_ONLY`，外层 authority 稳定 `STOP / VERIFICATION_FAILED`；因此该 child 不能被本 approval 接受。
 - [ ] 产品 diff 路径逐字等于 exact30；需要第31路径立即 STOP。
 - [ ] 30 行 raw manifest 证明 28 条 Gate A reviewed-baseline 字节不变、只有两条 runner delta；path-set 相同不能替代该证明。
 - [ ] installed config missing/mutation/symlink/race RED 与 installed-wheel `4130/0/4` GREEN。
@@ -92,7 +95,7 @@ Draft
 
 ## Delivery Constraints
 
-本 task 不是 approval manifest。旧 V3 authority 不能跨新治理 parent 或用于本 V4。方向同意、文件草案、摘要确认、Review 或旧候选测试都不能代替 machine GO。Gate A 不能铸造 release PASS；Gate B 必须在 candidate 冻结和 Owner pin 之后另行批准。
+本 task 与同名 machine-readable approval 必须作为同一三文件治理提交落地。旧 V3 authority 不能跨新治理 parent 或用于本 V4。方向同意、文件草案、摘要确认、Review 或旧候选测试都不能代替 machine GO。Gate A 不能铸造 candidate/release PASS；Gate B 必须在 candidate 冻结和 Owner pin 之后以 distinct Task ID 另行批准。
 
 当前仓库没有已证明满足本合同的 candidate-external supervisor 或 release-execution machine authority；`product-authority` 不能授权外部 side effects。
 因此当前 V4 的 release-execution 阶段明确 BLOCKED。必须另立受保护治理 work package，物化 supervisor、schema、grant/status 命令、安装证据并取得机器 GO；本 task 不授权该实现。
@@ -110,7 +113,7 @@ Draft
 
 ## Technical Plan
 
-1. 先单独落地三文件治理包，再批准只允许本地物化的 V4-A implementation authority。
+1. Owner 确认 proposed approval digest 与三文件 bundle 后，只落地 approval/task/plan 三文件 Gate A governance commit；远端双读后取得 canonical machine GO。
 2. 从获批 parent 建立干净 replacement worktree；只改两条 runner delta，先 RED 后 GREEN，禁止正式 release acceptance。
 3. 冻结 30 条产品字节与 readiness pair；完成必要 oracle correction，并由 Owner 冻结 Gate A reviewed-baseline/delta、config、runner/module 和 external supervisor manifests。
 4. 另立受保护 supervisor/release-execution authority work package并取得机器 GO；否则停止。随后用 distinct successor Task ID 落地 Gate B product approval，从其 parent 重放相同字节。
@@ -120,7 +123,7 @@ Draft
 
 ## Implementation Report
 
-尚未实施产品代码。本轮只在隔离 worktree 创建三份非授权治理草案；没有 commit、push、merge、release 或 deploy。
+Release-closure amendment 已作为 `4f189fb2abd688e747517cbe8e69028ad9f96cbb` 落地。当前 Gate A approval/task/plan 只在隔离 worktree 编制；approval closed schema、exact30、16 项 verification 与永久 acceptance blocker 已通过静态校验。尚未实施产品代码，也没有提交、推送、merge、release 或 deploy 本 Gate A packet。
 
 ## Acceptance Review
 
@@ -128,4 +131,4 @@ Pending。只有在 V4 machine GO、三项修复、最终 readiness oracle 闭�
 
 ## Rollback
 
-治理草案阶段只放弃隔离 worktree 的三份新增文档。产品阶段只放弃未推送 replacement child 并保留失败证据；不改写远端历史，不清理或覆盖用户工作树。
+Gate A 草案阶段只放弃隔离 worktree 的三文件 packet（新增 approval、修改 task/plan）。产品阶段只放弃未推送 replacement child 并保留失败证据；不改写远端历史，不清理或覆盖用户工作树。
