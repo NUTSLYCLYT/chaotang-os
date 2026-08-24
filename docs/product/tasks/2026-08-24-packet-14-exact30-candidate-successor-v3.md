@@ -1,6 +1,6 @@
 # Packet 14 — Exact30 Candidate Successor V3
 
-> 状态：`DRAFT / OWNER_DIGEST_REQUIRED / PRODUCT_STOP`
+> 状态：`IN_PROGRESS / REVIEWS_GO / SUCCESSOR_AMENDMENT_REQUIRED / PRODUCT_STOP`
 >
 > Task ID：`PACKET-14-EXACT30-CANDIDATE-SUCCESSOR-V3-20260824`
 >
@@ -8,11 +8,15 @@
 
 ## Status
 
-Draft
+In Progress
 
 本 V3 是 P14 的唯一 exact30 收敛入口。首个三件套已落地，但其中误写了一个目标分支不存在且机器不可达的第二 authority；
 本次重签只纠正该条件并把 base 推进到首个三件套。Owner 精确接受新 manifest 与 packet digest、重签三件套成为冻结 base 的
 直接单亲子、远端双读稳定且 `origin/ext-dev` canonical product authority 返回精确 GO 前，产品保持停止。
+
+重签治理提交 `c174872f42c31b3d7a20c727a7c42c4a136c45dc` 已成为远端冻结基线，canonical product authority 已对该
+基线返回精确 GO。exact30 产品字节与独立终审现已完成；当前只编制六部继任指纹与本任务标准章节的三路径最小 amendment。
+该 amendment 获批、提交、推送并重新取得机器 GO 之前，产品仍保持停止。
 
 ## Product Definition
 
@@ -63,17 +67,17 @@ Draft
 
 ## Acceptance Criteria
 
-- [ ] Owner 精确接受 manifest 与三件套 packet digest；治理提交严格三路径、直接单亲、普通 fast-forward。
-- [ ] `origin/ext-dev` canonical product authority 对 exact Task ID 返回 GO，approval digest 与 Owner 接受值精确一致。
+- [x] Owner 精确接受 manifest 与三件套 packet digest；治理提交严格三路径、直接单亲、普通 fast-forward。
+- [x] `origin/ext-dev` canonical product authority 对 exact Task ID 返回 GO，approval digest 与 Owner 接受值精确一致。
 - [ ] 共享主工作区的 legacy execution-authority 保持 fail-closed；它不属于 P14 authority chain，不得被修改、伪装、移植或解释为
   P14 GO。事实依据：目标分支不包含该 consumer；legacy V1 固定 `AMENDMENT_REQUIRED / INACTIVE / STOP`；legacy V2 无 active
   work package 且没有 P14 task identity。
-- [ ] 产品 changed paths 逐字等于 exact30；需要第31路径立即 STOP。
-- [ ] 四个 P1、两个 P2 与 oracle 完整派生矩阵逐项先 RED 后 GREEN。
+- [x] 产品 changed paths 逐字等于 exact30；需要第31路径立即 STOP。
+- [x] 四个 P1、两个 P2 与 oracle 完整派生矩阵逐项先 RED 后 GREEN。
 - [ ] backend focused/full/Ruff/isolated candidate、frontend tests/lint/typecheck/build、release、authority、Root Harness/Doctor/V2 全绿。
 - [ ] root + Docker + Chromium 双 Owner + nft + RED 真实预推绑定同一 commit/tree；REALSTACK、GENERATION、DELIVERY-BROWSER
   三证明互不替代。
-- [ ] code/Python/TypeScript/security 独立终审 P0=P1=P2=P3=0。
+- [x] code/Python/TypeScript/security 独立终审 P0=P1=P2=P3=0。
 - [ ] 只生成精确 candidate commit/tree/diff/evidence digest 请求 Owner 授权；授权前不推送、不发布、不部署。
 - [ ] exact30 推送并双读后立即建立独立 exact2；exact2 完成前不宣称 P14 总体完成。
 
@@ -114,8 +118,16 @@ Draft
   20 passed / 1 skipped、Root Harness 与 Doctor PASS。
 - 首个 V3 三件套已作为 `6fc07f4b4fb52a11b164f44bc2fbe9c9532a6c54` 推送；机器核验后发现任务文档额外要求的
   legacy GO 在目标分支不存在、在共享主线又按规范不可达。当前只重签原三件套；未修改、提交或推送产品文件。
+- authority-correction 三件套已作为 `c174872f42c31b3d7a20c727a7c42c4a136c45dc` 推送并双读；legacy authority 继续
+  fail-closed，canonical product authority 对 exact Task ID 返回 GO 后才恢复隔离施工。
+- exact30 当前严格 30 路径，`git diff --check` 与 Ruff 通过；runner 51 passed / 1 sandbox-only skip，offline build 19/19，
+  offline verify 27/27，backend 受影响矩阵 250/250，frontend 703/703 且 lint/typecheck/build 全绿。
+- 独立代码终审与安全终审均为 GO，P0=P1=P2=P3=0。继任内容指纹为
+  `sha256:268cab13e516d0f716f600819f2bddc8242269312d392eca4ed1be2de05ce051`；本 amendment 只把该精确值加入与
+  runtime 指纹 `sha256:c95630be3d79f2641ff6e483f4096b0763b9e5071544f1e0ead0d7e24eb1cba5` 配对的封闭允许集合。
 
 ## Acceptance Review
 
-Pending。当前只证明两个并行 P14 方向已收敛到一个 exact30 合同，并纠正了不可达的 legacy authority 条件；不证明产品候选或
-真实链路完成。下一决策点是 Owner 是否接受重签后的 V3 三件套摘要。
+Pending。exact30 实现与独立代码/安全终审已经完成，但尚未完成 successor amendment 落地后的 authority、Root Harness/Doctor、
+全回归与 root + Docker + Chromium + nft + RED 真实预推。当前不证明产品候选可提交、推送或部署；下一决策点是 Owner 是否接受
+本三路径最小 governance amendment digest。

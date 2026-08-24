@@ -36,7 +36,7 @@ _CONTENT_FINGERPRINT_PAIRS = (
     ),
     (
         "sha256:c95630be3d79f2641ff6e483f4096b0763b9e5071544f1e0ead0d7e24eb1cba5",
-        "sha256:e37061b0e7087451b0b5d342423bcdc737364c588ef9b9d5243d806e65600fb3",
+        "sha256:268cab13e516d0f716f600819f2bddc8242269312d392eca4ed1be2de05ce051",
     ),
 )
 _HISTORICAL_REVIEW_STATUS = "approved-with-notes"
