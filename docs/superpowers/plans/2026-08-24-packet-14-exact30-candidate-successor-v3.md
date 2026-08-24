@@ -4,8 +4,8 @@
 
 - Task：`PACKET-14-EXACT30-CANDIDATE-SUCCESSOR-V3-20260824`
 - Target：`origin/ext-dev`
-- Base/tree：`6fc07f4b4fb52a11b164f44bc2fbe9c9532a6c54` / `f23a79e4dc14353b61a26f49feb1d81bd23d3966`
-- Proposed manifest digest：`sha256:fcb9c22f03d636b6a67e7cd41c65bb2e2f29a0372b853211fbe084e62292559b`
+- Base/tree：`02546eeb85cc84c944942673ab194c1e28972378` / `6fac9e4c67974bbec4ddb150bb0e603d6c1e1f54`
+- Proposed manifest digest：`sha256:bec419736cb245db06684d2ed5b0dbbb1cad003851bc95a4a8e642a6a8fe5f88`
 - Scope：exact30；两个 work-product BFF cancellation 路径保持独立 exact2；不激活远端 exact32 R3。
 - Remediation：artifact no-replace、real generation evidence、observed cleanup、bearer zero-persistence 四个 P1；visible provenance、
   confirmation/download fairness 两个 P2；1689-byte sealed oracle 全派生矩阵。
@@ -13,7 +13,8 @@
 
 ## Sequence
 
-1. 验证 base/tree、closed schema、exact30、oracle source、三文件摘要和远端稳定性。
+1. 验证 re-anchor base/tree、closed schema、exact30、oracle source、三文件摘要和远端稳定性；不得改变 productPaths、
+   verification、nonGoals 或 exact2 边界。
 2. Owner 精确接受摘要后，只普通快进三文件治理包并远端双读。
 3. 共享主工作区 legacy authority 保持 fail-closed；不得修改、移植或把它解释为 P14 GO，也不得把活字 LangGraph inventory
    漂移带入 `ext-dev`。

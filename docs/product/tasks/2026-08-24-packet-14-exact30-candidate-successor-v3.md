@@ -1,28 +1,28 @@
 # Packet 14 — Exact30 Candidate Successor V3
 
-> 状态：`IN_PROGRESS / REVIEWS_GO / SUCCESSOR_AMENDMENT_REQUIRED / PRODUCT_STOP`
+> 状态：`IN_PROGRESS / REVIEWS_GO / AUTHORITY_REANCHOR_REQUIRED / PRODUCT_STOP`
 >
 > Task ID：`PACKET-14-EXACT30-CANDIDATE-SUCCESSOR-V3-20260824`
 >
-> Proposed manifest digest：`sha256:fcb9c22f03d636b6a67e7cd41c65bb2e2f29a0372b853211fbe084e62292559b`
+> Proposed manifest digest：`sha256:bec419736cb245db06684d2ed5b0dbbb1cad003851bc95a4a8e642a6a8fe5f88`
 
 ## Status
 
 In Progress
 
-本 V3 是 P14 的唯一 exact30 收敛入口。首个三件套已落地，但其中误写了一个目标分支不存在且机器不可达的第二 authority；
-本次重签只纠正该条件并把 base 推进到首个三件套。Owner 精确接受新 manifest 与 packet digest、重签三件套成为冻结 base 的
-直接单亲子、远端双读稳定且 `origin/ext-dev` canonical product authority 返回精确 GO 前，产品保持停止。
+本 V3 是 P14 的唯一 exact30 收敛入口。authority-correction 与六部继任指纹 amendment 已依次落地；后者把远端推进到
+`02546eeb85cc84c944942673ab194c1e28972378` 后，干净副本中的 canonical product authority 按设计返回
+`STOP / APPROVAL_COMMIT_PARENT_INVALID`，因为旧 approval manifest 仍绑定 `6fc07f4b...`。
 
-重签治理提交 `c174872f42c31b3d7a20c727a7c42c4a136c45dc` 已成为远端冻结基线，canonical product authority 已对该
-基线返回精确 GO。exact30 产品字节与独立终审现已完成；当前只编制六部继任指纹与本任务标准章节的三路径最小 amendment。
-该 amendment 获批、提交、推送并重新取得机器 GO 之前，产品仍保持停止。
+本次 re-anchor 只把 manifest、task、plan 的基线推进到已落地的 `02546eeb...`，不改变 exact30/exact2 边界、验证矩阵、
+non-goals 或产品字节。Owner 精确接受新 manifest 与 packet digest、三件套成为冻结基线的直接单亲子、远端双读稳定且
+canonical product authority 返回精确 GO 前，产品保持停止。
 
 ## Product Definition
 
 - Target：`gitee.com/msxn/chaotang-os` / `origin/ext-dev`。
-- Base commit/tree：`6fc07f4b4fb52a11b164f44bc2fbe9c9532a6c54` /
-  `f23a79e4dc14353b61a26f49feb1d81bd23d3966`。
+- Base commit/tree：`02546eeb85cc84c944942673ab194c1e28972378` /
+  `6fac9e4c67974bbec4ddb150bb0e603d6c1e1f54`。
 - 范围：approval manifest 中逐字排序的 exact30；两个 work-product BFF cancellation 路径继续由独立 exact2 Packet 处理，
   不得重放 exact32 或暗增第31/32路径。
 - 并行 R3：远端 `PACKET-14-FIXTURE-PROVENANCE-V3-R3-20260824` 是 exact32 reviewed-bytes 包，包含故意非零的
@@ -67,8 +67,8 @@ In Progress
 
 ## Acceptance Criteria
 
-- [x] Owner 精确接受 manifest 与三件套 packet digest；治理提交严格三路径、直接单亲、普通 fast-forward。
-- [x] `origin/ext-dev` canonical product authority 对 exact Task ID 返回 GO，approval digest 与 Owner 接受值精确一致。
+- [ ] Owner 精确接受 re-anchor manifest 与三件套 packet digest；治理提交严格三路径、直接单亲、普通 fast-forward。
+- [ ] `origin/ext-dev` canonical product authority 对 exact Task ID 返回 GO，approval digest 与 Owner 接受值精确一致。
 - [ ] 共享主工作区的 legacy execution-authority 保持 fail-closed；它不属于 P14 authority chain，不得被修改、伪装、移植或解释为
   P14 GO。事实依据：目标分支不包含该 consumer；legacy V1 固定 `AMENDMENT_REQUIRED / INACTIVE / STOP`；legacy V2 无 active
   work package 且没有 P14 task identity。
@@ -120,6 +120,10 @@ In Progress
   legacy GO 在目标分支不存在、在共享主线又按规范不可达。当前只重签原三件套；未修改、提交或推送产品文件。
 - authority-correction 三件套已作为 `c174872f42c31b3d7a20c727a7c42c4a136c45dc` 推送并双读；legacy authority 继续
   fail-closed，canonical product authority 对 exact Task ID 返回 GO 后才恢复隔离施工。
+- 六部继任指纹 amendment 已作为 `02546eeb85cc84c944942673ab194c1e28972378` 普通快进推送并双读；在该干净 HEAD
+  重新运行 canonical product authority 返回 `STOP / APPROVAL_COMMIT_PARENT_INVALID`，证明旧 approval 不能跨越后继治理提交复用。
+- 本 re-anchor 仅更新 approval/task/plan 的 base/tree 与 manifest digest；productPaths、verification、nonGoals、exact2 隔离和
+  legacy fail-closed 语义逐字保持不变。
 - exact30 当前严格 30 路径，`git diff --check` 与 Ruff 通过；runner 51 passed / 1 sandbox-only skip，offline build 19/19，
   offline verify 27/27，backend 受影响矩阵 250/250，frontend 703/703 且 lint/typecheck/build 全绿。
 - 独立代码终审与安全终审均为 GO，P0=P1=P2=P3=0。继任内容指纹为
@@ -128,6 +132,6 @@ In Progress
 
 ## Acceptance Review
 
-Pending。exact30 实现与独立代码/安全终审已经完成，但尚未完成 successor amendment 落地后的 authority、Root Harness/Doctor、
-全回归与 root + Docker + Chromium + nft + RED 真实预推。当前不证明产品候选可提交、推送或部署；下一决策点是 Owner 是否接受
-本三路径最小 governance amendment digest。
+Pending。exact30 实现与独立代码/安全终审已经完成，但 canonical authority 当前因旧 approval 基线返回 STOP。本三件套 re-anchor
+获批并落地后，必须重新取得 authority GO，再运行 Root Harness/Doctor、全回归与 root + Docker + Chromium + nft + RED 真实预推。
+当前不证明产品候选可提交、推送或部署；下一决策点是 Owner 是否接受本三件套 re-anchor packet digest。
