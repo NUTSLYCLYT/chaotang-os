@@ -1,0 +1,138 @@
+{
+  "schemaVersion": "product-authority.m0.approval.v1",
+  "authorityId": "product-authority.m0.v1",
+  "taskId": "PACKET-01-BATTERY-SAFETY-M0-20260825",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "58b769223794af752d3b36ffc83dfa6351b0e0c6",
+    "baseTree": "d746c28c13612693700d03fe11e1349b3a73cf5f",
+    "approvalPath": ".harness/approvals/PACKET-01-BATTERY-SAFETY-M0-20260825.json",
+    "approvalCommitPaths": [
+      ".harness/approvals/PACKET-01-BATTERY-SAFETY-M0-20260825.json",
+      "docs/product/tasks/2026-08-25-packet-01-battery-safety-m0.md",
+      "docs/superpowers/plans/2026-08-25-packet-01-battery-safety-m0.md"
+    ],
+    "productPaths": [
+      "backend/app/agents/chancellor/graph.py",
+      "backend/app/agents/chancellor_draft/battery_safety.py",
+      "backend/app/agents/chancellor_draft/graph.py",
+      "backend/app/api/chancellor_drafts.py",
+      "backend/tests/test_battery_safety.py",
+      "backend/tests/test_chancellor_draft_graph.py",
+      "backend/tests/test_chancellor_drafts_api.py",
+      "backend/tests/test_chancellor_graph.py"
+    ]
+  },
+  "nonGoals": [
+    "DONOR_BRANCH_CHECKOUT_MERGE_CHERRY_PICK_OR_WHOLE_FILE_COPY",
+    "EXTERNAL_ACTION_REMOTE_RESET_REPAIR_DEVICE_CONTROL_OR_AUTO_EXECUTION",
+    "FRONTEND_UI_API_NAMESPACE_DATABASE_SCHEMA_OR_SECOND_AUTHORITY_STORE",
+    "MODEL_COUNCIL_CALLER_OR_ROUTE_OVERRIDE_SAFETY_DOWNGRADE",
+    "NETWORK_PROVIDER_PRODUCTION_DATA_SECRET_OR_REAL_MODEL",
+    "PACKET_02_PLUS_EXACT2_P14_RELEASE_OR_OTHER_PRODUCT_SCOPE",
+    "PRODUCT_COMMIT_PUSH_MERGE_DEPLOY_RELEASE_OR_PILOT_DURING_DRAFT_STAGE",
+    "ROOT_FRONTEND_BACKEND_HARNESS_AUTHORITY_CI_OR_ADR_CHANGE",
+    "UNRELATED_REFACTOR_OR_LEGACY_SRC_REINTRODUCTION"
+  ],
+  "verification": [
+    {
+      "id": "backend-full-pytest",
+      "tool": "python3",
+      "args": [
+        "-m",
+        "pytest",
+        "-q"
+      ],
+      "cwd": "backend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "backend-packet01-focused-pytest",
+      "tool": "python3",
+      "args": [
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_battery_safety.py",
+        "tests/test_chancellor_draft_graph.py",
+        "tests/test_chancellor_drafts_api.py",
+        "tests/test_chancellor_graph.py",
+        "tests/test_decrees_api.py"
+      ],
+      "cwd": "backend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "backend-ruff",
+      "tool": "python3",
+      "args": [
+        "-m",
+        "ruff",
+        "check",
+        "app/agents/chancellor/graph.py",
+        "app/agents/chancellor_draft/battery_safety.py",
+        "app/agents/chancellor_draft/graph.py",
+        "app/api/chancellor_drafts.py",
+        "tests/test_battery_safety.py",
+        "tests/test_chancellor_draft_graph.py",
+        "tests/test_chancellor_drafts_api.py",
+        "tests/test_chancellor_graph.py"
+      ],
+      "cwd": "backend",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "product-authority-regression",
+      "tool": "node",
+      "args": [
+        "--test",
+        "scripts/product-authority.test.mjs"
+      ],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "root-harness",
+      "tool": "node",
+      "args": [
+        "scripts/check_harness.mjs"
+      ],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "root-harness-doctor",
+      "tool": "node",
+      "args": [
+        "scripts/harness-doctor.mjs",
+        "--check"
+      ],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v2-convergence",
+      "tool": "node",
+      "args": [
+        "scripts/ext-full-value-convergence.mjs",
+        "--check"
+      ],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v2-convergence-regression",
+      "tool": "node",
+      "args": [
+        "--test",
+        "scripts/ext-full-value-convergence.test.mjs"
+      ],
+      "cwd": ".",
+      "timeoutMs": 180000
+    }
+  ],
+  "state": "APPROVED_FOR_ONE_CHILD"
+}
