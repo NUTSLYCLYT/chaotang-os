@@ -1,0 +1,136 @@
+{
+  "schemaVersion": "product-authority.m0.approval.v1",
+  "authorityId": "product-authority.m0.v1",
+  "taskId": "PACKET-01-BATTERY-SAFETY-M0-SUCCESSOR-20260825",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "9bf91023604fb873591f1928de31495a28ca0284",
+    "baseTree": "f602e8737cfeca86fd24704f52f914fa4c20d057",
+    "approvalPath": ".harness/approvals/PACKET-01-BATTERY-SAFETY-M0-SUCCESSOR-20260825.json",
+    "approvalCommitPaths": [
+      ".harness/approvals/PACKET-01-BATTERY-SAFETY-M0-SUCCESSOR-20260825.json",
+      "docs/product/tasks/2026-08-25-packet-01-battery-safety-m0-successor.md",
+      "docs/superpowers/plans/2026-08-25-packet-01-battery-safety-m0-successor.md"
+    ],
+    "productPaths": [
+      "backend/app/agents/chancellor/graph.py",
+      "backend/app/agents/chancellor_draft/battery_safety.py",
+      "backend/app/agents/chancellor_draft/graph.py",
+      "backend/app/api/chancellor_drafts.py",
+      "backend/tests/test_battery_safety.py",
+      "backend/tests/test_chancellor_draft_graph.py",
+      "backend/tests/test_chancellor_drafts_api.py",
+      "backend/tests/test_chancellor_graph.py",
+      "backend/tests/test_sqlite_backup.py"
+    ]
+  },
+  "nonGoals": [
+    "DONOR_BRANCH_CHECKOUT_MERGE_CHERRY_PICK_OR_WHOLE_FILE_COPY",
+    "EXTERNAL_ACTION_REMOTE_RESET_REPAIR_DEVICE_CONTROL_OR_AUTO_EXECUTION",
+    "FOUR_GATE_REPLAN_AUTHORITY_HARNESS_CI_OR_ADR_CHANGE",
+    "FRONTEND_UI_API_NAMESPACE_DATABASE_SCHEMA_OR_SECOND_AUTHORITY_STORE",
+    "LEGACY_OR_ORIGIN_DEV_WHOLESALE_INTEGRATION",
+    "MODEL_COUNCIL_CALLER_OR_ROUTE_OVERRIDE_SAFETY_DOWNGRADE",
+    "NETWORK_PROVIDER_PRODUCTION_DATA_SECRET_OR_REAL_MODEL",
+    "OLD_CANDIDATE_COMMIT_TREE_OR_EVIDENCE_IDENTITY_REUSE",
+    "PACKET_02_PLUS_P14_PILOT_RELEASE_OR_OTHER_PRODUCT_SCOPE",
+    "PRODUCT_PUSH_MERGE_DEPLOY_RELEASE_OR_PILOT",
+    "UNRELATED_REFACTOR_OR_LEGACY_SRC_REINTRODUCTION"
+  ],
+  "verification": [
+    {
+      "id": "backend-full-pytest",
+      "tool": "python3",
+      "args": ["-m", "pytest", "-q"],
+      "cwd": "backend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "backend-packet01-focused-pytest",
+      "tool": "python3",
+      "args": [
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_battery_safety.py",
+        "tests/test_chancellor_draft_graph.py",
+        "tests/test_chancellor_drafts_api.py",
+        "tests/test_chancellor_graph.py",
+        "tests/test_decrees_api.py",
+        "tests/test_sqlite_backup.py"
+      ],
+      "cwd": "backend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "backend-ruff",
+      "tool": "python3",
+      "args": [
+        "-m",
+        "ruff",
+        "check",
+        "app/agents/chancellor/graph.py",
+        "app/agents/chancellor_draft/battery_safety.py",
+        "app/agents/chancellor_draft/graph.py",
+        "app/api/chancellor_drafts.py",
+        "tests/test_battery_safety.py",
+        "tests/test_chancellor_draft_graph.py",
+        "tests/test_chancellor_drafts_api.py",
+        "tests/test_chancellor_graph.py",
+        "tests/test_sqlite_backup.py"
+      ],
+      "cwd": "backend",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "candidate-exact9-byte-identity",
+      "tool": "node",
+      "args": [
+        "--input-type=module",
+        "--eval",
+        "import{execFileSync}from'node:child_process';import{createHash}from'node:crypto';const paths=['backend/app/agents/chancellor/graph.py','backend/app/agents/chancellor_draft/battery_safety.py','backend/app/agents/chancellor_draft/graph.py','backend/app/api/chancellor_drafts.py','backend/tests/test_battery_safety.py','backend/tests/test_chancellor_draft_graph.py','backend/tests/test_chancellor_drafts_api.py','backend/tests/test_chancellor_graph.py','backend/tests/test_sqlite_backup.py'];const expected=['100644:8d2c445eb473786aa4bab0ef9ad69945bd0c9dfe:backend/app/agents/chancellor/graph.py','100644:7bd88ec54fd25b6067b024a658c0d28a2ef3b2bf:backend/app/agents/chancellor_draft/battery_safety.py','100644:01f30e2ebed30918b9c97c609a2f040a3564b1b7:backend/app/agents/chancellor_draft/graph.py','100644:f37b74b82459baf177853d1b1d1ff153328ff7c1:backend/app/api/chancellor_drafts.py','100644:ace340b9cf738b5a66c6c0e8d5fd87743abdb86a:backend/tests/test_battery_safety.py','100644:c118412e1c1c502ab92b6a26f73147783b139425:backend/tests/test_chancellor_draft_graph.py','100644:085a9e3891f8a6cd367a316da5ba1759b195367f:backend/tests/test_chancellor_drafts_api.py','100644:b6097c0ec0e37cd0e15e30f6c1850193427a3e45:backend/tests/test_chancellor_graph.py','100644:520184718e31fb74ac553d1fcce7a802c68da64f:backend/tests/test_sqlite_backup.py'];const env={PATH:'/usr/bin:/bin',GIT_CONFIG_NOSYSTEM:'1',GIT_NO_REPLACE_OBJECTS:'1',GIT_TERMINAL_PROMPT:'0'};const git=(args,encoding='utf8')=>execFileSync('/usr/bin/git',['--no-replace-objects',...args],{encoding,env,maxBuffer:4194304});const actual=paths.map((path)=>{const [mode,type,oid,name]=git(['ls-tree','HEAD','--',path]).trim().split(/\\s+/u);if(type!=='blob')throw new Error('EXACT9_NON_BLOB');return `${mode}:${oid}:${name}`});if(JSON.stringify(actual)!==JSON.stringify(expected))throw new Error('EXACT9_BLOB_OR_MODE_MISMATCH');const patch=git(['diff','--binary','--full-index','HEAD^','HEAD','--',...paths],null);const digest=createHash('sha256').update(patch).digest('hex');if(digest!=='ad7ea7901d67a94212aa44d970eb68604faaed479db7c55d1481bb1da1fcae96')throw new Error('EXACT9_PATCH_MISMATCH');"
+      ],
+      "cwd": ".",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "product-authority-regression",
+      "tool": "node",
+      "args": ["--test", "scripts/product-authority.test.mjs"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "root-harness",
+      "tool": "node",
+      "args": ["scripts/check_harness.mjs"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "root-harness-doctor",
+      "tool": "node",
+      "args": ["scripts/harness-doctor.mjs", "--check"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v2-convergence",
+      "tool": "node",
+      "args": ["scripts/ext-full-value-convergence.mjs", "--check"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v2-convergence-regression",
+      "tool": "node",
+      "args": ["--test", "scripts/ext-full-value-convergence.test.mjs"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    }
+  ],
+  "state": "APPROVED_FOR_ONE_CHILD"
+}
