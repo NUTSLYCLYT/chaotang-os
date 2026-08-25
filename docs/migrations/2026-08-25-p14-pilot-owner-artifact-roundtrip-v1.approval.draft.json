@@ -1,0 +1,326 @@
+{
+  "schemaVersion": "p14-pilot.g1-approval-proposal.v1.draft",
+  "authorityId": "four-gate-product-authority.v1.not-implemented",
+  "taskId": "P14-PILOT-OWNER-ARTIFACT-ROUNDTRIP-V1",
+  "state": "DRAFT_NON_AUTHORIZING",
+  "machineConsumable": false,
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev",
+    "baseCommit": "82ba658db44d829d6ae7e028dcbac7ecefb4cee7",
+    "baseTree": "63e8c716f705d559b51169da9d1b80b7db4afccf"
+  },
+  "lineage": {
+    "lineageId": "P14-PILOT-OWNER-ARTIFACT-ROUNDTRIP",
+    "predecessorApprovalDigest": null,
+    "reanchorCount": 0,
+    "reanchorRecord": null,
+    "issuedAt": null,
+    "lastQualifyingEvidence": null,
+    "requiresFreshClosedSchemaApproval": true
+  },
+  "packet": {
+    "name": "P14-PILOT Owner Artifact Roundtrip V1",
+    "closure": "SERVICE",
+    "targetUser": "INVITED_AUTHENTICATED_ARTIFACT_OWNER",
+    "userBehavior": "VIEW_DOWNLOAD_CONFIRM_REFRESH_AND_OPEN_EXISTING_SHIGUAN_REPLY",
+    "deliverable": "DIGEST_BOUND_ARTIFACT_CONFIRMATION_RECEIPT_AND_ARCHIVE_ENTRYPOINT",
+    "currentMaturity": "ADVISORY",
+    "targetMaturity": "VERIFIED"
+  },
+  "g1Proposal": {
+    "gate": "G1_CANDIDATE",
+    "authorization": "NONE_UNTIL_SEPARATE_OWNER_DIGEST_AND_MACHINE_GO",
+    "scopeEnvelope": {
+      "baseCommit": "82ba658db44d829d6ae7e028dcbac7ecefb4cee7",
+      "baseTree": "63e8c716f705d559b51169da9d1b80b7db4afccf",
+      "allowedPaths": [
+        "backend/app/accounting_reports/storage.py",
+        "backend/app/api/report_artifacts.py",
+        "backend/tests/test_accounting_confirmation_api.py",
+        "backend/tests/test_accounting_report_storage.py",
+        "backend/tests/test_accounting_work_product_storage.py",
+        "backend/tests/test_report_artifacts_api.py",
+        "frontend/src/app/api/report-artifacts/[id]/confirmation/handler.ts",
+        "frontend/src/app/api/report-artifacts/[id]/confirmation/route.test.ts",
+        "frontend/src/app/api/report-artifacts/[id]/handler.ts",
+        "frontend/src/app/api/report-artifacts/[id]/route.test.ts",
+        "frontend/src/app/api/report-artifacts/[id]/work-product/handler.ts",
+        "frontend/src/app/api/report-artifacts/[id]/work-product/route.test.ts",
+        "frontend/src/app/api/shiguan/archives/[id]/handler.ts",
+        "frontend/src/app/api/shiguan/archives/[id]/route.test.ts",
+        "frontend/src/app/api/shiguan/archives/[id]/route.ts",
+        "frontend/src/app/shiguan/ShiguanClient.tsx",
+        "frontend/src/app/shiguan/ShiguanClient.visual.test.ts",
+        "frontend/src/app/shiguan/shiguanController.test.ts",
+        "frontend/src/app/shiguan/shiguanController.ts",
+        "frontend/src/features/study-visual/DevStudyWorkspace.module.css",
+        "frontend/src/features/study-visual/StudyArtifactConfirmation.test.ts",
+        "frontend/src/features/study-visual/StudyArtifactConfirmation.tsx",
+        "frontend/src/features/study-visual/StudyArtifactLinks.test.ts",
+        "frontend/src/features/study-visual/StudyArtifactLinks.ts",
+        "frontend/src/lib/backendClient.test.ts",
+        "frontend/src/lib/backendClient.ts"
+      ],
+      "deniedPathPrefixes": [
+        ".harness",
+        "backend/app/agents",
+        "backend/app/auth",
+        "backend/app/main.py",
+        "backend/app/shiguan",
+        "backend/harness",
+        "deploy",
+        "docs/decisions",
+        "frontend/.harness",
+        "frontend/src/app/(dashboard)/dadian",
+        "frontend/src/app/(dashboard)/junjichu",
+        "scripts"
+      ],
+      "allowedAddPaths": [
+        "frontend/src/app/api/shiguan/archives/[id]/handler.ts",
+        "frontend/src/app/api/shiguan/archives/[id]/route.test.ts",
+        "frontend/src/app/api/shiguan/archives/[id]/route.ts"
+      ],
+      "maxChangedPaths": 26,
+      "maxChangedBytes": 524288,
+      "byteAccountingAlgorithm": "SUM_CANDIDATE_REGULAR_BLOB_SIZES_FOR_BASE_DOT_DOT_CANDIDATE_ADD_OR_MODIFY_PATHS",
+      "pathAccountingAlgorithm": "GIT_OBJECT_NAME_STATUS_Z_RENAMES_DISABLED_BASE_DOT_DOT_CANDIDATE",
+      "allowedChangeKinds": [
+        "ADD",
+        "MODIFY"
+      ],
+      "externalNetworkPolicy": "NONE",
+      "localNetworkPolicy": "LOOPBACK_FIXED_ORIGINS_ONLY",
+      "localOrigins": [
+        "http://127.0.0.1:8000",
+        "http://127.0.0.1:3002"
+      ],
+      "dnsPolicy": "NONE",
+      "sideEffectPolicy": "NONE",
+      "productionDataPolicy": "FORBIDDEN",
+      "secretPolicy": "FORBIDDEN",
+      "expiresAt": null,
+      "maximumActivationLifetimeSeconds": 172800,
+      "oneShotNonce": null
+    },
+    "actorEnvelope": {
+      "owner": "REPOSITORY_OWNER",
+      "candidateWriter": "SINGLE_LOCAL_INTEGRATOR",
+      "reviewer": "INDEPENDENT_NON_WRITER",
+      "worktree": "NEW_CLEAN_ISOLATED_WORKTREE_REQUIRED",
+      "maximumCommandRuntimeMs": 1800000,
+      "maximumTotalRuntimeMs": 14400000
+    },
+    "allowedActionClassesAfterFutureGo": [
+      "LOCAL_PRODUCT_MODIFY",
+      "LOCAL_TEST",
+      "LOCAL_BUILD",
+      "LOCAL_BROWSER_VERIFICATION"
+    ],
+    "forbiddenActions": [
+      "COMMIT_WITHOUT_SEPARATE_EXACT_MATERIALIZATION_GRANT",
+      "DELETE",
+      "DEPLOY",
+      "EXTERNAL_SEND",
+      "FORMAL_ACCEPTANCE",
+      "MERGE",
+      "PAYMENT",
+      "PILOT",
+      "PUBLIC_NETWORK",
+      "PUSH",
+      "RELEASE",
+      "TRADE"
+    ],
+    "requiredRedEvidence": [
+      "OWNER_ARTIFACT_ROUNDTRIP_MISSING",
+      "SHIGUAN_REPLY_DEEPLINK_MISSING"
+    ],
+    "requiredOutputs": [
+      "CANDIDATE_BASE_COMMIT_AND_TREE",
+      "PRECOMMIT_TREE",
+      "EXACT_CHANGED_PATHS",
+      "CHANGED_CANDIDATE_BLOB_BYTES",
+      "RAW_FILE_SHA256_MANIFEST",
+      "PATCH_DIGEST",
+      "TEST_EVIDENCE_DIGEST",
+      "BROWSER_EVIDENCE_DIGEST",
+      "INDEPENDENT_REVIEW_DIGEST"
+    ]
+  },
+  "candidateCommitMaterializationProposal": {
+      "gateSeparation": "OUTSIDE_G1_REQUIRES_DISTINCT_ONE_SHOT_GRANT",
+      "authorization": "SEPARATE_EXACT_OWNER_AUTHORIZATION_REQUIRED",
+      "requiredInputs": [
+        "BASE_COMMIT",
+        "PRECOMMIT_TREE",
+        "EXACT_CHANGED_PATHS_DIGEST",
+        "PATCH_DIGEST",
+        "EVIDENCE_DIGEST"
+      ],
+      "requiredPostCommitChecks": [
+        "COMMIT_IS_SINGLE_PARENT_ON_APPROVED_BASE",
+        "COMMIT_TREE_EQUALS_PRECOMMIT_TREE",
+        "BASE_DOT_DOT_CANDIDATE_SCOPE_RECOMPUTED",
+        "CANDIDATE_WORKTREE_CLEAN"
+      ],
+      "stillForbidden": [
+        "PUSH",
+        "MERGE",
+        "PILOT",
+        "RELEASE",
+        "DEPLOY"
+      ]
+  },
+  "resultContract": {
+    "resultField": "confirmation_status",
+    "resultValues": [
+      "PENDING",
+      "CONFIRMED",
+      "REVISION_REQUIRED",
+      "ESCALATED"
+    ],
+    "failureStateInternal": "OWNER_SCOPE_DENIED",
+    "failureWireContract": "UNKNOWN_AND_CROSS_OWNER_IDENTICAL_GENERIC_404",
+    "identityFields": [
+      "ARTIFACT_ID",
+      "RUN_ID",
+      "REPLY_ID",
+      "ARTIFACT_FILE_SHA256",
+      "WORK_PRODUCT_CONTENT_DIGEST",
+      "SOURCE_STATE",
+      "ARTIFACT_STATE",
+      "CONFIRMATION_STATUS",
+      "ARCHIVE_STATUS",
+      "REAL_WORLD_EXECUTION_STATUS"
+    ],
+    "digestRules": {
+      "artifactFileSha256": "REPORT_ARTIFACTS_FILE_SHA256_EQUALS_XLSX_MANIFEST_DIGEST_EQUALS_DOWNLOADED_BYTES_SHA256",
+      "workProductContentDigest": "WORK_PRODUCT_ENVELOPE_SEMANTIC_CONTENT_DIGEST",
+      "crossSubstitutionForbidden": true
+    },
+    "sourceStates": [
+      "LIVE",
+      "MIXED",
+      "FALLBACK",
+      "DEMO",
+      "PENDING"
+    ],
+    "confirmationActions": [
+      "CONFIRMED",
+      "REVISION_REQUIRED",
+      "ESCALATED"
+    ],
+    "publicConfirmationReceiptFields": [
+      "WORK_PRODUCT_ID",
+      "VERSION",
+      "SEQUENCE",
+      "DECISION",
+      "STRUCTURED_REASON",
+      "CREATED_AT"
+    ],
+    "forbiddenPublicReceiptFields": [
+      "ACTOR_REF",
+      "OWNER_USER_ID",
+      "INTERNAL_USER_ID"
+    ],
+    "archiveStatusValues": [
+      "ARCHIVED",
+      "PENDING_WRITEBACK",
+      "UNAVAILABLE"
+    ],
+    "archiveRule": "ARCHIVED_ONLY_AFTER_OWNER_SCOPED_SINGLE_ARCHIVE_GET_RETURNS_ID_EQUAL_REPLY_ID_AND_TYPE_REPLY_OTHERWISE_PENDING_OR_UNAVAILABLE",
+    "realWorldExecutionStatus": "NOT_TRACKED",
+    "sourceStateRule": "BACKEND_PERSISTED_PROVENANCE_ONLY_MISSING_PROVENANCE_IS_PENDING_HTTP_200_IS_NOT_PROOF",
+    "axisSeparation": [
+      "ARTIFACT_GENERATION",
+      "HUMAN_CONFIRMATION",
+      "SHIGUAN_ARCHIVE",
+      "REAL_WORLD_EXECUTION"
+    ]
+  },
+  "verificationContract": {
+    "scopeProof": {
+      "comparison": "BASE_DOT_DOT_CANDIDATE",
+      "pathEncoding": "NUL",
+      "renameDetection": false,
+      "forbiddenObjectKinds": [
+        "DELETE",
+        "RENAME",
+        "SYMLINK",
+        "SUBMODULE",
+        "NON_REGULAR_BLOB"
+      ],
+      "byteAlgorithm": "SUM_CANDIDATE_REGULAR_BLOB_SIZES_FOR_CHANGED_ADD_OR_MODIFY_PATHS"
+    },
+    "orderedCategories": [
+      "DIFF_SCOPE",
+      "RED_VALIDITY",
+      "FOCUSED_GREEN",
+      "AFFECTED_REGRESSION",
+      "FRONTEND_BACKEND_CONTRACT",
+      "REAL_BROWSER_CHAIN",
+      "OWNER_ISOLATION",
+      "NEGATIVE_STATES",
+      "DIGEST_DOWNLOAD_CONFIRMATION_SHIGUAN_RECALL",
+      "INDEPENDENT_REVIEW",
+      "CANDIDATE_IDENTITY_AND_EVIDENCE_DIGEST"
+    ],
+    "negativeStates": [
+      "MISSING_EVIDENCE",
+      "TIMEOUT",
+      "MODEL_FAILURE",
+      "FALLBACK",
+      "REFRESH_RACE",
+      "REQUEST_CANCELLATION",
+      "REPEATED_CONFIRMATION",
+      "DIGEST_TAMPER",
+      "ARCHIVE_WRITEBACK_MISSING",
+      "CROSS_OWNER_ACCESS"
+    ],
+    "completionRequiresAll": true,
+    "mockCannotProveLive": true,
+    "loopbackOnly": true
+  },
+  "evidenceCadenceProposal": {
+    "trustedClock": "AUTHORITY_UTC_CLOCK_REQUIRED_AT_FRESH_G1_ISSUANCE",
+    "eventSequence": null,
+    "lastQualifyingEvidenceAt": null,
+    "lastQualifyingEvidenceKind": null,
+    "lastQualifyingEvidenceDigest": null,
+    "duplicateDigestRefreshesClock": false,
+    "maximumGovernanceOnlyHours": 24
+  },
+  "stopConditions": [
+    "ANY_MACHINE_AUTHORITY_STOP",
+    "FOUR_GATE_AUTHORITY_NOT_IMPLEMENTED",
+    "SCOPE_EXPANSION",
+    "SECOND_FACT_SOURCE",
+    "OWNER_OR_DIGEST_NOT_BACKEND_PROVEN",
+    "SOURCE_STATE_NOT_BACKEND_PROVEN",
+    "IRREVERSIBLE_OR_EXTERNAL_ACTION",
+    "SECOND_REANCHOR_IN_STABLE_LINEAGE",
+    "GOVERNANCE_ONLY_STALL_24H",
+    "UNRESOLVED_P0_P1_P2"
+  ],
+  "activation": {
+    "ownerDigestConfirmed": false,
+    "machineDecision": "STOP",
+    "activeWorkPackage": null,
+    "canModifyProduct": false,
+    "canCommit": false,
+    "canPilot": false,
+    "canRelease": false
+  },
+  "nonGoals": [
+    "AUTH_OR_TENANT_MODEL_CHANGE",
+    "DATABASE_MIGRATION",
+    "JIOMODEL_OR_SWARM_CHANGE",
+    "LANGGRAPH_ACTIVATION",
+    "NEW_API_NAMESPACE",
+    "P14_RELEASE",
+    "PACK_HERO_TASK",
+    "PUBLIC_OR_PRODUCTION_ACTION",
+    "SECOND_ARTIFACT_LEDGER",
+    "SECOND_SHIGUAN"
+  ]
+}
