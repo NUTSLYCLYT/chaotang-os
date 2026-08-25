@@ -1,0 +1,161 @@
+{
+  "schemaVersion": "product-authority.m0.approval.v1",
+  "authorityId": "product-authority.m0.v1",
+  "taskId": "PACKET-01-BATTERY-SAFETY-M0-CORRECTIVE-SUCCESSOR-20260825",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "a0fef05eb57d2c65113f86b79be6886ea881b72d",
+    "baseTree": "ff84103cd9c587659028d2f2e28904fae71ae269",
+    "approvalPath": ".harness/approvals/PACKET-01-BATTERY-SAFETY-M0-CORRECTIVE-SUCCESSOR-20260825.json",
+    "approvalCommitPaths": [
+      ".harness/approvals/PACKET-01-BATTERY-SAFETY-M0-CORRECTIVE-SUCCESSOR-20260825.json",
+      "docs/product/tasks/2026-08-25-packet-01-battery-safety-m0-corrective-successor.md",
+      "docs/superpowers/plans/2026-08-25-packet-01-battery-safety-m0-corrective-successor.md"
+    ],
+    "productPaths": [
+      "backend/app/agents/chancellor/graph.py",
+      "backend/app/agents/chancellor_draft/battery_safety.py",
+      "backend/app/agents/chancellor_draft/graph.py",
+      "backend/app/api/chancellor_drafts.py",
+      "backend/app/api/decrees.py",
+      "backend/tests/test_battery_safety.py",
+      "backend/tests/test_chancellor_draft_graph.py",
+      "backend/tests/test_chancellor_drafts_api.py",
+      "backend/tests/test_chancellor_graph.py",
+      "backend/tests/test_decrees_api.py"
+    ]
+  },
+  "nonGoals": [
+    "CLIENT_NON_USER_ROLE_STRIP_AND_CONTINUE",
+    "CLIENT_ROLE_TRUST_OR_MODEL_AS_SAFETY_FACT_SOURCE",
+    "DATABASE_SCHEMA_FRONTEND_API_NAMESPACE_OR_SECOND_FACT_SOURCE",
+    "DONOR_BRANCH_CHECKOUT_MERGE_CHERRY_PICK_OR_WHOLE_FILE_COPY",
+    "EXTERNAL_DEVICE_CONTROL_REMOTE_RESET_REPAIR_OR_AUTO_EXECUTION",
+    "FOUR_GATE_P14_AUTHORITY_HARNESS_CI_OR_ADR_CHANGE",
+    "LIVE_DEVICE_SENSOR_TELEMETRY_OR_FIELD_EVIDENCE_CLAIM",
+    "NETWORK_PROVIDER_PRODUCTION_DATA_SECRET_OR_REAL_MODEL",
+    "OLD_NO_GO_CANDIDATE_TREE_NONCE_OR_EVIDENCE_REUSE",
+    "PACKET_02_PLUS_PILOT_RELEASE_DEPLOY_OR_PRODUCT_PUSH",
+    "PARTIAL_USER_VISIBLE_OUTPUT_SCAN_OR_PROHIBITED_ACTION_SYNONYM_ALLOWLIST",
+    "SAFETY_LEVEL_DOWNGRADE_TEST_WEAKENING_OR_FAIL_OPEN",
+    "UNRELATED_REFACTOR_DATABASE_MIGRATION_OR_ELEVENTH_PRODUCT_PATH"
+  ],
+  "verification": [
+    {
+      "id": "backend-full-pytest",
+      "tool": "python3",
+      "args": ["-m", "pytest", "-q"],
+      "cwd": "backend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "backend-packet01-corrective-focused-pytest",
+      "tool": "python3",
+      "args": [
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_battery_safety.py",
+        "tests/test_chancellor_draft_graph.py",
+        "tests/test_chancellor_drafts_api.py",
+        "tests/test_chancellor_graph.py",
+        "tests/test_decrees_api.py"
+      ],
+      "cwd": "backend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "backend-packet01-corrective-negative-pytest",
+      "tool": "python3",
+      "args": [
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_chancellor_drafts_api.py::test_client_non_user_role_fails_closed_without_side_effects",
+        "tests/test_battery_safety.py::test_common_p0_hazard_synonyms_fail_closed",
+        "tests/test_battery_safety.py::test_software_context_cannot_suppress_physical_p0_hazard",
+        "tests/test_battery_safety.py::test_canonical_p1_marker_cannot_bind_p0_facts",
+        "tests/test_chancellor_graph.py::test_all_user_visible_battery_response_fields_reject_prohibited_actions",
+        "tests/test_chancellor_graph.py::test_battery_fallback_preserves_non_live_source_immediate_action_black_and_human_confirmation",
+        "tests/test_chancellor_graph.py::test_battery_safety_response_labels_user_text_rule_as_non_live",
+        "tests/test_chancellor_graph.py::test_battery_safety_response_starts_with_immediate_next_step",
+        "tests/test_decrees_api.py::test_async_battery_safety_gate_precedes_job_reservation_and_persistence",
+        "tests/test_decrees_api.py::test_sync_battery_safety_gate_precedes_authority_consumption",
+        "tests/test_battery_safety.py::test_plain_battery_software_bug_does_not_trigger_physical_gate"
+      ],
+      "cwd": "backend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "backend-ruff-exact10",
+      "tool": "python3",
+      "args": [
+        "-m",
+        "ruff",
+        "check",
+        "app/agents/chancellor/graph.py",
+        "app/agents/chancellor_draft/battery_safety.py",
+        "app/agents/chancellor_draft/graph.py",
+        "app/api/chancellor_drafts.py",
+        "app/api/decrees.py",
+        "tests/test_battery_safety.py",
+        "tests/test_chancellor_draft_graph.py",
+        "tests/test_chancellor_drafts_api.py",
+        "tests/test_chancellor_graph.py",
+        "tests/test_decrees_api.py"
+      ],
+      "cwd": "backend",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "candidate-exact10-structure",
+      "tool": "node",
+      "args": [
+        "--input-type=module",
+        "--eval",
+        "import{execFileSync}from'node:child_process';const expected=['backend/app/agents/chancellor/graph.py','backend/app/agents/chancellor_draft/battery_safety.py','backend/app/agents/chancellor_draft/graph.py','backend/app/api/chancellor_drafts.py','backend/app/api/decrees.py','backend/tests/test_battery_safety.py','backend/tests/test_chancellor_draft_graph.py','backend/tests/test_chancellor_drafts_api.py','backend/tests/test_chancellor_graph.py','backend/tests/test_decrees_api.py'];const env={PATH:'/usr/bin:/bin',GIT_CONFIG_NOSYSTEM:'1',GIT_NO_REPLACE_OBJECTS:'1',GIT_TERMINAL_PROMPT:'0'};const git=(args)=>execFileSync('/usr/bin/git',['--no-replace-objects',...args],{encoding:'utf8',env,maxBuffer:4194304});const rows=git(['diff-tree','--no-commit-id','--name-status','-r','HEAD^','HEAD']).trim().split('\\n').filter(Boolean).map((row)=>row.split('\\t'));const paths=rows.map((row)=>row.at(-1));if(JSON.stringify(paths)!==JSON.stringify(expected))throw new Error('EXACT10_PATH_MISMATCH');const adds=rows.filter(([status])=>status==='A').length;const mods=rows.filter(([status])=>status==='M').length;if(adds!==2||mods!==8)throw new Error('EXACT10_STATUS_MISMATCH');for(const path of paths){const [mode,type]=git(['ls-tree','HEAD','--',path]).trim().split(/\\s+/u);if(mode!=='100644'||type!=='blob')throw new Error('EXACT10_MODE_OR_TYPE_MISMATCH:'+path)}"
+      ],
+      "cwd": ".",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "product-authority-regression",
+      "tool": "node",
+      "args": ["--test", "scripts/product-authority.test.mjs"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "root-harness",
+      "tool": "node",
+      "args": ["scripts/check_harness.mjs"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "root-harness-doctor",
+      "tool": "node",
+      "args": ["scripts/harness-doctor.mjs", "--check"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v2-convergence",
+      "tool": "node",
+      "args": ["scripts/ext-full-value-convergence.mjs", "--check"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v2-convergence-regression",
+      "tool": "node",
+      "args": ["--test", "scripts/ext-full-value-convergence.test.mjs"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    }
+  ],
+  "state": "APPROVED_FOR_ONE_CHILD"
+}
