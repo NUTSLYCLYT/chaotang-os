@@ -352,9 +352,9 @@ const SIX_MINISTRY_TRUSTED_SPINE_FILES = [
 // The 2026-08-14 review fingerprint included both readiness validators. A
 // validator cannot safely attest its own future bytes, so G1 preserves the
 // immutable historical review fingerprint while independently pinning the
-// unchanged runtime set. Two P14 successor-owned paths use a separate closed
-// legacy-or-reviewed-P14 pair fingerprint instead of being misrepresented as
-// unchanged legacy bytes. All four exclusions remain mandatory historical rows.
+// unchanged runtime set. Two successor-owned paths use a separate closed
+// compatibility-pair fingerprint instead of being misrepresented as unchanged
+// legacy bytes. All four exclusions remain mandatory historical rows.
 const SIX_MINISTRY_REVIEWED_IMPLEMENTATION_FINGERPRINT = "sha256:a6c2de2ca7f15069a6d997ce2cccb9498ddd4dd1269d539c192993e85a265190";
 const SIX_MINISTRY_REVIEW_STATUS = "approved-with-notes";
 const SIX_MINISTRY_RUNTIME_CONTENT_EXCLUSIONS = Object.freeze([
@@ -364,7 +364,7 @@ const SIX_MINISTRY_RUNTIME_CONTENT_EXCLUSIONS = Object.freeze([
   "scripts/check_harness.mjs",
 ]);
 const SIX_MINISTRY_SUCCESSOR_CONTENT_PATHS = ["backend/app/accounting_reports/storage.py","backend/tests/test_six_ministry_accounting_evidence_adapter.py"];
-const SIX_MINISTRY_CONTENT_FINGERPRINT_PAIRS = [["sha256:013bfb8272e936be85c2d470033787c3b7f105ad6eae2dfe680373df023b5e69","sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"],["sha256:c95630be3d79f2641ff6e483f4096b0763b9e5071544f1e0ead0d7e24eb1cba5","sha256:268cab13e516d0f716f600819f2bddc8242269312d392eca4ed1be2de05ce051"]];
+const SIX_MINISTRY_CONTENT_FINGERPRINT_PAIRS = [["sha256:013bfb8272e936be85c2d470033787c3b7f105ad6eae2dfe680373df023b5e69","sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"],["sha256:c95630be3d79f2641ff6e483f4096b0763b9e5071544f1e0ead0d7e24eb1cba5","sha256:268cab13e516d0f716f600819f2bddc8242269312d392eca4ed1be2de05ce051"],["sha256:d330b7f177f5bbb761eb359ffffca6f12250e5bbe90d13d0414d0fdefb78e98a","sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"]];
 const SIX_MINISTRY_HISTORICAL_FILE_COUNT = 69;
 const SIX_MINISTRY_RUNTIME_CONTENT_FILE_COUNT = 65;
 const SIX_MINISTRY_REVIEWED_HARNESS_BASELINE_FILES = 133;
@@ -2463,7 +2463,7 @@ Escalation: name observable evidence
         return rejectsBoundaryChanges
           && SIX_MINISTRY_RUNTIME_CONTENT_FILES.length === SIX_MINISTRY_RUNTIME_CONTENT_FILE_COUNT
           && SIX_MINISTRY_SUCCESSOR_CONTENT_PATHS.length === 2
-          && SIX_MINISTRY_CONTENT_FINGERPRINT_PAIRS.length === 2
+          && SIX_MINISTRY_CONTENT_FINGERPRINT_PAIRS.length === 3
           && SIX_MINISTRY_CONTENT_FINGERPRINT_PAIRS.every(
             (pair) => Array.isArray(pair) && pair.length === 2,
           )
@@ -2477,18 +2477,28 @@ Escalation: name observable evidence
       true,
     ],
     [
-      "六部 Runtime 指纹门禁拒绝 legacy/final 混搭与未知第三状态",
+      "六部 Runtime 指纹门禁只接受三组精确兼容对并拒绝混搭与未知状态",
       (() => {
-        const [[legacyRuntime, legacySuccessor], [finalRuntime, finalSuccessor]] = (
-          SIX_MINISTRY_CONTENT_FINGERPRINT_PAIRS
-        );
         const unknown = `sha256:${"0".repeat(64)}`;
-        return sixMinistryContentFingerprintPairAllowed(legacyRuntime, legacySuccessor)
-          && sixMinistryContentFingerprintPairAllowed(finalRuntime, finalSuccessor)
-          && !sixMinistryContentFingerprintPairAllowed(legacyRuntime, finalSuccessor)
-          && !sixMinistryContentFingerprintPairAllowed(finalRuntime, legacySuccessor)
-          && !sixMinistryContentFingerprintPairAllowed(unknown, legacySuccessor)
-          && !sixMinistryContentFingerprintPairAllowed(legacyRuntime, unknown);
+        const validPairs = new Set(
+          SIX_MINISTRY_CONTENT_FINGERPRINT_PAIRS.map(([runtime, successor]) => (
+            `${runtime}\0${successor}`
+          )),
+        );
+        const runtimeFingerprints = [
+          ...new Set(SIX_MINISTRY_CONTENT_FINGERPRINT_PAIRS.map(([runtime]) => runtime)),
+          unknown,
+        ];
+        const successorFingerprints = [
+          ...new Set(SIX_MINISTRY_CONTENT_FINGERPRINT_PAIRS.map(([, successor]) => successor)),
+          unknown,
+        ];
+        return SIX_MINISTRY_CONTENT_FINGERPRINT_PAIRS.every(
+          ([runtime, successor]) => sixMinistryContentFingerprintPairAllowed(runtime, successor),
+        ) && runtimeFingerprints.every((runtime) => successorFingerprints.every((successor) => (
+          sixMinistryContentFingerprintPairAllowed(runtime, successor)
+          === validPairs.has(`${runtime}\0${successor}`)
+        )));
       })(),
       true,
     ],

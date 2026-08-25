@@ -38,6 +38,10 @@ _CONTENT_FINGERPRINT_PAIRS = (
         "sha256:c95630be3d79f2641ff6e483f4096b0763b9e5071544f1e0ead0d7e24eb1cba5",
         "sha256:268cab13e516d0f716f600819f2bddc8242269312d392eca4ed1be2de05ce051",
     ),
+    (
+        "sha256:d330b7f177f5bbb761eb359ffffca6f12250e5bbe90d13d0414d0fdefb78e98a",
+        "sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924",
+    ),
 )
 _HISTORICAL_REVIEW_STATUS = "approved-with-notes"
 _HISTORICAL_FILE_COUNT = 69
@@ -200,14 +204,20 @@ def test_python_and_harness_validators_share_the_exact_content_policy() -> None:
         _read_harness_json_constant(source, "SIX_MINISTRY_RUNTIME_CONTENT_FILE_COUNT")
         == _CURRENT_FILE_COUNT
     )
-def test_content_pair_rejects_mixed_or_third_state() -> None:
-    legacy_current, legacy_successor = _CONTENT_FINGERPRINT_PAIRS[0]
-    final_current, final_successor = _CONTENT_FINGERPRINT_PAIRS[1]
 
-    assert (legacy_current, final_successor) not in _CONTENT_FINGERPRINT_PAIRS
-    assert (final_current, legacy_successor) not in _CONTENT_FINGERPRINT_PAIRS
-    assert ("sha256:" + "0" * 64, legacy_successor) not in _CONTENT_FINGERPRINT_PAIRS
-    assert (legacy_current, "sha256:" + "0" * 64) not in _CONTENT_FINGERPRINT_PAIRS
+
+def test_content_pair_rejects_mixed_or_third_state() -> None:
+    unknown = "sha256:" + "0" * 64
+    valid_pairs = set(_CONTENT_FINGERPRINT_PAIRS)
+    runtime_fingerprints = {*(pair[0] for pair in valid_pairs), unknown}
+    successor_fingerprints = {*(pair[1] for pair in valid_pairs), unknown}
+
+    assert len(valid_pairs) == len(_CONTENT_FINGERPRINT_PAIRS) == 3
+    for runtime_fingerprint in runtime_fingerprints:
+        for successor_fingerprint in successor_fingerprints:
+            candidate = (runtime_fingerprint, successor_fingerprint)
+            if candidate not in valid_pairs:
+                assert candidate not in _CONTENT_FINGERPRINT_PAIRS
 
 
 def test_successor_content_rejects_third_state_drift(tmp_path: Path) -> None:

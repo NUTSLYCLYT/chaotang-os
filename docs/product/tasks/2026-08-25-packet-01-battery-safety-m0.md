@@ -151,3 +151,51 @@ Donor 只提供行为语义，不提供可直接复制的目标字节。不得 c
 本 Packet 不做数据迁移、不写生产数据、不发起外部动作。回滚仅允许对未来唯一产品候选 commit 做整提交反向回退，恢复其 approval commit 的 tree；不得局部保留分类器、API 校验或执行校验中的任一层。回滚后现有拟旨 authority 和普通路由恢复基线行为，数据库与用户资产无需变更。
 
 本草案不等于 GO。只有三文件治理提交由 Owner 精确批准并推送、`product-authority.mjs --authorize --task PACKET-01-BATTERY-SAFETY-M0-20260825` 在 canonical 机器返回 GO 后，才可开始一个单亲子产品候选。
+
+## Status
+
+In Progress
+
+## Product Definition
+
+本 Packet 在现有丞相拟旨与下旨链中加入确定性电池/PACK安全失败关闭门：原始用户输入必须在模型前完成分级，P0/P1 均绑定
+BLACK、人签、工部·技术司和保守禁止动作，并在拟旨、API 注册与执行前形成不可降级的同一语义链。它不增加第二控制面、
+数据库迁移、外部设备动作或自动维修能力。
+
+## Acceptance Criteria
+
+- [x] exact8 产品字节已完成 focused RED/GREEN、静态检查和独立代码/安全终审。
+- [ ] 六部 readiness 同时接受既有两组兼容指纹与 Packet 01 的精确第三组指纹，所有混搭和未知状态继续失败关闭。
+- [ ] canonical machine authority 基于 successor approval 返回精确 GO。
+- [ ] exact9 全后端、根 Harness、doctor、V2 convergence 与独立终审全部通过。
+- [ ] 最终候选保持单亲、精确路径和整提交回滚，不推送产品候选直至 Owner 接受精确身份。
+
+## Delivery Constraints
+
+readiness successor 只允许修改 `backend/tests/test_six_ministry_readiness_report.py`、本 Task 与
+`scripts/check_harness.mjs`。后续 approval re-anchor 只允许修改同 Task ID 的 approval、Task、Plan 三件套；产品 successor
+只允许现有 exact8 加 `backend/tests/test_sqlite_backup.py`，共 exact9。任何第十路径、机器 STOP、远端漂移或未关闭
+P0–P2 都必须立即停止。
+
+## Affected Modules
+
+- 模块：六部运行就绪指纹门、Packet 01 丞相电池安全链、SQLite 备份文件描述符 preservation 测试。
+- 允许路径：readiness 三路径；re-anchor 三件套；产品 exact8 加 `backend/tests/test_sqlite_backup.py` 后的 exact9。
+
+## Technical Plan
+
+1. 先扩展 readiness 的封闭兼容对并运行精准门禁，保留全部旧兼容对。
+2. 再以 readiness 提交为新基线重签同 Task ID 的 exact9 approval，并取得 canonical machine GO。
+3. GO 后只修复 SQLite 测试的顺序隔离断言，不修改 SQLite 生产逻辑。
+4. 最终 exact9 只运行一次完整验证矩阵和独立终审，再物化不推送的精确候选。
+
+## Implementation Report
+
+exact8 已在 canonical approval 子树中完成，focused matrix 为 376 passed、1 skipped，代码终审与安全终审均无 P0–P3。
+全后端矩阵发现两个发布阻断：新 runtime fingerprint 未在封闭兼容对中，以及 SQLite 文件描述符测试把无关旧描述符关闭误判为
+泄漏。本 successor 只修复这两个 preservation 阻断，不扩展产品行为。
+
+## Acceptance Review
+
+Pending。readiness successor、exact9 re-anchor、canonical machine GO、最终全矩阵与候选身份尚未全部形成，因此当前不能推送、
+部署、发布或声称 Packet 01 已完成。
