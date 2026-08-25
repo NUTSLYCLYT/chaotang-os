@@ -1,0 +1,424 @@
+{
+  "schemaVersion": "four-gate-final-consolidated-replan.approval.v1.draft",
+  "authorityId": "four-gate-product-authority.v1.not-implemented",
+  "machineConsumable": false,
+  "authorityImplemented": false,
+  "activation": "STOP",
+  "taskId": "FOUR-GATE-PROPORTIONAL-GOVERNANCE-FINAL-CONSOLIDATED-REPLAN-V1-20260825",
+  "workPackageLineageId": "FOUR-GATE-PROPORTIONAL-GOVERNANCE-FINAL-CONSOLIDATED-REPLAN",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev",
+    "baseCommit": "dce861a42cf2fb9202415694001c5367cebf10c4",
+    "baseTree": "3e3bdcb9e6ebf06656a94644dc1eccd9e8d5e826"
+  },
+  "predecessorTermination": {
+    "taskId": "FOUR-GATE-PROPORTIONAL-GOVERNANCE-V1-20260825",
+    "workPackageLineageId": "FOUR-GATE-PROPORTIONAL-GOVERNANCE",
+    "terminalState": "STOP_REPLAN_REQUIRED",
+    "lastBaseCommit": "18dd90ae9152ee94cfab69dcb56700a6a1586db2",
+    "lastBaseTree": "e16d837d39da95f462f416f108a05193750ff066",
+    "reanchorCount": 1,
+    "draftFiles": [
+      {
+        "path": "docs/migrations/2026-08-25-four-gate-proportional-governance-v1.approval.draft.json",
+        "rawDigest": "sha256:203bb7ad2150620e360c5d8a753606e7befde41083c81b3be317568e8fde1d31",
+        "bytes": 13226
+      },
+      {
+        "path": "docs/migrations/2026-08-25-four-gate-proportional-governance-v1.schema.draft.json",
+        "rawDigest": "sha256:063c57597e99ca07f61bec9e3acd5fd84b07533ff3d63cce608b0cb52ec4335a",
+        "bytes": 25175
+      },
+      {
+        "path": "docs/product/tasks/2026-08-25-four-gate-proportional-governance-v1.md",
+        "rawDigest": "sha256:e0a1d4da49f17a8e5b7ccb9f0bd0e41db37e2d88444f156c3f0b137e50dd8416",
+        "bytes": 12227
+      },
+      {
+        "path": "docs/superpowers/plans/2026-08-25-four-gate-proportional-governance-v1.md",
+        "rawDigest": "sha256:f6cb86e5dbb8d61ff78c8c5360b053cb30b33d9d1a819d58a3ff002c3fa52301",
+        "bytes": 7732
+      }
+    ],
+    "draftManifestDigest": "sha256:a0a881757570948d6ce860bc564748b302a20198037c3bf291ce49df64cbb8cf",
+    "draftBundleDigest": "sha256:911b50d00891b3ec9969b1a13d98f3ad4abf52334ca77373bc09b5b8c702bcc3",
+    "draftWasCommitted": false,
+    "authorityInherited": false,
+    "terminationTrigger": {
+      "previousRemoteCommit": "18dd90ae9152ee94cfab69dcb56700a6a1586db2",
+      "currentRemoteCommit": "58b769223794af752d3b36ffc83dfa6351b0e0c6",
+      "currentRemoteTree": "d746c28c13612693700d03fe11e1349b3a73cf5f",
+      "changedPaths": [
+        "docs/migrations/2026-08-25-ext-full-value-convergence-v2-delta-addendum.v1.json",
+        "docs/migrations/2026-08-25-ext-full-value-convergence-v2-delta-addendum.v1.md"
+      ],
+      "productBytesChanged": false
+    }
+  },
+  "priorReplanTermination": {
+    "taskId": "FOUR-GATE-PROPORTIONAL-GOVERNANCE-CONSOLIDATED-REPLAN-V1-20260825",
+    "workPackageLineageId": "FOUR-GATE-PROPORTIONAL-GOVERNANCE-CONSOLIDATED-REPLAN",
+    "terminalState": "STOP_REPLAN_REQUIRED",
+    "baseCommit": "58b769223794af752d3b36ffc83dfa6351b0e0c6",
+    "baseTree": "d746c28c13612693700d03fe11e1349b3a73cf5f",
+    "firstDriftCommit": "d1afa4c7b3c34c1f4cf71645d5311bb210f95d54",
+    "firstDriftTree": "7da3f2218926c89a6ef21e02e264e18b545c3d38",
+    "draftFiles": [
+      {
+        "path": "docs/migrations/2026-08-25-four-gate-proportional-governance-consolidated-replan-v1.approval.draft.json",
+        "rawDigest": "sha256:7d1fa8124a806f6e8c3e99f280fc7b28bf425ae0c8e75100ca22a3d51b14d149",
+        "bytes": 9777
+      },
+      {
+        "path": "docs/migrations/2026-08-25-four-gate-proportional-governance-consolidated-replan-v1.schema.draft.json",
+        "rawDigest": "sha256:4e27ca4df6737847bb82fd0f178970aab8ef2477c15416de9ea07518b779d1ea",
+        "bytes": 19253
+      },
+      {
+        "path": "docs/product/tasks/2026-08-25-four-gate-proportional-governance-consolidated-replan-v1.md",
+        "rawDigest": "sha256:c48c2257f880b07097fca636e36954d8b419dd5eb1bf182c3f211666f5ed157c",
+        "bytes": 10904
+      },
+      {
+        "path": "docs/superpowers/plans/2026-08-25-four-gate-proportional-governance-consolidated-replan-v1.md",
+        "rawDigest": "sha256:fd4d1efa0322a4b1d5cc68f542de738470eeb77b4579692a6e9cf4e9f1b6ae9b",
+        "bytes": 5081
+      }
+    ],
+    "draftWasCommitted": false,
+    "machineConsumable": false,
+    "authorityInherited": false,
+    "reanchorAllowed": false
+  },
+  "deltaAddendumReview": {
+    "commit": "58b769223794af752d3b36ffc83dfa6351b0e0c6",
+    "tree": "d746c28c13612693700d03fe11e1349b3a73cf5f",
+    "parent": "18dd90ae9152ee94cfab69dcb56700a6a1586db2",
+    "classification": "AUDIT_EVIDENCE_ONLY",
+    "productEligibility": "EXCLUDE_PRODUCT",
+    "authorityEffect": "NONE",
+    "jsonPath": "docs/migrations/2026-08-25-ext-full-value-convergence-v2-delta-addendum.v1.json",
+    "jsonRawDigest": "sha256:ab4c9393c1ce41f813d966d98b102ed82800231be2b521dc91d47f0db9af8b34",
+    "jsonBytes": 1411885,
+    "markdownPath": "docs/migrations/2026-08-25-ext-full-value-convergence-v2-delta-addendum.v1.md",
+    "markdownRawDigest": "sha256:a849f63410e7dc652291658f3942e8c73ff4dac07a8f918c616b0616da2096b8",
+    "markdownBytes": 5461,
+    "declaredUnitCount": 894,
+    "declaredP14AuditClusterCount": 7,
+    "internalObservationBaseline": "82ba658db44d829d6ae7e028dcbac7ecefb4cee7",
+    "internalRemoteReadState": "NOT_RUN_NOT_AUTHORIZED",
+    "currentCommitReality": "FILES_COMMITTED_AT_58B76922",
+    "historicalRollbackClaim": "TWO_UNCOMMITTED_FILES",
+    "interpretation": "HISTORICAL_CONTENT_EVIDENCE_NOT_LIVE_STATE_OR_AUTHORITY",
+    "preservedRules": [
+      "PRESERVE_USER_ASSETS",
+      "EXCLUDE_ALL_OBSERVED_UNITS_FROM_PRODUCT",
+      "P14_CLUSTERS_AUDIT_ONLY_NO_SELECTION_NO_REUSE",
+      "UNAVAILABLE_WORKTREES_KEEP_BLOCKED",
+      "DRIFTED_EXTERNAL_SOURCES_KEEP_BLOCKED",
+      "DO_NOT_REOPEN_OLD_V2_SCOPE"
+    ]
+  },
+  "interveningBaselineReview": {
+    "classification": "BASELINE_FACT_ONLY",
+    "p14Eligibility": "EXCLUDE_FROM_P14_SCOPE",
+    "authorityInherited": false,
+    "commits": [
+      {
+        "commit": "d1afa4c7b3c34c1f4cf71645d5311bb210f95d54",
+        "tree": "7da3f2218926c89a6ef21e02e264e18b545c3d38",
+        "parent": "58b769223794af752d3b36ffc83dfa6351b0e0c6",
+        "subject": "governance: approve Packet 01 battery safety M0",
+        "changeKind": "GOVERNANCE_ONLY",
+        "paths": [
+          ".harness/approvals/PACKET-01-BATTERY-SAFETY-M0-20260825.json",
+          "docs/product/tasks/2026-08-25-packet-01-battery-safety-m0.md",
+          "docs/superpowers/plans/2026-08-25-packet-01-battery-safety-m0.md"
+        ]
+      },
+      {
+        "commit": "5004733bcdcac9e570dce99dfe1c993330598a16",
+        "tree": "d06289c34ef821f97574f2862cc715c61e962bcf",
+        "parent": "d1afa4c7b3c34c1f4cf71645d5311bb210f95d54",
+        "subject": "chore(governance): bind Packet 01 readiness successor",
+        "changeKind": "GOVERNANCE_AND_HARNESS_TEST",
+        "paths": [
+          "backend/tests/test_six_ministry_readiness_report.py",
+          "docs/product/tasks/2026-08-25-packet-01-battery-safety-m0.md",
+          "scripts/check_harness.mjs"
+        ]
+      },
+      {
+        "commit": "dce861a42cf2fb9202415694001c5367cebf10c4",
+        "tree": "3e3bdcb9e6ebf06656a94644dc1eccd9e8d5e826",
+        "parent": "5004733bcdcac9e570dce99dfe1c993330598a16",
+        "subject": "chore(governance): re-anchor Packet 01 exact9",
+        "changeKind": "GOVERNANCE_ONLY",
+        "paths": [
+          ".harness/approvals/PACKET-01-BATTERY-SAFETY-M0-20260825.json",
+          "docs/product/tasks/2026-08-25-packet-01-battery-safety-m0.md",
+          "docs/superpowers/plans/2026-08-25-packet-01-battery-safety-m0.md"
+        ]
+      }
+    ],
+    "knownLocalCandidate": {
+      "commit": "e67beabc50ccb338e851053577f963516b9834f7",
+      "tree": "9132d10dc83032eeef6ff197ec406fc6e5d6c361",
+      "remoteIncluded": false,
+      "paused": true,
+      "p14Eligibility": "EXCLUDED",
+      "authorityEffect": "NONE",
+      "allowedActionByThisReplan": "NONE"
+    }
+  },
+  "coordinationFreezeEvidence": {
+    "observedCommit": "dce861a42cf2fb9202415694001c5367cebf10c4",
+    "observedTree": "3e3bdcb9e6ebf06656a94644dc1eccd9e8d5e826",
+    "startAt": "2026-08-25T16:38:16+08:00",
+    "middleAt": "2026-08-25T16:44:10+08:00",
+    "endAt": "2026-08-25T16:54:38+08:00",
+    "minimumWindowSeconds": 900,
+    "actualWindowSeconds": 982,
+    "remoteCheckCount": 3,
+    "remotePointerStable": true,
+    "parallelWriterPauseAcknowledged": true,
+    "globalWriterExclusionClaimed": false
+  },
+  "digestAlgorithms": {
+    "pathOrder": "SORT_ASCENDING_UTF8_PATH_BYTES",
+    "rawFile": "SHA256_RAW_FILE_BYTES",
+    "manifest": "FOR_EACH_PATH_SHA256_COLON_HEX_SPACE_DECIMAL_BYTE_COUNT_SPACE_PATH_LF_THEN_SHA256",
+    "bundle": "FOR_EACH_PATH_PATH_NUL_RAW_FILE_BYTES_NUL_THEN_SHA256",
+    "canonicalJson": "RFC8785_JCS_UTF8"
+  },
+  "p14PacketBinding": {
+    "packetTaskId": "P14-PILOT-OWNER-ARTIFACT-ROUNDTRIP-V1",
+    "sourceCommit": "18dd90ae9152ee94cfab69dcb56700a6a1586db2",
+    "sourceTree": "e16d837d39da95f462f416f108a05193750ff066",
+    "taskPath": "docs/product/tasks/2026-08-25-p14-pilot-owner-artifact-roundtrip-v1.md",
+    "planPath": "docs/superpowers/plans/2026-08-25-p14-pilot-owner-artifact-roundtrip-v1.md",
+    "approvalPath": "docs/migrations/2026-08-25-p14-pilot-owner-artifact-roundtrip-v1.approval.draft.json",
+    "approvalRawDigest": "sha256:1dd14d782f609c13a797c7e3538ab590862ebc47a326b7e8b385ca1bc3d7ae82",
+    "packetManifestDigest": "sha256:bc29969402562a0d343ef08e12b6a9872dfb5644ca6da3eb151b29a9f7816b2a",
+    "packetBundleDigest": "sha256:81b61ded480feea9f6fcd7e12f673c01de4f1a2907f003d9cb2178f83a884caa",
+    "scopeJsonPointer": "/g1Proposal/scopeEnvelope",
+    "scopeBindingPolicy": "VERIFY_COMMITTED_PACKET_BLOB_THEN_FRESH_SIGN_FORMAL_G1_AT_CURRENT_BASE",
+    "expectedChangedPaths": 26,
+    "expectedMaxChangedBytes": 524288,
+    "expectedChangeKinds": [
+      "ADD",
+      "MODIFY"
+    ],
+    "expectedAddPaths": [
+      "frontend/src/app/api/shiguan/archives/[id]/handler.ts",
+      "frontend/src/app/api/shiguan/archives/[id]/route.test.ts",
+      "frontend/src/app/api/shiguan/archives/[id]/route.ts"
+    ],
+    "draftMachineConsumable": false,
+    "freshFormalG1Required": true,
+    "issuedAt": null,
+    "expiresAt": null,
+    "oneShotNonce": null,
+    "packHeroTaskIncluded": false
+  },
+  "fourGateContract": {
+    "order": [
+      "G0_DIRECTION",
+      "G1_CANDIDATE",
+      "G2_PILOT",
+      "G3_RELEASE"
+    ],
+    "activeGate": null,
+    "transitionSequence": 0,
+    "previousGateDigest": null,
+    "rejectSkippedGates": true,
+    "rejectGrantReplay": true,
+    "formalStateTyping": {
+      "draftUnissuedIdentityFieldsMustBeNull": true,
+      "readyOrGoRequiresActualNonzeroDigests": true,
+      "readyOrGoRequiresNonPlaceholderNonce": true,
+      "zeroDigestRejected": true,
+      "placeholderRejected": true
+    },
+    "p14TrackPolicy": {
+      "tracks": [
+        "P14_PILOT",
+        "P14_RELEASE"
+      ],
+      "sharedStopBlockers": [
+        "P0_SAFETY",
+        "TENANT_OR_OWNER_ISOLATION_FAILURE",
+        "IRREVERSIBLE_ACTION",
+        "CANDIDATE_DRIFT",
+        "FACT_SOURCE_DISHONESTY"
+      ],
+      "releaseOnlyBlockers": [
+        "OFFLINE_WHEEL",
+        "EXTERNAL_SUPERVISOR",
+        "CGROUP_WATCHDOG",
+        "FORMAL_RELEASE_MATRIX"
+      ],
+      "pilotExecutionSurface": "EXPLICIT_NON_PRODUCTION_CONTROLLED_ENVIRONMENT_ONLY",
+      "pilotCannotClaimRelease": true
+    },
+    "g0": {
+      "state": "DRAFT_INACTIVE",
+      "canAuthorizeProductWrite": false
+    },
+    "g1": {
+      "state": "DRAFT_INACTIVE",
+      "authorization": "NONE",
+      "canCommit": false,
+      "canAcceptCandidate": false,
+      "scopeEnvelopeMode": "EXACT_PATHS_ONLY",
+      "commandEnvelopeMode": "CLOSED_COMMAND_ARGS_CWD_AND_TIMEOUTS",
+      "requiredIssuanceBindings": [
+        "WORK_PACKAGE_LINEAGE_ID",
+        "OWNER",
+        "BASE_COMMIT",
+        "BASE_TREE",
+        "G0_DIGEST",
+        "EXACT_PATHS",
+        "COMMAND_ARGS_CWD_ALLOWLIST",
+        "PER_COMMAND_TIMEOUT",
+        "TOTAL_TIMEOUT",
+        "VERIFICATION_IDS",
+        "EVIDENCE_OBLIGATIONS",
+        "ONE_SHOT_CONSUMPTION_STATE"
+      ],
+      "requiredOutput": "PRECOMMIT_TREE_AND_EVIDENCE"
+    },
+    "g2": {
+      "state": "DRAFT_INACTIVE",
+      "authorization": "NONE",
+      "candidateIdentity": null,
+      "pilotEnvelope": null,
+      "requiredCandidateIdentityFields": [
+        "G1_APPROVAL_DIGEST",
+        "G1_CONSUMPTION_DIGEST",
+        "CANDIDATE_COMMIT",
+        "CANDIDATE_TREE",
+        "CANDIDATE_PARENT",
+        "BASE_COMMIT",
+        "BASE_TREE",
+        "EXACT_PATHS_DIGEST",
+        "RAW_MANIFEST_DIGEST",
+        "BUNDLE_DIGEST",
+        "PATCH_DIGEST",
+        "EVIDENCE_MANIFEST_DIGEST",
+        "LOCKFILE_DIGEST",
+        "TOOLCHAIN_DIGEST",
+        "CANDIDATE_IDENTITY_DIGEST"
+      ]
+    },
+    "g3": {
+      "state": "DRAFT_INACTIVE",
+      "authorization": "NONE",
+      "g2IdentityBinding": null,
+      "releaseEnvelope": null,
+      "requiredReleaseBindings": [
+        "G2_CANDIDATE_IDENTITY_DIGEST",
+        "G2_APPROVAL_DIGEST",
+        "SUPERVISOR_AUTHORITY_RESULT_IDENTITY",
+        "RELEASE_ENVELOPE_DIGEST",
+        "ROLLBACK_EVIDENCE_DIGEST"
+      ]
+    }
+  },
+  "materializationPolicy": {
+    "outsideG1": true,
+    "grantState": "DRAFT_NOT_ISSUED",
+    "grantIdentityDigest": null,
+    "grantNonce": null,
+    "issuedAt": null,
+    "expiresAt": null,
+    "consumptionRecord": null,
+    "consumedAt": null,
+    "consumptionDigest": null,
+    "crossPacketReusePolicy": "REJECT",
+    "allowedAction": "LOCAL_SINGLE_PARENT_COMMIT_EXACT_TREE_ONLY",
+    "allOtherActions": "DENY_BY_DEFAULT",
+    "issuanceBindings": [
+      "WORK_PACKAGE_LINEAGE_ID",
+      "G1_APPROVAL_DIGEST",
+      "G1_CONSUMPTION_DIGEST",
+      "BASE_COMMIT",
+      "BASE_TREE",
+      "PRECOMMIT_TREE",
+      "EXACT_PATHS_DIGEST",
+      "PATCH_DIGEST",
+      "EVIDENCE_DIGEST",
+      "GRANT_NONCE",
+      "ISSUED_AT",
+      "EXPIRES_AT"
+    ],
+    "grantIdentityDigestAlgorithm": "SHA256_RFC8785_JCS_UTF8_OF_ISSUANCE_BINDINGS_EXCLUDING_GRANT_IDENTITY_DIGEST",
+    "consumptionRecordRequiredFields": [
+      "GRANT_IDENTITY_DIGEST",
+      "CANDIDATE_COMMIT",
+      "CANDIDATE_TREE",
+      "CONSUMED_AT"
+    ],
+    "consumptionDigestAlgorithm": "SHA256_RFC8785_JCS_UTF8_OF_CONSUMPTION_RECORD_EXCLUDING_CONSUMPTION_DIGEST"
+  },
+  "compatibilityPolicy": {
+    "legacyAuthorityId": "product-authority.m0.v1",
+    "newAuthorityMode": "SHADOW_ONLY",
+    "effectiveDecisionRule": "DENY_OVERRIDES",
+    "legacyStopPlusNewGo": "STOP",
+    "consumerSwitchRequirements": [
+      "SIGNED_MIGRATION_MANIFEST",
+      "LEGACY_TASK_ID",
+      "LEGACY_STOP_REASON",
+      "NEW_GATE_IDENTITY",
+      "OWNER_DIGEST",
+      "EXACT_SWITCH_POINT"
+    ]
+  },
+  "evidenceCadence": {
+    "maxGovernanceOnlyHours": 24,
+    "trustedClockSource": "FUTURE_AUTHORITY_UTC_CLOCK_REQUIRED",
+    "eventSequence": 0,
+    "lastQualifyingEvidenceAt": null,
+    "lastQualifyingEvidenceKind": null,
+    "lastQualifyingEvidenceDigest": null,
+    "duplicateDigestRefreshesClock": false,
+    "pauseDecision": "PAUSED_GOVERNANCE_ONLY_STALL",
+    "qualifyingEvidenceKinds": [
+      "PRODUCT_CANDIDATE",
+      "FAILING_BASELINE",
+      "TEST_RESULT",
+      "PILOT_RESULT",
+      "RUNTIME_EVIDENCE"
+    ]
+  },
+  "baseDriftPolicy": {
+    "reanchorAllowed": false,
+    "remoteMustRemainCommit": "dce861a42cf2fb9202415694001c5367cebf10c4",
+    "driftDecision": "STOP_REPLAN_REQUIRED",
+    "continueAfterDrift": false
+  },
+  "nextImplementationBoundary": {
+    "requiredSeparateWorkPackage": true,
+    "requiredMachineGovernanceGo": true,
+    "implementationPaths": null,
+    "productPathsAllowed": false,
+    "commitPushPilotReleaseDeployAllowed": false
+  },
+  "nonGoals": [
+    "AUTHORITY_CODE_CHANGE",
+    "COMMIT_PUSH_MERGE",
+    "DONOR_OR_P14_CANDIDATE_SELECTION",
+    "EXTERNAL_ACTION",
+    "JIQUN_CONTROL_PLANE_CHANGE",
+    "LANGGRAPH_ACTIVATION",
+    "PACK_HERO_TASK",
+    "PILOT_ACTIVATION",
+    "PRODUCT_CODE_CHANGE",
+    "PRODUCTION_RELEASE_DEPLOYMENT",
+    "REOPEN_EXT_V2_SCOPE",
+    "SECOND_BUSINESS_FACT_SOURCE"
+  ],
+  "state": "DRAFT_NON_AUTHORIZING_STOP"
+}

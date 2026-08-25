@@ -1,0 +1,709 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chaotang-os.local/drafts/four-gate-final-consolidated-replan.approval.v1.schema.json",
+  "title": "Chaotang OS four-gate final consolidated replan approval draft",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "authorityId",
+    "machineConsumable",
+    "authorityImplemented",
+    "activation",
+    "taskId",
+    "workPackageLineageId",
+    "repository",
+    "predecessorTermination",
+    "priorReplanTermination",
+    "deltaAddendumReview",
+    "interveningBaselineReview",
+    "coordinationFreezeEvidence",
+    "digestAlgorithms",
+    "p14PacketBinding",
+    "fourGateContract",
+    "materializationPolicy",
+    "compatibilityPolicy",
+    "evidenceCadence",
+    "baseDriftPolicy",
+    "nextImplementationBoundary",
+    "nonGoals",
+    "state"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "four-gate-final-consolidated-replan.approval.v1.draft" },
+    "authorityId": { "const": "four-gate-product-authority.v1.not-implemented" },
+    "machineConsumable": { "const": false },
+    "authorityImplemented": { "const": false },
+    "activation": { "const": "STOP" },
+    "taskId": { "const": "FOUR-GATE-PROPORTIONAL-GOVERNANCE-FINAL-CONSOLIDATED-REPLAN-V1-20260825" },
+    "workPackageLineageId": { "const": "FOUR-GATE-PROPORTIONAL-GOVERNANCE-FINAL-CONSOLIDATED-REPLAN" },
+    "repository": { "$ref": "#/$defs/repository" },
+    "predecessorTermination": { "$ref": "#/$defs/predecessorTermination" },
+    "priorReplanTermination": { "$ref": "#/$defs/priorReplanTermination" },
+    "deltaAddendumReview": { "$ref": "#/$defs/deltaAddendumReview" },
+    "interveningBaselineReview": { "$ref": "#/$defs/interveningBaselineReview" },
+    "coordinationFreezeEvidence": { "$ref": "#/$defs/coordinationFreezeEvidence" },
+    "digestAlgorithms": { "$ref": "#/$defs/digestAlgorithms" },
+    "p14PacketBinding": { "$ref": "#/$defs/p14PacketBinding" },
+    "fourGateContract": { "$ref": "#/$defs/fourGateContract" },
+    "materializationPolicy": { "$ref": "#/$defs/materializationPolicy" },
+    "compatibilityPolicy": { "$ref": "#/$defs/compatibilityPolicy" },
+    "evidenceCadence": { "$ref": "#/$defs/evidenceCadence" },
+    "baseDriftPolicy": { "$ref": "#/$defs/baseDriftPolicy" },
+    "nextImplementationBoundary": { "$ref": "#/$defs/nextImplementationBoundary" },
+    "nonGoals": {
+      "const": [
+        "AUTHORITY_CODE_CHANGE",
+        "COMMIT_PUSH_MERGE",
+        "DONOR_OR_P14_CANDIDATE_SELECTION",
+        "EXTERNAL_ACTION",
+        "JIQUN_CONTROL_PLANE_CHANGE",
+        "LANGGRAPH_ACTIVATION",
+        "PACK_HERO_TASK",
+        "PILOT_ACTIVATION",
+        "PRODUCT_CODE_CHANGE",
+        "PRODUCTION_RELEASE_DEPLOYMENT",
+        "REOPEN_EXT_V2_SCOPE",
+        "SECOND_BUSINESS_FACT_SOURCE"
+      ]
+    },
+    "state": { "const": "DRAFT_NON_AUTHORIZING_STOP" }
+  },
+  "$defs": {
+    "sha": { "type": "string", "pattern": "^(?!0{40}$)[0-9a-f]{40}$" },
+    "digest": { "type": "string", "pattern": "^sha256:(?!0{64}$)[0-9a-f]{64}$" },
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["identity", "targetBranch", "baseCommit", "baseTree"],
+      "properties": {
+        "identity": { "const": "gitee.com/msxn/chaotang-os" },
+        "targetBranch": { "const": "ext-dev" },
+        "baseCommit": { "const": "dce861a42cf2fb9202415694001c5367cebf10c4" },
+        "baseTree": { "const": "3e3bdcb9e6ebf06656a94644dc1eccd9e8d5e826" }
+      }
+    },
+    "predecessorTermination": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "taskId",
+        "workPackageLineageId",
+        "terminalState",
+        "lastBaseCommit",
+        "lastBaseTree",
+        "reanchorCount",
+        "draftFiles",
+        "draftManifestDigest",
+        "draftBundleDigest",
+        "draftWasCommitted",
+        "authorityInherited",
+        "terminationTrigger"
+      ],
+      "properties": {
+        "taskId": { "const": "FOUR-GATE-PROPORTIONAL-GOVERNANCE-V1-20260825" },
+        "workPackageLineageId": { "const": "FOUR-GATE-PROPORTIONAL-GOVERNANCE" },
+        "terminalState": { "const": "STOP_REPLAN_REQUIRED" },
+        "lastBaseCommit": { "const": "18dd90ae9152ee94cfab69dcb56700a6a1586db2" },
+        "lastBaseTree": { "const": "e16d837d39da95f462f416f108a05193750ff066" },
+        "reanchorCount": { "const": 1 },
+        "draftFiles": {
+          "const": [
+            {
+              "path": "docs/migrations/2026-08-25-four-gate-proportional-governance-v1.approval.draft.json",
+              "rawDigest": "sha256:203bb7ad2150620e360c5d8a753606e7befde41083c81b3be317568e8fde1d31",
+              "bytes": 13226
+            },
+            {
+              "path": "docs/migrations/2026-08-25-four-gate-proportional-governance-v1.schema.draft.json",
+              "rawDigest": "sha256:063c57597e99ca07f61bec9e3acd5fd84b07533ff3d63cce608b0cb52ec4335a",
+              "bytes": 25175
+            },
+            {
+              "path": "docs/product/tasks/2026-08-25-four-gate-proportional-governance-v1.md",
+              "rawDigest": "sha256:e0a1d4da49f17a8e5b7ccb9f0bd0e41db37e2d88444f156c3f0b137e50dd8416",
+              "bytes": 12227
+            },
+            {
+              "path": "docs/superpowers/plans/2026-08-25-four-gate-proportional-governance-v1.md",
+              "rawDigest": "sha256:f6cb86e5dbb8d61ff78c8c5360b053cb30b33d9d1a819d58a3ff002c3fa52301",
+              "bytes": 7732
+            }
+          ]
+        },
+        "draftManifestDigest": { "const": "sha256:a0a881757570948d6ce860bc564748b302a20198037c3bf291ce49df64cbb8cf" },
+        "draftBundleDigest": { "const": "sha256:911b50d00891b3ec9969b1a13d98f3ad4abf52334ca77373bc09b5b8c702bcc3" },
+        "draftWasCommitted": { "const": false },
+        "authorityInherited": { "const": false },
+        "terminationTrigger": { "$ref": "#/$defs/terminationTrigger" }
+      }
+    },
+    "terminationTrigger": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["previousRemoteCommit", "currentRemoteCommit", "currentRemoteTree", "changedPaths", "productBytesChanged"],
+      "properties": {
+        "previousRemoteCommit": { "const": "18dd90ae9152ee94cfab69dcb56700a6a1586db2" },
+        "currentRemoteCommit": { "const": "58b769223794af752d3b36ffc83dfa6351b0e0c6" },
+        "currentRemoteTree": { "const": "d746c28c13612693700d03fe11e1349b3a73cf5f" },
+        "changedPaths": {
+          "const": [
+            "docs/migrations/2026-08-25-ext-full-value-convergence-v2-delta-addendum.v1.json",
+            "docs/migrations/2026-08-25-ext-full-value-convergence-v2-delta-addendum.v1.md"
+          ]
+        },
+        "productBytesChanged": { "const": false }
+      }
+    },
+    "priorReplanTermination": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "taskId",
+        "workPackageLineageId",
+        "terminalState",
+        "baseCommit",
+        "baseTree",
+        "firstDriftCommit",
+        "firstDriftTree",
+        "draftFiles",
+        "draftWasCommitted",
+        "machineConsumable",
+        "authorityInherited",
+        "reanchorAllowed"
+      ],
+      "properties": {
+        "taskId": { "const": "FOUR-GATE-PROPORTIONAL-GOVERNANCE-CONSOLIDATED-REPLAN-V1-20260825" },
+        "workPackageLineageId": { "const": "FOUR-GATE-PROPORTIONAL-GOVERNANCE-CONSOLIDATED-REPLAN" },
+        "terminalState": { "const": "STOP_REPLAN_REQUIRED" },
+        "baseCommit": { "const": "58b769223794af752d3b36ffc83dfa6351b0e0c6" },
+        "baseTree": { "const": "d746c28c13612693700d03fe11e1349b3a73cf5f" },
+        "firstDriftCommit": { "const": "d1afa4c7b3c34c1f4cf71645d5311bb210f95d54" },
+        "firstDriftTree": { "const": "7da3f2218926c89a6ef21e02e264e18b545c3d38" },
+        "draftFiles": {
+          "const": [
+            {
+              "path": "docs/migrations/2026-08-25-four-gate-proportional-governance-consolidated-replan-v1.approval.draft.json",
+              "rawDigest": "sha256:7d1fa8124a806f6e8c3e99f280fc7b28bf425ae0c8e75100ca22a3d51b14d149",
+              "bytes": 9777
+            },
+            {
+              "path": "docs/migrations/2026-08-25-four-gate-proportional-governance-consolidated-replan-v1.schema.draft.json",
+              "rawDigest": "sha256:4e27ca4df6737847bb82fd0f178970aab8ef2477c15416de9ea07518b779d1ea",
+              "bytes": 19253
+            },
+            {
+              "path": "docs/product/tasks/2026-08-25-four-gate-proportional-governance-consolidated-replan-v1.md",
+              "rawDigest": "sha256:c48c2257f880b07097fca636e36954d8b419dd5eb1bf182c3f211666f5ed157c",
+              "bytes": 10904
+            },
+            {
+              "path": "docs/superpowers/plans/2026-08-25-four-gate-proportional-governance-consolidated-replan-v1.md",
+              "rawDigest": "sha256:fd4d1efa0322a4b1d5cc68f542de738470eeb77b4579692a6e9cf4e9f1b6ae9b",
+              "bytes": 5081
+            }
+          ]
+        },
+        "draftWasCommitted": { "const": false },
+        "machineConsumable": { "const": false },
+        "authorityInherited": { "const": false },
+        "reanchorAllowed": { "const": false }
+      }
+    },
+    "interveningBaselineReview": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "classification",
+        "p14Eligibility",
+        "authorityInherited",
+        "commits",
+        "knownLocalCandidate"
+      ],
+      "properties": {
+        "classification": { "const": "BASELINE_FACT_ONLY" },
+        "p14Eligibility": { "const": "EXCLUDE_FROM_P14_SCOPE" },
+        "authorityInherited": { "const": false },
+        "commits": {
+          "const": [
+            {
+              "commit": "d1afa4c7b3c34c1f4cf71645d5311bb210f95d54",
+              "tree": "7da3f2218926c89a6ef21e02e264e18b545c3d38",
+              "parent": "58b769223794af752d3b36ffc83dfa6351b0e0c6",
+              "subject": "governance: approve Packet 01 battery safety M0",
+              "changeKind": "GOVERNANCE_ONLY",
+              "paths": [
+                ".harness/approvals/PACKET-01-BATTERY-SAFETY-M0-20260825.json",
+                "docs/product/tasks/2026-08-25-packet-01-battery-safety-m0.md",
+                "docs/superpowers/plans/2026-08-25-packet-01-battery-safety-m0.md"
+              ]
+            },
+            {
+              "commit": "5004733bcdcac9e570dce99dfe1c993330598a16",
+              "tree": "d06289c34ef821f97574f2862cc715c61e962bcf",
+              "parent": "d1afa4c7b3c34c1f4cf71645d5311bb210f95d54",
+              "subject": "chore(governance): bind Packet 01 readiness successor",
+              "changeKind": "GOVERNANCE_AND_HARNESS_TEST",
+              "paths": [
+                "backend/tests/test_six_ministry_readiness_report.py",
+                "docs/product/tasks/2026-08-25-packet-01-battery-safety-m0.md",
+                "scripts/check_harness.mjs"
+              ]
+            },
+            {
+              "commit": "dce861a42cf2fb9202415694001c5367cebf10c4",
+              "tree": "3e3bdcb9e6ebf06656a94644dc1eccd9e8d5e826",
+              "parent": "5004733bcdcac9e570dce99dfe1c993330598a16",
+              "subject": "chore(governance): re-anchor Packet 01 exact9",
+              "changeKind": "GOVERNANCE_ONLY",
+              "paths": [
+                ".harness/approvals/PACKET-01-BATTERY-SAFETY-M0-20260825.json",
+                "docs/product/tasks/2026-08-25-packet-01-battery-safety-m0.md",
+                "docs/superpowers/plans/2026-08-25-packet-01-battery-safety-m0.md"
+              ]
+            }
+          ]
+        },
+        "knownLocalCandidate": {
+          "const": {
+            "commit": "e67beabc50ccb338e851053577f963516b9834f7",
+            "tree": "9132d10dc83032eeef6ff197ec406fc6e5d6c361",
+            "remoteIncluded": false,
+            "paused": true,
+            "p14Eligibility": "EXCLUDED",
+            "authorityEffect": "NONE",
+            "allowedActionByThisReplan": "NONE"
+          }
+        }
+      }
+    },
+    "coordinationFreezeEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "observedCommit",
+        "observedTree",
+        "startAt",
+        "middleAt",
+        "endAt",
+        "minimumWindowSeconds",
+        "actualWindowSeconds",
+        "remoteCheckCount",
+        "remotePointerStable",
+        "parallelWriterPauseAcknowledged",
+        "globalWriterExclusionClaimed"
+      ],
+      "properties": {
+        "observedCommit": { "const": "dce861a42cf2fb9202415694001c5367cebf10c4" },
+        "observedTree": { "const": "3e3bdcb9e6ebf06656a94644dc1eccd9e8d5e826" },
+        "startAt": { "const": "2026-08-25T16:38:16+08:00" },
+        "middleAt": { "const": "2026-08-25T16:44:10+08:00" },
+        "endAt": { "const": "2026-08-25T16:54:38+08:00" },
+        "minimumWindowSeconds": { "const": 900 },
+        "actualWindowSeconds": { "const": 982 },
+        "remoteCheckCount": { "const": 3 },
+        "remotePointerStable": { "const": true },
+        "parallelWriterPauseAcknowledged": { "const": true },
+        "globalWriterExclusionClaimed": { "const": false }
+      }
+    },
+    "deltaAddendumReview": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "commit",
+        "tree",
+        "parent",
+        "classification",
+        "productEligibility",
+        "authorityEffect",
+        "jsonPath",
+        "jsonRawDigest",
+        "jsonBytes",
+        "markdownPath",
+        "markdownRawDigest",
+        "markdownBytes",
+        "declaredUnitCount",
+        "declaredP14AuditClusterCount",
+        "internalObservationBaseline",
+        "internalRemoteReadState",
+        "currentCommitReality",
+        "historicalRollbackClaim",
+        "interpretation",
+        "preservedRules"
+      ],
+      "properties": {
+        "commit": { "const": "58b769223794af752d3b36ffc83dfa6351b0e0c6" },
+        "tree": { "const": "d746c28c13612693700d03fe11e1349b3a73cf5f" },
+        "parent": { "const": "18dd90ae9152ee94cfab69dcb56700a6a1586db2" },
+        "classification": { "const": "AUDIT_EVIDENCE_ONLY" },
+        "productEligibility": { "const": "EXCLUDE_PRODUCT" },
+        "authorityEffect": { "const": "NONE" },
+        "jsonPath": { "const": "docs/migrations/2026-08-25-ext-full-value-convergence-v2-delta-addendum.v1.json" },
+        "jsonRawDigest": { "const": "sha256:ab4c9393c1ce41f813d966d98b102ed82800231be2b521dc91d47f0db9af8b34" },
+        "jsonBytes": { "const": 1411885 },
+        "markdownPath": { "const": "docs/migrations/2026-08-25-ext-full-value-convergence-v2-delta-addendum.v1.md" },
+        "markdownRawDigest": { "const": "sha256:a849f63410e7dc652291658f3942e8c73ff4dac07a8f918c616b0616da2096b8" },
+        "markdownBytes": { "const": 5461 },
+        "declaredUnitCount": { "const": 894 },
+        "declaredP14AuditClusterCount": { "const": 7 },
+        "internalObservationBaseline": { "const": "82ba658db44d829d6ae7e028dcbac7ecefb4cee7" },
+        "internalRemoteReadState": { "const": "NOT_RUN_NOT_AUTHORIZED" },
+        "currentCommitReality": { "const": "FILES_COMMITTED_AT_58B76922" },
+        "historicalRollbackClaim": { "const": "TWO_UNCOMMITTED_FILES" },
+        "interpretation": { "const": "HISTORICAL_CONTENT_EVIDENCE_NOT_LIVE_STATE_OR_AUTHORITY" },
+        "preservedRules": {
+          "const": [
+            "PRESERVE_USER_ASSETS",
+            "EXCLUDE_ALL_OBSERVED_UNITS_FROM_PRODUCT",
+            "P14_CLUSTERS_AUDIT_ONLY_NO_SELECTION_NO_REUSE",
+            "UNAVAILABLE_WORKTREES_KEEP_BLOCKED",
+            "DRIFTED_EXTERNAL_SOURCES_KEEP_BLOCKED",
+            "DO_NOT_REOPEN_OLD_V2_SCOPE"
+          ]
+        }
+      }
+    },
+    "digestAlgorithms": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pathOrder", "rawFile", "manifest", "bundle", "canonicalJson"],
+      "properties": {
+        "pathOrder": { "const": "SORT_ASCENDING_UTF8_PATH_BYTES" },
+        "rawFile": { "const": "SHA256_RAW_FILE_BYTES" },
+        "manifest": { "const": "FOR_EACH_PATH_SHA256_COLON_HEX_SPACE_DECIMAL_BYTE_COUNT_SPACE_PATH_LF_THEN_SHA256" },
+        "bundle": { "const": "FOR_EACH_PATH_PATH_NUL_RAW_FILE_BYTES_NUL_THEN_SHA256" },
+        "canonicalJson": { "const": "RFC8785_JCS_UTF8" }
+      }
+    },
+    "p14PacketBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "packetTaskId",
+        "sourceCommit",
+        "sourceTree",
+        "taskPath",
+        "planPath",
+        "approvalPath",
+        "approvalRawDigest",
+        "packetManifestDigest",
+        "packetBundleDigest",
+        "scopeJsonPointer",
+        "scopeBindingPolicy",
+        "expectedChangedPaths",
+        "expectedMaxChangedBytes",
+        "expectedChangeKinds",
+        "expectedAddPaths",
+        "draftMachineConsumable",
+        "freshFormalG1Required",
+        "issuedAt",
+        "expiresAt",
+        "oneShotNonce",
+        "packHeroTaskIncluded"
+      ],
+      "properties": {
+        "packetTaskId": { "const": "P14-PILOT-OWNER-ARTIFACT-ROUNDTRIP-V1" },
+        "sourceCommit": { "const": "18dd90ae9152ee94cfab69dcb56700a6a1586db2" },
+        "sourceTree": { "const": "e16d837d39da95f462f416f108a05193750ff066" },
+        "taskPath": { "const": "docs/product/tasks/2026-08-25-p14-pilot-owner-artifact-roundtrip-v1.md" },
+        "planPath": { "const": "docs/superpowers/plans/2026-08-25-p14-pilot-owner-artifact-roundtrip-v1.md" },
+        "approvalPath": { "const": "docs/migrations/2026-08-25-p14-pilot-owner-artifact-roundtrip-v1.approval.draft.json" },
+        "approvalRawDigest": { "const": "sha256:1dd14d782f609c13a797c7e3538ab590862ebc47a326b7e8b385ca1bc3d7ae82" },
+        "packetManifestDigest": { "const": "sha256:bc29969402562a0d343ef08e12b6a9872dfb5644ca6da3eb151b29a9f7816b2a" },
+        "packetBundleDigest": { "const": "sha256:81b61ded480feea9f6fcd7e12f673c01de4f1a2907f003d9cb2178f83a884caa" },
+        "scopeJsonPointer": { "const": "/g1Proposal/scopeEnvelope" },
+        "scopeBindingPolicy": { "const": "VERIFY_COMMITTED_PACKET_BLOB_THEN_FRESH_SIGN_FORMAL_G1_AT_CURRENT_BASE" },
+        "expectedChangedPaths": { "const": 26 },
+        "expectedMaxChangedBytes": { "const": 524288 },
+        "expectedChangeKinds": { "const": ["ADD", "MODIFY"] },
+        "expectedAddPaths": {
+          "const": [
+            "frontend/src/app/api/shiguan/archives/[id]/handler.ts",
+            "frontend/src/app/api/shiguan/archives/[id]/route.test.ts",
+            "frontend/src/app/api/shiguan/archives/[id]/route.ts"
+          ]
+        },
+        "draftMachineConsumable": { "const": false },
+        "freshFormalG1Required": { "const": true },
+        "issuedAt": { "type": "null" },
+        "expiresAt": { "type": "null" },
+        "oneShotNonce": { "type": "null" },
+        "packHeroTaskIncluded": { "const": false }
+      }
+    },
+    "fourGateContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "order",
+        "activeGate",
+        "transitionSequence",
+        "previousGateDigest",
+        "rejectSkippedGates",
+        "rejectGrantReplay",
+        "formalStateTyping",
+        "p14TrackPolicy",
+        "g0",
+        "g1",
+        "g2",
+        "g3"
+      ],
+      "properties": {
+        "order": { "const": ["G0_DIRECTION", "G1_CANDIDATE", "G2_PILOT", "G3_RELEASE"] },
+        "activeGate": { "type": "null" },
+        "transitionSequence": { "const": 0 },
+        "previousGateDigest": { "type": "null" },
+        "rejectSkippedGates": { "const": true },
+        "rejectGrantReplay": { "const": true },
+        "formalStateTyping": {
+          "const": {
+            "draftUnissuedIdentityFieldsMustBeNull": true,
+            "readyOrGoRequiresActualNonzeroDigests": true,
+            "readyOrGoRequiresNonPlaceholderNonce": true,
+            "zeroDigestRejected": true,
+            "placeholderRejected": true
+          }
+        },
+        "p14TrackPolicy": {
+          "const": {
+            "tracks": ["P14_PILOT", "P14_RELEASE"],
+            "sharedStopBlockers": [
+              "P0_SAFETY",
+              "TENANT_OR_OWNER_ISOLATION_FAILURE",
+              "IRREVERSIBLE_ACTION",
+              "CANDIDATE_DRIFT",
+              "FACT_SOURCE_DISHONESTY"
+            ],
+            "releaseOnlyBlockers": [
+              "OFFLINE_WHEEL",
+              "EXTERNAL_SUPERVISOR",
+              "CGROUP_WATCHDOG",
+              "FORMAL_RELEASE_MATRIX"
+            ],
+            "pilotExecutionSurface": "EXPLICIT_NON_PRODUCTION_CONTROLLED_ENVIRONMENT_ONLY",
+            "pilotCannotClaimRelease": true
+          }
+        },
+        "g0": { "$ref": "#/$defs/g0" },
+        "g1": { "$ref": "#/$defs/g1" },
+        "g2": { "$ref": "#/$defs/g2" },
+        "g3": { "$ref": "#/$defs/g3" }
+      }
+    },
+    "g0": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "canAuthorizeProductWrite"],
+      "properties": {
+        "state": { "const": "DRAFT_INACTIVE" },
+        "canAuthorizeProductWrite": { "const": false }
+      }
+    },
+    "g1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "authorization",
+        "canCommit",
+        "canAcceptCandidate",
+        "scopeEnvelopeMode",
+        "commandEnvelopeMode",
+        "requiredIssuanceBindings",
+        "requiredOutput"
+      ],
+      "properties": {
+        "state": { "const": "DRAFT_INACTIVE" },
+        "authorization": { "const": "NONE" },
+        "canCommit": { "const": false },
+        "canAcceptCandidate": { "const": false },
+        "scopeEnvelopeMode": { "const": "EXACT_PATHS_ONLY" },
+        "commandEnvelopeMode": { "const": "CLOSED_COMMAND_ARGS_CWD_AND_TIMEOUTS" },
+        "requiredIssuanceBindings": {
+          "const": [
+            "WORK_PACKAGE_LINEAGE_ID",
+            "OWNER",
+            "BASE_COMMIT",
+            "BASE_TREE",
+            "G0_DIGEST",
+            "EXACT_PATHS",
+            "COMMAND_ARGS_CWD_ALLOWLIST",
+            "PER_COMMAND_TIMEOUT",
+            "TOTAL_TIMEOUT",
+            "VERIFICATION_IDS",
+            "EVIDENCE_OBLIGATIONS",
+            "ONE_SHOT_CONSUMPTION_STATE"
+          ]
+        },
+        "requiredOutput": { "const": "PRECOMMIT_TREE_AND_EVIDENCE" }
+      }
+    },
+    "g2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "authorization", "candidateIdentity", "pilotEnvelope", "requiredCandidateIdentityFields"],
+      "properties": {
+        "state": { "const": "DRAFT_INACTIVE" },
+        "authorization": { "const": "NONE" },
+        "candidateIdentity": { "type": "null" },
+        "pilotEnvelope": { "type": "null" },
+        "requiredCandidateIdentityFields": {
+          "const": [
+            "G1_APPROVAL_DIGEST",
+            "G1_CONSUMPTION_DIGEST",
+            "CANDIDATE_COMMIT",
+            "CANDIDATE_TREE",
+            "CANDIDATE_PARENT",
+            "BASE_COMMIT",
+            "BASE_TREE",
+            "EXACT_PATHS_DIGEST",
+            "RAW_MANIFEST_DIGEST",
+            "BUNDLE_DIGEST",
+            "PATCH_DIGEST",
+            "EVIDENCE_MANIFEST_DIGEST",
+            "LOCKFILE_DIGEST",
+            "TOOLCHAIN_DIGEST",
+            "CANDIDATE_IDENTITY_DIGEST"
+          ]
+        }
+      }
+    },
+    "g3": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "authorization", "g2IdentityBinding", "releaseEnvelope", "requiredReleaseBindings"],
+      "properties": {
+        "state": { "const": "DRAFT_INACTIVE" },
+        "authorization": { "const": "NONE" },
+        "g2IdentityBinding": { "type": "null" },
+        "releaseEnvelope": { "type": "null" },
+        "requiredReleaseBindings": {
+          "const": [
+            "G2_CANDIDATE_IDENTITY_DIGEST",
+            "G2_APPROVAL_DIGEST",
+            "SUPERVISOR_AUTHORITY_RESULT_IDENTITY",
+            "RELEASE_ENVELOPE_DIGEST",
+            "ROLLBACK_EVIDENCE_DIGEST"
+          ]
+        }
+      }
+    },
+    "materializationPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "outsideG1",
+        "grantState",
+        "grantIdentityDigest",
+        "grantNonce",
+        "issuedAt",
+        "expiresAt",
+        "consumptionRecord",
+        "consumedAt",
+        "consumptionDigest",
+        "crossPacketReusePolicy",
+        "allowedAction",
+        "allOtherActions",
+        "issuanceBindings",
+        "grantIdentityDigestAlgorithm",
+        "consumptionRecordRequiredFields",
+        "consumptionDigestAlgorithm"
+      ],
+      "properties": {
+        "outsideG1": { "const": true },
+        "grantState": { "const": "DRAFT_NOT_ISSUED" },
+        "grantIdentityDigest": { "type": "null" },
+        "grantNonce": { "type": "null" },
+        "issuedAt": { "type": "null" },
+        "expiresAt": { "type": "null" },
+        "consumptionRecord": { "type": "null" },
+        "consumedAt": { "type": "null" },
+        "consumptionDigest": { "type": "null" },
+        "crossPacketReusePolicy": { "const": "REJECT" },
+        "allowedAction": { "const": "LOCAL_SINGLE_PARENT_COMMIT_EXACT_TREE_ONLY" },
+        "allOtherActions": { "const": "DENY_BY_DEFAULT" },
+        "issuanceBindings": {
+          "const": [
+            "WORK_PACKAGE_LINEAGE_ID",
+            "G1_APPROVAL_DIGEST",
+            "G1_CONSUMPTION_DIGEST",
+            "BASE_COMMIT",
+            "BASE_TREE",
+            "PRECOMMIT_TREE",
+            "EXACT_PATHS_DIGEST",
+            "PATCH_DIGEST",
+            "EVIDENCE_DIGEST",
+            "GRANT_NONCE",
+            "ISSUED_AT",
+            "EXPIRES_AT"
+          ]
+        },
+        "grantIdentityDigestAlgorithm": { "const": "SHA256_RFC8785_JCS_UTF8_OF_ISSUANCE_BINDINGS_EXCLUDING_GRANT_IDENTITY_DIGEST" },
+        "consumptionRecordRequiredFields": { "const": ["GRANT_IDENTITY_DIGEST", "CANDIDATE_COMMIT", "CANDIDATE_TREE", "CONSUMED_AT"] },
+        "consumptionDigestAlgorithm": { "const": "SHA256_RFC8785_JCS_UTF8_OF_CONSUMPTION_RECORD_EXCLUDING_CONSUMPTION_DIGEST" }
+      }
+    },
+    "compatibilityPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["legacyAuthorityId", "newAuthorityMode", "effectiveDecisionRule", "legacyStopPlusNewGo", "consumerSwitchRequirements"],
+      "properties": {
+        "legacyAuthorityId": { "const": "product-authority.m0.v1" },
+        "newAuthorityMode": { "const": "SHADOW_ONLY" },
+        "effectiveDecisionRule": { "const": "DENY_OVERRIDES" },
+        "legacyStopPlusNewGo": { "const": "STOP" },
+        "consumerSwitchRequirements": { "const": ["SIGNED_MIGRATION_MANIFEST", "LEGACY_TASK_ID", "LEGACY_STOP_REASON", "NEW_GATE_IDENTITY", "OWNER_DIGEST", "EXACT_SWITCH_POINT"] }
+      }
+    },
+    "evidenceCadence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "maxGovernanceOnlyHours",
+        "trustedClockSource",
+        "eventSequence",
+        "lastQualifyingEvidenceAt",
+        "lastQualifyingEvidenceKind",
+        "lastQualifyingEvidenceDigest",
+        "duplicateDigestRefreshesClock",
+        "pauseDecision",
+        "qualifyingEvidenceKinds"
+      ],
+      "properties": {
+        "maxGovernanceOnlyHours": { "const": 24 },
+        "trustedClockSource": { "const": "FUTURE_AUTHORITY_UTC_CLOCK_REQUIRED" },
+        "eventSequence": { "const": 0 },
+        "lastQualifyingEvidenceAt": { "type": "null" },
+        "lastQualifyingEvidenceKind": { "type": "null" },
+        "lastQualifyingEvidenceDigest": { "type": "null" },
+        "duplicateDigestRefreshesClock": { "const": false },
+        "pauseDecision": { "const": "PAUSED_GOVERNANCE_ONLY_STALL" },
+        "qualifyingEvidenceKinds": { "const": ["PRODUCT_CANDIDATE", "FAILING_BASELINE", "TEST_RESULT", "PILOT_RESULT", "RUNTIME_EVIDENCE"] }
+      }
+    },
+    "baseDriftPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reanchorAllowed", "remoteMustRemainCommit", "driftDecision", "continueAfterDrift"],
+      "properties": {
+        "reanchorAllowed": { "const": false },
+        "remoteMustRemainCommit": { "const": "dce861a42cf2fb9202415694001c5367cebf10c4" },
+        "driftDecision": { "const": "STOP_REPLAN_REQUIRED" },
+        "continueAfterDrift": { "const": false }
+      }
+    },
+    "nextImplementationBoundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requiredSeparateWorkPackage", "requiredMachineGovernanceGo", "implementationPaths", "productPathsAllowed", "commitPushPilotReleaseDeployAllowed"],
+      "properties": {
+        "requiredSeparateWorkPackage": { "const": true },
+        "requiredMachineGovernanceGo": { "const": true },
+        "implementationPaths": { "type": "null" },
+        "productPathsAllowed": { "const": false },
+        "commitPushPilotReleaseDeployAllowed": { "const": false }
+      }
+    }
+  }
+}
