@@ -1,9 +1,9 @@
 # Packet 01 — Battery Safety M0 Task
 
-状态：`DRAFT_AWAITING_OWNER_DIGEST_ACCEPTANCE`
+状态：`READY_FOR_CANONICAL_AUTHORITY`
 任务 ID：`PACKET-01-BATTERY-SAFETY-M0-20260825`
-唯一基线：`origin/ext-dev@58b769223794af752d3b36ffc83dfa6351b0e0c6`
-基线 tree：`d746c28c13612693700d03fe11e1349b3a73cf5f`
+唯一基线：`origin/ext-dev@5004733bcdcac9e570dce99dfe1c993330598a16`
+基线 tree：`d06289c34ef821f97574f2862cc715c61e962bcf`
 
 ## 1. 用户与结果
 
@@ -72,7 +72,7 @@ Donor 只提供行为语义，不提供可直接复制的目标字节。不得 c
 
 ## 4. 精确产品路径
 
-候选必须且只能修改以下八条路径：
+候选必须且只能修改以下九条路径：
 
 1. `backend/app/agents/chancellor/graph.py`
 2. `backend/app/agents/chancellor_draft/battery_safety.py`（新增）
@@ -82,8 +82,10 @@ Donor 只提供行为语义，不提供可直接复制的目标字节。不得 c
 6. `backend/tests/test_chancellor_draft_graph.py`
 7. `backend/tests/test_chancellor_drafts_api.py`
 8. `backend/tests/test_chancellor_graph.py`
+9. `backend/tests/test_sqlite_backup.py`
 
-任何第九路径、路径重命名、schema/authority/Harness/CI/ADR 变更或前端改动都必须停止并重新审批。
+第九路径只允许修复 SQLite 备份文件描述符测试的顺序隔离断言，不得修改 SQLite 生产逻辑。任何第十路径、路径重命名、
+schema/authority/Harness/CI/ADR 变更或前端改动都必须停止并重新审批。
 
 ## 5. 行为契约
 
@@ -140,8 +142,8 @@ Donor 只提供行为语义，不提供可直接复制的目标字节。不得 c
 
 出现以下任一情况立即停止并重新审批：
 
-- 基线或远端 `ext-dev` 离开 `58b7692…`，且尚未形成独立 approval commit；
-- 需要第九产品路径或修改 schema、数据库、API namespace、前端、authority、Harness、CI、ADR；
+- approval commit 不是 `5004733b…` 的唯一单亲子，或授权后远端 `ext-dev` 离开该 approval commit；
+- 需要第十产品路径或修改 schema、数据库、API namespace、前端、authority、Harness、CI、ADR；
 - 需要复制 donor 整文件、恢复 `backend/src` 或新增第二套确认/授权存储；
 - 发现新的 P0 安全问题，或现有 owner-bound 一次性 authority 无法承载人签；
 - RED 无法在指定基线上复现，或 GREEN 只能通过放宽安全门、跳过测试、联网或真实模型获得。
@@ -150,11 +152,13 @@ Donor 只提供行为语义，不提供可直接复制的目标字节。不得 c
 
 本 Packet 不做数据迁移、不写生产数据、不发起外部动作。回滚仅允许对未来唯一产品候选 commit 做整提交反向回退，恢复其 approval commit 的 tree；不得局部保留分类器、API 校验或执行校验中的任一层。回滚后现有拟旨 authority 和普通路由恢复基线行为，数据库与用户资产无需变更。
 
-本草案不等于 GO。只有三文件治理提交由 Owner 精确批准并推送、`product-authority.mjs --authorize --task PACKET-01-BATTERY-SAFETY-M0-20260825` 在 canonical 机器返回 GO 后，才可开始一个单亲子产品候选。
+本 re-anchor 治理三件套不等于 GO。只有三件套成为远端精确头，且
+`product-authority.mjs --authorize --task PACKET-01-BATTERY-SAFETY-M0-20260825` 在 canonical 机器返回 GO 后，才可恢复
+exact9 产品施工。
 
 ## Status
 
-In Progress
+Ready
 
 ## Product Definition
 
@@ -166,16 +170,15 @@ BLACK、人签、工部·技术司和保守禁止动作，并在拟旨、API 注
 
 - [x] exact8 产品字节已完成 focused RED/GREEN、静态检查和独立代码/安全终审。
 - [ ] 六部 readiness 同时接受既有两组兼容指纹与 Packet 01 的精确第三组指纹，所有混搭和未知状态继续失败关闭。
-- [ ] canonical machine authority 基于 successor approval 返回精确 GO。
+- [ ] canonical machine authority 基于本 re-anchor approval 返回精确 GO。
 - [ ] exact9 全后端、根 Harness、doctor、V2 convergence 与独立终审全部通过。
 - [ ] 最终候选保持单亲、精确路径和整提交回滚，不推送产品候选直至 Owner 接受精确身份。
 
 ## Delivery Constraints
 
-readiness successor 只允许修改 `backend/tests/test_six_ministry_readiness_report.py`、本 Task 与
-`scripts/check_harness.mjs`。后续 approval re-anchor 只允许修改同 Task ID 的 approval、Task、Plan 三件套；产品 successor
-只允许现有 exact8 加 `backend/tests/test_sqlite_backup.py`，共 exact9。任何第十路径、机器 STOP、远端漂移或未关闭
-P0–P2 都必须立即停止。
+readiness successor 已作为独立三路径提交落地。本 approval re-anchor 只允许修改同 Task ID 的 approval、Task、Plan 三件套；
+产品 successor 只允许现有 exact8 加 `backend/tests/test_sqlite_backup.py`，共 exact9。任何第十路径、机器 STOP、远端漂移
+或未关闭 P0–P2 都必须立即停止。
 
 ## Affected Modules
 
@@ -184,8 +187,8 @@ P0–P2 都必须立即停止。
 
 ## Technical Plan
 
-1. 先扩展 readiness 的封闭兼容对并运行精准门禁，保留全部旧兼容对。
-2. 再以 readiness 提交为新基线重签同 Task ID 的 exact9 approval，并取得 canonical machine GO。
+1. readiness 封闭兼容对已经扩展并通过精准门禁，全部旧兼容对继续保留。
+2. 以 `5004733b…` 为新基线重签同 Task ID 的 exact9 approval，并取得 canonical machine GO。
 3. GO 后只修复 SQLite 测试的顺序隔离断言，不修改 SQLite 生产逻辑。
 4. 最终 exact9 只运行一次完整验证矩阵和独立终审，再物化不推送的精确候选。
 

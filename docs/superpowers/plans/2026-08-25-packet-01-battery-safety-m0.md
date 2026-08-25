@@ -1,20 +1,20 @@
 # Packet 01 — Battery Safety M0 Implementation Plan
 
-状态：`DRAFT_ONLY / NO_PRODUCT_AUTHORITY`
-基线：`origin/ext-dev@58b769223794af752d3b36ffc83dfa6351b0e0c6`
+状态：`READY_FOR_CANONICAL_AUTHORITY / PRODUCT_STOP_UNTIL_GO`
+基线：`origin/ext-dev@5004733bcdcac9e570dce99dfe1c993330598a16`
 任务：`PACKET-01-BATTERY-SAFETY-M0-20260825`
 
 ## 执行纪律
 
 - 本 Plan 只有在三文件治理包先独立提交、推送且 canonical machine authority 精确返回 GO 后才可执行。
-- 产品候选必须是 approval commit 的唯一单亲子，并且只修改 manifest 冻结的八条产品路径。
+- 产品候选必须是 approval commit 的唯一单亲子，并且只修改 manifest 冻结的九条产品路径。
 - 采用 TDD：先把 RED-01 至 RED-06 写成失败证据，再做最小实现；不得先写实现后补测试。
 - 不 checkout、merge、cherry-pick donor；只依据 Task 中已冻结的 commit/tree/patch digest 迁移语义。
 - 全程离线，不调用真实模型、provider、生产数据、外部设备或浏览器。
 
-## Phase 0 — 形成审批链（当前不执行）
+## Phase 0 — 形成审批链
 
-1. Owner 接受 manifest 与三文件 packet digest。
+1. Owner 已接受快速收尾范围信封。
 2. 只提交并推送 approval、Task、Plan 三条治理路径。
 3. 在 canonical clean worktree 运行：
    `node scripts/product-authority.mjs --authorize --task PACKET-01-BATTERY-SAFETY-M0-20260825`。
@@ -22,7 +22,7 @@
 
 ## Phase 1 — RED：冻结可观察失败
 
-只修改四条测试路径：
+先冻结四条电池安全测试路径：
 
 - 新建 `backend/tests/test_battery_safety.py`，覆盖 P0、P1、良性短语反降级、域外不误触发、逐请求无缓存确定性。
 - 在 `backend/tests/test_chancellor_draft_graph.py` 增加模型遗漏/降级工部路由时的安全拟旨与指纹绑定测试。
@@ -77,13 +77,19 @@
 
 运行 chancellor graph tests，并用调用计数证明失败路径为零模型、零 evidence session、零部司调用。
 
+## Phase 5.5 — GREEN E：SQLite preservation 测试顺序隔离
+
+只修改 `backend/tests/test_sqlite_backup.py` 中失败的文件描述符集合断言：拒绝测试执行后新增的描述符，但允许此前无关描述符被
+其他测试或运行时关闭。不得修改 `backend/app/operations/sqlite_backup.py` 或任何生产逻辑。先复现整文件顺序失败，再证明
+整文件与全后端矩阵通过。
+
 ## Phase 6 — 完整矩阵与独立终审
 
 按 manifest 顺序运行：
 
 1. backend full pytest；
 2. Packet 01 focused pytest（含既有 decrees API 回归）；
-3. 八路径 ruff；
+3. 九路径 ruff；
 4. product authority regression；
 5. root Harness 与 doctor；
 6. V2 convergence check 与 regression。
@@ -95,10 +101,10 @@
 全绿后才创建唯一产品 candidate commit，确认：
 
 - parent 恰好是 approval commit；
-- changed paths 恰好等于八路径；
+- changed paths 恰好等于九路径；
 - 无工作树残留；
 - `--verify-candidate` 返回 PASS；
-- 输出 candidate commit、tree、八路径 diff digest、approval digest 与 evidence digest。
+- 输出 candidate commit、tree、九路径 diff digest、approval digest 与 evidence digest。
 
 先把这些精确身份交给 Owner。未获得候选精确授权前，不推送、不合并、不部署、不试点。
 
@@ -106,4 +112,5 @@
 
 回滚单位是未来唯一产品候选整提交；四层安全链（分类、拟旨、API 注册前复核、执行前复核）必须一起保留或一起回退。无 schema/数据迁移，因此不执行数据清理。
 
-需要第九路径、远端基线漂移、新 P0、第二 authority、前端/API/schema/数据库/CI/Harness/ADR 变更，或 RED 无法按 Task 复现时立即 STOP，返回 Owner 重审；不得创建 V2/V3 式隐性扩张版本。
+需要第十路径、远端基线漂移、新 P0、第二 authority、前端/API/schema/数据库/CI/Harness/ADR 变更，或 RED 无法按 Task 复现时
+立即 STOP，返回 Owner 重审；不得创建 V2/V3 式隐性扩张版本。

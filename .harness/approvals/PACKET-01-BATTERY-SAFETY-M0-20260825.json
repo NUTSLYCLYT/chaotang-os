@@ -7,8 +7,8 @@
     "targetBranch": "ext-dev"
   },
   "request": {
-    "baseCommit": "58b769223794af752d3b36ffc83dfa6351b0e0c6",
-    "baseTree": "d746c28c13612693700d03fe11e1349b3a73cf5f",
+    "baseCommit": "5004733bcdcac9e570dce99dfe1c993330598a16",
+    "baseTree": "d06289c34ef821f97574f2862cc715c61e962bcf",
     "approvalPath": ".harness/approvals/PACKET-01-BATTERY-SAFETY-M0-20260825.json",
     "approvalCommitPaths": [
       ".harness/approvals/PACKET-01-BATTERY-SAFETY-M0-20260825.json",
@@ -23,7 +23,8 @@
       "backend/tests/test_battery_safety.py",
       "backend/tests/test_chancellor_draft_graph.py",
       "backend/tests/test_chancellor_drafts_api.py",
-      "backend/tests/test_chancellor_graph.py"
+      "backend/tests/test_chancellor_graph.py",
+      "backend/tests/test_sqlite_backup.py"
     ]
   },
   "nonGoals": [
@@ -33,7 +34,7 @@
     "MODEL_COUNCIL_CALLER_OR_ROUTE_OVERRIDE_SAFETY_DOWNGRADE",
     "NETWORK_PROVIDER_PRODUCTION_DATA_SECRET_OR_REAL_MODEL",
     "PACKET_02_PLUS_EXACT2_P14_RELEASE_OR_OTHER_PRODUCT_SCOPE",
-    "PRODUCT_COMMIT_PUSH_MERGE_DEPLOY_RELEASE_OR_PILOT_DURING_DRAFT_STAGE",
+    "PRODUCT_PUSH_MERGE_DEPLOY_RELEASE_OR_PILOT",
     "ROOT_FRONTEND_BACKEND_HARNESS_AUTHORITY_CI_OR_ADR_CHANGE",
     "UNRELATED_REFACTOR_OR_LEGACY_SRC_REINTRODUCTION"
   ],
@@ -60,7 +61,8 @@
         "tests/test_chancellor_draft_graph.py",
         "tests/test_chancellor_drafts_api.py",
         "tests/test_chancellor_graph.py",
-        "tests/test_decrees_api.py"
+        "tests/test_decrees_api.py",
+        "tests/test_sqlite_backup.py"
       ],
       "cwd": "backend",
       "timeoutMs": 300000
@@ -79,7 +81,8 @@
         "tests/test_battery_safety.py",
         "tests/test_chancellor_draft_graph.py",
         "tests/test_chancellor_drafts_api.py",
-        "tests/test_chancellor_graph.py"
+        "tests/test_chancellor_graph.py",
+        "tests/test_sqlite_backup.py"
       ],
       "cwd": "backend",
       "timeoutMs": 180000
