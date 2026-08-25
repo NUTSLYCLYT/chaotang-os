@@ -1,0 +1,136 @@
+{
+  "schemaVersion": "product-authority.m0.approval.v1",
+  "authorityId": "product-authority.m0.v1",
+  "taskId": "FIRST-DECREE-COCKPIT-V1-20260826",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "c939bc4dc5f759d52ca86424c725f8ac2baf2d19",
+    "baseTree": "a7ce87107ca4763c448183b1a21b467310a72443",
+    "approvalPath": ".harness/approvals/FIRST-DECREE-COCKPIT-V1-20260826.json",
+    "approvalCommitPaths": [
+      ".harness/approvals/FIRST-DECREE-COCKPIT-V1-20260826.json",
+      "docs/product/tasks/2026-08-26-first-decree-cockpit-v1.md",
+      "docs/superpowers/plans/2026-08-26-first-decree-cockpit-v1.md"
+    ],
+    "productPaths": [
+      "frontend/src/app/study/StudyClient.test.ts",
+      "frontend/src/app/study/StudyClient.tsx",
+      "frontend/src/app/study/decreeStatus.test.ts",
+      "frontend/src/app/study/decreeStatus.ts",
+      "frontend/src/app/study/studySubmission.test.ts",
+      "frontend/src/app/study/studySubmission.ts",
+      "frontend/src/features/study-visual/DevStudyWorkspace.module.css",
+      "frontend/src/features/study-visual/DevStudyWorkspace.test.ts",
+      "frontend/src/features/study-visual/DevStudyWorkspace.tsx",
+      "frontend/src/features/study-visual/studyTaskCockpit.test.ts",
+      "frontend/src/features/study-visual/studyTaskCockpit.ts"
+    ]
+  },
+  "nonGoals": [
+    "AUTHORITY_HARNESS_CI_ADR_OR_RELEASE_CHANGE",
+    "BACKEND_API_DATABASE_SCHEMA_OR_FACT_SOURCE_CHANGE",
+    "DYNAMIC_THREE_PLAN_DECISION_CONTRACT",
+    "EXTERNAL_ACTION_AUTHORIZATION_OR_AUTO_EXECUTION",
+    "FAKE_PROGRESS_PERCENTAGE_ETA_OR_LIVE_SOURCE_LABEL",
+    "FINAL_MEMORIAL_EMPEROR_DECISION_OR_SECOND_STATE_MACHINE",
+    "MODEL_PROVIDER_NETWORK_SECRET_OR_PRODUCTION_DATA",
+    "P0_5_P0_6_P0_8_RESULT_TRUST_OR_RETROSPECTIVE_CONTRACT",
+    "SHIGUAN_ARCHIVE_REVIEW_OR_HISTORY_WRITE_CHANGE",
+    "UNRELATED_FRONTEND_REFACTOR_OR_TWELFTH_PRODUCT_PATH",
+    "UPLOAD_ATTACHMENT_OR_NEW_PERSISTENCE"
+  ],
+  "verification": [
+    {
+      "id": "v01-frontend-first-decree-focused-tests",
+      "tool": "node",
+      "args": [
+        "--test",
+        "src/app/study/StudyClient.test.ts",
+        "src/app/study/decreeStatus.test.ts",
+        "src/app/study/studySubmission.test.ts",
+        "src/features/study-visual/DevStudyWorkspace.test.ts",
+        "src/features/study-visual/studyTaskCockpit.test.ts"
+      ],
+      "cwd": "frontend",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v02-frontend-full-tests",
+      "tool": "npm",
+      "args": ["test"],
+      "cwd": "frontend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "v03-frontend-lint",
+      "tool": "npm",
+      "args": ["run", "lint"],
+      "cwd": "frontend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "v04-frontend-typecheck",
+      "tool": "npm",
+      "args": ["run", "typecheck"],
+      "cwd": "frontend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "v05-frontend-build",
+      "tool": "npm",
+      "args": ["run", "build"],
+      "cwd": "frontend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "v06-candidate-exact11-structure",
+      "tool": "node",
+      "args": [
+        "--input-type=module",
+        "--eval",
+        "import{execFileSync}from'node:child_process';const expected=['frontend/src/app/study/StudyClient.test.ts','frontend/src/app/study/StudyClient.tsx','frontend/src/app/study/decreeStatus.test.ts','frontend/src/app/study/decreeStatus.ts','frontend/src/app/study/studySubmission.test.ts','frontend/src/app/study/studySubmission.ts','frontend/src/features/study-visual/DevStudyWorkspace.module.css','frontend/src/features/study-visual/DevStudyWorkspace.test.ts','frontend/src/features/study-visual/DevStudyWorkspace.tsx','frontend/src/features/study-visual/studyTaskCockpit.test.ts','frontend/src/features/study-visual/studyTaskCockpit.ts'];const env={PATH:'/usr/bin:/bin',GIT_CONFIG_NOSYSTEM:'1',GIT_NO_REPLACE_OBJECTS:'1',GIT_TERMINAL_PROMPT:'0'};const git=(args)=>execFileSync('/usr/bin/git',['--no-replace-objects',...args],{encoding:'utf8',env,maxBuffer:4194304});const rows=git(['diff-tree','--no-commit-id','--name-status','-r','HEAD^','HEAD']).trim().split('\\n').filter(Boolean).map((row)=>row.split('\\t'));const paths=rows.map((row)=>row.at(-1));if(JSON.stringify(paths)!==JSON.stringify(expected))throw new Error('EXACT11_PATH_MISMATCH');const adds=rows.filter(([status])=>status==='A').length;const mods=rows.filter(([status])=>status==='M').length;if(adds!==2||mods!==9)throw new Error('EXACT11_STATUS_MISMATCH');for(const path of paths){const [mode,type]=git(['ls-tree','HEAD','--',path]).trim().split(/\\s+/u);if(mode!=='100644'||type!=='blob')throw new Error('EXACT11_MODE_OR_TYPE_MISMATCH:'+path)}"
+      ],
+      "cwd": ".",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "v07-product-authority-regression",
+      "tool": "node",
+      "args": ["--test", "scripts/product-authority.test.mjs"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v08-root-harness",
+      "tool": "node",
+      "args": ["scripts/check_harness.mjs"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v09-root-harness-doctor",
+      "tool": "node",
+      "args": ["scripts/harness-doctor.mjs", "--check"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v10-v2-convergence",
+      "tool": "node",
+      "args": ["scripts/ext-full-value-convergence.mjs", "--check"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v11-v2-convergence-regression",
+      "tool": "node",
+      "args": ["--test", "scripts/ext-full-value-convergence.test.mjs"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    }
+  ],
+  "state": "APPROVED_FOR_ONE_CHILD"
+}
