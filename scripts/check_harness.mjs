@@ -364,7 +364,7 @@ const SIX_MINISTRY_RUNTIME_CONTENT_EXCLUSIONS = Object.freeze([
   "scripts/check_harness.mjs",
 ]);
 const SIX_MINISTRY_SUCCESSOR_CONTENT_PATHS = ["backend/app/accounting_reports/storage.py","backend/tests/test_six_ministry_accounting_evidence_adapter.py"];
-const SIX_MINISTRY_CONTENT_FINGERPRINT_PAIRS = [["sha256:013bfb8272e936be85c2d470033787c3b7f105ad6eae2dfe680373df023b5e69","sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"],["sha256:c95630be3d79f2641ff6e483f4096b0763b9e5071544f1e0ead0d7e24eb1cba5","sha256:268cab13e516d0f716f600819f2bddc8242269312d392eca4ed1be2de05ce051"],["sha256:d330b7f177f5bbb761eb359ffffca6f12250e5bbe90d13d0414d0fdefb78e98a","sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"]];
+const SIX_MINISTRY_CONTENT_FINGERPRINT_PAIRS = [["sha256:013bfb8272e936be85c2d470033787c3b7f105ad6eae2dfe680373df023b5e69","sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"],["sha256:c95630be3d79f2641ff6e483f4096b0763b9e5071544f1e0ead0d7e24eb1cba5","sha256:268cab13e516d0f716f600819f2bddc8242269312d392eca4ed1be2de05ce051"],["sha256:d330b7f177f5bbb761eb359ffffca6f12250e5bbe90d13d0414d0fdefb78e98a","sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"],["sha256:da31e8098bf76c72ff8d00b073d86e3442b0811223ef3e3bab770af31e89c28e","sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"]];
 const SIX_MINISTRY_HISTORICAL_FILE_COUNT = 69;
 const SIX_MINISTRY_RUNTIME_CONTENT_FILE_COUNT = 65;
 const SIX_MINISTRY_REVIEWED_HARNESS_BASELINE_FILES = 133;
@@ -2462,8 +2462,9 @@ Escalation: name observable evidence
         });
         return rejectsBoundaryChanges
           && SIX_MINISTRY_RUNTIME_CONTENT_FILES.length === SIX_MINISTRY_RUNTIME_CONTENT_FILE_COUNT
+          && SIX_MINISTRY_RUNTIME_CONTENT_EXCLUSIONS.length === 4
           && SIX_MINISTRY_SUCCESSOR_CONTENT_PATHS.length === 2
-          && SIX_MINISTRY_CONTENT_FINGERPRINT_PAIRS.length === 3
+          && SIX_MINISTRY_CONTENT_FINGERPRINT_PAIRS.length === 4
           && SIX_MINISTRY_CONTENT_FINGERPRINT_PAIRS.every(
             (pair) => Array.isArray(pair) && pair.length === 2,
           )
@@ -2477,9 +2478,19 @@ Escalation: name observable evidence
       true,
     ],
     [
-      "六部 Runtime 指纹门禁只接受三组精确兼容对并拒绝混搭与未知状态",
+      "六部 Runtime 指纹门禁只接受四组精确兼容对并拒绝单边、混搭、篡改与未知状态",
       (() => {
         const unknown = `sha256:${"0".repeat(64)}`;
+        const approvedPair = [
+          "sha256:da31e8098bf76c72ff8d00b073d86e3442b0811223ef3e3bab770af31e89c28e",
+          "sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924",
+        ];
+        const expectedPairs = [
+          ["sha256:013bfb8272e936be85c2d470033787c3b7f105ad6eae2dfe680373df023b5e69", "sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"],
+          ["sha256:c95630be3d79f2641ff6e483f4096b0763b9e5071544f1e0ead0d7e24eb1cba5", "sha256:268cab13e516d0f716f600819f2bddc8242269312d392eca4ed1be2de05ce051"],
+          ["sha256:d330b7f177f5bbb761eb359ffffca6f12250e5bbe90d13d0414d0fdefb78e98a", "sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"],
+          approvedPair,
+        ];
         const validPairs = new Set(
           SIX_MINISTRY_CONTENT_FINGERPRINT_PAIRS.map(([runtime, successor]) => (
             `${runtime}\0${successor}`
@@ -2493,12 +2504,28 @@ Escalation: name observable evidence
           ...new Set(SIX_MINISTRY_CONTENT_FINGERPRINT_PAIRS.map(([, successor]) => successor)),
           unknown,
         ];
-        return SIX_MINISTRY_CONTENT_FINGERPRINT_PAIRS.every(
+        const tamperedRuntime = `${approvedPair[0].slice(0, -1)}f`;
+        const tamperedSuccessor = `${approvedPair[1].slice(0, -1)}f`;
+        const rejectedPairs = [
+          [approvedPair[0], unknown],
+          [unknown, approvedPair[1]],
+          [approvedPair[0], expectedPairs[1][1]],
+          [expectedPairs[1][0], approvedPair[1]],
+          [unknown, unknown],
+          [tamperedRuntime, approvedPair[1]],
+          [approvedPair[0], tamperedSuccessor],
+        ];
+        return JSON.stringify(SIX_MINISTRY_CONTENT_FINGERPRINT_PAIRS) === JSON.stringify(expectedPairs)
+          && SIX_MINISTRY_CONTENT_FINGERPRINT_PAIRS.every(
           ([runtime, successor]) => sixMinistryContentFingerprintPairAllowed(runtime, successor),
-        ) && runtimeFingerprints.every((runtime) => successorFingerprints.every((successor) => (
+          )
+          && rejectedPairs.every(
+            ([runtime, successor]) => !sixMinistryContentFingerprintPairAllowed(runtime, successor),
+          )
+          && runtimeFingerprints.every((runtime) => successorFingerprints.every((successor) => (
           sixMinistryContentFingerprintPairAllowed(runtime, successor)
           === validPairs.has(`${runtime}\0${successor}`)
-        )));
+          )));
       })(),
       true,
     ],

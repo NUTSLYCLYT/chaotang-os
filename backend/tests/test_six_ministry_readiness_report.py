@@ -42,6 +42,10 @@ _CONTENT_FINGERPRINT_PAIRS = (
         "sha256:d330b7f177f5bbb761eb359ffffca6f12250e5bbe90d13d0414d0fdefb78e98a",
         "sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924",
     ),
+    (
+        "sha256:da31e8098bf76c72ff8d00b073d86e3442b0811223ef3e3bab770af31e89c28e",
+        "sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924",
+    ),
 )
 _HISTORICAL_REVIEW_STATUS = "approved-with-notes"
 _HISTORICAL_FILE_COUNT = 69
@@ -212,12 +216,65 @@ def test_content_pair_rejects_mixed_or_third_state() -> None:
     runtime_fingerprints = {*(pair[0] for pair in valid_pairs), unknown}
     successor_fingerprints = {*(pair[1] for pair in valid_pairs), unknown}
 
-    assert len(valid_pairs) == len(_CONTENT_FINGERPRINT_PAIRS) == 3
+    assert len(valid_pairs) == len(_CONTENT_FINGERPRINT_PAIRS) == 4
     for runtime_fingerprint in runtime_fingerprints:
         for successor_fingerprint in successor_fingerprints:
             candidate = (runtime_fingerprint, successor_fingerprint)
             if candidate not in valid_pairs:
                 assert candidate not in _CONTENT_FINGERPRINT_PAIRS
+
+
+def test_content_pair_policy_appends_only_the_approved_fourth_pair() -> None:
+    predecessor_pairs = (
+        (
+            "sha256:013bfb8272e936be85c2d470033787c3b7f105ad6eae2dfe680373df023b5e69",
+            "sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924",
+        ),
+        (
+            "sha256:c95630be3d79f2641ff6e483f4096b0763b9e5071544f1e0ead0d7e24eb1cba5",
+            "sha256:268cab13e516d0f716f600819f2bddc8242269312d392eca4ed1be2de05ce051",
+        ),
+        (
+            "sha256:d330b7f177f5bbb761eb359ffffca6f12250e5bbe90d13d0414d0fdefb78e98a",
+            "sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924",
+        ),
+    )
+    approved_pair = (
+        "sha256:da31e8098bf76c72ff8d00b073d86e3442b0811223ef3e3bab770af31e89c28e",
+        "sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924",
+    )
+    expected_pairs = (*predecessor_pairs, approved_pair)
+
+    assert _CONTENT_FINGERPRINT_PAIRS == expected_pairs
+    assert len(set(_CONTENT_FINGERPRINT_PAIRS)) == len(_CONTENT_FINGERPRINT_PAIRS) == 4
+
+    unknown_runtime = "sha256:" + "f" * 64
+    unknown_successor = "sha256:" + "e" * 64
+    tampered_runtime = f"{approved_pair[0][:-1]}f"
+    tampered_successor = f"{approved_pair[1][:-1]}f"
+    rejected_pairs = (
+        (approved_pair[0], unknown_successor),
+        (unknown_runtime, approved_pair[1]),
+        (approved_pair[0], predecessor_pairs[1][1]),
+        (predecessor_pairs[1][0], approved_pair[1]),
+        (unknown_runtime, unknown_successor),
+        (tampered_runtime, approved_pair[1]),
+        (approved_pair[0], tampered_successor),
+    )
+    assert all(pair not in _CONTENT_FINGERPRINT_PAIRS for pair in rejected_pairs)
+
+
+def test_content_policy_keeps_exactly_four_exclusions() -> None:
+    fifth_exclusion = "backend/app/api/decrees.py"
+    source = _HARNESS.read_text(encoding="utf-8")
+
+    assert len(_CURRENT_CONTENT_EXCLUSIONS) == 4
+    assert fifth_exclusion not in _CURRENT_CONTENT_EXCLUSIONS
+    assert _read_harness_exclusions(source) == _CURRENT_CONTENT_EXCLUSIONS
+    assert _read_harness_exclusions(source) != (
+        *_CURRENT_CONTENT_EXCLUSIONS,
+        fifth_exclusion,
+    )
 
 
 def test_successor_content_rejects_third_state_drift(tmp_path: Path) -> None:
