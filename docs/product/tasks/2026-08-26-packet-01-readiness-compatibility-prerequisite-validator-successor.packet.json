@@ -1,0 +1,220 @@
+{
+  "schemaVersion": "governance-repair.packet.v1",
+  "taskId": "PACKET-01-READINESS-COMPATIBILITY-PREREQUISITE-VALIDATOR-SUCCESSOR-20260826",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "eb1469b9a9e04804d218ec2840bf3b1f9630217f",
+    "baseTree": "61baa914ab5a121b4c584fb8f702cb46d9d4dfff",
+    "approvalCommitPaths": [
+      "docs/product/tasks/2026-08-26-packet-01-readiness-compatibility-prerequisite-validator-successor.md",
+      "docs/product/tasks/2026-08-26-packet-01-readiness-compatibility-prerequisite-validator-successor.packet.json",
+      "docs/superpowers/plans/2026-08-26-packet-01-readiness-compatibility-prerequisite-validator-successor.md"
+    ],
+    "candidatePaths": [
+      "backend/tests/test_six_ministry_readiness_report.py",
+      "scripts/check_harness.mjs"
+    ]
+  },
+  "predecessorDisposition": {
+    "taskId": "PACKET-01-READINESS-COMPATIBILITY-PREREQUISITE-LINEAGE-SUCCESSOR-20260826",
+    "approvalCommit": "67cb1816dafcbf1558a0ff227dc3886fae02795e",
+    "approvalTree": "f672064439355715e5616d61eee9d872297130ce",
+    "currentTaskStatus": "Blocked",
+    "disposition": "HISTORICAL_EVIDENCE_ONLY / NO_REANCHOR",
+    "readyGatedProductFlowAllowed": false,
+    "approvalIdentityInherited": false,
+    "candidateIdentityInherited": false,
+    "verificationConclusionInherited": false
+  },
+  "lineage": {
+    "donorBaseCommit": "67cb1816dafcbf1558a0ff227dc3886fae02795e",
+    "donorBaseTree": "f672064439355715e5616d61eee9d872297130ce",
+    "currentBaseCommit": "eb1469b9a9e04804d218ec2840bf3b1f9630217f",
+    "currentBaseTree": "61baa914ab5a121b4c584fb8f702cb46d9d4dfff",
+    "ancestryKind": "TWO_DIRECT_SINGLE_PARENT_COMMITS",
+    "transitions": [
+      {
+        "commit": "1e937ddc9e6063b330648a75ea8ff41dbed64ea6",
+        "parent": "67cb1816dafcbf1558a0ff227dc3886fae02795e",
+        "tree": "9f282a769bc749b5dd1d9468a2b5ace55587c3b3",
+        "parentCount": 1,
+        "subject": "docs(governance): freeze P01 readiness contract corrective successor",
+        "changedPaths": [
+          "docs/product/tasks/2026-08-26-packet-01-readiness-compatibility-prerequisite-governance-contract-corrective-successor.md",
+          "docs/product/tasks/2026-08-26-packet-01-readiness-compatibility-prerequisite-governance-contract-corrective-successor.packet.json",
+          "docs/superpowers/plans/2026-08-26-packet-01-readiness-compatibility-prerequisite-governance-contract-corrective-successor.md"
+        ],
+        "changeKinds": ["ADD", "ADD", "ADD"],
+        "changedPathModes": ["100644", "100644", "100644"]
+      },
+      {
+        "commit": "eb1469b9a9e04804d218ec2840bf3b1f9630217f",
+        "parent": "1e937ddc9e6063b330648a75ea8ff41dbed64ea6",
+        "tree": "61baa914ab5a121b4c584fb8f702cb46d9d4dfff",
+        "parentCount": 1,
+        "subject": "docs(governance): correct P01 readiness lineage task contract",
+        "changedPaths": [
+          "docs/product/tasks/2026-08-26-packet-01-readiness-compatibility-prerequisite-lineage-successor.md"
+        ],
+        "changeKinds": ["MODIFY"],
+        "changedPathModes": ["100644"]
+      }
+    ],
+    "validatorPathOverlap": [],
+    "zeroOverlapProven": true
+  },
+  "validatorByteDonor": {
+    "worktree": "/home/ubuntu/Projects/chaotang-os/.worktrees/packet01-readiness-compatibility-prerequisite-lineage-successor-candidate-20260826",
+    "baseCommit": "67cb1816dafcbf1558a0ff227dc3886fae02795e",
+    "baseTree": "f672064439355715e5616d61eee9d872297130ce",
+    "disposition": "BYTE_DONOR_ONLY / NO_CANDIDATE_IDENTITY / NO_VERIFICATION_INHERITANCE",
+    "pathCount": 2,
+    "files": [
+      {
+        "path": "backend/tests/test_six_ministry_readiness_report.py",
+        "mode": "100644",
+        "bytes": 12957,
+        "baseBlob": "6fa93d573f853581ec4329ab3342ec72dc96662a",
+        "donorBlob": "5bbf10223053adbbf607a51e8e9d690cdfd1f8d9",
+        "rawSha256": "sha256:d731d3932d3a7ba5b77759d4f745d809c18b016f61cdd36265845296036ca60d",
+        "diffRawSha256": "sha256:03c24371a739d0e752ed20ead03e991f808dc8689998e54e20aed2f91e273c38"
+      },
+      {
+        "path": "scripts/check_harness.mjs",
+        "mode": "100644",
+        "bytes": 158480,
+        "baseBlob": "1922e3b1114c066c1d101809a861124286874722",
+        "donorBlob": "8a34d071aa00147b39eedc0450d186169b87b318",
+        "rawSha256": "sha256:f6f6cede41ea1ed9a38780d7fbf570e2321c9857c01b3a9929b806120f14966d",
+        "diffRawSha256": "sha256:5230a5b8e36473e834ff45a5e0a30bc101aae9668ac282e203ac1600375328ef"
+      }
+    ],
+    "bundleAlgorithm": "RFC8785_SHA256_OF_PATH_SORTED_ARRAY_OF_PATH_MODE_BYTES_RAWSHA256",
+    "bundleDigest": "sha256:6e82e7d29c2afdb1f7fcad8fdb9dc9b99a17a823ea229802a4a81085e47eb32c",
+    "combinedDiffRawSha256": "sha256:25b1771fcda4a6f048108a632661aea06971587d982edc7e6d743058a318b90d",
+    "historicalEvidence": {
+      "baselineReadiness": "11 passed",
+      "targetedRed": "missing approved fourth ordered pair",
+      "targetedGreen": "2 passed",
+      "finalReadiness": "13 passed",
+      "baselineHarnessSelfTest": "175 passed",
+      "finalHarnessSelfTest": "175 passed"
+    }
+  },
+  "productByteBinding": {
+    "exact10Structure": "2 ADD + 8 MODIFY",
+    "exact10Mode": "100644",
+    "eleventhPathPresent": false,
+    "exact10BundleDigest": "sha256:df3bb9e9d099433468191457b9e554dc59980aea45724f2bedb4b628305b400a",
+    "runtimeContentFileCount": 65,
+    "runtimeFingerprint": "sha256:da31e8098bf76c72ff8d00b073d86e3442b0811223ef3e3bab770af31e89c28e",
+    "successorFingerprint": "sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924",
+    "approvedFourthPair": [
+      "sha256:da31e8098bf76c72ff8d00b073d86e3442b0811223ef3e3bab770af31e89c28e",
+      "sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"
+    ],
+    "identityDisposition": "SHADOW_BYTE_INPUT_ONLY_NOT_A_CANDIDATE"
+  },
+  "compatibilityPolicy": {
+    "mode": "EXACT_ORDERED_PAIR_APPEND_ONLY",
+    "existingPairCount": 3,
+    "requiredPostAppendPairCount": 4,
+    "requiredPairSetDelta": "+1/-0",
+    "existingAllowedPairs": [
+      [
+        "sha256:013bfb8272e936be85c2d470033787c3b7f105ad6eae2dfe680373df023b5e69",
+        "sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"
+      ],
+      [
+        "sha256:c95630be3d79f2641ff6e483f4096b0763b9e5071544f1e0ead0d7e24eb1cba5",
+        "sha256:268cab13e516d0f716f600819f2bddc8242269312d392eca4ed1be2de05ce051"
+      ],
+      [
+        "sha256:d330b7f177f5bbb761eb359ffffca6f12250e5bbe90d13d0414d0fdefb78e98a",
+        "sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"
+      ]
+    ],
+    "historicalFileCount": 69,
+    "historicalReviewStatus": "approved-with-notes",
+    "historicalReviewedFingerprint": "sha256:a6c2de2ca7f15069a6d997ce2cccb9498ddd4dd1269d539c192993e85a265190",
+    "runtimeContentFileCount": 65,
+    "excludedPaths": [
+      "backend/app/accounting_reports/storage.py",
+      "backend/tests/test_six_ministry_accounting_evidence_adapter.py",
+      "backend/tests/test_six_ministry_readiness_report.py",
+      "scripts/check_harness.mjs"
+    ],
+    "successorContentPaths": [
+      "backend/app/accounting_reports/storage.py",
+      "backend/tests/test_six_ministry_accounting_evidence_adapter.py"
+    ],
+    "separateAllowlistsAllowed": false,
+    "cartesianProductAllowed": false,
+    "unapprovedFifthPairAllowed": false,
+    "unapprovedFifthExclusionAllowed": false,
+    "singleSidedFingerprintAllowed": false,
+    "validatorPolicyDivergenceAllowed": false
+  },
+  "environmentContract": {
+    "classification": "ENVIRONMENT_CONTRACT_MISMATCH",
+    "defaultNodeTmp": "/mnt/c/Users/admin/AppData/Local/Temp",
+    "defaultFilesystem": "v9fs",
+    "normalizedNodeTmp": "/tmp",
+    "normalizedFilesystem": "ext2/ext3",
+    "productAuthorityProcessEnvironment": {
+      "TMPDIR": "/tmp"
+    },
+    "processLocalOnly": true,
+    "persistentConfigurationChangeAllowed": false
+  },
+  "futureVerification": [
+    "cd backend && python3 -m pytest -q tests/test_six_ministry_readiness_report.py",
+    "cd backend && python3 -m pytest -q",
+    "node scripts/check_harness.mjs",
+    "node scripts/check_harness.mjs --self-test",
+    "node scripts/harness-doctor.mjs --check",
+    "node --test scripts/harness-doctor.test.mjs",
+    "node .agents/hooks/check-harness.mjs --self-test",
+    "TMPDIR=/tmp node --test scripts/product-authority.test.mjs",
+    "node scripts/ext-full-value-convergence.mjs --check",
+    "node --test scripts/ext-full-value-convergence.test.mjs",
+    "git diff --check"
+  ],
+  "draftValidation": {
+    "strictJsonRequired": true,
+    "duplicateKeysRejected": true,
+    "newTaskProductTaskErrorsMustBeEmpty": true,
+    "packetCanonicalDigestRequired": true,
+    "threeFileRawSha256Required": true,
+    "threeFileBundleDigestRequired": true,
+    "exactPathsAndModesRequired": true,
+    "fullHarnessMustPass": true,
+    "governanceReviewRequired": true,
+    "securityReviewRequired": true
+  },
+  "policy": {
+    "forwardOnly": true,
+    "forcePushAllowed": false,
+    "fetchOrPullAllowed": false,
+    "otherRemoteWritersMustRemainPaused": true,
+    "reviewersReadOnly": true,
+    "failureMode": "FAIL_CLOSED_STOP"
+  },
+  "nonGoals": [
+    "EDIT_OLD_TASK_OR_GOVERNANCE",
+    "EDIT_OR_REMATERIALIZE_VALIDATORS_DURING_DRAFTING",
+    "P01_EXACT10_CHANGE",
+    "HARNESS_AUTHORITY_API_OR_DATABASE_CHANGE",
+    "APPROVAL_MATERIALIZATION",
+    "PRODUCT_TEST_OR_AUTHORITY_EXECUTION_DURING_DRAFTING",
+    "COMMIT_OR_PUSH",
+    "MERGE_REBASE_FETCH_PULL_OR_FORCE_PUSH",
+    "PILOT_RELEASE_OR_DEPLOYMENT"
+  ],
+  "state": "DRAFT",
+  "ownerConfirmationState": "READY_FOR_OWNER_CONFIRMATION",
+  "authorizationState": "NON_AUTHORIZING"
+}
