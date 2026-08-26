@@ -13,9 +13,19 @@
 
 ## Status
 
-Ready for Owner confirmation
+Blocked
 
 细分状态：`PREDECESSOR_REMOTE_BASE_DRIFT_STOP / APPROVAL_NOT_FROZEN / CANDIDATE_STOP`
+
+## Product Definition
+
+本 Task 仅作为 P01 readiness compatibility prerequisite lineage successor 的历史治理证据保留。当前
+forward-only corrective 只修复已提交文档与 `productTaskErrors` 闭合合同之间的确定性形状冲突，不恢复、
+继承或重新锚定任何 predecessor、First Decree、P01 product authority、validator candidate 或产品通过身份。
+
+`Blocked` 是 `HISTORICAL_EVIDENCE_ONLY / NO_REANCHOR` 的产品任务合同投影。任何依赖
+`Status === Ready` 的 product-flow 或自动交付入口都必须拒绝本 Task；readiness validators 后续只能基于
+届时最新 `ext-dev` 重新签发新的 forward-only successor。
 
 ## Lineage Trigger
 
@@ -105,6 +115,15 @@ approval materialization、commit 或 push。
 - 前序 P01 authority、First Decree Cockpit authority 和本治理包之间没有授权继承关系。
 - 已放弃的 First Decree one-child authority 不得被本治理包视为已消费 candidate，也不得在未来恢复。
 
+## Affected Modules
+
+- 模块：P01 readiness compatibility prerequisite validators（historical/frozen scope）
+- 允许路径：`backend/tests/test_six_ministry_readiness_report.py`、`scripts/check_harness.mjs`（仅记录旧 Task 的历史冻结产品范围）
+
+上述两条 validator 路径不属于本次 corrective candidate 的实际修改范围，不授予 validator 实施权、
+candidate 身份或验证继承身份。本次 corrective candidate 的唯一修改路径仍是本 Task；后续新 readiness
+validator successor 必须重新冻结两条 validator candidatePaths。
+
 ## Immutable Historical Boundary
 
 以下事实不得修改：
@@ -124,6 +143,16 @@ approval materialization、commit 或 push。
   - `backend/app/accounting_reports/storage.py`
   - `backend/tests/test_six_ministry_accounting_evidence_adapter.py`
 - 现有三个完整 allowed pairs 及其顺序。
+
+## Technical Plan
+
+1. 在落地的 corrective successor approval commit 上，仅对本 Task 进行 forward-only 合同纠正。
+2. 将本 Task 保持为 `Blocked / HISTORICAL_EVIDENCE_ONLY / NO_REANCHOR`，只补齐当前 Harness 要求的
+   文档章节，不改变任何冻结历史、ordered tuple、路径、fingerprint 或 authority disposition。
+3. 以 `productTaskErrors=[]`、完整 Harness、doctor、authority regression、V2 convergence 和独立双审
+   证明纠正，不修改或豁免 Harness，也不触碰两条 validators。
+4. 本 corrective candidate 落地后，以届时最新 `ext-dev` 重新签发 readiness validator successor；旧
+   validator 工作区继续保持 byte donor only，不继承 candidate、验证或通过身份。
 
 ## Future Execution Order
 
@@ -172,3 +201,13 @@ approval materialization、commit 或 push。
 - 已完成：远端 drift 根因、直接 ancestry、三路径差异、零重叠、byte donor 和 successor 设计。
 - 未完成：approval materialization、commit/push、validator candidate、产品验证和新 P01 approval。
 - 当前结果：`READY_FOR_OWNER_CONFIRMATION / NON_AUTHORIZING`。
+
+## Acceptance Review
+
+- 合同纠正根因：`DETERMINISTIC_PRODUCT_TASK_CONTRACT_VIOLATION`。
+- 本 Task 必须保持 `Blocked / HISTORICAL_EVIDENCE_ONLY / NO_REANCHOR`；本次变更只是 forward-only
+  文档合同纠正，不产生 approval、candidate、产品通过、可恢复 authority 或 re-anchor 身份。
+- 任何 `Status === Ready` 的 product-flow 或自动交付入口都不得接收本 Task。
+- 原双 validator 工作区继续保持 byte donor only；其中的字节、RED/GREEN 与验证结论均不得继承。
+- 后续 readiness validators 必须基于本 corrective candidate 落地后的最新 `ext-dev` 重新签发 successor，
+  再 byte-for-byte 重物化并重新执行完整验证与独立审查。
