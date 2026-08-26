@@ -1,0 +1,185 @@
+{
+  "schemaVersion": "governance-repair.packet.v1",
+  "taskId": "PACKET-01-READINESS-COMPATIBILITY-PREREQUISITE-GOVERNANCE-CONTRACT-CORRECTIVE-SUCCESSOR-20260826",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "67cb1816dafcbf1558a0ff227dc3886fae02795e",
+    "baseTree": "f672064439355715e5616d61eee9d872297130ce",
+    "approvalCommitPaths": [
+      "docs/product/tasks/2026-08-26-packet-01-readiness-compatibility-prerequisite-governance-contract-corrective-successor.md",
+      "docs/product/tasks/2026-08-26-packet-01-readiness-compatibility-prerequisite-governance-contract-corrective-successor.packet.json",
+      "docs/superpowers/plans/2026-08-26-packet-01-readiness-compatibility-prerequisite-governance-contract-corrective-successor.md"
+    ],
+    "candidatePaths": [
+      "docs/product/tasks/2026-08-26-packet-01-readiness-compatibility-prerequisite-lineage-successor.md"
+    ]
+  },
+  "predecessor": {
+    "taskId": "PACKET-01-READINESS-COMPATIBILITY-PREREQUISITE-LINEAGE-SUCCESSOR-20260826",
+    "approvalCommit": "67cb1816dafcbf1558a0ff227dc3886fae02795e",
+    "approvalTree": "f672064439355715e5616d61eee9d872297130ce",
+    "disposition": "STOP / APPROVAL_BASE_HARNESS_CONTRACT_CONTRADICTION / HISTORICAL_EVIDENCE_ONLY / NO_REANCHOR",
+    "approvalHistoryRetained": true,
+    "approvalHistoryMayBeRewritten": false,
+    "approvalIdentityInherited": false
+  },
+  "deterministicFailure": {
+    "code": "DETERMINISTIC_PRODUCT_TASK_CONTRACT_VIOLATION",
+    "checker": "scripts/check_harness.mjs",
+    "validator": "validateProductTasks -> productTaskErrors",
+    "targetPath": "docs/product/tasks/2026-08-26-packet-01-readiness-compatibility-prerequisite-lineage-successor.md",
+    "ordinarySandboxObservation": "spawnSync git EPERM plus five task-contract errors",
+    "externalLocalProcessObservation": "exactly five task-contract errors; no spawnSync git EPERM",
+    "missingSections": [
+      "Product Definition",
+      "Affected Modules",
+      "Technical Plan",
+      "Acceptance Review"
+    ],
+    "invalidStatus": "Ready for Owner confirmation",
+    "allowedStatuses": [
+      "Draft",
+      "Ready",
+      "In Progress",
+      "Blocked",
+      "Implemented",
+      "Accepted"
+    ],
+    "failureCountOnCleanBaseOutsideSandbox": 5,
+    "validatorImplementationDefect": false,
+    "remoteDrift": false
+  },
+  "correctiveCandidateContract": {
+    "pathCount": 1,
+    "targetPath": "docs/product/tasks/2026-08-26-packet-01-readiness-compatibility-prerequisite-lineage-successor.md",
+    "statusBefore": "Ready for Owner confirmation",
+    "statusAfter": "Blocked",
+    "sectionsToAdd": [
+      "Product Definition",
+      "Affected Modules",
+      "Technical Plan",
+      "Acceptance Review"
+    ],
+    "requiredTaskSections": [
+      "Status",
+      "Product Definition",
+      "Acceptance Criteria",
+      "Delivery Constraints",
+      "Affected Modules",
+      "Technical Plan",
+      "Implementation Report",
+      "Acceptance Review"
+    ],
+    "affectedModule": "P01 readiness compatibility prerequisite validators (historical/frozen scope)",
+    "historicalAffectedModuleAllowedPaths": [
+      "backend/tests/test_six_ministry_readiness_report.py",
+      "scripts/check_harness.mjs"
+    ],
+    "correctiveCandidatePath": "docs/product/tasks/2026-08-26-packet-01-readiness-compatibility-prerequisite-lineage-successor.md",
+    "historicalAffectedModulesAuthorizeValidatorExecution": false,
+    "harnessExemptionAllowed": false,
+    "harnessContractRelaxationAllowed": false,
+    "existingHistoricalContentMayBeDeleted": false
+  },
+  "blockedStatusSemantics": {
+    "historicalEvidenceOnly": true,
+    "noReanchor": true,
+    "readyGatedProductFlowAllowed": false,
+    "validatorCandidateAuthorized": false,
+    "productImplementationAuthorized": false,
+    "recoverableAuthorityGranted": false,
+    "newReadinessValidatorSuccessorRequiredAfterCorrectiveCandidate": true
+  },
+  "scopeSeparation": {
+    "correctiveCandidatePaths": [
+      "docs/product/tasks/2026-08-26-packet-01-readiness-compatibility-prerequisite-lineage-successor.md"
+    ],
+    "oldTaskHistoricalAffectedModules": [
+      "backend/tests/test_six_ministry_readiness_report.py",
+      "scripts/check_harness.mjs"
+    ],
+    "futureReadinessSuccessorCandidatePathsMustBeRefrozen": true,
+    "scopeInheritanceAllowed": false
+  },
+  "immutableSemanticBoundary": {
+    "taskId": true,
+    "historicalBaseIdentity": true,
+    "firstDecreeAuthorityDisposition": true,
+    "predecessorAndNoReanchor": true,
+    "orderedTuple": true,
+    "approvalCommitPaths": true,
+    "readinessCandidatePaths": true,
+    "readinessExclusions": true,
+    "historicalAndRuntimeFileCounts": true,
+    "runtimeAndSuccessorFingerprints": true,
+    "exact10Bundle": true,
+    "futureExecutionSafetySemantics": true
+  },
+  "validatorByteDonor": {
+    "worktree": "/home/ubuntu/Projects/chaotang-os/.worktrees/packet01-readiness-compatibility-prerequisite-lineage-successor-candidate-20260826",
+    "baseCommit": "67cb1816dafcbf1558a0ff227dc3886fae02795e",
+    "baseTree": "f672064439355715e5616d61eee9d872297130ce",
+    "modifiedPaths": [
+      "backend/tests/test_six_ministry_readiness_report.py",
+      "scripts/check_harness.mjs"
+    ],
+    "disposition": "STOP / BYTE_DONOR_ONLY / NO_CANDIDATE_IDENTITY",
+    "baselineReadiness": "11 passed",
+    "baselineHarnessSelfTest": "175 passed",
+    "targetedRed": "missing approved fourth ordered pair",
+    "targetedGreen": "2 passed",
+    "finalReadiness": "13 passed",
+    "finalHarnessSelfTest": "175 passed",
+    "candidateIdentityInherited": false,
+    "verificationConclusionInherited": false
+  },
+  "reauthorizationSequence": [
+    "FREEZE_CORRECTIVE_SUCCESSOR_GOVERNANCE_PACKAGE",
+    "CORRECTIVE_SUCCESSOR_APPROVAL_COMMIT_AND_PUSH",
+    "ONE_PATH_CORRECTIVE_CANDIDATE_AND_FULL_HARNESS",
+    "CORRECTIVE_CANDIDATE_COMMIT_AND_PUSH",
+    "ISSUE_NEW_READINESS_VALIDATOR_SUCCESSOR_ON_LATEST_EXT_DEV",
+    "REMATERIALIZE_TWO_VALIDATOR_BYTES",
+    "RERUN_RED_GREEN_FULL_MATRIX_AND_INDEPENDENT_REVIEWS",
+    "READINESS_CANDIDATE_COMMIT_AND_PUSH",
+    "REISSUE_P01_CORRECTIVE_SUCCESSOR"
+  ],
+  "draftValidation": {
+    "strictJsonRequired": true,
+    "duplicateKeysRejected": true,
+    "newTaskProductContractRequired": true,
+    "packetCanonicalDigestRequired": true,
+    "threeFileRawSha256Required": true,
+    "threeFileBundleDigestRequired": true,
+    "exactPathsAndModesRequired": true,
+    "expectedFullHarnessFailureCount": 5,
+    "expectedFullHarnessFailurePath": "docs/product/tasks/2026-08-26-packet-01-readiness-compatibility-prerequisite-lineage-successor.md",
+    "sixthHarnessFailureIsStop": true,
+    "governanceReviewRequired": true,
+    "securityReviewRequired": true
+  },
+  "policy": {
+    "forwardOnly": true,
+    "forcePushAllowed": false,
+    "fetchOrPullAllowed": false,
+    "otherRemoteWritersMustRemainPaused": true,
+    "reviewersReadOnly": true,
+    "failureMode": "FAIL_CLOSED_STOP"
+  },
+  "nonGoals": [
+    "EDIT_PREDECESSOR_DURING_DRAFTING",
+    "EDIT_VALIDATOR_BYTE_DONOR",
+    "HARNESS_POLICY_CHANGE_OR_EXEMPTION",
+    "AUTHORITY_OR_APPROVAL_MATERIALIZATION",
+    "PRODUCT_TEST_EXECUTION",
+    "COMMIT_OR_PUSH",
+    "MERGE_REBASE_FETCH_PULL_OR_FORCE_PUSH",
+    "P01_EXACT10_CHANGE",
+    "PILOT_RELEASE_OR_DEPLOYMENT"
+  ],
+  "state": "DRAFT",
+  "authorizationState": "NON_AUTHORIZING"
+}
