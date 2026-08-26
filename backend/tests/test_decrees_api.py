@@ -23,11 +23,13 @@ route and module 2's 军机处 multi-department council route alike) -- see
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 import tomllib
 from copy import deepcopy
 from datetime import UTC, datetime
 from pathlib import Path
+from threading import Barrier, Thread
 from types import SimpleNamespace
 
 import pytest
@@ -42,9 +44,11 @@ from app.agents.chancellor import (
     ChancellorGraphInvocationError,
     build_chancellor_graph,
 )
+from app.agents.chancellor_draft import battery_safety
 from app.agents.chancellor_draft.authority import (
     AccountingAuthorityContext,
     ConsumedDraftAuthority,
+    DraftAuthorityRegistry,
 )
 from app.agents.chancellor_draft.routing import (
     ApprovedDepartmentRoute,
@@ -59,8 +63,15 @@ from app.agents.chancellor_runtime import (
     ChancellorSkillRegistry,
     ChancellorSkillRegistryError,
 )
+from app.agents.runtime_skills.models import (
+    CouncilReport,
+    EvidenceSufficiency,
+    MinistryReport,
+    ReportStatus,
+)
 from app.api.auth import CurrentUser
 from app.auth import configure_auth_db, create_session, create_user
+from app.junjichu_cases import get_case, get_runtime_report_snapshot
 from app.langgraph_runtime.deepseek_client import (
     DeepSeekModelInvocationError,
     DeepSeekModelNameError,
@@ -106,6 +117,47 @@ ACCOUNTING_PROCESSING_PATH = [
 ]
 
 
+class _NoPersistenceStore:
+    def __init__(self) -> None:
+        self.accept_calls = 0
+        self.recover_calls = 0
+
+    def recover_acceptance(self, **_kwargs):
+        self.recover_calls += 1
+        return None
+
+    def accept(self, _payload):
+        self.accept_calls += 1
+        raise AssertionError("job persistence must not run before the safety gate")
+
+
+def _battery_authority() -> ConsumedDraftAuthority:
+    return ConsumedDraftAuthority(
+        _approved_route(("工部", ("技术司",))),
+        None,
+    )
+
+
+def _downgraded_battery_decree() -> str:
+    return (
+        "【电池物理安全门V1：P1/BLACK；必须人工确认；工部·技术司】"
+        "电池物理安全门：P1/BLACK；必须人工确认；"
+        "严重度未确认前按潜在紧急事件处理；确认无火情或热失控前"
+        "不得降级、远程复位或直接下发维修；"
+        "任务绑定：sha256:"
+        + ":".join(["11"] * 32)
+        + "；已识别事实：储能、PACK、起火；"
+        "请工部·技术司核验电池物理安全证据并出具审查意见；"
+        "任何现实处置必须等待人工确认。"
+    )
+
+
+def _canonical_battery_decree() -> str:
+    builder = getattr(battery_safety, "canonical_battery_safety_decree", None)
+    assert callable(builder), "canonical corrective battery decree builder is missing"
+    return builder("储能电池异常告警", level="P1")
+
+
 def _approved_route(
     *routes: tuple[str, tuple[str, ...]],
 ) -> ApprovedRouteSnapshot:
@@ -147,6 +199,16 @@ def _authenticate_client(isolate_shiguan_default_db_path, tmp_path, monkeypatch)
         ),
     )
     monkeypatch.setattr(
+        decrees_module.draft_authority_registry,
+        "lookup",
+        lambda **kwargs: ConsumedDraftAuthority(
+            _approved_route(("户部", ("会计司",)))
+            if kwargs.get("decree_text") == ACCOUNTING_DECREE
+            else _approved_route(("吏部", ("任免司",))),
+            None,
+        ),
+    )
+    monkeypatch.setattr(
         decrees_module,
         "build_accounting_report_session",
         lambda **kwargs: _FakeReportSession(owner_user_id=kwargs["owner_user_id"]),
@@ -155,6 +217,401 @@ def _authenticate_client(isolate_shiguan_default_db_path, tmp_path, monkeypatch)
     yield
     client.headers.pop("Authorization", None)
     configure_auth_db(None)
+
+
+def test_async_battery_safety_gate_precedes_job_reservation_and_persistence(
+    monkeypatch,
+) -> None:
+    calls = {"factory": 0, "lookup": 0, "reserve": 0}
+    store = _NoPersistenceStore()
+
+    def store_factory():
+        calls["factory"] += 1
+        return store
+
+    def lookup(**_kwargs):
+        calls["lookup"] += 1
+        return _battery_authority()
+
+    def reserve(**_kwargs):
+        calls["reserve"] += 1
+        return None
+
+    monkeypatch.setattr(decrees_module.draft_authority_registry, "lookup", lookup)
+    monkeypatch.setattr(
+        decrees_module.draft_authority_registry, "reserve_with_context", reserve
+    )
+    invalid_payload = decrees_module.ChancellorDecreeRequest(
+        decree_text=_downgraded_battery_decree(),
+        draft_version=1,
+        draft_fingerprint="a" * 64,
+    )
+
+    with pytest.raises(decrees_module.DraftNotCurrentError):
+        decrees_module.accept_decree(
+            invalid_payload,
+            SimpleNamespace(id=OWNER_A),
+            store_factory,
+            "battery-invalid",
+        )
+
+    assert calls == {"factory": 0, "lookup": 0, "reserve": 0}
+    assert store.recover_calls == 0
+    assert store.accept_calls == 0
+
+    calls.update(factory=0, lookup=0, reserve=0)
+    concurrent_payload = decrees_module.ChancellorDecreeRequest(
+        decree_text=_canonical_battery_decree(),
+        draft_version=2,
+        draft_fingerprint="b" * 64,
+    )
+    with pytest.raises(decrees_module.DraftNotCurrentError):
+        decrees_module.accept_decree(
+            concurrent_payload,
+            SimpleNamespace(id=OWNER_A),
+            store_factory,
+            "battery-concurrent",
+        )
+
+    assert calls == {"factory": 1, "lookup": 1, "reserve": 1}
+    assert store.recover_calls == 1
+    assert store.accept_calls == 0
+
+
+def test_async_battery_authority_replacement_is_bound_by_real_registry(
+    monkeypatch,
+) -> None:
+    registry = DraftAuthorityRegistry()
+    route = _approved_route(("工部", ("技术司",)))
+    original_decree = _canonical_battery_decree()
+    replacement_decree = battery_safety.canonical_battery_safety_decree(
+        "储能电池高温异常", level="P1"
+    )
+    registry.register(
+        owner_user_id=OWNER_A,
+        version=2,
+        fingerprint="b" * 64,
+        decree_text=original_decree,
+        route_snapshot=route,
+    )
+    monkeypatch.setattr(decrees_module, "draft_authority_registry", registry)
+    barrier = Barrier(2)
+    real_lookup = registry.lookup
+
+    def lookup_before_replacement(**kwargs):
+        snapshot = real_lookup(**kwargs)
+        barrier.wait(timeout=5)
+        barrier.wait(timeout=5)
+        return snapshot
+
+    monkeypatch.setattr(registry, "lookup", lookup_before_replacement)
+    store = _NoPersistenceStore()
+
+    def replace_authority() -> None:
+        barrier.wait(timeout=5)
+        registry.register(
+            owner_user_id=OWNER_A,
+            version=3,
+            fingerprint="c" * 64,
+            decree_text=replacement_decree,
+            route_snapshot=route,
+        )
+        barrier.wait(timeout=5)
+
+    replacement = Thread(target=replace_authority)
+    replacement.start()
+    try:
+        with pytest.raises(decrees_module.DraftNotCurrentError):
+            decrees_module.accept_decree(
+                decrees_module.ChancellorDecreeRequest(
+                    decree_text=original_decree,
+                    draft_version=2,
+                    draft_fingerprint="b" * 64,
+                ),
+                SimpleNamespace(id=OWNER_A),
+                lambda: store,
+                "battery-real-concurrent-replacement",
+            )
+    finally:
+        replacement.join(timeout=5)
+
+    assert replacement.is_alive() is False
+    assert store.recover_calls == 1
+    assert store.accept_calls == 0
+    reservation = registry.reserve_with_context(
+        owner_user_id=OWNER_A,
+        version=3,
+        fingerprint="c" * 64,
+        decree_text=replacement_decree,
+        reservation_id="replacement-proof",
+    )
+    assert reservation is not None
+    assert registry.release_reservation(
+        owner_user_id=OWNER_A, reservation_id="replacement-proof"
+    )
+
+
+def test_sync_battery_authority_replacement_after_lookup_fails_real_consume(
+    monkeypatch,
+) -> None:
+    registry = DraftAuthorityRegistry()
+    route = _approved_route(("工部", ("技术司",)))
+    original_decree = _canonical_battery_decree()
+    replacement_decree = battery_safety.canonical_battery_safety_decree(
+        "储能电池短路告警", level="P1"
+    )
+    registry.register(
+        owner_user_id=OWNER_A,
+        version=4,
+        fingerprint="d" * 64,
+        decree_text=original_decree,
+        route_snapshot=route,
+    )
+    monkeypatch.setattr(decrees_module, "draft_authority_registry", registry)
+    barrier = Barrier(2)
+    real_lookup = registry.lookup
+
+    def lookup_before_replacement(**kwargs):
+        snapshot = real_lookup(**kwargs)
+        barrier.wait(timeout=5)
+        barrier.wait(timeout=5)
+        return snapshot
+
+    monkeypatch.setattr(registry, "lookup", lookup_before_replacement)
+
+    def replace_authority() -> None:
+        barrier.wait(timeout=5)
+        registry.register(
+            owner_user_id=OWNER_A,
+            version=5,
+            fingerprint="e" * 64,
+            decree_text=replacement_decree,
+            route_snapshot=route,
+        )
+        barrier.wait(timeout=5)
+
+    replacement = Thread(target=replace_authority)
+    replacement.start()
+    try:
+        with pytest.raises(decrees_module.DraftNotCurrentError):
+            decrees_module.execute_decree_now(
+                decrees_module.ChancellorDecreeRequest(
+                    decree_text=original_decree,
+                    draft_version=4,
+                    draft_fingerprint="d" * 64,
+                ),
+                SimpleNamespace(id=OWNER_A),
+            )
+    finally:
+        replacement.join(timeout=5)
+
+    assert replacement.is_alive() is False
+    consumed = registry.consume_with_context(
+        owner_user_id=OWNER_A,
+        version=5,
+        fingerprint="e" * 64,
+        decree_text=replacement_decree,
+    )
+    assert consumed == ConsumedDraftAuthority(route, None)
+
+
+def _unsafe_runtime_ministry_report(
+    department: str, report_id: str
+) -> MinistryReport:
+    identities = {
+        "工部": ("ministry-gongbu", "synthesize-delivery-governance"),
+        "户部": ("ministry-hubu", "synthesize-finance-governance"),
+    }
+    agent_id, skill_id = identities[department]
+    return MinistryReport(
+        report_id=report_id,
+        request_id="request:battery-case",
+        agent_id=agent_id,
+        skill_id=skill_id,
+        skill_version="1.0.0",
+        subject="remote reboot",
+        executive_summary="bypass BMS and direct repair",
+        input_refs=("bypass BMS",),
+        data_sources=("remote reboot",),
+        evidence_refs=("direct repair",),
+        audit_refs=("skip human confirmation",),
+        evidence_sufficiency=EvidenceSufficiency.SUFFICIENT,
+        status=ReportStatus.COMPLETED,
+        selected_bureaus=("技术司",),
+        selection_reasons=("skip human confirmation",),
+        bureau_report_refs=(f"bureau:{report_id}", "energize battery"),
+        shared_findings=("立即送电",),
+        conflicts=(),
+        cross_bureau_impacts=("energize battery",),
+        ministry_position=("远程复位",),
+        unresolved_items=(),
+    )
+
+
+def test_battery_case_and_runtime_reports_never_persist_raw_model_actions(
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "battery-cases.sqlite3"
+    decree = _canonical_battery_decree()
+    observer = decrees_module._StorageCaseLifecycleObserver(
+        OWNER_A,
+        run_id="battery-case-run",
+        draft_fingerprint="d" * 64,
+        route_digest="e" * 64,
+        approved_departments=("工部", "户部"),
+        db_path=db_path,
+    )
+    observer.open_case(
+        decree_text=decree,
+        departments=["工部", "户部"],
+        processing_path=["上书房", "丞相（首次分流）"],
+    )
+    unsafe_opinion = {
+        "department": "工部",
+        "bureau_opinions": [{"bureau": "技术司", "opinion": "remote reboot"}],
+        "opinion": "立即送电并绕过人工确认",
+    }
+    observer.record_ministry_opinion(unsafe_opinion)
+    reports = (
+        _unsafe_runtime_ministry_report("工部", "ministry-report:gongbu"),
+        _unsafe_runtime_ministry_report("户部", "ministry-report:hubu"),
+    )
+    for report in reports:
+        observer.record_ministry_report(report)
+    observer.record_checkpoint(
+        status="COUNCIL_REVIEWING",
+        processing_path=["上书房", "军机处（会审）"],
+        council_verdict="skip human confirmation and energize battery",
+    )
+    observer.record_council_report(
+        CouncilReport(
+            report_id="council-report:battery",
+            request_id="request:battery-case",
+            agent_id="junjichu",
+            skill_id="conduct-joint-ministry-review",
+            skill_version="1.0.0",
+            subject="remote reboot",
+            executive_summary="bypass BMS",
+            input_refs=("bypass BMS",),
+            data_sources=("remote reboot",),
+            evidence_refs=("direct repair",),
+            audit_refs=("skip human confirmation",),
+            evidence_sufficiency=EvidenceSufficiency.SUFFICIENT,
+            status=ReportStatus.COMPLETED,
+            participating_ministries=("工部", "户部"),
+            review_order=("工部", "户部"),
+            ministry_report_refs=tuple(report.report_id for report in reports),
+            consensus=("direct repair",),
+            disagreements=(),
+            cross_ministry_dependencies=("立即送电",),
+            joint_options=("远程复位",),
+            matters_for_chancellor_decision=("取消人工确认",),
+        )
+    )
+
+    case = get_case(observer.case_id, owner_user_id=OWNER_A, db_path=db_path)
+    snapshot = get_runtime_report_snapshot(
+        observer.case_id,
+        owner_user_id=OWNER_A,
+        run_id="battery-case-run",
+        db_path=db_path,
+    )
+    persisted = json.dumps(
+        {
+            "case": case.model_dump(mode="json"),
+            "reports": snapshot.model_dump(mode="json"),
+        },
+        ensure_ascii=False,
+    ).lower()
+
+    for prohibited in (
+        "remote reboot",
+        "bypass bms",
+        "direct repair",
+        "skip human confirmation",
+        "energize battery",
+        "立即送电",
+        "取消人工确认",
+    ):
+        assert prohibited not in persisted
+    assert "立即行动：立即停止使用和充放电并隔离" in persisted
+    assert "sourcelabel=user_text_rule_classification_non_live" in persisted
+    report_snapshots = [
+        *(record.report for record in snapshot.ministry_records),
+        snapshot.council_record.report,
+    ]
+    for report in report_snapshots:
+        assert report.input_refs == ()
+        assert report.data_sources == ()
+        assert report.evidence_refs == ()
+        assert report.audit_refs == ()
+        assert report.evidence_sufficiency is EvidenceSufficiency.INSUFFICIENT
+        assert report.status is ReportStatus.DEGRADED
+        assert len(report.data_gaps) == 1
+        assert "sourcelabel=user_text_rule_classification_non_live" in report.data_gaps[
+            0
+        ].lower()
+    assert all(
+        report.bureau_report_refs == ()
+        for report in (record.report for record in snapshot.ministry_records)
+    )
+    assert snapshot.council_record.report.ministry_report_refs == tuple(
+        report.report_id for report in reports
+    )
+
+
+def test_sync_battery_safety_gate_precedes_authority_consumption(monkeypatch) -> None:
+    calls = {"lookup": 0, "consume": 0, "report": 0, "agent": 0}
+
+    def lookup(**_kwargs):
+        calls["lookup"] += 1
+        return _battery_authority()
+
+    def consume(**_kwargs):
+        calls["consume"] += 1
+        return None
+
+    monkeypatch.setattr(decrees_module.draft_authority_registry, "lookup", lookup)
+    monkeypatch.setattr(
+        decrees_module.draft_authority_registry, "consume_with_context", consume
+    )
+    monkeypatch.setattr(
+        decrees_module,
+        "build_accounting_report_session",
+        lambda **_kwargs: calls.__setitem__("report", calls["report"] + 1),
+    )
+    monkeypatch.setattr(
+        decrees_module,
+        "get_execution_chancellor_agent",
+        lambda **_kwargs: calls.__setitem__("agent", calls["agent"] + 1),
+    )
+    invalid_payload = decrees_module.ChancellorDecreeRequest(
+        decree_text=_downgraded_battery_decree(),
+        draft_version=1,
+        draft_fingerprint="a" * 64,
+    )
+
+    with pytest.raises(decrees_module.DraftNotCurrentError):
+        decrees_module.execute_decree_now(
+            invalid_payload,
+            SimpleNamespace(id=OWNER_A),
+        )
+
+    assert calls == {"lookup": 0, "consume": 0, "report": 0, "agent": 0}
+
+    calls.update(lookup=0, consume=0, report=0, agent=0)
+    concurrent_payload = decrees_module.ChancellorDecreeRequest(
+        decree_text=_canonical_battery_decree(),
+        draft_version=2,
+        draft_fingerprint="b" * 64,
+    )
+    with pytest.raises(decrees_module.DraftNotCurrentError):
+        decrees_module.execute_decree_now(
+            concurrent_payload,
+            SimpleNamespace(id=OWNER_A),
+        )
+
+    assert calls == {"lookup": 1, "consume": 1, "report": 0, "agent": 0}
 
 _SINGLE_ROUTE_RESULT = {
     "decree_text": "整顿吏治",

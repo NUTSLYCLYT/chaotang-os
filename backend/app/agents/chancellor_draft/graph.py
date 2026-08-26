@@ -24,6 +24,14 @@ from app.accounting_reports import (
 )
 from app.accounting_reports.period_policy import LedgerLoader
 from app.agents.bureaus.profiles import BUREAU_PROFILES
+from app.agents.chancellor_draft.battery_safety import (
+    BatterySafetyLevel,
+    battery_safety_prompt_constraint,
+    blocked_battery_response,
+    classify_battery_safety,
+    enforce_battery_safety_response,
+    expected_draft_fingerprint,
+)
 from app.agents.chancellor_draft.instructions_loader import (
     load_chancellor_draft_instructions,
 )
@@ -597,19 +605,40 @@ def build_chancellor_draft_graph(
         return resolved_chat_model
 
     def _draft(state: ChancellorDraftGraphState) -> dict:
-        deterministic_response = _explicit_bureau_needs_input_response(
-            messages=state["messages"],
-            version=state["version"],
-        )
-        if deterministic_response is not None:
-            return {"response": deterministic_response.model_dump(mode="json")}
-
         user_text = "\n".join(
             message["content"]
             for message in state["messages"]
             if message.get("role") == "user"
             and isinstance(message.get("content"), str)
         )
+        safety_decision = classify_battery_safety(user_text)
+        if safety_decision.level is BatterySafetyLevel.P0:
+            response = blocked_battery_response(user_text, state["version"])
+            return {
+                "response": response.model_dump(mode="json"),
+                "preserve_authority": True,
+            }
+
+        def project_deterministic_response(
+            response: ChancellorDraftResponse,
+        ) -> ChancellorDraftResponse:
+            projected = enforce_battery_safety_response(user_text, response)
+            if projected == response:
+                return response
+            return projected.model_copy(
+                update={"fingerprint": expected_draft_fingerprint(projected)}
+            )
+
+        deterministic_response = _explicit_bureau_needs_input_response(
+            messages=state["messages"],
+            version=state["version"],
+        )
+        if deterministic_response is not None:
+            deterministic_response = project_deterministic_response(
+                deterministic_response
+            )
+            return {"response": deterministic_response.model_dump(mode="json")}
+
         reference_date = today_provider()
         accounting_intent = detect_accounting_report_intent(user_text)
         if accounting_intent.kind is ReportIntentKind.INVALID_PERIOD:
@@ -637,12 +666,14 @@ def build_chancellor_draft_graph(
                 version=state["version"],
                 resolution=resolution,
             )
+            response = project_deterministic_response(response)
             return {
                 "response": response.model_dump(mode="json"),
                 "preserve_authority": accounting_intent.requested,
             }
 
         system_prompt = _system_prompt(instructions.instructions)
+        system_prompt += battery_safety_prompt_constraint(safety_decision)
         if resolution.status is PeriodResolutionStatus.RESOLVED:
             if resolution.period is None:
                 raise ValueError("resolved accounting period must be retained")
@@ -717,6 +748,12 @@ def build_chancellor_draft_graph(
                         "decree_text": decree_text,
                     }
                 )
+                validated = enforce_battery_safety_response(user_text, validated)
+                normalized_payload = validated.model_dump(
+                    mode="python",
+                    exclude={"version", "fingerprint", "decree_text"},
+                )
+                decree_text = validated.decree_text
                 _validate_ready_route_semantics(state["messages"], validated)
                 _validate_resolved_period_semantics(validated, resolution)
                 route_snapshot = (

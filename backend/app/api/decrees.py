@@ -66,6 +66,11 @@ from app.agents.chancellor_draft.authority import (
     ConsumedDraftAuthority,
     draft_authority_registry,
 )
+from app.agents.chancellor_draft.battery_safety import (
+    assert_battery_safety_decree,
+    assert_battery_safety_execution_route,
+    guard_battery_safety_result,
+)
 from app.agents.chancellor_draft.routing import (
     ApprovedRouteSnapshot,
     validate_route_snapshot,
@@ -85,7 +90,12 @@ from app.agents.chancellor_runtime import (
 from app.agents.junjichu.agent import CaseLifecycleObserver
 from app.agents.ministries import MINISTRIES
 from app.agents.runtime_skills.evidence_spine import route_snapshot_digest
-from app.agents.runtime_skills.models import CouncilReport, MinistryReport
+from app.agents.runtime_skills.models import (
+    CouncilReport,
+    EvidenceSufficiency,
+    MinistryReport,
+    ReportStatus,
+)
 from app.agents.synthesis_failures import (
     SynthesisFailureCode,
     SynthesisStage,
@@ -311,6 +321,7 @@ class _StorageCaseLifecycleObserver(CaseLifecycleObserver):
     ) -> None:
         self._owner_user_id = owner_user_id
         self._case_id: str | None = None
+        self._battery_decree_text: str | None = None
         self._ministry_report_digests: list[str] = []
         self._council_report_digest: str | None = None
         self._completed_ministry_opinions: list[dict[str, object]] = []
@@ -335,6 +346,80 @@ class _StorageCaseLifecycleObserver(CaseLifecycleObserver):
 
     def _storage_kwargs(self) -> dict[str, Path]:
         return {} if self._db_path is None else {"db_path": self._db_path}
+
+    def _battery_safe_text(self) -> str | None:
+        if self._battery_decree_text is None:
+            return None
+        guarded = guard_battery_safety_result(self._battery_decree_text, None)
+        if guarded is None or not isinstance(guarded.get("final_verdict"), str):
+            raise ValueError("battery safety lifecycle projection is unavailable")
+        return guarded["final_verdict"]
+
+    def _guard_ministry_opinion(
+        self, opinion: dict[str, object]
+    ) -> dict[str, object]:
+        if self._battery_decree_text is None:
+            return opinion
+        guarded = guard_battery_safety_result(
+            self._battery_decree_text,
+            {"route_type": "multi", "ministry_opinions": [opinion]},
+        )
+        opinions = None if guarded is None else guarded.get("ministry_opinions")
+        if (
+            not isinstance(opinions, list)
+            or len(opinions) != 1
+            or not isinstance(opinions[0], dict)
+        ):
+            raise ValueError("battery safety ministry projection is unavailable")
+        return opinions[0]
+
+    def _guard_ministry_report(self, report: MinistryReport) -> MinistryReport:
+        safe = self._battery_safe_text()
+        if safe is None:
+            return report
+        payload = report.model_dump(mode="python")
+        payload.update(
+            subject=safe,
+            executive_summary=safe,
+            input_refs=(),
+            data_sources=(),
+            evidence_refs=(),
+            audit_refs=(),
+            data_gaps=(safe,),
+            evidence_sufficiency=EvidenceSufficiency.INSUFFICIENT,
+            status=ReportStatus.DEGRADED,
+            selection_reasons=(safe,),
+            bureau_report_refs=(),
+            shared_findings=(safe,),
+            conflicts=(),
+            cross_bureau_impacts=(safe,),
+            ministry_position=(safe,),
+            unresolved_items=(),
+        )
+        return MinistryReport.model_validate(payload)
+
+    def _guard_council_report(self, report: CouncilReport) -> CouncilReport:
+        safe = self._battery_safe_text()
+        if safe is None:
+            return report
+        payload = report.model_dump(mode="python")
+        payload.update(
+            subject=safe,
+            executive_summary=safe,
+            input_refs=(),
+            data_sources=(),
+            evidence_refs=(),
+            audit_refs=(),
+            data_gaps=(safe,),
+            evidence_sufficiency=EvidenceSufficiency.INSUFFICIENT,
+            status=ReportStatus.DEGRADED,
+            consensus=(safe,),
+            disagreements=(),
+            cross_ministry_dependencies=(safe,),
+            joint_options=(safe,),
+            matters_for_chancellor_decision=(safe,),
+        )
+        return CouncilReport.model_validate(payload)
 
     @property
     def case_created(self) -> bool:
@@ -361,6 +446,8 @@ class _StorageCaseLifecycleObserver(CaseLifecycleObserver):
             self._approved_departments
         ):
             raise ValueError("case route does not match approved departments")
+        decision = assert_battery_safety_decree(decree_text)
+        self._battery_decree_text = decree_text if decision.applicable else None
         case = open_case(
             JunjichuCaseOpenInput(
                 decree_text=decree_text,
@@ -383,6 +470,7 @@ class _StorageCaseLifecycleObserver(CaseLifecycleObserver):
     def record_ministry_opinion(self, opinion: dict[str, object]) -> None:
         if self._case_id is None:
             return
+        opinion = self._guard_ministry_opinion(opinion)
         self._failure_stage = "ministry"
         position = self._ministry_opinion_replay_index
         if position < len(self._completed_ministry_opinions):
@@ -404,6 +492,7 @@ class _StorageCaseLifecycleObserver(CaseLifecycleObserver):
             return
         if self._case_id is None:
             raise ValueError("case must be opened before ministry report")
+        report = self._guard_ministry_report(report)
         record = append_runtime_ministry_report(
             self._case_id,
             owner_user_id=self._owner_user_id,
@@ -418,6 +507,7 @@ class _StorageCaseLifecycleObserver(CaseLifecycleObserver):
             return
         if self._case_id is None:
             raise ValueError("case must be opened before council report")
+        report = self._guard_council_report(report)
         record = append_runtime_council_report(
             self._case_id,
             owner_user_id=self._owner_user_id,
@@ -440,6 +530,9 @@ class _StorageCaseLifecycleObserver(CaseLifecycleObserver):
             self._failure_stage = "council"
         elif status == "CHANCELLOR_FINALIZING":
             self._failure_stage = "finalize"
+        safe = self._battery_safe_text()
+        if safe is not None and council_verdict is not None:
+            council_verdict = safe
         record_checkpoint(
             self._case_id,
             owner_user_id=self._owner_user_id,
@@ -984,6 +1077,29 @@ def _accepted_response(job, *, replayed: bool) -> JSONResponse:
     )
 
 
+def _preflight_decree_authority(
+    payload: ChancellorDecreeRequest,
+    owner_user_id: str,
+    *,
+    supplied: ConsumedDraftAuthority | None = None,
+) -> ConsumedDraftAuthority:
+    """Read and validate authority/safety before its one-time mutation."""
+
+    try:
+        snapshot = supplied or draft_authority_registry.lookup(
+            owner_user_id=owner_user_id
+        )
+        if snapshot is None:
+            raise DraftNotCurrentError
+        approved_route = validate_route_snapshot(snapshot.route_snapshot)
+        assert_battery_safety_execution_route(payload.decree_text, approved_route)
+        return ConsumedDraftAuthority(approved_route, snapshot.accounting_context)
+    except DraftNotCurrentError:
+        raise
+    except Exception:
+        raise DraftNotCurrentError from None
+
+
 @router.post(
     "/api/v1/decrees/chancellor",
     response_model=AcceptedDecreeResponse,
@@ -997,6 +1113,10 @@ def accept_decree(
         alias="Idempotency-Key", min_length=1, max_length=128
     ),
 ) -> JSONResponse:
+    try:
+        safety_decision = assert_battery_safety_decree(payload.decree_text)
+    except Exception:
+        raise DraftNotCurrentError from None
     store = store_factory()
     request_hash = _canonical_request_hash(payload, current_user.id)
     try:
@@ -1013,6 +1133,9 @@ def accept_decree(
     if recovered is not None:
         return _accepted_response(recovered.job, replayed=True)
 
+    if safety_decision.applicable:
+        _preflight_decree_authority(payload, current_user.id)
+
     reservation_id = secrets.token_hex(16)
     try:
         consumed = draft_authority_registry.reserve_with_context(
@@ -1022,6 +1145,8 @@ def accept_decree(
             decree_text=payload.decree_text,
             reservation_id=reservation_id,
         )
+    except DraftNotCurrentError:
+        raise
     except Exception:
         raise AccountingReportPublicationError(
             "draft_authority_unavailable"
@@ -1134,15 +1259,29 @@ def execute_decree_now(
     不实现 agent 图逻辑").
     """
     try:
+        safety_decision = assert_battery_safety_decree(payload.decree_text)
+    except Exception:
+        raise DraftNotCurrentError from None
+    try:
+        preflight = consumed_authority
+        if safety_decision.applicable:
+            preflight = _preflight_decree_authority(
+                payload,
+                current_user.id,
+                supplied=consumed_authority,
+            )
         consumed_authority = (
-            consumed_authority
-            or draft_authority_registry.consume_with_context(
-            owner_user_id=current_user.id,
-            version=payload.draft_version or 0,
-            fingerprint=payload.draft_fingerprint or "",
-            decree_text=payload.decree_text,
+            preflight
+            if consumed_authority is not None
+            else draft_authority_registry.consume_with_context(
+                owner_user_id=current_user.id,
+                version=payload.draft_version or 0,
+                fingerprint=payload.draft_fingerprint or "",
+                decree_text=payload.decree_text,
             )
         )
+    except DraftNotCurrentError:
+        raise
     except Exception:
         raise AccountingReportPublicationError(
             "draft_authority_unavailable"

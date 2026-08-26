@@ -22,6 +22,7 @@ from app.agents.chancellor.prompts import (
     CHANCELLOR_FINALIZATION_SYSTEM_PROMPT,
     CHANCELLOR_SYSTEM_PROMPT,
 )
+from app.agents.chancellor_draft import battery_safety
 from app.agents.chancellor_draft.routing import (
     ApprovedDepartmentRoute,
     ApprovedRouteSnapshot,
@@ -64,6 +65,175 @@ from app.jinyiwei.sources.mcp import McpSource
 from app.langgraph_runtime.deepseek_config import DeepSeekApiKeyError
 
 OWNER_A = "owner-a"
+
+_P0_IMMEDIATE_ACTION = (
+    "立即行动：人员立即远离并通知现场应急/消防；仅在安全前提下切断电源。"
+)
+_P1_IMMEDIATE_ACTION = (
+    "立即行动：立即停止使用和充放电并隔离；由有资质人员现场检查。"
+)
+_NON_LIVE_SOURCE = "sourceLabel=USER_TEXT_RULE_CLASSIFICATION_NON_LIVE"
+
+
+def _battery_guard_decree(level: str) -> str:
+    visible_fact = "储能 PACK 正在燃烧" if level == "P0" else "储能电池异常告警"
+    return (
+        f"【电池物理安全门V1：{level}/BLACK；必须人工确认；工部·技术司】"
+        f"{visible_fact}；任何现实处置必须等待人工确认。"
+    )
+
+
+def _unsafe_battery_graph_result() -> dict[str, object]:
+    return {
+        "decree_text": _battery_guard_decree("P1"),
+        "chancellor_rationale": "remote reboot and bypass BMS now",
+        "route_type": "multi",
+        "departments": ["工部", "户部"],
+        "processing_path": ["上书房", "工部", "户部", "丞相（最终汇总）"],
+        "ministry_opinions": [
+            {
+                "department": "工部",
+                "bureau_opinions": [
+                    {"bureau": "技术司", "opinion": "立即送电并充电"}
+                ],
+                "opinion": "直接维修并放电",
+            },
+            {
+                "department": "户部",
+                "bureau_opinions": [
+                    {"bureau": "会计司", "opinion": "远程复位设备"}
+                ],
+                "opinion": "skip human confirmation",
+            },
+        ],
+        "council_verdict": "无需人工确认，直接下发维修",
+        "final_verdict": "bypass human approval and energize the battery",
+        "recommendations": ["远程重启", "旁路 BMS", "取消人工确认"],
+    }
+
+
+def _battery_guard():
+    guard = getattr(battery_safety, "guard_battery_safety_result", None)
+    assert callable(guard), "deterministic final-output battery guard is missing"
+    return guard
+
+
+def test_all_user_visible_battery_response_fields_reject_prohibited_actions() -> None:
+    guarded = _battery_guard()(
+        _battery_guard_decree("P1"),
+        _unsafe_battery_graph_result(),
+    )
+    visible = json.dumps(guarded, ensure_ascii=False).lower()
+
+    for prohibited in (
+        "remote reboot",
+        "bypass bms",
+        "立即送电并充电",
+        "直接维修并放电",
+        "skip human confirmation",
+        "无需人工确认",
+        "直接下发维修",
+        "bypass human approval",
+        "energize",
+        "远程重启",
+        "取消人工确认",
+    ):
+        assert prohibited not in visible
+    assert _P1_IMMEDIATE_ACTION in visible
+    assert "black" in visible
+    assert "必须人工确认" in visible
+    assert _NON_LIVE_SOURCE.lower() in visible
+
+
+def test_battery_fallback_preserves_non_live_source_immediate_action_black_and_human_confirmation(
+) -> None:
+    guarded = _battery_guard()(_battery_guard_decree("P0"), None)
+    visible = json.dumps(guarded, ensure_ascii=False)
+
+    assert _P0_IMMEDIATE_ACTION in visible
+    assert "P0/BLACK" in visible
+    assert "必须人工确认" in visible
+    assert _NON_LIVE_SOURCE in visible
+    assert all(
+        token not in visible
+        for token in ("sourceLabel=LIVE", "遥测已确认", "现场已核验")
+    )
+
+
+def test_battery_safety_response_labels_user_text_rule_as_non_live() -> None:
+    safe_result = _unsafe_battery_graph_result()
+    safe_result["chancellor_rationale"] = "仅做安全审查"
+    guarded = _battery_guard()(_battery_guard_decree("P1"), safe_result)
+    visible = json.dumps(guarded, ensure_ascii=False)
+
+    assert _NON_LIVE_SOURCE in visible
+    assert "设备实时数据" not in visible
+    assert "传感器已确认" not in visible
+    assert "现场事实已确认" not in visible
+
+
+@pytest.mark.parametrize(
+    ("level", "expected"),
+    (("P0", _P0_IMMEDIATE_ACTION), ("P1", _P1_IMMEDIATE_ACTION)),
+)
+def test_battery_safety_response_starts_with_immediate_next_step(
+    level: str, expected: str
+) -> None:
+    guarded = _battery_guard()(_battery_guard_decree(level), None)
+
+    assert guarded["final_verdict"].startswith(expected)
+
+
+def test_graph_applies_battery_output_guard_after_all_model_layers(monkeypatch) -> None:
+    decree = battery_safety.canonical_battery_safety_decree(
+        "储能电池异常告警", level="P1"
+    )
+    monkeypatch.setattr(
+        "app.agents.chancellor.graph.invoke_ministry_agent",
+        lambda *_args, **_kwargs: {
+            "department": "工部",
+            "bureau_opinions": [
+                {"bureau": "技术司", "opinion": "立即远程复位设备"}
+            ],
+            "opinion": "直接下发维修并取消人工确认",
+        },
+    )
+    graph = build_chancellor_graph(
+        owner_user_id=OWNER_A,
+        chat_model=lambda _messages: json.dumps(
+            {
+                "summary": "remote reboot and bypass BMS",
+                "recommendations": [
+                    "energize battery",
+                    "skip human confirmation",
+                    "direct repair",
+                ],
+            }
+        ),
+    )
+
+    result = graph.invoke(
+        _approved_input(
+            decree,
+            "工部",
+            required_bureaus={"工部": ("技术司",)},
+        )
+    )
+    visible = json.dumps(
+        {
+            "rationale": result["chancellor_rationale"],
+            "opinions": result["ministry_opinions"],
+            "council": result["council_verdict"],
+            "final": result["final_verdict"],
+            "recommendations": result["recommendations"],
+        },
+        ensure_ascii=False,
+    ).lower()
+
+    assert "remote reboot" not in visible
+    assert "skip human confirmation" not in visible
+    assert result["final_verdict"].startswith(_P1_IMMEDIATE_ACTION)
+    assert _NON_LIVE_SOURCE.lower() in visible
 
 
 def _single_route_response(department: str) -> str:

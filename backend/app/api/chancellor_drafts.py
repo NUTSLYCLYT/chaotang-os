@@ -20,6 +20,10 @@ from app.agents.chancellor_draft.authority import (
     AccountingAuthorityContext,
     draft_authority_registry,
 )
+from app.agents.chancellor_draft.battery_safety import (
+    BatterySafetyLevel,
+    assert_battery_safety_response,
+)
 from app.agents.chancellor_draft.routing import build_route_snapshot
 from app.agents.chancellor_runtime import (
     ChancellorAgent,
@@ -46,7 +50,7 @@ class ChancellorDraftConfigError(Exception):
 class ChancellorDraftMessage(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    role: Literal["user", "assistant"]
+    role: Literal["user"]
     content: str
 
     @field_validator("content")
@@ -71,13 +75,9 @@ class ChancellorDraftRequest(BaseModel):
     ) -> list[ChancellorDraftMessage]:
         if sum(len(item.content) for item in value) > 20000:
             raise ValueError("combined message content is too long")
-        expected = "user"
         for item in value:
-            if item.role != expected:
-                raise ValueError("messages must alternate from user")
-            expected = "assistant" if expected == "user" else "user"
-        if value[-1].role != "user":
-            raise ValueError("last message must be user")
+            if item.role != "user":
+                raise ValueError("client messages must all have role user")
         return value
 
 
@@ -165,6 +165,10 @@ def submit_chancellor_draft(
         graph_result = result.output
         response = graph_result.get("response") if isinstance(graph_result, dict) else None
         validated = ChancellorDraftResponse.model_validate(response)
+        if validated.version != payload.version:
+            raise ValueError("response version does not match request version")
+        trusted_user_text = "\n".join(message.content for message in payload.messages)
+        battery_decision = assert_battery_safety_response(trusted_user_text, validated)
     except Exception as exc:  # noqa: BLE001
         failure_code = "response_invalid"
         if getattr(result, "audit", None) is not None:
@@ -219,7 +223,8 @@ def submit_chancellor_draft(
             )
             side_effects = ("authority_registered",)
         elif (
-            not (
+            battery_decision.level is not BatterySafetyLevel.P0
+            and not (
                 isinstance(graph_result, dict)
                 and graph_result.get("preserve_authority") is True
             )

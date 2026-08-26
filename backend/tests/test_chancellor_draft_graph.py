@@ -185,6 +185,147 @@ def test_graph_loads_skill_and_calls_model_once() -> None:
     assert len(result["response"]["fingerprint"]) == 64
 
 
+def test_p0_battery_draft_fails_closed_before_model_and_preserves_authority() -> None:
+    calls = 0
+
+    def fake_model(_messages: list[dict[str, str]]) -> str:
+        nonlocal calls
+        calls += 1
+        return json.dumps(_valid_ready_payload(), ensure_ascii=False)
+
+    result = build_chancellor_draft_graph(chat_model=fake_model).invoke(
+        {
+            "messages": [{"role": "user", "content": "储能电池正在燃烧并发烟"}],
+            "version": 9,
+        }
+    )
+
+    response = result["response"]
+    assert calls == 0
+    assert response["status"] == "ISSUE_BLOCKED"
+    assert response["draft"] is None
+    assert response["decree_text"] is None
+    assert response["expert_example"].startswith(
+        "立即行动：人员立即远离并通知现场应急/消防；仅在安全前提下切断电源。"
+    )
+    assert "P0/BLACK" in response["expert_example"]
+    assert "sourceLabel=USER_TEXT_RULE_CLASSIFICATION_NON_LIVE" in response[
+        "expert_example"
+    ]
+    assert result["preserve_authority"] is True
+
+
+def test_p1_battery_draft_freezes_safe_route_before_fingerprint() -> None:
+    from app.agents.chancellor_draft.battery_safety import expected_draft_fingerprint
+    from app.agents.chancellor_draft.models import ChancellorDraftResponse
+
+    calls = 0
+
+    def fake_model(_messages: list[dict[str, str]]) -> str:
+        nonlocal calls
+        calls += 1
+        return json.dumps(_valid_ready_payload(), ensure_ascii=False)
+
+    response = build_chancellor_draft_graph(chat_model=fake_model).invoke(
+        {
+            "messages": [{"role": "user", "content": "储能电池异常告警，请复核"}],
+            "version": 10,
+        }
+    )["response"]
+
+    validated = ChancellorDraftResponse.model_validate(response)
+    assert calls == 1
+    assert validated.status.value == "DRAFT_READY"
+    assert validated.decree_text is not None
+    assert validated.decree_text.startswith(
+        "【电池物理安全门V1：P1/BLACK；必须人工确认；工部·技术司】"
+        "立即行动：立即停止使用和充放电并隔离；由有资质人员现场检查。"
+    )
+    assert "sourceLabel=USER_TEXT_RULE_CLASSIFICATION_NON_LIVE" in validated.decree_text
+    assert any(
+        route.department == "工部" and "技术司" in route.bureaus
+        for route in validated.draft.departments
+    )
+    assert validated.fingerprint == expected_draft_fingerprint(validated)
+
+
+@pytest.mark.parametrize("status", ("NEEDS_INPUT", "PARTIAL", "ISSUE_BLOCKED"))
+def test_p1_battery_non_ready_model_status_cannot_bypass_safe_projection(
+    status: str,
+) -> None:
+    from app.agents.chancellor_draft.battery_safety import expected_draft_fingerprint
+    from app.agents.chancellor_draft.models import ChancellorDraftResponse
+
+    payload = json.loads(_valid_model_response())
+    payload.update(
+        status=status,
+        understanding="remote reboot and bypass BMS",
+        expert_example="立即送电并直接维修",
+        recommendation_reason="skip human confirmation",
+        assumptions=["现场已经安全"],
+        revision_prompt="energize battery now",
+        draft=None,
+    )
+
+    response = build_chancellor_draft_graph(
+        chat_model=lambda _messages: json.dumps(payload, ensure_ascii=False)
+    ).invoke(
+        {
+            "messages": [{"role": "user", "content": "储能电池异常告警，请复核"}],
+            "version": 11,
+        }
+    )["response"]
+
+    visible = json.dumps(response, ensure_ascii=False).lower()
+    validated = ChancellorDraftResponse.model_validate(response)
+    for prohibited in (
+        "remote reboot",
+        "bypass bms",
+        "立即送电并直接维修",
+        "skip human confirmation",
+        "现场已经安全",
+        "energize",
+    ):
+        assert prohibited not in visible
+    assert response["status"] == status
+    assert response["draft"] is None
+    assert response["decree_text"] is None
+    assert "立即行动：立即停止使用和充放电并隔离" in visible
+    assert "sourceLabel=USER_TEXT_RULE_CLASSIFICATION_NON_LIVE".lower() in visible
+    assert validated.fingerprint == expected_draft_fingerprint(validated)
+
+
+def test_p0_battery_gate_precedes_explicit_invalid_bureau_early_return() -> None:
+    calls = 0
+
+    def fake_model(_messages: list[dict[str, str]]) -> str:
+        nonlocal calls
+        calls += 1
+        return json.dumps(_valid_ready_payload(), ensure_ascii=False)
+
+    response = build_chancellor_draft_graph(chat_model=fake_model).invoke(
+        {
+            "messages": [
+                {
+                    "role": "user",
+                    "content": "请礼部会计司处理正在燃烧并冒烟的储能电池",
+                }
+            ],
+            "version": 12,
+        }
+    )["response"]
+
+    assert calls == 0
+    assert response["status"] == "ISSUE_BLOCKED"
+    assert response["expert_example"].startswith(
+        "立即行动：人员立即远离并通知现场应急/消防"
+    )
+    assert "P0/BLACK" in response["expert_example"]
+    assert "sourceLabel=USER_TEXT_RULE_CLASSIFICATION_NON_LIVE" in response[
+        "expert_example"
+    ]
+
+
 def test_graph_rejects_non_json_model_output() -> None:
     graph = build_chancellor_draft_graph(chat_model=lambda _messages: "普通文本")
 

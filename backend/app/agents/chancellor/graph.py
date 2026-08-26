@@ -72,6 +72,10 @@ from langgraph.graph.state import CompiledStateGraph
 
 from app.agents.bureaus import BureauAgentInvocationError
 from app.agents.chancellor.prompts import CHANCELLOR_FINALIZATION_SYSTEM_PROMPT
+from app.agents.chancellor_draft.battery_safety import (
+    assert_battery_safety_execution_route,
+    guard_battery_safety_result,
+)
 from app.agents.chancellor_draft.routing import (
     ApprovedRouteSnapshot,
     validate_route_snapshot,
@@ -397,6 +401,9 @@ def build_chancellor_graph(
     def _decide_route(state: ChancellorGraphState) -> dict:
         try:
             approved_route = validate_route_snapshot(state["approved_route"])
+            assert_battery_safety_execution_route(
+                state["decree_text"], approved_route
+            )
         except Exception as exc:  # noqa: BLE001 - sanitized graph boundary
             error = ChancellorGraphInvocationError(
                 "Chancellor graph rejected the approved route snapshot; "
@@ -592,6 +599,12 @@ def build_chancellor_graph(
         }
 
     def _finalize_chancellor(state: ChancellorGraphState) -> dict:
+        def guarded_result(result: dict[str, object]) -> dict[str, object]:
+            guarded = guard_battery_safety_result(
+                state["decree_text"], {**state, **result}
+            )
+            return result if guarded is None else guarded
+
         if execution_boundary is not None:
             execution_boundary()
         if state["route_type"] == "multi" and lifecycle_observer is not None:
@@ -652,7 +665,7 @@ def build_chancellor_graph(
             snapshot = state["evidence_session"].snapshot()
             if not can_degrade:
                 fallback_summary, fallback_recommendations = _fallback_finalization(state)
-                return {
+                return guarded_result({
                     "processing_path": [
                         *state["processing_path"],
                         "丞相（最终汇总）",
@@ -661,14 +674,14 @@ def build_chancellor_graph(
                     "recommendations": fallback_recommendations,
                     "evidence_snapshot": snapshot,
                     "adopted_evidence_ids": snapshot.adopted_evidence_ids,
-                }
-            return {
+                })
+            return guarded_result({
                 "processing_path": [*state["processing_path"], "丞相（最终汇总）"],
                 "final_verdict": state["ministry_opinions"][0]["opinion"],
                 "recommendations": list(_CANONICAL_MARKET_RECOMMENDATIONS),
                 "evidence_snapshot": snapshot,
                 "adopted_evidence_ids": snapshot.adopted_evidence_ids,
-            }
+            })
 
         can_use_canonical = (
             state["route_type"] == "single"
@@ -686,7 +699,7 @@ def build_chancellor_graph(
             ):
                 state["evidence_session"].record_degradation("chancellor:finalize")
                 snapshot = state["evidence_session"].snapshot()
-                return {
+                return guarded_result({
                     "processing_path": [
                         *state["processing_path"],
                         "丞相（最终汇总）",
@@ -695,13 +708,13 @@ def build_chancellor_graph(
                     "recommendations": list(_CANONICAL_MARKET_RECOMMENDATIONS),
                     "evidence_snapshot": snapshot,
                     "adopted_evidence_ids": snapshot.adopted_evidence_ids,
-                }
+                })
 
-        return {
+        return guarded_result({
             "processing_path": [*state["processing_path"], "丞相（最终汇总）"],
             "final_verdict": summary,
             "recommendations": recommendations,
-        }
+        })
 
     builder = StateGraph(ChancellorGraphState)
     builder.add_node("decide_route", _decide_route)
