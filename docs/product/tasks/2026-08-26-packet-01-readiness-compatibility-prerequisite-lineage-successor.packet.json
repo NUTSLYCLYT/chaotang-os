@@ -1,0 +1,219 @@
+{
+  "schemaVersion": "governance-repair.packet.v1",
+  "taskId": "PACKET-01-READINESS-COMPATIBILITY-PREREQUISITE-LINEAGE-SUCCESSOR-20260826",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "e698fdc7771445f1e6bf2084fa94dc52d9e4064d",
+    "baseTree": "45aa9e2aeee722c8c9cbd295929dca3a52cc8f12",
+    "approvalCommitPaths": [
+      "docs/product/tasks/2026-08-26-packet-01-readiness-compatibility-prerequisite-lineage-successor.md",
+      "docs/product/tasks/2026-08-26-packet-01-readiness-compatibility-prerequisite-lineage-successor.packet.json",
+      "docs/superpowers/plans/2026-08-26-packet-01-readiness-compatibility-prerequisite-lineage-successor.md"
+    ],
+    "candidatePaths": [
+      "backend/tests/test_six_ministry_readiness_report.py",
+      "scripts/check_harness.mjs"
+    ]
+  },
+  "predecessor": {
+    "taskId": "PACKET-01-READINESS-COMPATIBILITY-PREREQUISITE-SUCCESSOR-20260826",
+    "baseCommit": "c939bc4dc5f759d52ca86424c725f8ac2baf2d19",
+    "baseTree": "a7ce87107ca4763c448183b1a21b467310a72443",
+    "disposition": "STOP / REMOTE_BASE_DRIFT / BYTE_DONOR_ONLY / NO_REANCHOR",
+    "packetCanonicalDigest": "sha256:d0e08e7ac11b137ff00a12d41e5608c922e056eac5d5a56c71b78ed408c384b1",
+    "threeFileBundleDigest": "sha256:3938747e970b096eb1c299c3aacadd75b57f0bc126a4925976b2550b3d2482bb",
+    "taskRawSha256": "sha256:4aade3ad3c25546aefa6802d1e37e4e2738928c5e86342bab9258152859a67ed",
+    "packetRawSha256": "sha256:bf9cbb3c60df414cc8221b30b8e9134c9b8b3363154acf5e7d7d8e0e83af644e",
+    "planRawSha256": "sha256:476d6b724be54c410759dbdf3c8de689185fd3ae039e304488093675f7136e16",
+    "redGreenEvidenceDigest": "sha256:be2a644e6b1ff8e6213c81b9f65394b83635d736e74aef2b277d3f24e02af51d",
+    "redGreenEvidenceBinding": "PREDECESSOR_C939BC4D_A7CE8710_ONLY",
+    "approvalIdentityInherited": false
+  },
+  "lineageTransition": {
+    "commit": "e698fdc7771445f1e6bf2084fa94dc52d9e4064d",
+    "parent": "c939bc4dc5f759d52ca86424c725f8ac2baf2d19",
+    "tree": "45aa9e2aeee722c8c9cbd295929dca3a52cc8f12",
+    "subject": "docs(governance): approve first decree cockpit M0",
+    "parentCount": 1,
+    "changedPaths": [
+      ".harness/approvals/FIRST-DECREE-COCKPIT-V1-20260826.json",
+      "docs/product/tasks/2026-08-26-first-decree-cockpit-v1.md",
+      "docs/superpowers/plans/2026-08-26-first-decree-cockpit-v1.md"
+    ],
+    "changedPathModes": ["100644", "100644", "100644"],
+    "changeKinds": ["ADD", "ADD", "ADD"],
+    "lineageKind": "UNRELATED_PRODUCT_GOVERNANCE_APPROVAL",
+    "overlap": {
+      "predecessorApprovalPaths": [],
+      "readinessCandidatePaths": [],
+      "p01Exact10Paths": [],
+      "runtimeContentPaths": [],
+      "successorContentPaths": []
+    }
+  },
+  "firstDecreeAuthorityDisposition": {
+    "taskId": "FIRST-DECREE-COCKPIT-V1-20260826",
+    "approvalCommit": "e698fdc7771445f1e6bf2084fa94dc52d9e4064d",
+    "previousState": "APPROVED_FOR_ONE_CHILD",
+    "disposition": "ABANDONED_BY_OWNER_UNCONSUMED / REISSUE_REQUIRED",
+    "reason": "SERIALIZED_P01_PREREQUISITE_PRIORITY",
+    "ownerConfirmed": true,
+    "historicalEvidenceRetained": true,
+    "candidateIdentityGranted": false,
+    "authorityMayBeConsumedRestoredInheritedOrReanchored": false,
+    "futureFirstDecreeSuccessorRequired": true,
+    "futureP01SuccessorHeadAdvanceEffectAcknowledged": true,
+    "approvalMaterializationAuthorizedByThisPacket": false
+  },
+  "productByteBinding": {
+    "exact10Structure": "2 ADD + 8 MODIFY",
+    "exact10Mode": "100644",
+    "eleventhPathPresent": false,
+    "exact10BundleDigest": "sha256:df3bb9e9d099433468191457b9e554dc59980aea45724f2bedb4b628305b400a",
+    "runtimeContentFileCount": 65,
+    "runtimeFingerprint": "sha256:da31e8098bf76c72ff8d00b073d86e3442b0811223ef3e3bab770af31e89c28e",
+    "successorFingerprint": "sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924",
+    "proposedPair": ["sha256:da31e8098bf76c72ff8d00b073d86e3442b0811223ef3e3bab770af31e89c28e", "sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"],
+    "identityDisposition": "SHADOW_BYTE_INPUT_ONLY_NOT_A_CANDIDATE",
+    "unchangedAcrossLineageTransition": true
+  },
+  "policy": {
+    "commitProtocol": "EXACT_SINGLE_PARENT_AND_PATHS_OWNER_CONFIRMED",
+    "forwardOnly": true,
+    "forcePushAllowed": false,
+    "compatibilityMode": "EXACT_ORDERED_PAIR_APPEND_ONLY",
+    "existingPairCount": 3,
+    "requiredPostAppendPairCount": 4,
+    "requiredPairSetDelta": "+1/-0",
+    "historicalFileCount": 69,
+    "historicalReviewStatus": "approved-with-notes",
+    "historicalReviewedFingerprint": "sha256:a6c2de2ca7f15069a6d997ce2cccb9498ddd4dd1269d539c192993e85a265190",
+    "currentFileCount": 65,
+    "excludedPaths": [
+      "backend/app/accounting_reports/storage.py",
+      "backend/tests/test_six_ministry_accounting_evidence_adapter.py",
+      "backend/tests/test_six_ministry_readiness_report.py",
+      "scripts/check_harness.mjs"
+    ],
+    "successorContentPaths": [
+      "backend/app/accounting_reports/storage.py",
+      "backend/tests/test_six_ministry_accounting_evidence_adapter.py"
+    ],
+    "existingAllowedPairs": [
+      [
+        "sha256:013bfb8272e936be85c2d470033787c3b7f105ad6eae2dfe680373df023b5e69",
+        "sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"
+      ],
+      [
+        "sha256:c95630be3d79f2641ff6e483f4096b0763b9e5071544f1e0ead0d7e24eb1cba5",
+        "sha256:268cab13e516d0f716f600819f2bddc8242269312d392eca4ed1be2de05ce051"
+      ],
+      [
+        "sha256:d330b7f177f5bbb761eb359ffffca6f12250e5bbe90d13d0414d0fdefb78e98a",
+        "sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"
+      ]
+    ],
+    "newAllowedPairMustBeUnique": true,
+    "unapprovedFifthPairMustBeRejected": true,
+    "observedUnfrozenFingerprintMayNotBeUsed": true,
+    "predecessorApprovalIdentityMayNotBeInherited": true,
+    "abandonedFirstDecreeAuthorityMayNotBeConsumed": true,
+    "otherRemoteWritersMustRemainPaused": true,
+    "reviewersReadOnly": true,
+    "failureMode": "FAIL_CLOSED_STOP"
+  },
+  "nonGoals": [
+    "AUTHORITY_POLICY_CHANGE",
+    "CANDIDATE_OR_APPROVAL_MATERIALIZATION",
+    "CURRENT_OR_PREDECESSOR_P01_APPROVAL_REANCHOR",
+    "DATABASE_OR_API_CHANGE",
+    "EXCLUSION_SET_CHANGE",
+    "EXISTING_COMPATIBILITY_PAIR_REMOVAL_OR_REPLACEMENT",
+    "FIRST_DECREE_COCKPIT_FILE_OR_AUTHORITY_CHANGE",
+    "FORCE_PUSH_OR_HISTORY_REWRITE",
+    "FRONTEND_CHANGE",
+    "HISTORICAL_READINESS_REPORT_OR_REVIEW_REWRITE",
+    "P01_EXACT10_PRODUCT_PATH_CHANGE",
+    "PRODUCT_TEST_EXECUTION_DURING_DRAFTING",
+    "PRODUCTION_DEPLOYMENT_OR_RELEASE",
+    "SECOND_HARNESS_OR_FACT_SOURCE",
+    "SUCCESSOR_CONTENT_PATH_CHANGE"
+  ],
+  "futureVerification": [
+    {
+      "id": "readiness-report-pytest",
+      "tool": "python3",
+      "args": ["-m", "pytest", "-q", "tests/test_six_ministry_readiness_report.py"],
+      "cwd": "backend",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "backend-full-pytest",
+      "tool": "python3",
+      "args": ["-m", "pytest", "-q"],
+      "cwd": "backend",
+      "timeoutMs": 360000
+    },
+    {
+      "id": "root-harness",
+      "tool": "node",
+      "args": ["scripts/check_harness.mjs"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "root-harness-self-test",
+      "tool": "node",
+      "args": ["scripts/check_harness.mjs", "--self-test"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "root-harness-doctor",
+      "tool": "node",
+      "args": ["scripts/harness-doctor.mjs", "--check"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "root-harness-doctor-tests",
+      "tool": "node",
+      "args": ["--test", "scripts/harness-doctor.test.mjs"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "harness-hook-self-test",
+      "tool": "node",
+      "args": [".agents/hooks/check-harness.mjs", "--self-test"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "product-authority-regression",
+      "tool": "node",
+      "args": ["--test", "scripts/product-authority.test.mjs"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v2-convergence-check",
+      "tool": "node",
+      "args": ["scripts/ext-full-value-convergence.mjs", "--check"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v2-convergence-regression",
+      "tool": "node",
+      "args": ["--test", "scripts/ext-full-value-convergence.test.mjs"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    }
+  ],
+  "state": "READY_FOR_OWNER_CONFIRMATION",
+  "authorizationState": "NON_AUTHORIZING"
+}
