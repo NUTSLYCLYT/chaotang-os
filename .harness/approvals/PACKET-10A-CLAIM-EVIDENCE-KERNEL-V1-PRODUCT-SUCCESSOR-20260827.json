@@ -1,0 +1,238 @@
+{
+  "schemaVersion": "product-authority.m0.approval.v1",
+  "authorityId": "product-authority.m0.v1",
+  "taskId": "PACKET-10A-CLAIM-EVIDENCE-KERNEL-V1-PRODUCT-SUCCESSOR-20260827",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "29094bc2d7c52f89122338975eddb8130c433c35",
+    "baseTree": "0028fc93b94aa43e2423141843f92d03642efc22",
+    "approvalPath": ".harness/approvals/PACKET-10A-CLAIM-EVIDENCE-KERNEL-V1-PRODUCT-SUCCESSOR-20260827.json",
+    "approvalCommitPaths": [
+      ".harness/approvals/PACKET-10A-CLAIM-EVIDENCE-KERNEL-V1-PRODUCT-SUCCESSOR-20260827.json",
+      "docs/product/tasks/2026-08-27-packet-10a-claim-evidence-kernel-v1-product-successor.md",
+      "docs/superpowers/plans/2026-08-27-packet-10a-claim-evidence-kernel-v1-product-successor.md"
+    ],
+    "productPaths": [
+      "backend/app/agents/runtime_skills/__init__.py",
+      "backend/app/agents/runtime_skills/claim_evidence_gate.py",
+      "backend/tests/test_claim_evidence_gate.py"
+    ]
+  },
+  "nonGoals": [
+    "AUTHORITY_HARNESS_READINESS_OR_GOVERNANCE_RUNTIME_CHANGE",
+    "B1_DURABLE_COMMITMENT_LEDGER_OR_PERSISTENCE",
+    "B2_FINAL_MEMORIAL_DECREE_OR_RUNTIME_ACTIVATION",
+    "CANDIDATE_COMMIT_PUSH_PILOT_RELEASE_OR_DEPLOYMENT",
+    "DONOR_APPROVAL_AUTHORITY_CANDIDATE_VERIFICATION_OR_REVIEW_INHERITANCE",
+    "DONOR_BRANCH_CHECKOUT_MERGE_CHERRY_PICK_OR_BYTE_COPY",
+    "DURABLE_EVIDENCE_BODY_SOURCE_LEDGER_OR_SECOND_FACT_SOURCE",
+    "EXTERNAL_EFFECT_NETWORK_PROVIDER_CREDENTIAL_CLOCK_RANDOM_OR_CACHE",
+    "FILESYSTEM_SQLITE_HTTP_ENVIRONMENT_OR_MUTABLE_RUNTIME_REGISTRY",
+    "FINAL_CLAIM_THAT_ALL_HALLUCINATIONS_ARE_ELIMINATED",
+    "LEGACY_FORMAL_MEMORIAL_SWARM_OR_PERSISTENCE_RUNTIME_RESTORATION",
+    "MUTABLE_SCHEMA_EXTRACTOR_ADAPTER_COMPARATOR_OR_DERIVATION_INJECTION",
+    "PRODUCT_PATH_EXPANSION_DEPENDENCY_ADDITION_OR_UNRELATED_REFACTOR",
+    "TEST_WEAKENING_UNKNOWN_FIELD_ACCEPTANCE_OR_FAIL_OPEN"
+  ],
+  "verification": [
+    {
+      "id": "backend-full-pytest",
+      "tool": "node",
+      "args": [
+        "--input-type=module",
+        "--eval",
+        "import{spawnSync}from'node:child_process';const r=spawnSync('/usr/bin/python3',['-m','pytest','-q'],{cwd:'backend',stdio:'inherit',env:{...process.env,TMPDIR:'/tmp',TEMP:'/tmp',TMP:'/tmp'}});process.exit(r.status??1)"
+      ],
+      "cwd": ".",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "backend-p10a-baseline-pytest",
+      "tool": "python3",
+      "args": [
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_agent_evidence_protocol.py",
+        "tests/test_six_ministry_domain_controls.py",
+        "tests/test_six_ministry_deterministic_gates.py",
+        "tests/test_shiguan_adopted_evidence.py",
+        "tests/test_shiguan_archive_decree.py"
+      ],
+      "cwd": "backend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "backend-p10a-focused-pytest",
+      "tool": "python3",
+      "args": ["-m", "pytest", "-q", "tests/test_claim_evidence_gate.py"],
+      "cwd": "backend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "backend-p10a-negative-pytest",
+      "tool": "python3",
+      "args": [
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_claim_evidence_gate.py::test_closed_json_contract_rejects_duplicate_unknown_noncanonical_values",
+        "tests/test_claim_evidence_gate.py::test_all_self_excluding_digests_fail_closed_on_tamper",
+        "tests/test_claim_evidence_gate.py::test_fact_requires_admitted_exact_evidence_binding",
+        "tests/test_claim_evidence_gate.py::test_inference_fails_closed_with_empty_derivation_registry",
+        "tests/test_claim_evidence_gate.py::test_registry_injection_and_user_defined_schema_fail_closed",
+        "tests/test_claim_evidence_gate.py::test_opinion_and_recommendation_cannot_carry_evidence_or_derivation",
+        "tests/test_claim_evidence_gate.py::test_source_reviewer_and_self_review_spoofing_fail_closed",
+        "tests/test_claim_evidence_gate.py::test_numeric_grounding_rejects_unicode_substring_and_unit_approximation",
+        "tests/test_claim_evidence_gate.py::test_decimal_grounding_preserves_sign_zero_exponent_and_limits",
+        "tests/test_claim_evidence_gate.py::test_timestamp_grounding_rejects_naive_future_stale_and_display_splice",
+        "tests/test_claim_evidence_gate.py::test_unknown_extractor_adapter_and_comparator_versions_fail_closed",
+        "tests/test_claim_evidence_gate.py::test_locator_contract_rejects_bounds_wildcards_and_template_drift",
+        "tests/test_claim_evidence_gate.py::test_duplicate_claim_evidence_and_binding_ids_fail_before_sorting",
+        "tests/test_claim_evidence_gate.py::test_container_reordering_preserves_canonical_processing_identity",
+        "tests/test_claim_evidence_gate.py::test_producer_packet_and_index_reject_cross_producer_splice",
+        "tests/test_claim_evidence_gate.py::test_shared_evidence_requires_identical_canonical_projection",
+        "tests/test_claim_evidence_gate.py::test_owner_run_decree_draft_route_and_scope_splice_fail_closed",
+        "tests/test_claim_evidence_gate.py::test_budget_precedes_materialization_and_external_effects_stay_false",
+        "tests/test_claim_evidence_gate.py::test_untrusted_payload_cannot_self_declare_admission_source_owner_or_reviewer",
+        "tests/test_claim_evidence_gate.py::test_cross_kind_version_and_level_digest_splice_fail_closed",
+        "tests/test_claim_evidence_gate.py::test_boundary_plus_one_depth_nodes_strings_decimal_and_output_fail_closed",
+        "tests/test_claim_evidence_gate.py::test_original_mutable_input_cannot_change_frozen_projection_after_parse",
+        "tests/test_claim_evidence_gate.py::test_public_envelope_redacts_source_locator_value_identity_and_error_canaries",
+        "tests/test_claim_evidence_gate.py::test_raw_candidate_root_schema_and_unknown_fields_fail_closed",
+        "tests/test_claim_evidence_gate.py::test_freshness_policy_and_locator_boundaries_fail_closed",
+        "tests/test_claim_evidence_gate.py::test_trusted_snapshot_digest_binds_authorities_and_processing_order",
+        "tests/test_claim_evidence_gate.py::test_import_and_public_api_are_pure_no_io_clock_random_env_or_network"
+      ],
+      "cwd": "backend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "backend-p10a-positive-pytest",
+      "tool": "python3",
+      "args": [
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_claim_evidence_gate.py::test_admitted_fact_reference_binding_round_trips",
+        "tests/test_claim_evidence_gate.py::test_exact_text_fact_passes_with_trusted_context",
+        "tests/test_claim_evidence_gate.py::test_exact_decimal_unit_fact_passes_with_trusted_context",
+        "tests/test_claim_evidence_gate.py::test_nonfactual_opinion_and_recommendation_pass_without_evidence",
+        "tests/test_claim_evidence_gate.py::test_shared_evidence_same_projection_is_reused_once",
+        "tests/test_claim_evidence_gate.py::test_container_reorder_preserves_canonical_digest",
+        "tests/test_claim_evidence_gate.py::test_processing_order_change_changes_index_and_aggregate_digest",
+        "tests/test_claim_evidence_gate.py::test_complete_envelope_round_trip_recomputes_all_digests",
+        "tests/test_claim_evidence_gate.py::test_public_value_projection_and_evaluation_return_shape_round_trip"
+      ],
+      "cwd": "backend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "backend-readiness-pytest",
+      "tool": "python3",
+      "args": ["-m", "pytest", "-q", "tests/test_six_ministry_readiness_report.py"],
+      "cwd": "backend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "backend-ruff-p10a-exact3",
+      "tool": "python3",
+      "args": [
+        "-m",
+        "ruff",
+        "check",
+        "app/agents/runtime_skills/__init__.py",
+        "app/agents/runtime_skills/claim_evidence_gate.py",
+        "tests/test_claim_evidence_gate.py"
+      ],
+      "cwd": "backend",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "candidate-exact3-structure",
+      "tool": "node",
+      "args": [
+        "--input-type=module",
+        "--eval",
+        "import{execFileSync}from'node:child_process';const expected=['backend/app/agents/runtime_skills/__init__.py','backend/app/agents/runtime_skills/claim_evidence_gate.py','backend/tests/test_claim_evidence_gate.py'];const env={PATH:'/usr/bin:/bin',GIT_CONFIG_NOSYSTEM:'1',GIT_NO_REPLACE_OBJECTS:'1',GIT_TERMINAL_PROMPT:'0'};const git=(args)=>execFileSync('/usr/bin/git',['--no-replace-objects',...args],{encoding:'utf8',env,maxBuffer:4194304});const rows=git(['diff-tree','--no-commit-id','--name-status','-r','HEAD^','HEAD']).trim().split('\\n').filter(Boolean).map((row)=>row.split('\\t'));const paths=rows.map((row)=>row.at(-1));if(JSON.stringify(paths)!==JSON.stringify(expected))throw new Error('EXACT3_PATH_MISMATCH');const adds=rows.filter(([status])=>status==='A').length;const mods=rows.filter(([status])=>status==='M').length;if(adds!==2||mods!==1)throw new Error('EXACT3_STATUS_MISMATCH');for(const path of paths){const [mode,type]=git(['ls-tree','HEAD','--',path]).trim().split(/\\s+/u);if(mode!=='100644'||type!=='blob')throw new Error('EXACT3_MODE_OR_TYPE_MISMATCH:'+path)}"
+      ],
+      "cwd": ".",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "git-diff-check",
+      "tool": "node",
+      "args": [
+        "--input-type=module",
+        "--eval",
+        "import{execFileSync}from'node:child_process';execFileSync('/usr/bin/git',['--no-replace-objects','diff','--check','HEAD^','HEAD'],{stdio:'inherit',env:{PATH:'/usr/bin:/bin',GIT_CONFIG_NOSYSTEM:'1',GIT_NO_REPLACE_OBJECTS:'1',GIT_TERMINAL_PROMPT:'0'}})"
+      ],
+      "cwd": ".",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "harness-doctor-regression",
+      "tool": "node",
+      "args": ["--test", "scripts/harness-doctor.test.mjs"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "hook-harness-self-test",
+      "tool": "node",
+      "args": [".agents/hooks/check-harness.mjs", "--self-test"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "product-authority-regression",
+      "tool": "node",
+      "args": [
+        "--input-type=module",
+        "--eval",
+        "import{spawnSync}from'node:child_process';const r=spawnSync(process.execPath,['--test','scripts/product-authority.test.mjs'],{stdio:'inherit',env:{...process.env,TMPDIR:'/tmp'}});process.exit(r.status??1)"
+      ],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "root-harness",
+      "tool": "node",
+      "args": ["scripts/check_harness.mjs"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "root-harness-doctor",
+      "tool": "node",
+      "args": ["scripts/harness-doctor.mjs", "--check"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "root-harness-self-test",
+      "tool": "node",
+      "args": ["scripts/check_harness.mjs", "--self-test"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v2-convergence",
+      "tool": "node",
+      "args": ["scripts/ext-full-value-convergence.mjs", "--check"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v2-convergence-regression",
+      "tool": "node",
+      "args": ["--test", "scripts/ext-full-value-convergence.test.mjs"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    }
+  ],
+  "state": "APPROVED_FOR_ONE_CHILD"
+}
