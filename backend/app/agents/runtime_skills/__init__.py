@@ -31,6 +31,14 @@ from app.agents.runtime_skills.tool_models import (
 )
 
 _LAZY_EXPORTS = {
+    "ClaimEvidenceEvaluationV1": ("claim_evidence_gate", "ClaimEvidenceEvaluationV1"),
+    "ClaimEvidenceGateError": ("claim_evidence_gate", "ClaimEvidenceGateError"),
+    "TrustedEvidenceContextV1": ("claim_evidence_gate", "TrustedEvidenceContextV1"),
+    "evaluate_claim_evidence_v1": ("claim_evidence_gate", "evaluate_claim_evidence_v1"),
+    "parse_claim_evidence_candidate_v1": (
+        "claim_evidence_gate",
+        "parse_claim_evidence_candidate_v1",
+    ),
     "AuditSink": ("executor", "AuditSink"),
     "RuntimeSkillExecutionError": ("executor", "RuntimeSkillExecutionError"),
     "RuntimeSkillReport": ("executor", "RuntimeSkillReport"),
