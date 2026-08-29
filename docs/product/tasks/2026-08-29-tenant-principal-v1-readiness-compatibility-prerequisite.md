@@ -8,7 +8,13 @@
 
 状态：`OWNER_AUTHORIZED / GOVERNANCE_ONLY / READY_TO_MATERIALIZE`
 
-## 问题
+## Status
+
+In Progress
+
+细分状态：`OWNER_AUTHORIZED / GOVERNANCE_ONLY / READINESS_CANDIDATE_PENDING`
+
+## Product Definition
 
 已批准的 Tenant Principal V1 exact14 必须修改
 `backend/app/api/auth.py` 与 `backend/app/auth/models.py`。这两个文件属于六部 Runtime
@@ -22,7 +28,10 @@
 不能从产品 authority 修改 `scripts/check_harness.mjs`，因为它是受保护治理路径。本任务因此是
 独立、前置、最小的 protected-path compatibility successor。
 
-## 唯一候选范围
+## Affected Modules
+
+- 模块：六部 Runtime readiness Python validator 与根 Harness Node validator
+- 允许路径：`backend/tests/test_six_ministry_readiness_report.py`, `scripts/check_harness.mjs`
 
 1. `backend/tests/test_six_ministry_readiness_report.py`
 2. `scripts/check_harness.mjs`
@@ -34,6 +43,12 @@
 - 将精确 pair 数从 4 更新为 5；
 - 增加正向接受与未知、单边、混搭失败关闭证据。
 
+## Technical Plan
+
+先在 Python validator 冻结第五 pair 并取得 RED，再在 Node validator 原子追加同一 pair；随后运行
+readiness、后端全测、根 Harness/self-test/doctor、authority regression 与 V2 convergence。候选必须是
+治理提交的唯一单亲子，精确修改上述两个文件。
+
 新增 pair：
 
 ```json
@@ -43,7 +58,7 @@
 ]
 ```
 
-## 不变边界
+## Delivery Constraints
 
 - historical reviewed fingerprint 保持
   `sha256:a6c2de2ca7f15069a6d997ce2cccb9498ddd4dd1269d539c192993e85a265190`；
@@ -64,7 +79,7 @@ Owner 于 2026-08-29 明确授权：
 
 该授权不包含 force push、merge commit、部署或最终 Tenant 产品 candidate push。
 
-## 验收
+## Acceptance Criteria
 
 - [x] 基线与远端 `origin/ext-dev` 精确一致。
 - [x] 新 tuple 来自已完成实现的 65 路径机械指纹与未变 successor 指纹。
@@ -78,3 +93,13 @@ Owner 于 2026-08-29 明确授权：
 
 远端漂移、第三候选路径、现有 pair 删除/替换/重排、指纹计算不一致、任一测试失败或复审发现
 P0–P2，均立即 STOP。旧 Tenant approval 与旧本地 candidate 只能作为 byte donor，不得继续消费。
+
+## Implementation Report
+
+三文件治理包已冻结并普通 fast-forward 推送；第五 pair 已机械重算并经独立只读复审确认。两文件
+readiness candidate 尚未提交或推送，最终状态以完整验证结果为准。
+
+## Acceptance Review
+
+治理包独立复审结论为 GO、无 P0–P2。产品接受仍为 PENDING；只有两文件 candidate 完整矩阵和独立
+code/security review 均通过，才允许执行已授权的普通 fast-forward push。
