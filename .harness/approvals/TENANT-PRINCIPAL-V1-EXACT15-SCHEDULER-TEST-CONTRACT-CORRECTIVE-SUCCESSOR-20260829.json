@@ -1,0 +1,185 @@
+{
+  "schemaVersion": "product-authority.m0.approval.v1",
+  "authorityId": "product-authority.m0.v1",
+  "taskId": "TENANT-PRINCIPAL-V1-EXACT15-SCHEDULER-TEST-CONTRACT-CORRECTIVE-SUCCESSOR-20260829",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "0631ac0d5e14a71121d6077c3d73e105c15e2bb9",
+    "baseTree": "a5d1cb57d803dcab19901df07273f2937bb1dda5",
+    "approvalPath": ".harness/approvals/TENANT-PRINCIPAL-V1-EXACT15-SCHEDULER-TEST-CONTRACT-CORRECTIVE-SUCCESSOR-20260829.json",
+    "approvalCommitPaths": [
+      ".harness/approvals/TENANT-PRINCIPAL-V1-EXACT15-SCHEDULER-TEST-CONTRACT-CORRECTIVE-SUCCESSOR-20260829.json",
+      "docs/product/tasks/2026-08-29-tenant-principal-v1-exact15-scheduler-test-contract-corrective-successor.md",
+      "docs/superpowers/plans/2026-08-29-tenant-principal-v1-exact15-scheduler-test-contract-corrective-successor.md"
+    ],
+    "productPaths": [
+      "backend/app/api/auth.py",
+      "backend/app/auth/models.py",
+      "backend/app/auth/storage.py",
+      "backend/app/operations/runtime_data_registry.py",
+      "backend/app/operations/sqlite_backup.py",
+      "backend/app/shiguan/db.py",
+      "backend/app/shiguan/maintenance.py",
+      "backend/tests/test_auth_api.py",
+      "backend/tests/test_auth_storage.py",
+      "backend/tests/test_daily_memorial_scheduler.py",
+      "backend/tests/test_daily_memorial_storage.py",
+      "backend/tests/test_readiness.py",
+      "backend/tests/test_shiguan_adopted_evidence.py",
+      "backend/tests/test_shiguan_migrations.py",
+      "backend/tests/test_sqlite_backup.py"
+    ]
+  },
+  "nonGoals": [
+    "AUTH_PUBLIC_RESPONSE_OR_FRONTEND_CONTRACT_CHANGE",
+    "CURRENT_REWARD_SHARE_OR_QUALIFIED_USE",
+    "DONOR_AUTHORITY_EVIDENCE_OR_CANDIDATE_REANCHOR",
+    "EXISTING_DOMAIN_TENANT_MIGRATION",
+    "EXTERNAL_IDENTITY_PROVIDER_OR_SSO",
+    "FORCE_PUSH_RELEASE_DEPLOY_PILOT_OR_PRODUCT_PUBLICATION",
+    "HARNESS_AUTHORITY_CI_ADR_OR_RELEASE_CHANGE",
+    "MULTI_TENANT_SWITCHING_INVITATIONS_OR_TEAM_UI",
+    "NETWORK_PROVIDER_SECRET_OR_PRODUCTION_DATA",
+    "PREDECESSOR_AUTHORITY_CANDIDATE_VERIFICATION_OR_REVIEW_INHERITANCE",
+    "PRODUCTION_SCHEDULER_FAIL_OPEN_FOR_MEMBERSHIPLESS_USERS",
+    "PRODUCT_CODE_OUTSIDE_EXACT15",
+    "ROLE_MODEL_BEYOND_PERSONAL_TENANT_OWNER",
+    "RUNTIME_LOCK_OR_WHEELHOUSE_CONTRACT_CHANGE",
+    "SCHEDULER_OR_MIGRATION_FAIL_OPEN",
+    "SCHEMA_DRIFT_CHECK_WEAKENING",
+    "SESSION_ID_FORMAT_OR_COOKIE_BFF_CHANGE",
+    "TENANT_ID_FROM_CLIENT_REQUEST_BODY"
+  ],
+  "verification": [
+    {
+      "id": "backend-candidate-shard-0",
+      "tool": "python3",
+      "args": [
+        "-I",
+        "-c",
+        "import os;p='/usr/bin/python3';e={'PATH':'/usr/bin:/bin','TMPDIR':'/tmp','TEMP':'/tmp','TMP':'/tmp','CI':'1','PYTHONDONTWRITEBYTECODE':'1','PYTHONNOUSERSITE':'1','PIP_CONFIG_FILE':'/dev/null','PIP_NO_INDEX':'1','LANG':'C.UTF-8','LC_ALL':'C.UTF-8','NO_COLOR':'1'};a=[p,'-I','app/operations/runtime_lock.py','verify-candidate','--lock','requirements-runtime.lock','--wheelhouse','/var/tmp/chaotang-m0-wheelhouse','--pyproject','pyproject.toml','--source-root','.','--shard-count','3','--shard-index','0','--deadline-seconds','240'];os.execve(p,a,e)"
+      ],
+      "cwd": "backend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "backend-candidate-shard-1",
+      "tool": "python3",
+      "args": [
+        "-I",
+        "-c",
+        "import os;p='/usr/bin/python3';e={'PATH':'/usr/bin:/bin','TMPDIR':'/tmp','TEMP':'/tmp','TMP':'/tmp','CI':'1','PYTHONDONTWRITEBYTECODE':'1','PYTHONNOUSERSITE':'1','PIP_CONFIG_FILE':'/dev/null','PIP_NO_INDEX':'1','LANG':'C.UTF-8','LC_ALL':'C.UTF-8','NO_COLOR':'1'};a=[p,'-I','app/operations/runtime_lock.py','verify-candidate','--lock','requirements-runtime.lock','--wheelhouse','/var/tmp/chaotang-m0-wheelhouse','--pyproject','pyproject.toml','--source-root','.','--shard-count','3','--shard-index','1','--deadline-seconds','240'];os.execve(p,a,e)"
+      ],
+      "cwd": "backend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "backend-candidate-shard-2",
+      "tool": "python3",
+      "args": [
+        "-I",
+        "-c",
+        "import os;p='/usr/bin/python3';e={'PATH':'/usr/bin:/bin','TMPDIR':'/tmp','TEMP':'/tmp','TMP':'/tmp','CI':'1','PYTHONDONTWRITEBYTECODE':'1','PYTHONNOUSERSITE':'1','PIP_CONFIG_FILE':'/dev/null','PIP_NO_INDEX':'1','LANG':'C.UTF-8','LC_ALL':'C.UTF-8','NO_COLOR':'1'};a=[p,'-I','app/operations/runtime_lock.py','verify-candidate','--lock','requirements-runtime.lock','--wheelhouse','/var/tmp/chaotang-m0-wheelhouse','--pyproject','pyproject.toml','--source-root','.','--shard-count','3','--shard-index','2','--deadline-seconds','240'];os.execve(p,a,e)"
+      ],
+      "cwd": "backend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "candidate-exact15-structure",
+      "tool": "node",
+      "args": [
+        "--input-type=module",
+        "--eval",
+        "import{execFileSync}from'node:child_process';const p=[\"backend/app/api/auth.py\",\"backend/app/auth/models.py\",\"backend/app/auth/storage.py\",\"backend/app/operations/runtime_data_registry.py\",\"backend/app/operations/sqlite_backup.py\",\"backend/app/shiguan/db.py\",\"backend/app/shiguan/maintenance.py\",\"backend/tests/test_auth_api.py\",\"backend/tests/test_auth_storage.py\",\"backend/tests/test_daily_memorial_scheduler.py\",\"backend/tests/test_daily_memorial_storage.py\",\"backend/tests/test_readiness.py\",\"backend/tests/test_shiguan_adopted_evidence.py\",\"backend/tests/test_shiguan_migrations.py\",\"backend/tests/test_sqlite_backup.py\"],f=new Map([[\"backend/app/api/auth.py\",\"513a7e64c34e10f7cbdc17c537b957c87edbe2c6\"],[\"backend/app/auth/models.py\",\"d5eaf6f3775f37bf47466b15fa8536efbbd08e41\"],[\"backend/app/auth/storage.py\",\"d5bd080af7828e29fbffaf1349cdaab98d760164\"],[\"backend/app/operations/runtime_data_registry.py\",\"a5f2aac19a0d4f4a737b227f39f9e8c29b48d9af\"],[\"backend/app/operations/sqlite_backup.py\",\"8990f5509f860a1da72250242d8e8ad6dda0e1b6\"],[\"backend/app/shiguan/db.py\",\"9221ff071c2667188293a939f82ac7ab8e940b3a\"],[\"backend/app/shiguan/maintenance.py\",\"e6b70a925f22d2775590d06f367d3f41aed7af10\"],[\"backend/tests/test_auth_api.py\",\"5d138da8ea28c2334b4eed1b76ac2ecd72f45d23\"],[\"backend/tests/test_auth_storage.py\",\"d799e808f9214d4f28c94ebb02c815665bd00d99\"],[\"backend/tests/test_daily_memorial_scheduler.py\",\"1155363f5f2fbf924bb56197b74e66a3d70ea6d6\"],[\"backend/tests/test_readiness.py\",\"c1204ea41f382e68a6094f96dce693174ee214da\"],[\"backend/tests/test_shiguan_adopted_evidence.py\",\"43b108d1e716696370f2d5647d8e47a5afe2d84a\"],[\"backend/tests/test_shiguan_migrations.py\",\"a1cc05c9a153fc90119672d554a3d9271f42feae\"],[\"backend/tests/test_sqlite_backup.py\",\"01c23f4687b90bb68328655ed86cfbdde52f8833\"]]),c=new Map([[\"backend/tests/test_daily_memorial_storage.py\",\"4cf9c04e8b5caa0c433172914ad1f9199ea97b56\"]]),e={PATH:'/usr/bin:/bin',GIT_CONFIG_NOSYSTEM:'1',GIT_NO_REPLACE_OBJECTS:'1',GIT_TERMINAL_PROMPT:'0'},g=a=>execFileSync('/usr/bin/git',['--no-replace-objects',...a],{encoding:'utf8',env:e,maxBuffer:4194304}).trim(),r=g(['diff-tree','--no-commit-id','--name-status','-r','HEAD^','HEAD']).split('\\n').filter(Boolean).map(v=>v.split('\\t'));if(JSON.stringify(r.map(v=>v.at(-1)))!==JSON.stringify(p)||r.some(v=>v[0]!=='M')||r.length!==15)throw Error('EXACT15_SCOPE');for(const x of p){const[m,t,h]=g(['ls-tree','HEAD','--',x]).split(/\\s+/u);if(m!=='100644'||t!=='blob'||f.has(x)&&h!==f.get(x)||c.has(x)&&h===c.get(x))throw Error('EXACT15_IDENTITY:'+x)}"
+      ],
+      "cwd": ".",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "git-diff-check",
+      "tool": "node",
+      "args": [
+        "--input-type=module",
+        "--eval",
+        "import{execFileSync}from'node:child_process';execFileSync('/usr/bin/git',['--no-replace-objects','diff','--check','HEAD^','HEAD'],{stdio:'inherit',env:{PATH:'/usr/bin:/bin',GIT_CONFIG_NOSYSTEM:'1',GIT_NO_REPLACE_OBJECTS:'1',GIT_TERMINAL_PROMPT:'0'}})"
+      ],
+      "cwd": ".",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "hook-harness-self-test",
+      "tool": "node",
+      "args": [
+        ".agents/hooks/check-harness.mjs",
+        "--self-test"
+      ],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "product-authority-regression",
+      "tool": "python3",
+      "args": [
+        "-I",
+        "-c",
+        "import os;n='/usr/bin/node';t='/tmp';e={'PATH':'/usr/bin:/bin','TMPDIR':t,'TEMP':t,'TMP':t,'CI':'1','NODE_ENV':'test','LANG':'C.UTF-8','LC_ALL':'C.UTF-8','NO_COLOR':'1'};os.execve(n,[n,'--test','scripts/product-authority.test.mjs'],e)"
+      ],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "root-harness",
+      "tool": "node",
+      "args": [
+        "scripts/check_harness.mjs"
+      ],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "root-harness-doctor",
+      "tool": "node",
+      "args": [
+        "scripts/harness-doctor.mjs",
+        "--check"
+      ],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "root-harness-self-test",
+      "tool": "node",
+      "args": [
+        "scripts/check_harness.mjs",
+        "--self-test"
+      ],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v2-convergence",
+      "tool": "node",
+      "args": [
+        "scripts/ext-full-value-convergence.mjs",
+        "--check"
+      ],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v2-convergence-regression",
+      "tool": "node",
+      "args": [
+        "--test",
+        "scripts/ext-full-value-convergence.test.mjs"
+      ],
+      "cwd": ".",
+      "timeoutMs": 180000
+    }
+  ],
+  "state": "APPROVED_FOR_ONE_CHILD"
+}
+
