@@ -1,0 +1,153 @@
+{
+  "schemaVersion": "governance-repair.packet.v1",
+  "taskId": "TENANT-PRINCIPAL-V1-READINESS-COMPATIBILITY-PREREQUISITE-20260829",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "63195b81871c0c32c6ace3f05138b8caeba80afe",
+    "baseTree": "33e24f7bdf8d2173826d7e4e5a19be9221621d74",
+    "approvalCommitPaths": [
+      "docs/product/tasks/2026-08-29-tenant-principal-v1-readiness-compatibility-prerequisite.md",
+      "docs/product/tasks/2026-08-29-tenant-principal-v1-readiness-compatibility-prerequisite.packet.json",
+      "docs/superpowers/plans/2026-08-29-tenant-principal-v1-readiness-compatibility-prerequisite.md"
+    ],
+    "candidatePaths": [
+      "backend/tests/test_six_ministry_readiness_report.py",
+      "scripts/check_harness.mjs"
+    ]
+  },
+  "productByteBinding": {
+    "runtimeContentFileCount": 65,
+    "runtimeFingerprint": "sha256:a6d109de75e877620a89241a4dcabcc716e1a5a1a18a024c9a3cb73e578de80c",
+    "successorContentFileCount": 2,
+    "successorFingerprint": "sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924",
+    "proposedPair": [
+      "sha256:a6d109de75e877620a89241a4dcabcc716e1a5a1a18a024c9a3cb73e578de80c",
+      "sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"
+    ],
+    "sourceCandidateCommit": "c471b034353440401b18995ac13fbfdbe5cbc966",
+    "sourceCandidateDisposition": "BYTE_DONOR_ONLY_PENDING_SUCCESSOR"
+  },
+  "policy": {
+    "commitProtocol": "EXACT_SINGLE_PARENT_AND_PATHS_OWNER_AUTHORIZED",
+    "forwardOnly": true,
+    "forcePushAllowed": false,
+    "compatibilityMode": "EXACT_ORDERED_PAIR_APPEND_ONLY",
+    "existingPairCount": 4,
+    "requiredPostAppendPairCount": 5,
+    "requiredPairSetDelta": "+1/-0",
+    "historicalFileCount": 69,
+    "historicalReviewStatus": "approved-with-notes",
+    "historicalReviewedFingerprint": "sha256:a6c2de2ca7f15069a6d997ce2cccb9498ddd4dd1269d539c192993e85a265190",
+    "excludedPaths": [
+      "backend/app/accounting_reports/storage.py",
+      "backend/tests/test_six_ministry_accounting_evidence_adapter.py",
+      "backend/tests/test_six_ministry_readiness_report.py",
+      "scripts/check_harness.mjs"
+    ],
+    "successorContentPaths": [
+      "backend/app/accounting_reports/storage.py",
+      "backend/tests/test_six_ministry_accounting_evidence_adapter.py"
+    ],
+    "existingAllowedPairs": [
+      [
+        "sha256:013bfb8272e936be85c2d470033787c3b7f105ad6eae2dfe680373df023b5e69",
+        "sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"
+      ],
+      [
+        "sha256:c95630be3d79f2641ff6e483f4096b0763b9e5071544f1e0ead0d7e24eb1cba5",
+        "sha256:268cab13e516d0f716f600819f2bddc8242269312d392eca4ed1be2de05ce051"
+      ],
+      [
+        "sha256:d330b7f177f5bbb761eb359ffffca6f12250e5bbe90d13d0414d0fdefb78e98a",
+        "sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"
+      ],
+      [
+        "sha256:da31e8098bf76c72ff8d00b073d86e3442b0811223ef3e3bab770af31e89c28e",
+        "sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"
+      ]
+    ],
+    "newAllowedPairMustBeUnique": true,
+    "unknownPairMustFailClosed": true,
+    "singleSideOrCartesianProductAcceptanceForbidden": true
+  },
+  "nonGoals": [
+    "AUTHORITY_POLICY_CHANGE",
+    "DATABASE_API_OR_FRONTEND_CHANGE",
+    "EXCLUSION_OR_SUCCESSOR_PATH_CHANGE",
+    "EXISTING_COMPATIBILITY_PAIR_REMOVAL_REPLACEMENT_OR_REORDER",
+    "FORCE_PUSH_MERGE_RELEASE_OR_DEPLOYMENT",
+    "HISTORICAL_READINESS_OR_REVIEW_REWRITE",
+    "TENANT_PRINCIPAL_PRODUCT_BYTE_CHANGE",
+    "THIRD_CANDIDATE_PATH"
+  ],
+  "verification": [
+    {
+      "id": "readiness-report-pytest",
+      "tool": "python3",
+      "args": ["-m", "pytest", "-q", "tests/test_six_ministry_readiness_report.py"],
+      "cwd": "backend",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "backend-full-pytest",
+      "tool": "python3",
+      "args": ["-m", "pytest", "-q"],
+      "cwd": "backend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "root-harness",
+      "tool": "node",
+      "args": ["scripts/check_harness.mjs"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "root-harness-self-test",
+      "tool": "node",
+      "args": ["scripts/check_harness.mjs", "--self-test"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "root-harness-doctor",
+      "tool": "node",
+      "args": ["scripts/harness-doctor.mjs", "--check"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "root-harness-doctor-tests",
+      "tool": "node",
+      "args": ["--test", "scripts/harness-doctor.test.mjs"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "harness-hook-self-test",
+      "tool": "node",
+      "args": [".agents/hooks/check-harness.mjs", "--self-test"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "product-authority-regression",
+      "tool": "node",
+      "args": ["--test", "scripts/product-authority.test.mjs"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v2-convergence-check",
+      "tool": "node",
+      "args": ["scripts/ext-full-value-convergence.mjs", "--check"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    }
+  ],
+  "state": "OWNER_AUTHORIZED_FOR_MATERIALIZATION",
+  "authorizationState": "AUTHORIZED_BY_OWNER_20260829"
+}
