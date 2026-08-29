@@ -1,0 +1,151 @@
+{
+  "schemaVersion": "product-authority.m0.approval.v1",
+  "authorityId": "product-authority.m0.v1",
+  "taskId": "CHAOTANG-CAPABILITY-PROTOCOL-V1-CAPSULE-BINDING-SUCCESSOR-20260829",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "4a8d3d587d07ef61962179674be860befb13ae5a",
+    "baseTree": "05742b8eefa7d1db8920b2840cb4cec291cc543b",
+    "approvalPath": ".harness/approvals/CHAOTANG-CAPABILITY-PROTOCOL-V1-CAPSULE-BINDING-SUCCESSOR-20260829.json",
+    "approvalCommitPaths": [
+      ".harness/approvals/CHAOTANG-CAPABILITY-PROTOCOL-V1-CAPSULE-BINDING-SUCCESSOR-20260829.json",
+      "docs/product/tasks/2026-08-29-chaotang-capability-protocol-v1-capsule-binding-successor.md",
+      "docs/superpowers/plans/2026-08-29-chaotang-capability-protocol-v1-capsule-binding-successor.md"
+    ],
+    "productPaths": [
+      "docs/contracts/six-ministry-capability-execution.md",
+      "docs/contracts/six-ministry-capability-execution.schema.json",
+      "scripts/fixtures/six-ministry-execution/security-cases.json",
+      "scripts/six_ministry_execution_contract.test.mjs"
+    ]
+  },
+  "nonGoals": [
+    "A2A_RUNTIME_OR_DYNAMIC_DISCOVERY",
+    "ACTIVE_CANARY_STABLE_OR_PRODUCTION_PROMOTION",
+    "ADR0044_TENANT_SCOPE_SILENT_REINTERPRETATION",
+    "CAPABILITY_MAPPING_GUESS_OR_SECOND_REGISTRY",
+    "CLIENT_MODEL_OR_ADAPTER_SUPPLIED_PRINCIPAL",
+    "DURABLE_TRANSITION_OUTCOME_OR_QUALIFIED_USE_LEDGER",
+    "EXTERNAL_SIDE_EFFECT_OR_WRITE_AUTHORITY",
+    "MCP_ARBITRARY_ENDPOINT_CREDENTIAL_OR_WRITE",
+    "OTEL_AS_AUTHORITY_OR_DURABLE_RECEIPT",
+    "PACK_PLUGIN_IMPORT_INSTALL_OR_EXECUTION",
+    "PUBLISHER_SIGNATURE_AS_OWNER_APPROVAL",
+    "RUNTIME_ADAPTER_OR_PRODUCT_EXECUTION",
+    "RUNTIME_SKILL_TOOL_EVIDENCE_OR_AUTHORITY_CHANGE",
+    "TENANT_ACTIVATION_OR_MEMBERSHIP_CHANGE",
+    "THIRD_PARTY_SKILL_DIRECT_ACTIVE"
+  ],
+  "verification": [
+    {
+      "id": "candidate-exact4-structure",
+      "tool": "node",
+      "args": [
+        "--input-type=module",
+        "--eval",
+        "import{execFileSync}from'node:child_process';const p=[\"docs/contracts/six-ministry-capability-execution.md\",\"docs/contracts/six-ministry-capability-execution.schema.json\",\"scripts/fixtures/six-ministry-execution/security-cases.json\",\"scripts/six_ministry_execution_contract.test.mjs\"],a=\".harness/approvals/CHAOTANG-CAPABILITY-PROTOCOL-V1-CAPSULE-BINDING-SUCCESSOR-20260829.json\",e={PATH:'/usr/bin:/bin',GIT_CONFIG_NOSYSTEM:'1',GIT_NO_REPLACE_OBJECTS:'1',GIT_TERMINAL_PROMPT:'0'},g=x=>execFileSync('/usr/bin/git',['--no-replace-objects',...x],{encoding:'utf8',env:e,maxBuffer:4194304}).trim(),q=g(['rev-list','--parents','-n','1','HEAD']).split(/\\s+/u);if(q.length!==2)throw Error('CANDIDATE_PARENT_COUNT');const[m0,t0]=g(['ls-tree',q[1],'--',a]).split(/\\s+/u);if(m0!=='100644'||t0!=='blob')throw Error('APPROVAL_PARENT');const r=g(['diff-tree','--no-commit-id','--name-status','-r',q[1],'HEAD']).split('\\n').filter(Boolean).map(v=>v.split('\\t'));if(JSON.stringify(r.map(v=>v.at(-1)))!==JSON.stringify(p)||r.length!==4||r.some(v=>v[0]!=='M'))throw Error('EXACT4_SCOPE');for(const x of p){for(const rev of [q[1],'HEAD']){const[m,t]=g(['ls-tree',rev,'--',x]).split(/\\s+/u);if(m!=='100644'||t!=='blob')throw Error('EXACT4_MODE:'+x)}}"
+      ],
+      "cwd": ".",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "capability-contract-regression",
+      "tool": "node",
+      "args": [
+        "--test",
+        "scripts/capability_capsule.test.mjs",
+        "scripts/capability_eval.test.mjs",
+        "scripts/capability_shadow.test.mjs",
+        "scripts/six_ministry_evidence_spine_contract.test.mjs",
+        "scripts/six_ministry_execution_contract.test.mjs"
+      ],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "git-diff-check",
+      "tool": "node",
+      "args": [
+        "--input-type=module",
+        "--eval",
+        "import{execFileSync}from'node:child_process';execFileSync('/usr/bin/git',['--no-replace-objects','diff','--check','HEAD^','HEAD'],{stdio:'inherit',env:{PATH:'/usr/bin:/bin',GIT_CONFIG_NOSYSTEM:'1',GIT_NO_REPLACE_OBJECTS:'1',GIT_TERMINAL_PROMPT:'0'}})"
+      ],
+      "cwd": ".",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "hook-harness-self-test",
+      "tool": "node",
+      "args": [
+        ".agents/hooks/check-harness.mjs",
+        "--self-test"
+      ],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "product-authority-regression",
+      "tool": "python3",
+      "args": [
+        "-I",
+        "-c",
+        "import os;n='/usr/bin/node';t='/tmp';e={'PATH':'/usr/bin:/bin','TMPDIR':t,'TEMP':t,'TMP':t,'CI':'1','NODE_ENV':'test','LANG':'C.UTF-8','LC_ALL':'C.UTF-8','NO_COLOR':'1'};os.execve(n,[n,'--test','scripts/product-authority.test.mjs'],e)"
+      ],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "root-harness",
+      "tool": "node",
+      "args": [
+        "scripts/check_harness.mjs"
+      ],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "root-harness-doctor",
+      "tool": "node",
+      "args": [
+        "scripts/harness-doctor.mjs",
+        "--check"
+      ],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "root-harness-self-test",
+      "tool": "node",
+      "args": [
+        "scripts/check_harness.mjs",
+        "--self-test"
+      ],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v2-convergence",
+      "tool": "node",
+      "args": [
+        "scripts/ext-full-value-convergence.mjs",
+        "--check"
+      ],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v2-convergence-regression",
+      "tool": "node",
+      "args": [
+        "--test",
+        "scripts/ext-full-value-convergence.test.mjs"
+      ],
+      "cwd": ".",
+      "timeoutMs": 180000
+    }
+  ],
+  "state": "APPROVED_FOR_ONE_CHILD"
+}
