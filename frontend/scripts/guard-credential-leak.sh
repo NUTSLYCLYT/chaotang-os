@@ -26,7 +26,7 @@ if [ -z "$added_lines" ]; then
   exit 0
 fi
 
-pattern='(密码|password|passwd|api[_-]?key|secret)[^A-Za-z0-9]{0,15}[`"'"'"'][A-Za-z0-9!@#$%^&*_.-]{8,}[`"'"'"']'
+pattern='(密码|password|passwd|api[_-]?key|secret)[`"'"'"']?[[:space:]]*[:=][[:space:]]*[`"'"'"'][A-Za-z0-9!@#$%^&*_.-]{8,}[`"'"'"']'
 hits_raw=$(echo "$added_lines" | grep -inE "$pattern" || true)
 
 safe_pattern='^[0-9]+:\+[[:space:]]*const[[:space:]]+E2E_[A-Z_]+[[:space:]]*=[[:space:]]*[`"'"'"'][Ee]2[Ee][A-Za-z0-9!@#$%^&*_.-]*[`"'"'"'];?[[:space:]]*$'
