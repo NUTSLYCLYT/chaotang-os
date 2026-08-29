@@ -1,0 +1,257 @@
+{
+  "schemaVersion": "product-authority.m0.approval.v1",
+  "authorityId": "product-authority.m0.v1",
+  "taskId": "TENANT-PRINCIPAL-V1-EXACT15-AUTHORITY-LINEAGE-SUCCESSOR-20260829",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "1e7a5efed79c17b51010eac36d104c6229bb3de5",
+    "baseTree": "e310d950c57e87c43e7af777b960cc66cd05dbb6",
+    "approvalPath": ".harness/approvals/TENANT-PRINCIPAL-V1-EXACT15-AUTHORITY-LINEAGE-SUCCESSOR-20260829.json",
+    "approvalCommitPaths": [
+      ".harness/approvals/TENANT-PRINCIPAL-V1-EXACT15-AUTHORITY-LINEAGE-SUCCESSOR-20260829.json",
+      "docs/product/tasks/2026-08-29-tenant-principal-v1-exact15-authority-lineage-successor.md",
+      "docs/superpowers/plans/2026-08-29-tenant-principal-v1-exact15-authority-lineage-successor.md"
+    ],
+    "productPaths": [
+      "backend/app/api/auth.py",
+      "backend/app/auth/models.py",
+      "backend/app/auth/storage.py",
+      "backend/app/operations/runtime_data_registry.py",
+      "backend/app/operations/sqlite_backup.py",
+      "backend/app/shiguan/db.py",
+      "backend/app/shiguan/maintenance.py",
+      "backend/tests/test_auth_api.py",
+      "backend/tests/test_auth_storage.py",
+      "backend/tests/test_daily_memorial_scheduler.py",
+      "backend/tests/test_daily_memorial_storage.py",
+      "backend/tests/test_readiness.py",
+      "backend/tests/test_shiguan_adopted_evidence.py",
+      "backend/tests/test_shiguan_migrations.py",
+      "backend/tests/test_sqlite_backup.py"
+    ]
+  },
+  "nonGoals": [
+    "AUTH_PUBLIC_RESPONSE_OR_FRONTEND_CONTRACT_CHANGE",
+    "CURRENT_REWARD_SHARE_OR_QUALIFIED_USE",
+    "DONOR_AUTHORITY_EVIDENCE_OR_CANDIDATE_REANCHOR",
+    "EXISTING_DOMAIN_TENANT_MIGRATION",
+    "EXTERNAL_IDENTITY_PROVIDER_OR_SSO",
+    "FORCE_PUSH_RELEASE_DEPLOY_PILOT_OR_PRODUCT_PUBLICATION",
+    "HARNESS_AUTHORITY_CI_ADR_OR_RELEASE_CHANGE",
+    "MULTI_TENANT_SWITCHING_INVITATIONS_OR_TEAM_UI",
+    "NETWORK_PROVIDER_SECRET_OR_PRODUCTION_DATA",
+    "PRODUCT_CODE_OUTSIDE_EXACT15",
+    "PRODUCT_IMPLEMENTATION_CHANGE_OUTSIDE_DONOR_EXACT14",
+    "ROLE_MODEL_BEYOND_PERSONAL_TENANT_OWNER",
+    "SCHEMA_DRIFT_CHECK_WEAKENING_OR_FAIL_OPEN",
+    "SESSION_ID_FORMAT_OR_COOKIE_BFF_CHANGE",
+    "TENANT_ID_FROM_CLIENT_REQUEST_BODY"
+  ],
+  "verification": [
+    {
+      "id": "backend-00-environment-build",
+      "tool": "python3",
+      "args": [
+        "-I",
+        "-c",
+        "import hashlib\nimport importlib.util\nimport json\nimport os\nimport pathlib\nimport stat\nimport subprocess\nimport sys\n\nbackend = pathlib.Path.cwd().resolve()\ntmp_root = pathlib.Path(\"/tmp\")\nroot = tmp_root / \"chaotang-t0-exact15-49d671a2eb064f80b5c3a27891de604f\"\nwheelhouse = pathlib.Path(\"/var/tmp/chaotang-m0-wheelhouse\")\npython = \"/usr/bin/python3\"\ntmp_info = tmp_root.lstat()\nassert os.name == \"posix\"\nassert stat.S_ISDIR(tmp_info.st_mode) and not stat.S_ISLNK(tmp_info.st_mode)\nassert tmp_info.st_uid == 0 and stat.S_IMODE(tmp_info.st_mode) == 0o1777\nassert tmp_root.resolve() == tmp_root and root.parent.resolve() == tmp_root\nassert not root.exists() and not root.is_symlink()\nos.mkdir(root, 0o700)\ntemp = root / \"tmp\"\nos.mkdir(temp, 0o700)\nfor path in (root, temp):\n    info = path.lstat()\n    assert stat.S_ISDIR(info.st_mode) and not stat.S_ISLNK(info.st_mode)\n    assert info.st_uid == os.getuid() and stat.S_IMODE(info.st_mode) == 0o700\n    assert path.resolve() == path\nmodule_path = backend / \"app/operations/runtime_lock.py\"\nspec = importlib.util.spec_from_file_location(\"t0_runtime_lock\", module_path)\nassert spec is not None and spec.loader is not None\nruntime_lock = importlib.util.module_from_spec(spec)\nsys.modules[spec.name] = runtime_lock\nspec.loader.exec_module(runtime_lock)\nruntime_lock.verify_candidate_wheelhouse_permissions(wheelhouse)\nlock_path = backend / \"requirements-runtime.lock\"\npyproject = backend / \"pyproject.toml\"\nsummary = runtime_lock.verify_lock(lock_path, wheelhouse, pyproject)\nassert summary == {\"schemaVersion\": \"chaotang.python-runtime-lock-verification.v1\", \"lockDigest\": \"sha256:2248693f8d11c12a815ee7cb767da478ca105bbbc5a46341094a1efa671f3c93\", \"distributionCount\": 64, \"wheelCount\": 64}\nenvironment = {\"PATH\": \"/usr/bin:/bin\", \"TMPDIR\": str(temp), \"TEMP\": str(temp), \"TMP\": str(temp), \"CI\": \"1\", \"PYTHONDONTWRITEBYTECODE\": \"1\", \"PYTEST_DISABLE_PLUGIN_AUTOLOAD\": \"1\", \"PIP_CONFIG_FILE\": \"/dev/null\", \"PIP_NO_INDEX\": \"1\", \"LANG\": \"C.UTF-8\", \"LC_ALL\": \"C.UTF-8\", \"NO_COLOR\": \"1\"}\nrequirements = root / \"requirements\"\nsubprocess.run([python, \"-I\", str(module_path), \"prepare-install\", \"--lock\", str(lock_path), \"--wheelhouse\", str(wheelhouse), \"--pyproject\", str(pyproject), \"--output-dir\", str(requirements)], check=True, env=environment)\ntest_requirements = requirements / \"test.txt\"\nassert hashlib.sha256(test_requirements.read_bytes()).hexdigest() == \"15a890d4fcac9a1eb4f9654e0b795728d462b3801c40bb7c64f908c0894d6b69\"\nvenv = root / \"venv\"\nsubprocess.run([python, \"-m\", \"venv\", \"--without-pip\", str(venv)], check=True, env=environment)\nvenv.chmod(0o700)\nvenv_python = venv / \"bin/python\"\nassert os.readlink(venv_python) == \"python3\"\nassert os.readlink(venv / \"bin/python3\") == \"/usr/bin/python3\"\nassert os.readlink(venv / \"bin/python3.12\") == \"python3\"\nassert venv_python.resolve() == pathlib.Path(\"/usr/bin/python3.12\")\nexpected_cfg = f\"home = /usr/bin\\ninclude-system-site-packages = false\\nversion = 3.12.3\\nexecutable = /usr/bin/python3.12\\ncommand = /usr/bin/python3 -m venv --without-pip {venv}\\n\"\nassert (venv / \"pyvenv.cfg\").read_text() == expected_cfg\nsubprocess.run([python, \"-m\", \"pip\", \"--python\", str(venv_python), \"install\", \"--isolated\", \"--no-index\", \"--require-hashes\", \"--no-deps\", \"--no-cache-dir\", \"--no-compile\", \"--only-binary=:all:\", \"--find-links\", str(wheelhouse), \"-r\", str(test_requirements)], check=True, env=environment)\nexpected = {line.split(\"==\")[0].lower().replace(\"_\", \"-\").replace(\".\", \"-\"): line.split(\"==\")[1].split()[0] for line in test_requirements.read_text().splitlines()}\nattested = subprocess.check_output([str(venv_python), \"-I\", \"-c\", \"import importlib.metadata as m,json;norm=lambda s:s.lower().replace('_','-').replace('.','-');print(json.dumps({norm(d.metadata['Name']):d.version for d in m.distributions()},sort_keys=True))\"], env=environment, text=True)\nassert len(expected) == 60 and json.loads(attested) == expected\nprint(json.dumps({\"lock\": summary, \"python\": \"3.12.3\", \"testClosureCount\": len(expected)}, sort_keys=True, separators=(\",\", \":\")))\n"
+      ],
+      "cwd": "backend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "backend-01-environment-contract",
+      "tool": "python3",
+      "args": [
+        "-I",
+        "-c",
+        "import os;p='/tmp/chaotang-t0-exact15-49d671a2eb064f80b5c3a27891de604f/venv/bin/python';e={'PATH':'/tmp/chaotang-t0-exact15-49d671a2eb064f80b5c3a27891de604f/venv/bin:/usr/bin:/bin','TMPDIR':'/tmp/chaotang-t0-exact15-49d671a2eb064f80b5c3a27891de604f/tmp','TEMP':'/tmp/chaotang-t0-exact15-49d671a2eb064f80b5c3a27891de604f/tmp','TMP':'/tmp/chaotang-t0-exact15-49d671a2eb064f80b5c3a27891de604f/tmp','CI':'1','NODE_ENV':'test','PYTHONDONTWRITEBYTECODE':'1','PYTEST_DISABLE_PLUGIN_AUTOLOAD':'1','LANG':'C.UTF-8','LC_ALL':'C.UTF-8','NO_COLOR':'1'};c=\"import hashlib\\nimport importlib.metadata as metadata\\nimport json\\nimport os\\nimport pathlib\\nimport stat\\nimport sys\\nimport tempfile\\n\\nroot = pathlib.Path(\\\"/tmp/chaotang-t0-exact15-49d671a2eb064f80b5c3a27891de604f\\\")\\ntemp_root = root / \\\"tmp\\\"\\nrequirements_bytes = (root / \\\"requirements/test.txt\\\").read_bytes()\\nassert hashlib.sha256(requirements_bytes).hexdigest() == \\\"15a890d4fcac9a1eb4f9654e0b795728d462b3801c40bb7c64f908c0894d6b69\\\"\\nroot_info = root.lstat()\\ntemp_info = temp_root.lstat()\\nassert stat.S_ISDIR(root_info.st_mode) and not stat.S_ISLNK(root_info.st_mode)\\nassert stat.S_ISDIR(temp_info.st_mode) and not stat.S_ISLNK(temp_info.st_mode)\\nassert root_info.st_uid == temp_info.st_uid == os.getuid()\\nassert stat.S_IMODE(root_info.st_mode) == stat.S_IMODE(temp_info.st_mode) == 0o700\\nassert root.resolve() == root and temp_root.resolve() == temp_root\\nassert pathlib.Path(sys.executable) == root / \\\"venv/bin/python\\\"\\nassert pathlib.Path(sys.executable).resolve() == pathlib.Path(\\\"/usr/bin/python3.12\\\")\\nassert sys.version.split()[0] == \\\"3.12.3\\\"\\nassert pathlib.Path(tempfile.gettempdir()).resolve() == temp_root\\nprobe = temp_root / \\\"environment-contract-probe\\\"\\nfd = os.open(probe, os.O_CREAT | os.O_EXCL | os.O_RDWR | os.O_NOFOLLOW, 0o600)\\ntry:\\n    os.write(fd, b\\\"posix\\\")\\n    os.lseek(fd, 0, os.SEEK_SET)\\n    assert os.read(fd, 5) == b\\\"posix\\\"\\n    os.ftruncate(fd, 0)\\n    assert os.fstat(fd).st_size == 0\\nfinally:\\n    os.close(fd)\\n    probe.unlink()\\nnormalize = lambda value: value.lower().replace(\\\"_\\\", \\\"-\\\").replace(\\\".\\\", \\\"-\\\")\\nexpected = {\\n    normalize(line.split(\\\"==\\\")[0]): line.split(\\\"==\\\")[1].split()[0]\\n    for line in requirements_bytes.decode().splitlines()\\n}\\ndistributions = list(metadata.distributions())\\nactual = {normalize(dist.metadata[\\\"Name\\\"]): dist.version for dist in distributions}\\nassert len(expected) == len(distributions) == len(actual) == 60\\nassert actual == expected\\nplugins = {\\n    (entry.name, entry.value, normalize(entry.dist.name), entry.dist.version)\\n    for entry in metadata.entry_points(group=\\\"pytest11\\\")\\n}\\nassert plugins == {\\n    (\\\"anyio\\\", \\\"anyio.pytest_plugin\\\", \\\"anyio\\\", \\\"4.10.0\\\"),\\n    (\\\"langsmith_plugin\\\", \\\"langsmith.pytest_plugin\\\", \\\"langsmith\\\", \\\"0.11.0\\\"),\\n}\\nassert os.environ[\\\"PYTEST_DISABLE_PLUGIN_AUTOLOAD\\\"] == \\\"1\\\"\\nprint(json.dumps({\\\"plugins\\\": sorted(plugins), \\\"python\\\": sys.version.split()[0], \\\"versions\\\": actual}, sort_keys=True, separators=(\\\",\\\", \\\":\\\")))\\n\";os.execve(p,[p,'-I','-c',c],e)"
+      ],
+      "cwd": "backend",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "backend-02-installed-record-integrity",
+      "tool": "python3",
+      "args": [
+        "-I",
+        "-c",
+        "import os;p='/tmp/chaotang-t0-exact15-49d671a2eb064f80b5c3a27891de604f/venv/bin/python';e={'PATH':'/tmp/chaotang-t0-exact15-49d671a2eb064f80b5c3a27891de604f/venv/bin:/usr/bin:/bin','TMPDIR':'/tmp/chaotang-t0-exact15-49d671a2eb064f80b5c3a27891de604f/tmp','TEMP':'/tmp/chaotang-t0-exact15-49d671a2eb064f80b5c3a27891de604f/tmp','TMP':'/tmp/chaotang-t0-exact15-49d671a2eb064f80b5c3a27891de604f/tmp','CI':'1','NODE_ENV':'test','PYTHONDONTWRITEBYTECODE':'1','PYTEST_DISABLE_PLUGIN_AUTOLOAD':'1','LANG':'C.UTF-8','LC_ALL':'C.UTF-8','NO_COLOR':'1'};c=\"import base64\\nimport csv\\nimport hashlib\\nimport importlib.metadata as metadata\\nimport pathlib\\n\\nroot = pathlib.Path(\\\"/tmp/chaotang-t0-exact15-49d671a2eb064f80b5c3a27891de604f\\\")\\ndistributions = list(metadata.distributions())\\nassert len(distributions) == 60\\nchecked = 0\\nfor distribution in distributions:\\n    records = [item for item in distribution.files if str(item).endswith(\\\".dist-info/RECORD\\\")]\\n    assert len(records) == 1\\n    with open(distribution.locate_file(records[0]), encoding=\\\"utf8\\\", newline=\\\"\\\") as record_file:\\n        for row in csv.reader(record_file):\\n            raw_path = pathlib.Path(distribution.locate_file(row[0]))\\n            resolved = raw_path.resolve()\\n            assert raw_path.is_file() and not raw_path.is_symlink()\\n            assert resolved.is_relative_to(root)\\n            if row[1]:\\n                algorithm, digest = row[1].split(\\\"=\\\", 1)\\n                observed = base64.urlsafe_b64encode(hashlib.sha256(raw_path.read_bytes()).digest()).rstrip(b\\\"=\\\").decode()\\n                assert algorithm == \\\"sha256\\\" and observed == digest\\n                checked += 1\\n            else:\\n                assert raw_path.name == \\\"RECORD\\\"\\nprint(checked)\\n\";os.execve(p,[p,'-I','-c',c],e)"
+      ],
+      "cwd": "backend",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "backend-03-targeted-pytest",
+      "tool": "python3",
+      "args": [
+        "-I",
+        "-c",
+        "import os;p='/tmp/chaotang-t0-exact15-49d671a2eb064f80b5c3a27891de604f/venv/bin/python';e={'PATH':'/tmp/chaotang-t0-exact15-49d671a2eb064f80b5c3a27891de604f/venv/bin:/usr/bin:/bin','TMPDIR':'/tmp/chaotang-t0-exact15-49d671a2eb064f80b5c3a27891de604f/tmp','TEMP':'/tmp/chaotang-t0-exact15-49d671a2eb064f80b5c3a27891de604f/tmp','TMP':'/tmp/chaotang-t0-exact15-49d671a2eb064f80b5c3a27891de604f/tmp','CI':'1','NODE_ENV':'test','PYTHONDONTWRITEBYTECODE':'1','PYTEST_DISABLE_PLUGIN_AUTOLOAD':'1','LANG':'C.UTF-8','LC_ALL':'C.UTF-8','NO_COLOR':'1'};a=[p,'-m','pytest','-q','-p','no:anyio','-p','no:langsmith_plugin','tests/test_daily_memorial_storage.py::test_update_exception_rolls_back_insert_and_run','tests/test_shiguan_migrations.py::test_get_connection_rejects_schema_drift_without_repairing_it'];os.execve(p,a,e)"
+      ],
+      "cwd": "backend",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "backend-full-pytest",
+      "tool": "python3",
+      "args": [
+        "-I",
+        "-c",
+        "import os;p='/tmp/chaotang-t0-exact15-49d671a2eb064f80b5c3a27891de604f/venv/bin/python';e={'PATH':'/tmp/chaotang-t0-exact15-49d671a2eb064f80b5c3a27891de604f/venv/bin:/usr/bin:/bin','TMPDIR':'/tmp/chaotang-t0-exact15-49d671a2eb064f80b5c3a27891de604f/tmp','TEMP':'/tmp/chaotang-t0-exact15-49d671a2eb064f80b5c3a27891de604f/tmp','TMP':'/tmp/chaotang-t0-exact15-49d671a2eb064f80b5c3a27891de604f/tmp','CI':'1','NODE_ENV':'test','PYTHONDONTWRITEBYTECODE':'1','PYTEST_DISABLE_PLUGIN_AUTOLOAD':'1','LANG':'C.UTF-8','LC_ALL':'C.UTF-8','NO_COLOR':'1'};a=[p,'-m','pytest','-q','-p','no:anyio','-p','no:langsmith_plugin'];os.execve(p,a,e)"
+      ],
+      "cwd": "backend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "backend-ruff-exact15",
+      "tool": "python3",
+      "args": [
+        "-I",
+        "-c",
+        "import os;p='/tmp/chaotang-t0-exact15-49d671a2eb064f80b5c3a27891de604f/venv/bin/python';e={'PATH':'/tmp/chaotang-t0-exact15-49d671a2eb064f80b5c3a27891de604f/venv/bin:/usr/bin:/bin','TMPDIR':'/tmp/chaotang-t0-exact15-49d671a2eb064f80b5c3a27891de604f/tmp','TEMP':'/tmp/chaotang-t0-exact15-49d671a2eb064f80b5c3a27891de604f/tmp','TMP':'/tmp/chaotang-t0-exact15-49d671a2eb064f80b5c3a27891de604f/tmp','CI':'1','NODE_ENV':'test','PYTHONDONTWRITEBYTECODE':'1','PYTEST_DISABLE_PLUGIN_AUTOLOAD':'1','LANG':'C.UTF-8','LC_ALL':'C.UTF-8','NO_COLOR':'1'};a=[p,'-m','ruff','check','app/api/auth.py','app/auth/models.py','app/auth/storage.py','app/operations/runtime_data_registry.py','app/operations/sqlite_backup.py','app/shiguan/db.py','app/shiguan/maintenance.py','tests/test_auth_api.py','tests/test_auth_storage.py','tests/test_daily_memorial_scheduler.py','tests/test_daily_memorial_storage.py','tests/test_readiness.py','tests/test_shiguan_adopted_evidence.py','tests/test_shiguan_migrations.py','tests/test_sqlite_backup.py'];os.execve(p,a,e)"
+      ],
+      "cwd": "backend",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "backend-tenant-principal-focused-pytest",
+      "tool": "python3",
+      "args": [
+        "-I",
+        "-c",
+        "import os;p='/tmp/chaotang-t0-exact15-49d671a2eb064f80b5c3a27891de604f/venv/bin/python';e={'PATH':'/tmp/chaotang-t0-exact15-49d671a2eb064f80b5c3a27891de604f/venv/bin:/usr/bin:/bin','TMPDIR':'/tmp/chaotang-t0-exact15-49d671a2eb064f80b5c3a27891de604f/tmp','TEMP':'/tmp/chaotang-t0-exact15-49d671a2eb064f80b5c3a27891de604f/tmp','TMP':'/tmp/chaotang-t0-exact15-49d671a2eb064f80b5c3a27891de604f/tmp','CI':'1','NODE_ENV':'test','PYTHONDONTWRITEBYTECODE':'1','PYTEST_DISABLE_PLUGIN_AUTOLOAD':'1','LANG':'C.UTF-8','LC_ALL':'C.UTF-8','NO_COLOR':'1'};a=[p,'-m','pytest','-q','-p','no:anyio','-p','no:langsmith_plugin','tests/test_auth_api.py','tests/test_auth_storage.py','tests/test_daily_memorial_scheduler.py','tests/test_daily_memorial_storage.py','tests/test_readiness.py','tests/test_shiguan_adopted_evidence.py','tests/test_shiguan_migrations.py','tests/test_sqlite_backup.py'];os.execve(p,a,e)"
+      ],
+      "cwd": "backend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "candidate-exact15-structure",
+      "tool": "node",
+      "args": [
+        "--input-type=module",
+        "--eval",
+        "import{execFileSync}from'node:child_process';const expected=['backend/app/api/auth.py','backend/app/auth/models.py','backend/app/auth/storage.py','backend/app/operations/runtime_data_registry.py','backend/app/operations/sqlite_backup.py','backend/app/shiguan/db.py','backend/app/shiguan/maintenance.py','backend/tests/test_auth_api.py','backend/tests/test_auth_storage.py','backend/tests/test_daily_memorial_scheduler.py','backend/tests/test_daily_memorial_storage.py','backend/tests/test_readiness.py','backend/tests/test_shiguan_adopted_evidence.py','backend/tests/test_shiguan_migrations.py','backend/tests/test_sqlite_backup.py'];const blobs=new Map([['backend/app/api/auth.py','513a7e64c34e10f7cbdc17c537b957c87edbe2c6'],['backend/app/auth/models.py','d5eaf6f3775f37bf47466b15fa8536efbbd08e41'],['backend/app/auth/storage.py','ad576ae43750c837b7931e6d513e01e99a3ff8db'],['backend/app/operations/runtime_data_registry.py','04bf5e63f62d8dcd77f7730fa8b8e79e1095641e'],['backend/app/operations/sqlite_backup.py','8990f5509f860a1da72250242d8e8ad6dda0e1b6'],['backend/app/shiguan/db.py','09e4fe1411e8ecd0062bd295c37189da2bbf076a'],['backend/app/shiguan/maintenance.py','6fcb22b5234f536a1abe21d17adbdedac2cea457'],['backend/tests/test_auth_api.py','5d138da8ea28c2334b4eed1b76ac2ecd72f45d23'],['backend/tests/test_auth_storage.py','d799e808f9214d4f28c94ebb02c815665bd00d99'],['backend/tests/test_daily_memorial_scheduler.py','94afb09db9223c0c29cc38831ddaa835b951fe0f'],['backend/tests/test_readiness.py','c1204ea41f382e68a6094f96dce693174ee214da'],['backend/tests/test_shiguan_adopted_evidence.py','43b108d1e716696370f2d5647d8e47a5afe2d84a'],['backend/tests/test_shiguan_migrations.py','95946b809339c0bdfb9d17a038ab59a0d0f3ac16'],['backend/tests/test_sqlite_backup.py','01c23f4687b90bb68328655ed86cfbdde52f8833']]);const env={PATH:'/usr/bin:/bin',GIT_CONFIG_NOSYSTEM:'1',GIT_NO_REPLACE_OBJECTS:'1',GIT_TERMINAL_PROMPT:'0'};const git=(a)=>execFileSync('/usr/bin/git',['--no-replace-objects',...a],{encoding:'utf8',env,maxBuffer:4194304}).trim();const rows=git(['diff-tree','--no-commit-id','--name-status','-r','HEAD^','HEAD']).split('\\n').filter(Boolean).map(r=>r.split('\\t'));if(JSON.stringify(rows.map(r=>r.at(-1)))!==JSON.stringify(expected))throw Error('EXACT15_PATH_MISMATCH');if(rows.some(r=>r[0]!=='M')||rows.length!==15)throw Error('EXACT15_STATUS_MISMATCH');for(const path of expected){const [mode,type,blob]=git(['ls-tree','HEAD','--',path]).split(/\\s+/u);if(mode!=='100644'||type!=='blob')throw Error('EXACT15_MODE_OR_TYPE_MISMATCH:'+path);if(blobs.has(path)&&blob!==blobs.get(path))throw Error('FROZEN_DONOR_BLOB_MISMATCH:'+path);if(!blobs.has(path)&&blob===git(['rev-parse','HEAD^:'+path]))throw Error('CORRECTIVE_TEST_UNCHANGED:'+path)}"
+      ],
+      "cwd": ".",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "git-diff-check",
+      "tool": "node",
+      "args": [
+        "--input-type=module",
+        "--eval",
+        "import{execFileSync}from'node:child_process';execFileSync('/usr/bin/git',['--no-replace-objects','diff','--check','HEAD^','HEAD'],{stdio:'inherit',env:{PATH:'/usr/bin:/bin',GIT_CONFIG_NOSYSTEM:'1',GIT_NO_REPLACE_OBJECTS:'1',GIT_TERMINAL_PROMPT:'0'}})"
+      ],
+      "cwd": ".",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "harness-doctor-regression",
+      "tool": "node",
+      "args": [
+        "--test",
+        "scripts/harness-doctor.test.mjs"
+      ],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "hook-harness-self-test",
+      "tool": "node",
+      "args": [
+        ".agents/hooks/check-harness.mjs",
+        "--self-test"
+      ],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "product-authority-regression",
+      "tool": "python3",
+      "args": [
+        "-I",
+        "-c",
+        "import os;n='/usr/bin/node';t='/tmp/chaotang-t0-exact15-49d671a2eb064f80b5c3a27891de604f/tmp';e={'PATH':'/usr/bin:/bin','TMPDIR':t,'TEMP':t,'TMP':t,'CI':'1','NODE_ENV':'test','LANG':'C.UTF-8','LC_ALL':'C.UTF-8','NO_COLOR':'1'};os.execve(n,[n,'--test','scripts/product-authority.test.mjs'],e)"
+      ],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "root-harness",
+      "tool": "node",
+      "args": [
+        "scripts/check_harness.mjs"
+      ],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "root-harness-doctor",
+      "tool": "node",
+      "args": [
+        "scripts/harness-doctor.mjs",
+        "--check"
+      ],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "root-harness-self-test",
+      "tool": "node",
+      "args": [
+        "scripts/check_harness.mjs",
+        "--self-test"
+      ],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v2-convergence",
+      "tool": "node",
+      "args": [
+        "scripts/ext-full-value-convergence.mjs",
+        "--check"
+      ],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v2-convergence-regression",
+      "tool": "node",
+      "args": [
+        "--test",
+        "scripts/ext-full-value-convergence.test.mjs"
+      ],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "zz-00-environment-contract-final",
+      "tool": "python3",
+      "args": [
+        "-I",
+        "-c",
+        "import os;p='/tmp/chaotang-t0-exact15-49d671a2eb064f80b5c3a27891de604f/venv/bin/python';e={'PATH':'/tmp/chaotang-t0-exact15-49d671a2eb064f80b5c3a27891de604f/venv/bin:/usr/bin:/bin','TMPDIR':'/tmp/chaotang-t0-exact15-49d671a2eb064f80b5c3a27891de604f/tmp','TEMP':'/tmp/chaotang-t0-exact15-49d671a2eb064f80b5c3a27891de604f/tmp','TMP':'/tmp/chaotang-t0-exact15-49d671a2eb064f80b5c3a27891de604f/tmp','CI':'1','NODE_ENV':'test','PYTHONDONTWRITEBYTECODE':'1','PYTEST_DISABLE_PLUGIN_AUTOLOAD':'1','LANG':'C.UTF-8','LC_ALL':'C.UTF-8','NO_COLOR':'1'};c=\"import hashlib\\nimport importlib.metadata as metadata\\nimport json\\nimport os\\nimport pathlib\\nimport stat\\nimport sys\\nimport tempfile\\n\\nroot = pathlib.Path(\\\"/tmp/chaotang-t0-exact15-49d671a2eb064f80b5c3a27891de604f\\\")\\ntemp_root = root / \\\"tmp\\\"\\nrequirements_bytes = (root / \\\"requirements/test.txt\\\").read_bytes()\\nassert hashlib.sha256(requirements_bytes).hexdigest() == \\\"15a890d4fcac9a1eb4f9654e0b795728d462b3801c40bb7c64f908c0894d6b69\\\"\\nroot_info = root.lstat()\\ntemp_info = temp_root.lstat()\\nassert stat.S_ISDIR(root_info.st_mode) and not stat.S_ISLNK(root_info.st_mode)\\nassert stat.S_ISDIR(temp_info.st_mode) and not stat.S_ISLNK(temp_info.st_mode)\\nassert root_info.st_uid == temp_info.st_uid == os.getuid()\\nassert stat.S_IMODE(root_info.st_mode) == stat.S_IMODE(temp_info.st_mode) == 0o700\\nassert root.resolve() == root and temp_root.resolve() == temp_root\\nassert pathlib.Path(sys.executable) == root / \\\"venv/bin/python\\\"\\nassert pathlib.Path(sys.executable).resolve() == pathlib.Path(\\\"/usr/bin/python3.12\\\")\\nassert sys.version.split()[0] == \\\"3.12.3\\\"\\nassert pathlib.Path(tempfile.gettempdir()).resolve() == temp_root\\nprobe = temp_root / \\\"environment-contract-probe\\\"\\nfd = os.open(probe, os.O_CREAT | os.O_EXCL | os.O_RDWR | os.O_NOFOLLOW, 0o600)\\ntry:\\n    os.write(fd, b\\\"posix\\\")\\n    os.lseek(fd, 0, os.SEEK_SET)\\n    assert os.read(fd, 5) == b\\\"posix\\\"\\n    os.ftruncate(fd, 0)\\n    assert os.fstat(fd).st_size == 0\\nfinally:\\n    os.close(fd)\\n    probe.unlink()\\nnormalize = lambda value: value.lower().replace(\\\"_\\\", \\\"-\\\").replace(\\\".\\\", \\\"-\\\")\\nexpected = {\\n    normalize(line.split(\\\"==\\\")[0]): line.split(\\\"==\\\")[1].split()[0]\\n    for line in requirements_bytes.decode().splitlines()\\n}\\ndistributions = list(metadata.distributions())\\nactual = {normalize(dist.metadata[\\\"Name\\\"]): dist.version for dist in distributions}\\nassert len(expected) == len(distributions) == len(actual) == 60\\nassert actual == expected\\nplugins = {\\n    (entry.name, entry.value, normalize(entry.dist.name), entry.dist.version)\\n    for entry in metadata.entry_points(group=\\\"pytest11\\\")\\n}\\nassert plugins == {\\n    (\\\"anyio\\\", \\\"anyio.pytest_plugin\\\", \\\"anyio\\\", \\\"4.10.0\\\"),\\n    (\\\"langsmith_plugin\\\", \\\"langsmith.pytest_plugin\\\", \\\"langsmith\\\", \\\"0.11.0\\\"),\\n}\\nassert os.environ[\\\"PYTEST_DISABLE_PLUGIN_AUTOLOAD\\\"] == \\\"1\\\"\\nprint(json.dumps({\\\"plugins\\\": sorted(plugins), \\\"python\\\": sys.version.split()[0], \\\"versions\\\": actual}, sort_keys=True, separators=(\\\",\\\", \\\":\\\")))\\n\";os.execve(p,[p,'-I','-c',c],e)"
+      ],
+      "cwd": "backend",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "zz-01-installed-record-integrity-final",
+      "tool": "python3",
+      "args": [
+        "-I",
+        "-c",
+        "import os;p='/tmp/chaotang-t0-exact15-49d671a2eb064f80b5c3a27891de604f/venv/bin/python';e={'PATH':'/tmp/chaotang-t0-exact15-49d671a2eb064f80b5c3a27891de604f/venv/bin:/usr/bin:/bin','TMPDIR':'/tmp/chaotang-t0-exact15-49d671a2eb064f80b5c3a27891de604f/tmp','TEMP':'/tmp/chaotang-t0-exact15-49d671a2eb064f80b5c3a27891de604f/tmp','TMP':'/tmp/chaotang-t0-exact15-49d671a2eb064f80b5c3a27891de604f/tmp','CI':'1','NODE_ENV':'test','PYTHONDONTWRITEBYTECODE':'1','PYTEST_DISABLE_PLUGIN_AUTOLOAD':'1','LANG':'C.UTF-8','LC_ALL':'C.UTF-8','NO_COLOR':'1'};c=\"import base64\\nimport csv\\nimport hashlib\\nimport importlib.metadata as metadata\\nimport pathlib\\n\\nroot = pathlib.Path(\\\"/tmp/chaotang-t0-exact15-49d671a2eb064f80b5c3a27891de604f\\\")\\ndistributions = list(metadata.distributions())\\nassert len(distributions) == 60\\nchecked = 0\\nfor distribution in distributions:\\n    records = [item for item in distribution.files if str(item).endswith(\\\".dist-info/RECORD\\\")]\\n    assert len(records) == 1\\n    with open(distribution.locate_file(records[0]), encoding=\\\"utf8\\\", newline=\\\"\\\") as record_file:\\n        for row in csv.reader(record_file):\\n            raw_path = pathlib.Path(distribution.locate_file(row[0]))\\n            resolved = raw_path.resolve()\\n            assert raw_path.is_file() and not raw_path.is_symlink()\\n            assert resolved.is_relative_to(root)\\n            if row[1]:\\n                algorithm, digest = row[1].split(\\\"=\\\", 1)\\n                observed = base64.urlsafe_b64encode(hashlib.sha256(raw_path.read_bytes()).digest()).rstrip(b\\\"=\\\").decode()\\n                assert algorithm == \\\"sha256\\\" and observed == digest\\n                checked += 1\\n            else:\\n                assert raw_path.name == \\\"RECORD\\\"\\nprint(checked)\\n\";os.execve(p,[p,'-I','-c',c],e)"
+      ],
+      "cwd": "backend",
+      "timeoutMs": 30000
+    }
+  ],
+  "state": "APPROVED_FOR_ONE_CHILD"
+}
