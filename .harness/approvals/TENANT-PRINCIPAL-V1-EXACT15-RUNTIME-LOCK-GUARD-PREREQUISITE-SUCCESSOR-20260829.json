@@ -1,0 +1,140 @@
+{
+  "schemaVersion": "product-authority.m0.approval.v1",
+  "authorityId": "product-authority.m0.v1",
+  "taskId": "TENANT-PRINCIPAL-V1-EXACT15-RUNTIME-LOCK-GUARD-PREREQUISITE-SUCCESSOR-20260829",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "b6ac2555cb8bd0a279d91eef06c2c26ff3b57ecc",
+    "baseTree": "49f7e16a9842435978aba6a5dc1311916a3e1524",
+    "approvalPath": ".harness/approvals/TENANT-PRINCIPAL-V1-EXACT15-RUNTIME-LOCK-GUARD-PREREQUISITE-SUCCESSOR-20260829.json",
+    "approvalCommitPaths": [
+      ".harness/approvals/TENANT-PRINCIPAL-V1-EXACT15-RUNTIME-LOCK-GUARD-PREREQUISITE-SUCCESSOR-20260829.json",
+      "docs/product/tasks/2026-08-29-tenant-principal-v1-exact15-runtime-lock-guard-prerequisite-successor.md",
+      "docs/superpowers/plans/2026-08-29-tenant-principal-v1-exact15-runtime-lock-guard-prerequisite-successor.md"
+    ],
+    "productPaths": [
+      "backend/app/operations/runtime_lock.py",
+      "backend/tests/test_runtime_lock.py"
+    ]
+  },
+  "nonGoals": [
+    "CANDIDATE_PRODUCT_PATH_OUTSIDE_EXACT2",
+    "EXACT15_PRODUCT_BYTE_MATERIALIZATION_OR_IDENTITY_INHERITANCE",
+    "FORCE_PUSH_PILOT_RELEASE_DEPLOY_OR_PUBLICATION",
+    "HARNESS_AUTHORITY_APPROVAL_SCHEMA_OR_RELEASE_CHANGE",
+    "LOCK_WHEELHOUSE_PYPROJECT_OR_DEPENDENCY_CHANGE",
+    "NETWORK_PROVIDER_SECRET_OR_PRODUCTION_DATA",
+    "PYTEST_TEST_SELECTION_OR_GATE_WEAKENING",
+    "SYSTEM_USER_GIT_PYTHON_PYTEST_OR_NODE_CONFIG_PERSISTENCE",
+    "TENANT_PRINCIPAL_API_DATABASE_OR_BUSINESS_CONTRACT_CHANGE"
+  ],
+  "verification": [
+    {
+      "id": "backend-candidate-wheel-verification",
+      "tool": "python3",
+      "args": [
+        "-I",
+        "-c",
+        "import os;p='/usr/bin/python3';e={'PATH':'/usr/bin:/bin','TMPDIR':'/tmp','TEMP':'/tmp','TMP':'/tmp','CI':'1','PYTHONDONTWRITEBYTECODE':'1','PYTHONNOUSERSITE':'1','PIP_CONFIG_FILE':'/dev/null','PIP_NO_INDEX':'1','LANG':'C.UTF-8','LC_ALL':'C.UTF-8','NO_COLOR':'1'};a=[p,'-I','app/operations/runtime_lock.py','verify-candidate','--lock','requirements-runtime.lock','--wheelhouse','/var/tmp/chaotang-m0-wheelhouse','--pyproject','pyproject.toml','--source-root','.'];os.execve(p,a,e)"
+      ],
+      "cwd": "backend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "candidate-exact2-structure",
+      "tool": "node",
+      "args": [
+        "--input-type=module",
+        "--eval",
+        "import{execFileSync}from'node:child_process';const expected=['backend/app/operations/runtime_lock.py','backend/tests/test_runtime_lock.py'];const env={PATH:'/usr/bin:/bin',GIT_CONFIG_NOSYSTEM:'1',GIT_NO_REPLACE_OBJECTS:'1',GIT_TERMINAL_PROMPT:'0'};const git=(a)=>execFileSync('/usr/bin/git',['--no-replace-objects',...a],{encoding:'utf8',env,maxBuffer:4194304}).trim();const rows=git(['diff-tree','--no-commit-id','--name-status','-r','HEAD^','HEAD']).split('\\n').filter(Boolean).map(r=>r.split('\\t'));if(JSON.stringify(rows.map(r=>r.at(-1)))!==JSON.stringify(expected))throw Error('EXACT2_PATH_MISMATCH');if(rows.some(r=>r[0]!=='M')||rows.length!==2)throw Error('EXACT2_STATUS_MISMATCH');for(const path of expected){const [mode,type]=git(['ls-tree','HEAD','--',path]).split(/\\s+/u);if(mode!=='100644'||type!=='blob')throw Error('EXACT2_MODE_OR_TYPE_MISMATCH:'+path)}"
+      ],
+      "cwd": ".",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "git-diff-check",
+      "tool": "node",
+      "args": [
+        "--input-type=module",
+        "--eval",
+        "import{execFileSync}from'node:child_process';execFileSync('/usr/bin/git',['--no-replace-objects','diff','--check','HEAD^','HEAD'],{stdio:'inherit',env:{PATH:'/usr/bin:/bin',GIT_CONFIG_NOSYSTEM:'1',GIT_NO_REPLACE_OBJECTS:'1',GIT_TERMINAL_PROMPT:'0'}})"
+      ],
+      "cwd": ".",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "hook-harness-self-test",
+      "tool": "node",
+      "args": [
+        ".agents/hooks/check-harness.mjs",
+        "--self-test"
+      ],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "product-authority-regression",
+      "tool": "python3",
+      "args": [
+        "-I",
+        "-c",
+        "import os;n='/usr/bin/node';t='/tmp';e={'PATH':'/usr/bin:/bin','TMPDIR':t,'TEMP':t,'TMP':t,'CI':'1','NODE_ENV':'test','LANG':'C.UTF-8','LC_ALL':'C.UTF-8','NO_COLOR':'1'};os.execve(n,[n,'--test','scripts/product-authority.test.mjs'],e)"
+      ],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "root-harness",
+      "tool": "node",
+      "args": [
+        "scripts/check_harness.mjs"
+      ],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "root-harness-doctor",
+      "tool": "node",
+      "args": [
+        "scripts/harness-doctor.mjs",
+        "--check"
+      ],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "root-harness-self-test",
+      "tool": "node",
+      "args": [
+        "scripts/check_harness.mjs",
+        "--self-test"
+      ],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v2-convergence",
+      "tool": "node",
+      "args": [
+        "scripts/ext-full-value-convergence.mjs",
+        "--check"
+      ],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v2-convergence-regression",
+      "tool": "node",
+      "args": [
+        "--test",
+        "scripts/ext-full-value-convergence.test.mjs"
+      ],
+      "cwd": ".",
+      "timeoutMs": 180000
+    }
+  ],
+  "state": "APPROVED_FOR_ONE_CHILD"
+}
