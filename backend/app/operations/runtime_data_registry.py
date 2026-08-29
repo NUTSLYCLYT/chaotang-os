@@ -9,13 +9,19 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import sqlite3
+from collections.abc import Sequence
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 REGISTRY_SCHEMA_VERSION = "chaotang.runtime-data-registry.v2"
 SCHEMA_CONTRACT_VERSION = "chaotang.sqlite-schema-contract.v1"
+_VERIFICATION_TIMESTAMP_PATTERN = re.compile(
+    r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z"
+)
 
 
 def _canonical_bytes(value: Any) -> bytes:
@@ -71,6 +77,14 @@ def observe_schema_contract_connection(
     """Project a caller-owned, already opened SQLite connection."""
 
     previous_factory = connection.row_factory
+    connection.row_factory = None
+    try:
+        previous_query_only = int(
+            connection.execute("PRAGMA query_only").fetchone()[0]
+        )
+    except Exception:
+        connection.row_factory = previous_factory
+        raise
     connection.row_factory = sqlite3.Row
     try:
         connection.execute("PRAGMA query_only = ON")
@@ -165,6 +179,7 @@ def observe_schema_contract_connection(
         }
     finally:
         connection.row_factory = previous_factory
+        connection.execute(f"PRAGMA query_only = {previous_query_only}")
 
 
 def observe_schema_contract(path: Path) -> dict[str, Any]:
@@ -186,8 +201,82 @@ def schema_contract_digest_connection(connection: sqlite3.Connection) -> str:
     return _digest(observe_schema_contract_connection(connection))
 
 
+def is_verified_migration_state(rows: Sequence[Sequence[object]]) -> bool:
+    """Return whether rows encode the one canonical verified-v6 state."""
+
+    if len(rows) != 1 or tuple(rows[0][:2]) != (1, "VERIFIED"):
+        return False
+    verified_at = rows[0][2]
+    if not isinstance(verified_at, str) or not _VERIFICATION_TIMESTAMP_PATTERN.fullmatch(
+        verified_at
+    ):
+        return False
+    try:
+        datetime.strptime(verified_at, "%Y-%m-%dT%H:%M:%S.%fZ")
+    except ValueError:
+        return False
+    return True
+
+
 # Digests are literal observations of the accepted ext-dev storage schemas.
 # They are deliberately not derived from writable source modules at runtime.
+SHIGUAN_V5_PREDECESSOR = RuntimeDataEntry(
+    "shiguan.sqlite3",
+    "shiguan.sqlite3",
+    5,
+    (
+        "archive_decisions",
+        "archive_evidence",
+        "archive_evidence_references",
+        "archive_relations",
+        "archive_review_status",
+        "archives",
+        "auth_sessions",
+        "daily_memorial_fact_snapshots",
+        "daily_memorial_runs",
+        "daily_memorial_stage_results",
+        "users",
+    ),
+    (),
+    "sha256:be55daeb1f9fa9602915351b8b26831103557a54bfa628a4c3bac70e14da8493",
+)
+
+# The explicit v1→v2→v3→v4→v5 migration chain preserves the original
+# archives table's physical SQL while producing the same validated logical
+# columns and relations. This second literal contract is the only additional
+# accepted v5 predecessor; arbitrary schema drift remains rejected.
+SHIGUAN_V5_HISTORICAL_PREDECESSOR = RuntimeDataEntry(
+    "shiguan.sqlite3",
+    "shiguan.sqlite3",
+    5,
+    SHIGUAN_V5_PREDECESSOR.required_tables,
+    (),
+    "sha256:b99c42f729b16d6134d71cd77a894270fef79f192466e651407df5941fc8ab02",
+)
+SHIGUAN_V5_DIRECT_AUTH_HISTORICAL_PREDECESSOR = RuntimeDataEntry(
+    "shiguan.sqlite3",
+    "shiguan.sqlite3",
+    5,
+    SHIGUAN_V5_PREDECESSOR.required_tables,
+    (),
+    "sha256:5e94f8c4540705e1bce67e012af857691aa6d9bb3b4e7ce77e332dc1ece5077f",
+)
+SHIGUAN_V5_EVOLVED_AUTH_HISTORICAL_PREDECESSOR = RuntimeDataEntry(
+    "shiguan.sqlite3",
+    "shiguan.sqlite3",
+    5,
+    SHIGUAN_V5_PREDECESSOR.required_tables,
+    (),
+    "sha256:0fba339d71e9e0eea0c5605a4b9b2fb49f919c9d7504242660cf6a83eb1c2b8e",
+)
+SHIGUAN_V5_PREDECESSORS = (
+    SHIGUAN_V5_PREDECESSOR,
+    SHIGUAN_V5_HISTORICAL_PREDECESSOR,
+    SHIGUAN_V5_DIRECT_AUTH_HISTORICAL_PREDECESSOR,
+    SHIGUAN_V5_EVOLVED_AUTH_HISTORICAL_PREDECESSOR,
+)
+
+
 RUNTIME_DATA_ENTRIES = (
     RuntimeDataEntry(
         "decree_jobs.sqlite3",
@@ -266,7 +355,7 @@ RUNTIME_DATA_ENTRIES = (
     RuntimeDataEntry(
         "shiguan.sqlite3",
         "shiguan.sqlite3",
-        5,
+        6,
         (
             "archive_decisions",
             "archive_evidence",
@@ -278,10 +367,25 @@ RUNTIME_DATA_ENTRIES = (
             "daily_memorial_fact_snapshots",
             "daily_memorial_runs",
             "daily_memorial_stage_results",
+            "schema_migration_verification",
+            "tenant_memberships",
+            "tenants",
             "users",
         ),
-        (),
-        "sha256:be55daeb1f9fa9602915351b8b26831103557a54bfa628a4c3bac70e14da8493",
+        (
+            "auth_sessions_guard_insert",
+            "auth_sessions_guard_update",
+            "schema_migration_verification_guard_insert",
+            "schema_migration_verification_guard_update",
+            "schema_migration_verification_no_delete",
+            "tenant_memberships_guard_insert",
+            "tenant_memberships_guard_update",
+            "tenant_memberships_no_delete",
+            "tenants_guard_insert",
+            "tenants_guard_update",
+            "tenants_no_delete",
+        ),
+        "sha256:6c8cf1368bae53cd0c80b10ca5e2a82603c2b47dd43dd38f550622fffec4ccc7",
     ),
 )
 
@@ -300,15 +404,45 @@ RUNTIME_DATA_REGISTRY_DIGEST = str(RUNTIME_DATA_REGISTRY["registryDigest"])
 
 def validate_registered_schema(path: Path, entry: RuntimeDataEntry) -> bool:
     try:
-        observed = observe_schema_contract(path)
+        resolved = Path(path).resolve(strict=True)
+        connection = sqlite3.connect(f"{resolved.as_uri()}?mode=ro", uri=True)
     except (OSError, sqlite3.Error, ValueError):
         return False
-    return (
-        observed["userVersion"] == entry.user_version
-        and tuple(item["name"] for item in observed["tables"]) == entry.required_tables
-        and tuple(item["name"] for item in observed["triggers"]) == entry.required_triggers
-        and _digest(observed) == entry.schema_contract_digest
-    )
+    try:
+        return validate_registered_schema_connection(connection, entry)
+    finally:
+        connection.close()
+
+
+def validate_registered_schema_connection(
+    connection: sqlite3.Connection,
+    entry: RuntimeDataEntry,
+) -> bool:
+    """Validate structure and current-runtime semantic state on a caller-owned connection."""
+
+    try:
+        observed = observe_schema_contract_connection(connection)
+        if not (
+            observed["userVersion"] == entry.user_version
+            and tuple(item["name"] for item in observed["tables"]) == entry.required_tables
+            and tuple(item["name"] for item in observed["triggers"])
+            == entry.required_triggers
+            and _digest(observed) == entry.schema_contract_digest
+        ):
+            return False
+        if entry.name == "shiguan.sqlite3" and entry.user_version >= 6:
+            previous_factory = connection.row_factory
+            connection.row_factory = None
+            try:
+                rows = connection.execute(
+                    "SELECT id,status,verified_at FROM schema_migration_verification"
+                ).fetchall()
+            finally:
+                connection.row_factory = previous_factory
+            return is_verified_migration_state(rows)
+        return True
+    except (OSError, sqlite3.Error, TypeError, ValueError):
+        return False
 
 
 __all__ = [
@@ -316,11 +450,18 @@ __all__ = [
     "RUNTIME_DATA_ENTRIES",
     "RUNTIME_DATA_REGISTRY",
     "RUNTIME_DATA_REGISTRY_DIGEST",
+    "SHIGUAN_V5_HISTORICAL_PREDECESSOR",
+    "SHIGUAN_V5_DIRECT_AUTH_HISTORICAL_PREDECESSOR",
+    "SHIGUAN_V5_EVOLVED_AUTH_HISTORICAL_PREDECESSOR",
+    "SHIGUAN_V5_PREDECESSOR",
+    "SHIGUAN_V5_PREDECESSORS",
     "RuntimeDataEntry",
     "observe_schema_contract",
     "observe_schema_contract_connection",
+    "is_verified_migration_state",
     "registry_document",
     "schema_contract_digest",
     "schema_contract_digest_connection",
     "validate_registered_schema",
+    "validate_registered_schema_connection",
 ]

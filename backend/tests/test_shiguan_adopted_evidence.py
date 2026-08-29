@@ -164,7 +164,7 @@ def _response() -> SimpleNamespace:
     )
 
 
-def test_fresh_database_is_v5_and_initialization_is_idempotent(tmp_path) -> None:
+def test_fresh_database_is_verified_v6_and_initialization_is_idempotent(tmp_path) -> None:
     path = tmp_path / "fresh.sqlite3"
     for _ in range(2):
         connection = db.get_connection(path)
@@ -172,7 +172,10 @@ def test_fresh_database_is_v5_and_initialization_is_idempotent(tmp_path) -> None
 
     connection = sqlite3.connect(path)
     try:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 5
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 6
+        assert connection.execute(
+            "SELECT status FROM schema_migration_verification WHERE id=1"
+        ).fetchone()[0] == "VERIFIED"
         columns = {
             row[1]
             for row in connection.execute(
@@ -192,7 +195,7 @@ def test_fresh_database_is_v5_and_initialization_is_idempotent(tmp_path) -> None
         connection.close()
 
 
-def test_explicit_v2_to_v5_migration_and_runtime_rejects_each_old_version(
+def test_explicit_v2_to_v6_migration_and_runtime_rejects_each_old_version(
     tmp_path,
 ) -> None:
     path = tmp_path / "v2.sqlite3"
@@ -212,7 +215,11 @@ def test_explicit_v2_to_v5_migration_and_runtime_rejects_each_old_version(
     with pytest.raises(ShiguanStorageError):
         db.get_connection(path)
     db.migrate_v4_to_v5(path)
-    db.get_connection(path).close()
+    with pytest.raises(ShiguanStorageError, match="显式迁移"):
+        db.get_connection(path)
+    db.migrate_v5_to_v6(path)
+    with pytest.raises(ShiguanStorageError, match="验证"):
+        db.get_connection(path)
 
 
 def test_failed_v2_migration_rolls_back_table_and_version(tmp_path, monkeypatch) -> None:

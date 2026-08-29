@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import secrets
 import sqlite3
 import subprocess
 import sys
@@ -14,7 +15,7 @@ import pytest
 from app.jinyiwei import db as jinyiwei_db
 from app.jinyiwei.models import DataGapRequest
 from app.shiguan import db, maintenance, storage
-from app.shiguan.errors import ArchiveNotFoundError, ShiguanStorageError
+from app.shiguan.errors import ShiguanStorageError
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 
@@ -42,6 +43,109 @@ CREATE TABLE archive_review_status (
     note TEXT, FOREIGN KEY (archive_id) REFERENCES archives(id)
 );
 PRAGMA user_version = 1;
+"""
+
+REAL_HISTORICAL_V1_BASE_SCHEMA = """
+CREATE TABLE IF NOT EXISTS archives (
+    id TEXT PRIMARY KEY,
+    type TEXT NOT NULL,
+    title TEXT NOT NULL,
+    content TEXT NOT NULL,
+    matter_type TEXT NOT NULL,
+    department TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    lessons_learned TEXT,
+    pitfalls TEXT,
+    participating_departments TEXT,
+    decision_process TEXT,
+    decision_conclusion TEXT,
+    decision_time TEXT,
+    responsible_owner TEXT
+);
+CREATE TABLE IF NOT EXISTS archive_evidence (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    archive_id TEXT NOT NULL,
+    source TEXT NOT NULL,
+    reality_label TEXT NOT NULL,
+    note TEXT,
+    FOREIGN KEY (archive_id) REFERENCES archives(id)
+);
+CREATE TABLE IF NOT EXISTS archive_relations (
+    seq INTEGER PRIMARY KEY AUTOINCREMENT,
+    archive_id TEXT NOT NULL,
+    related_id TEXT NOT NULL,
+    UNIQUE (archive_id, related_id),
+    FOREIGN KEY (archive_id) REFERENCES archives(id),
+    FOREIGN KEY (related_id) REFERENCES archives(id)
+);
+CREATE TABLE IF NOT EXISTS archive_review_status (
+    archive_id TEXT PRIMARY KEY,
+    status TEXT NOT NULL,
+    reviewed_at TEXT NOT NULL,
+    note TEXT,
+    FOREIGN KEY (archive_id) REFERENCES archives(id)
+);
+"""
+
+REAL_HISTORICAL_V1_AUTH_SCHEMA = """
+CREATE TABLE IF NOT EXISTS archives (
+    id TEXT PRIMARY KEY,
+    type TEXT NOT NULL,
+    title TEXT NOT NULL,
+    content TEXT NOT NULL,
+    matter_type TEXT NOT NULL,
+    department TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    lessons_learned TEXT,
+    pitfalls TEXT,
+    participating_departments TEXT,
+    decision_process TEXT,
+    decision_conclusion TEXT,
+    decision_time TEXT,
+    responsible_owner TEXT,
+    owner_user_id TEXT
+);
+CREATE TABLE IF NOT EXISTS archive_evidence (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    archive_id TEXT NOT NULL,
+    source TEXT NOT NULL,
+    reality_label TEXT NOT NULL,
+    note TEXT,
+    FOREIGN KEY (archive_id) REFERENCES archives(id)
+);
+CREATE TABLE IF NOT EXISTS archive_relations (
+    seq INTEGER PRIMARY KEY AUTOINCREMENT,
+    archive_id TEXT NOT NULL,
+    related_id TEXT NOT NULL,
+    UNIQUE (archive_id, related_id),
+    FOREIGN KEY (archive_id) REFERENCES archives(id),
+    FOREIGN KEY (related_id) REFERENCES archives(id)
+);
+CREATE TABLE IF NOT EXISTS archive_review_status (
+    archive_id TEXT PRIMARY KEY,
+    status TEXT NOT NULL,
+    reviewed_at TEXT NOT NULL,
+    note TEXT,
+    FOREIGN KEY (archive_id) REFERENCES archives(id)
+);
+CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    username TEXT NOT NULL UNIQUE,
+    email TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS auth_sessions (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    revoked_at TEXT,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+CREATE INDEX IF NOT EXISTS idx_auth_sessions_active_user
+ON auth_sessions (id, user_id, expires_at)
+WHERE revoked_at IS NULL;
 """
 
 JINYIWEI_V1_SCHEMA = """
@@ -521,11 +625,11 @@ def test_jinyiwei_v1_to_v5_failure_rolls_back_entire_chain(tmp_path, monkeypatch
         connection.close()
 
 
-def test_new_database_is_created_directly_at_schema_v5(tmp_path):
+def test_new_database_is_created_directly_at_verified_schema_v6(tmp_path):
     path = tmp_path / "new.sqlite3"
     conn = db.get_connection(path)
     try:
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 5
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 6
         columns = {row[1] for row in conn.execute("PRAGMA table_info(archives)")}
         reply_columns = {
             "source_kind",
@@ -540,13 +644,550 @@ def test_new_database_is_created_directly_at_schema_v5(tmp_path):
         assert conn.execute(
             "SELECT name FROM sqlite_master WHERE type='table' AND name='archive_decisions'"
         ).fetchone()[0] == "archive_decisions"
+        assert [
+            tuple(row)
+            for row in conn.execute("PRAGMA table_info(tenants)").fetchall()
+        ] == [
+            (0, "id", "TEXT", 0, None, 1),
+            (1, "kind", "TEXT", 1, None, 0),
+            (2, "created_at", "TEXT", 1, None, 0),
+        ]
+        assert [row[1] for row in conn.execute("PRAGMA table_info(tenant_memberships)")] == [
+            "id",
+            "user_id",
+            "tenant_id",
+            "role",
+            "created_at",
+            "revoked_at",
+        ]
+        assert [row[1] for row in conn.execute("PRAGMA table_info(auth_sessions)")] == [
+            "id",
+            "user_id",
+            "membership_id",
+            "created_at",
+            "expires_at",
+            "revoked_at",
+        ]
+        assert conn.execute(
+            "SELECT status, verified_at FROM schema_migration_verification WHERE id=1"
+        ).fetchone()[0] == "VERIFIED"
+        trigger_names = {
+            row[0]
+            for row in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='trigger'"
+            )
+        }
+        assert trigger_names == {
+            "auth_sessions_guard_insert",
+            "auth_sessions_guard_update",
+            "schema_migration_verification_guard_insert",
+            "schema_migration_verification_guard_update",
+            "schema_migration_verification_no_delete",
+            "tenant_memberships_guard_insert",
+            "tenant_memberships_guard_update",
+            "tenant_memberships_no_delete",
+            "tenants_guard_insert",
+            "tenants_guard_update",
+            "tenants_no_delete",
+        }
     finally:
         conn.close()
 
 
+def _make_v5_with_principal_data(path):
+    connection = sqlite3.connect(path)
+    connection.execute("PRAGMA foreign_keys = ON")
+    connection.executescript(db._V5_SCHEMA_STATEMENTS)
+    connection.execute(
+        "INSERT INTO users VALUES (?, ?, ?, ?, ?)",
+        (
+            "user-1",
+            "court",
+            "court@example.com",
+            "password-hash",
+            "2026-08-28T00:00:00+00:00",
+        ),
+    )
+    connection.execute(
+        "INSERT INTO auth_sessions VALUES (?, ?, ?, ?, NULL)",
+        (
+            "session-1",
+            "user-1",
+            "2026-08-28T00:00:00+00:00",
+            "2026-08-29T00:00:00+00:00",
+        ),
+    )
+    connection.execute(
+        "INSERT INTO archives "
+        "(id, type, title, content, matter_type, department, created_at, owner_user_id) "
+        "VALUES ('archive-1', 'MEMORIAL', 'title', 'content', 'matter', '户部', "
+        "'2026-08-28T00:00:00+00:00', 'user-1')"
+    )
+    connection.execute(
+        "INSERT INTO archive_decisions VALUES "
+        "('archive-1', 'user-1', 'user-1', 'APPROVED', "
+        "'2026-08-28T01:00:00+00:00')"
+    )
+    connection.commit()
+    connection.close()
+
+
+def _add_v5_user_with_cross_principal_identifier_collision(
+    path, *, first_username: str, second_email: str
+) -> None:
+    connection = sqlite3.connect(path)
+    try:
+        connection.execute(
+            "UPDATE users SET username = ? WHERE id = 'user-1'",
+            (first_username,),
+        )
+        connection.execute(
+            "INSERT INTO users VALUES (?, ?, ?, ?, ?)",
+            (
+                "user-2",
+                "other",
+                second_email,
+                "password-hash-2",
+                "2026-08-28T00:00:00+00:00",
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+
+@pytest.mark.parametrize("entrypoint", ["direct", "maintenance"])
+@pytest.mark.parametrize(
+    ("first_username", "second_email"),
+    [
+        ("court", "court"),
+        ("court", " COURT "),
+        ("straße", "STRASSE"),
+    ],
+)
+def test_v5_to_v6_rejects_cross_principal_identifier_ambiguity_before_writes(
+    tmp_path, entrypoint, first_username, second_email
+):
+    path = tmp_path / (
+        f"schema-v5-ambiguous-{entrypoint}-{first_username.encode().hex()}.sqlite3"
+    )
+    _make_v5_with_principal_data(path)
+    _add_v5_user_with_cross_principal_identifier_collision(
+        path,
+        first_username=first_username,
+        second_email=second_email,
+    )
+    bytes_before = path.read_bytes()
+    with sqlite3.connect(path) as connection:
+        rows_before = connection.execute(
+            "SELECT id, username, email FROM users ORDER BY id"
+        ).fetchall()
+
+    with pytest.raises(ShiguanStorageError):
+        if entrypoint == "direct":
+            db.migrate_v5_to_v6(path)
+        else:
+            maintenance.migrate_runtime_v5_to_v6(path)
+
+    assert path.read_bytes() == bytes_before
+    assert not path.with_name(f"{path.name}.v5-backup").exists()
+    connection = sqlite3.connect(path)
+    try:
+        assert connection.execute("PRAGMA user_version").fetchone() == (5,)
+        assert connection.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='tenants'"
+        ).fetchone() is None
+        assert connection.execute(
+            "SELECT id, username, email FROM users ORDER BY id"
+        ).fetchall() == rows_before
+    finally:
+        connection.close()
+
+
+def test_v5_to_v6_allows_same_principal_to_share_one_identifier_key(tmp_path):
+    from app.auth.passwords import hash_password
+    from app.auth.storage import authenticate_and_create_session, configure_auth_db
+
+    login_value = secrets.token_urlsafe(32)
+    path = tmp_path / "schema-v5-same-principal-identifier.sqlite3"
+    _make_v5_with_principal_data(path)
+    connection = sqlite3.connect(path)
+    try:
+        connection.execute(
+            "UPDATE users SET username = ?, email = ?, password_hash = ? WHERE id = ?",
+            (
+                "same@example.test",
+                " SAME@EXAMPLE.TEST ",
+                hash_password(login_value),
+                "user-1",
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    report = maintenance.migrate_runtime_v5_to_v6(path)
+
+    assert report.ready is True
+    configure_auth_db(path)
+    try:
+        authenticated = authenticate_and_create_session("same@example.test", login_value)
+    finally:
+        configure_auth_db(None)
+    assert authenticated is not None
+    principal, _session_id = authenticated
+    assert principal.id == "user-1"
+
+
+def _make_real_historical_v1(path, *, evolved_from_base):
+    connection = sqlite3.connect(path)
+    if evolved_from_base:
+        connection.executescript(REAL_HISTORICAL_V1_BASE_SCHEMA)
+        connection.executescript(REAL_HISTORICAL_V1_AUTH_SCHEMA)
+        connection.execute("ALTER TABLE archives ADD COLUMN owner_user_id TEXT")
+    else:
+        connection.executescript(REAL_HISTORICAL_V1_AUTH_SCHEMA)
+    connection.execute(
+        "INSERT INTO users VALUES (?,?,?,?,?)",
+        ("u1", "court", "court@example.test", "hash", "2026-01-01"),
+    )
+    connection.execute(
+        "INSERT INTO auth_sessions VALUES (?,?,?,?,?)",
+        ("s1", "u1", "2026-01-01", "2027-01-01", None),
+    )
+    connection.executemany(
+        "INSERT INTO archives VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        [
+            (
+                "m1",
+                "MEMORIAL",
+                "m",
+                "decree text",
+                "matter",
+                "户部",
+                "2026-01-01",
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                "u1",
+            ),
+            (
+                "d1",
+                "DECISION",
+                "d",
+                "reply",
+                "matter",
+                "户部",
+                "2026-01-01",
+                None,
+                None,
+                None,
+                "process",
+                "done",
+                "2026-01-02",
+                "丞相",
+                "u1",
+            ),
+        ],
+    )
+    connection.execute(
+        "INSERT INTO archive_relations (archive_id, related_id) VALUES (?,?)",
+        ("d1", "m1"),
+    )
+    connection.execute("PRAGMA user_version = 1")
+    connection.commit()
+    connection.close()
+
+
+@pytest.mark.parametrize(
+    ("evolved_from_base", "expected_v5_digest"),
+    [
+        (
+            False,
+            "sha256:5e94f8c4540705e1bce67e012af857691aa6d9bb3b4e7ce77e332dc1ece5077f",
+        ),
+        (
+            True,
+            "sha256:0fba339d71e9e0eea0c5605a4b9b2fb49f919c9d7504242660cf6a83eb1c2b8e",
+        ),
+    ],
+)
+def test_real_historical_v1_layouts_migrate_to_verified_v6(
+    tmp_path, evolved_from_base, expected_v5_digest
+):
+    from app.operations.runtime_data_registry import schema_contract_digest
+
+    path = tmp_path / "real-historical-v1.sqlite3"
+    _make_real_historical_v1(path, evolved_from_base=evolved_from_base)
+    db.migrate_v1_to_v2(path, confirmed_pairs={"d1": "m1"})
+    db.migrate_v2_to_v3(path)
+    db.migrate_v3_to_v4(path)
+    db.migrate_v4_to_v5(path)
+    assert schema_contract_digest(path) == expected_v5_digest
+
+    report = maintenance.migrate_runtime_v5_to_v6(path)
+
+    assert report.ready is True
+    with sqlite3.connect(path) as connection:
+        assert connection.execute("SELECT COUNT(*) FROM users").fetchone() == (1,)
+        assert connection.execute(
+            "SELECT status FROM schema_migration_verification WHERE id=1"
+        ).fetchone() == ("VERIFIED",)
+
+
+def test_v5_to_v6_backfills_one_personal_owner_membership_and_binds_sessions(tmp_path):
+    path = tmp_path / "schema-v5.sqlite3"
+    _make_v5_with_principal_data(path)
+
+    db.migrate_v5_to_v6(path)
+
+    connection = sqlite3.connect(path)
+    try:
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 6
+        assert connection.execute(
+            "SELECT kind FROM tenants"
+        ).fetchall() == [("PERSONAL",)]
+        membership = connection.execute(
+            "SELECT id, user_id, tenant_id, role, revoked_at FROM tenant_memberships"
+        ).fetchone()
+        assert membership[1:] == ("user-1", membership[2], "OWNER", None)
+        assert connection.execute(
+            "SELECT user_id, membership_id FROM auth_sessions"
+        ).fetchall() == [("user-1", membership[0])]
+        assert connection.execute(
+            "SELECT status, verified_at FROM schema_migration_verification WHERE id=1"
+        ).fetchone() == ("PENDING_VERIFICATION", None)
+        assert connection.execute(
+            "SELECT id, owner_user_id FROM archives"
+        ).fetchall() == [("archive-1", "user-1")]
+        assert connection.execute(
+            "SELECT archive_id, decision FROM archive_decisions"
+        ).fetchall() == [("archive-1", "APPROVED")]
+    finally:
+        connection.close()
+
+    with pytest.raises(ShiguanStorageError, match="验证"):
+        db.get_connection(path)
+
+
+def test_v5_to_v6_precommit_failure_restores_exact_v5_schema_and_rows(
+    tmp_path, monkeypatch
+):
+    path = tmp_path / "schema-v5-failure.sqlite3"
+    _make_v5_with_principal_data(path)
+    before = sqlite3.connect(path)
+    try:
+        schema_before = before.execute(
+            "SELECT type, name, sql FROM sqlite_master ORDER BY type, name"
+        ).fetchall()
+        rows_before = before.execute("SELECT * FROM auth_sessions").fetchall()
+    finally:
+        before.close()
+
+    monkeypatch.setattr(
+        db,
+        "_validate_v6_schema",
+        lambda _connection: (_ for _ in ()).throw(ValueError("forced")),
+        raising=False,
+    )
+    with pytest.raises(ShiguanStorageError, match="v5 到 v6"):
+        db.migrate_v5_to_v6(path)
+
+    connection = sqlite3.connect(path)
+    try:
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 5
+        assert connection.execute(
+            "SELECT type, name, sql FROM sqlite_master ORDER BY type, name"
+        ).fetchall() == schema_before
+        assert connection.execute("SELECT * FROM auth_sessions").fetchall() == rows_before
+    finally:
+        connection.close()
+
+
+def test_v6_constraints_make_membership_identity_immutable_and_revocation_one_way(
+    tmp_path,
+):
+    path = tmp_path / "constraints.sqlite3"
+    connection = db.get_connection(path)
+    try:
+        connection.execute(
+            "INSERT INTO users VALUES ('user-1','court','court@example.com','hash','now')"
+        )
+        connection.execute(
+            "INSERT INTO tenants VALUES ('tenant-1','PERSONAL','now')"
+        )
+        connection.execute(
+            "INSERT INTO tenant_memberships VALUES "
+            "('membership-1','user-1','tenant-1','OWNER','now',NULL)"
+        )
+        connection.commit()
+        with pytest.raises(sqlite3.IntegrityError):
+            connection.execute(
+                "UPDATE tenant_memberships SET tenant_id='tenant-2' WHERE id='membership-1'"
+            )
+        connection.execute(
+            "UPDATE tenant_memberships SET revoked_at='later' WHERE id='membership-1'"
+        )
+        with pytest.raises(sqlite3.IntegrityError):
+            connection.execute(
+                "UPDATE tenant_memberships SET revoked_at=NULL WHERE id='membership-1'"
+            )
+        with pytest.raises(sqlite3.IntegrityError):
+            connection.execute(
+                "DELETE FROM tenant_memberships WHERE id='membership-1'"
+            )
+    finally:
+        connection.close()
+
+
+def test_v6_constraints_reject_replace_reactivation_and_session_rebinding(tmp_path):
+    path = tmp_path / "replace-constraints.sqlite3"
+    connection = db.get_connection(path)
+    try:
+        connection.executescript(
+            """
+            INSERT INTO users VALUES ('user-1','court','court@example.com','hash','now');
+            INSERT INTO users VALUES ('user-2','court2','court2@example.com','hash','now');
+            INSERT INTO tenants VALUES ('tenant-1','PERSONAL','now');
+            INSERT INTO tenants VALUES ('tenant-2','PERSONAL','now');
+            INSERT INTO tenant_memberships VALUES
+                ('membership-1','user-1','tenant-1','OWNER','now',NULL);
+            INSERT INTO tenant_memberships VALUES
+                ('membership-2','user-2','tenant-2','OWNER','now',NULL);
+            INSERT INTO auth_sessions VALUES
+                ('session-1','user-1','membership-1','now','later',NULL);
+            UPDATE tenant_memberships SET revoked_at='revoked' WHERE id='membership-1';
+            """
+        )
+        connection.commit()
+
+        with pytest.raises(sqlite3.IntegrityError):
+            connection.execute(
+                "INSERT OR REPLACE INTO tenant_memberships VALUES "
+                "('membership-1','user-1','tenant-1','OWNER','now',NULL)"
+            )
+        with pytest.raises(sqlite3.IntegrityError):
+            connection.execute(
+                "INSERT OR REPLACE INTO auth_sessions VALUES "
+                "('session-1','user-2','membership-2','now','later',NULL)"
+            )
+        with pytest.raises(sqlite3.IntegrityError):
+            connection.execute(
+                "INSERT OR REPLACE INTO tenants VALUES "
+                "('tenant-1','PERSONAL','changed')"
+            )
+        with pytest.raises(sqlite3.IntegrityError):
+            connection.execute(
+                "UPDATE auth_sessions SET expires_at='extended' WHERE id='session-1'"
+            )
+
+        assert tuple(connection.execute(
+            "SELECT user_id, tenant_id, revoked_at FROM tenant_memberships "
+            "WHERE id='membership-1'"
+        ).fetchone()) == ("user-1", "tenant-1", "revoked")
+        assert tuple(connection.execute(
+            "SELECT user_id, membership_id FROM auth_sessions WHERE id='session-1'"
+        ).fetchone()) == ("user-1", "membership-1")
+        assert tuple(connection.execute(
+            "SELECT created_at FROM tenants WHERE id='tenant-1'"
+        ).fetchone()) == ("now",)
+        indexes = {
+            row[1]: tuple(
+                item[2]
+                for item in connection.execute(f"PRAGMA index_info({row[1]})")
+            )
+            for row in connection.execute("PRAGMA index_list(auth_sessions)")
+        }
+        assert indexes["idx_auth_sessions_active_user"][0] == "user_id"
+        assert indexes["idx_auth_sessions_membership_user"] == (
+            "membership_id",
+            "user_id",
+        )
+    finally:
+        connection.close()
+
+
+@pytest.mark.parametrize("verified_at", ["", "   "])
+def test_v6_rejects_blank_verified_timestamp_consistently(tmp_path, verified_at):
+    path = tmp_path / "blank-verification.sqlite3"
+    connection = sqlite3.connect(path)
+    pending_script = db._V6_SCHEMA_STATEMENTS.replace(
+        "VALUES (1, 'VERIFIED', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));",
+        "VALUES (1, 'PENDING_VERIFICATION', NULL);",
+    )
+    connection.executescript(pending_script)
+    connection.execute("PRAGMA ignore_check_constraints = ON")
+    connection.execute(
+        "UPDATE schema_migration_verification SET status='VERIFIED', verified_at=?",
+        (verified_at,),
+    )
+    connection.commit()
+    connection.close()
+
+    with pytest.raises(ShiguanStorageError, match="验证"):
+        db.get_connection(path)
+    assert maintenance.inspect_runtime_database(path).ready is False
+
+
+def test_get_connection_rejects_schema_drift_without_repairing_it(tmp_path):
+    path = tmp_path / "schema-drift.sqlite3"
+    db.get_connection(path).close()
+    connection = sqlite3.connect(path)
+    connection.execute("ALTER TABLE archives DROP COLUMN respondent")
+    connection.commit()
+    before = connection.execute(
+        "SELECT type, name, sql FROM sqlite_master ORDER BY type, name"
+    ).fetchall()
+    connection.close()
+
+    with pytest.raises(ShiguanStorageError):
+        db.get_connection(path)
+
+    readback = sqlite3.connect(path)
+    try:
+        after = readback.execute(
+            "SELECT type, name, sql FROM sqlite_master ORDER BY type, name"
+        ).fetchall()
+        assert after == before
+        assert "respondent" not in {
+            row[1] for row in readback.execute("PRAGMA table_info(archives)")
+        }
+    finally:
+        readback.close()
+
+
+def test_get_connection_rejects_nonempty_unknown_database_without_writing_identity(tmp_path):
+    path = tmp_path / "forged.sqlite3"
+    connection = sqlite3.connect(path)
+    connection.execute("CREATE TABLE unrelated (id TEXT PRIMARY KEY)")
+    connection.commit()
+    connection.close()
+
+    with pytest.raises(ShiguanStorageError):
+        db.get_connection(path)
+
+    readback = sqlite3.connect(path)
+    try:
+        tables = {
+            row[0]
+            for row in readback.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            )
+        }
+        assert tables == {"unrelated"}
+        assert readback.execute("PRAGMA user_version").fetchone()[0] == 0
+    finally:
+        readback.close()
+
+
 def test_v4_to_v5_preserves_archives_and_adds_empty_decision_table(tmp_path):
     path = tmp_path / "schema-v4.sqlite3"
-    connection = db.get_connection(path)
+    connection = sqlite3.connect(path)
+    connection.executescript(db._V5_SCHEMA_STATEMENTS)
     connection.execute(
         "INSERT INTO archives "
         "(id, type, title, content, matter_type, department, created_at, owner_user_id) "
@@ -574,7 +1215,8 @@ def test_v4_to_v5_preserves_archives_and_adds_empty_decision_table(tmp_path):
 
 def test_v4_to_v5_failure_rolls_back_schema_and_version(tmp_path, monkeypatch):
     path = tmp_path / "schema-v4-failure.sqlite3"
-    connection = db.get_connection(path)
+    connection = sqlite3.connect(path)
+    connection.executescript(db._V5_SCHEMA_STATEMENTS)
     connection.execute("DROP TABLE IF EXISTS archive_decisions")
     connection.execute("PRAGMA user_version = 4")
     connection.commit()
@@ -613,12 +1255,11 @@ def test_explicit_confirmed_pair_migration_merges_fake_memorial_into_reply(tmp_p
     db.migrate_v2_to_v3(path)
     db.migrate_v3_to_v4(path)
     db.migrate_v4_to_v5(path)
-    with pytest.raises(ArchiveNotFoundError):
-        storage.get_archive("decision-1", db_path=path)
-    with pytest.raises(ArchiveNotFoundError):
-        storage.get_archive("memorial-1", db_path=path)
-
-    conn = db.get_connection(path)
+    report = maintenance.migrate_runtime_v5_to_v6(path)
+    assert report.version == 6
+    assert report.ready is True
+    conn = sqlite3.connect(path)
+    conn.row_factory = sqlite3.Row
     try:
         reply = conn.execute("SELECT * FROM archives WHERE id = 'decision-1'").fetchone()
         assert reply["type"] == "REPLY"
@@ -629,6 +1270,9 @@ def test_explicit_confirmed_pair_migration_merges_fake_memorial_into_reply(tmp_p
         assert reply["reply_time"] == "2026-07-17T10:00:00+00:00"
         assert reply["respondent"] == "丞相"
         assert reply["owner_user_id"] is None
+        assert conn.execute(
+            "SELECT COUNT(*) FROM archives WHERE id = 'memorial-1'"
+        ).fetchone()[0] == 0
         evidence_count = conn.execute(
             "SELECT COUNT(*) FROM archive_evidence WHERE archive_id = 'memorial-1'"
         ).fetchone()[0]
@@ -637,6 +1281,9 @@ def test_explicit_confirmed_pair_migration_merges_fake_memorial_into_reply(tmp_p
         ).fetchone()[0]
         assert evidence_count == 0
         assert review_count == 0
+        assert conn.execute(
+            "SELECT status FROM schema_migration_verification WHERE id=1"
+        ).fetchone()[0] == "VERIFIED"
     finally:
         conn.close()
 
@@ -681,16 +1328,8 @@ def test_invalid_or_incomplete_confirmation_rolls_back_entire_migration(
 
 
 def _make_v2(path):
-    connection = db.get_connection(path)
-    connection.close()
     connection = sqlite3.connect(path)
-    connection.execute("DROP TABLE archive_decisions")
-    connection.execute("DROP TABLE daily_memorial_stage_results")
-    connection.execute("DROP TABLE daily_memorial_fact_snapshots")
-    connection.execute("DROP TABLE daily_memorial_runs")
-    connection.execute("DROP TABLE archive_evidence_references")
-    connection.execute("PRAGMA user_version = 2")
-    connection.commit()
+    connection.executescript(db._V2_SCHEMA_STATEMENTS)
     connection.close()
 
 
@@ -724,13 +1363,17 @@ def test_runtime_migration_backs_up_v2_and_reads_archives(tmp_path):
     assert upgraded.ready is False
     current = maintenance.migrate_runtime_v4_to_v5(path)
     assert current.version == 5
-    assert current.ready is True
+    assert current.ready is False
+    verified = maintenance.migrate_runtime_v5_to_v6(path)
+    assert verified.version == 6
+    assert verified.ready is True
     assert storage.list_archives(db_path=path) == []
 
 
 def test_runtime_v4_to_v5_report_counts_every_owner_archive_past_list_limit(tmp_path):
     path = tmp_path / "schema-v4-many-archives.sqlite3"
-    connection = db.get_connection(path)
+    connection = sqlite3.connect(path)
+    connection.executescript(db._V5_SCHEMA_STATEMENTS)
     connection.executemany(
         "INSERT INTO archives "
         "(id, type, title, content, matter_type, department, created_at, owner_user_id) "
@@ -749,7 +1392,7 @@ def test_runtime_v4_to_v5_report_counts_every_owner_archive_past_list_limit(tmp_
 
     report = maintenance.migrate_runtime_v4_to_v5(path)
 
-    assert report.ready is True
+    assert report.ready is False
     assert report.archive_count == 105
     connection = sqlite3.connect(path)
     try:
@@ -767,6 +1410,218 @@ def test_runtime_migration_refuses_to_overwrite_existing_backup(tmp_path):
         maintenance.migrate_runtime_v2_to_v3(path)
 
     assert maintenance.inspect_runtime_database(path).version == 2
+
+
+def test_runtime_v5_to_v6_uses_sqlite_backup_and_marks_verified(tmp_path, monkeypatch):
+    path = tmp_path / "schema-v5.sqlite3"
+    _make_v5_with_principal_data(path)
+    monkeypatch.setattr(
+        maintenance,
+        "_copy_backup",
+        lambda *_args: (_ for _ in ()).throw(AssertionError("raw copy forbidden")),
+    )
+
+    report = maintenance.migrate_runtime_v5_to_v6(path)
+
+    backup = path.with_name("schema-v5.sqlite3.v5-backup")
+    assert report.version == 6
+    assert report.ready is True
+    assert report.migrated is True
+    assert report.backup_path == str(backup)
+    assert report.archive_count == 1
+    assert backup.exists()
+    assert backup.stat().st_mode & 0o777 == 0o600
+    backup_connection = sqlite3.connect(backup)
+    try:
+        assert backup_connection.execute("PRAGMA user_version").fetchone()[0] == 5
+        assert backup_connection.execute("SELECT * FROM auth_sessions").fetchall() == [
+            (
+                "session-1",
+                "user-1",
+                "2026-08-28T00:00:00+00:00",
+                "2026-08-29T00:00:00+00:00",
+                None,
+            )
+        ]
+    finally:
+        backup_connection.close()
+    reopened = db.get_connection(path)
+    try:
+        assert reopened.execute(
+            "SELECT status FROM schema_migration_verification WHERE id=1"
+        ).fetchone()[0] == "VERIFIED"
+    finally:
+        reopened.close()
+
+
+def test_runtime_v5_to_v6_rejects_schema_drift_before_backup(tmp_path):
+    path = tmp_path / "schema-v5-drift.sqlite3"
+    _make_v5_with_principal_data(path)
+    connection = sqlite3.connect(path)
+    connection.execute("CREATE TABLE forged_tenant_data (id TEXT PRIMARY KEY)")
+    connection.commit()
+    connection.close()
+
+    with pytest.raises(ShiguanStorageError, match="迁移条件"):
+        maintenance.migrate_runtime_v5_to_v6(path)
+
+    assert not path.with_name("schema-v5-drift.sqlite3.v5-backup").exists()
+    assert maintenance.inspect_runtime_database(path).version == 5
+
+
+def test_runtime_v5_to_v6_rejects_concurrent_writer_before_backup(tmp_path):
+    path = tmp_path / "schema-v5-locked.sqlite3"
+    _make_v5_with_principal_data(path)
+    writer = sqlite3.connect(path)
+    writer.execute("BEGIN IMMEDIATE")
+    try:
+        with pytest.raises(ShiguanStorageError, match="迁移失败"):
+            maintenance.migrate_runtime_v5_to_v6(path)
+        assert not path.with_name("schema-v5-locked.sqlite3.v5-backup").exists()
+    finally:
+        writer.rollback()
+        writer.close()
+    assert maintenance.inspect_runtime_database(path).version == 5
+
+
+def test_runtime_v5_to_v6_refuses_to_overwrite_existing_backup(tmp_path):
+    path = tmp_path / "schema-v5-existing-backup.sqlite3"
+    _make_v5_with_principal_data(path)
+    backup = path.with_name("schema-v5-existing-backup.sqlite3.v5-backup")
+    backup.write_bytes(b"operator-owned-evidence")
+
+    with pytest.raises(ShiguanStorageError, match="备份已存在"):
+        maintenance.migrate_runtime_v5_to_v6(path)
+
+    assert backup.read_bytes() == b"operator-owned-evidence"
+    assert maintenance.inspect_runtime_database(path).version == 5
+
+
+def test_runtime_v5_to_v6_rejects_backup_path_replacement_without_touching_victim(
+    tmp_path, monkeypatch
+):
+    path = tmp_path / "schema-v5-backup-race.sqlite3"
+    _make_v5_with_principal_data(path)
+    backup = path.with_name("schema-v5-backup-race.sqlite3.v5-backup")
+    victim = tmp_path / "victim.sqlite3"
+    victim.write_bytes(b"operator-owned")
+    real_connect = maintenance.sqlite3.connect
+    replaced = False
+
+    def replace_destination_path(database, *args, **kwargs):
+        nonlocal replaced
+        if not replaced and backup.exists() and "/proc/self/fd/" in str(database):
+            replaced = True
+            backup.unlink()
+            backup.symlink_to(victim)
+        return real_connect(database, *args, **kwargs)
+
+    monkeypatch.setattr(maintenance.sqlite3, "connect", replace_destination_path)
+
+    with pytest.raises(ShiguanStorageError, match="备份创建失败"):
+        maintenance.migrate_runtime_v5_to_v6(path)
+
+    assert replaced is True
+    assert victim.read_bytes() == b"operator-owned"
+    assert maintenance.inspect_runtime_database(path).version == 5
+
+
+def test_postcommit_readback_failure_keeps_pending_database_and_backup(
+    tmp_path, monkeypatch
+):
+    path = tmp_path / "schema-v5-readback-failure.sqlite3"
+    _make_v5_with_principal_data(path)
+    monkeypatch.setattr(
+        maintenance,
+        "_verify_v6_readback",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            ShiguanStorageError("forced readback")
+        ),
+        raising=False,
+    )
+
+    with pytest.raises(ShiguanStorageError, match="forced readback"):
+        maintenance.migrate_runtime_v5_to_v6(path)
+
+    backup = path.with_name("schema-v5-readback-failure.sqlite3.v5-backup")
+    assert backup.exists()
+    connection = sqlite3.connect(path)
+    try:
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 6
+        assert connection.execute(
+            "SELECT status FROM schema_migration_verification WHERE id=1"
+        ).fetchone()[0] == "PENDING_VERIFICATION"
+    finally:
+        connection.close()
+    with pytest.raises(ShiguanStorageError, match="验证"):
+        db.get_connection(path)
+
+
+def test_postcommit_readback_rejects_revoked_backfilled_membership(
+    tmp_path, monkeypatch
+):
+    path = tmp_path / "schema-v5-revoked-backfill.sqlite3"
+    _make_v5_with_principal_data(path)
+    real_verify = maintenance._verify_v6_readback
+
+    def revoke_before_readback(target, expected_content, **identity):
+        with sqlite3.connect(target) as connection:
+            connection.execute(
+                "UPDATE tenant_memberships SET revoked_at = 'tampered'"
+            )
+        real_verify(target, expected_content, **identity)
+
+    monkeypatch.setattr(maintenance, "_verify_v6_readback", revoke_before_readback)
+
+    with pytest.raises(ShiguanStorageError, match="迁移后验证失败"):
+        maintenance.migrate_runtime_v5_to_v6(path)
+
+    with sqlite3.connect(path) as connection:
+        assert connection.execute(
+            "SELECT status FROM schema_migration_verification WHERE id=1"
+        ).fetchone() == ("PENDING_VERIFICATION",)
+
+
+def test_postcommit_readback_rejects_source_path_replacement(tmp_path, monkeypatch):
+    path = tmp_path / "schema-v5-source-race.sqlite3"
+    displaced = tmp_path / "schema-v6-original-inode.sqlite3"
+    replacement = tmp_path / "schema-v6-replacement.sqlite3"
+    _make_v5_with_principal_data(path)
+    _make_v5_with_principal_data(replacement)
+    db.migrate_v5_to_v6(replacement)
+    real_verify = maintenance._verify_v6_readback
+
+    def replace_before_readback(target, expected_content, **identity):
+        target.rename(displaced)
+        replacement.rename(target)
+        return real_verify(target, expected_content, **identity)
+
+    monkeypatch.setattr(maintenance, "_verify_v6_readback", replace_before_readback)
+
+    with pytest.raises(ShiguanStorageError):
+        maintenance.migrate_runtime_v5_to_v6(path)
+
+    for pending_path in (path, displaced):
+        with sqlite3.connect(pending_path) as connection:
+            assert connection.execute(
+                "SELECT status FROM schema_migration_verification WHERE id=1"
+            ).fetchone() == ("PENDING_VERIFICATION",)
+
+
+def test_schema_validators_preserve_caller_query_only_state(tmp_path):
+    v5_path = tmp_path / "schema-v5-query-only.sqlite3"
+    _make_v5_with_principal_data(v5_path)
+    with sqlite3.connect(v5_path) as connection:
+        connection.execute("PRAGMA query_only = ON")
+        db._validate_v5_predecessor(connection)
+        assert connection.execute("PRAGMA query_only").fetchone() == (1,)
+
+    v6_path = tmp_path / "schema-v6-query-only.sqlite3"
+    db.get_connection(v6_path).close()
+    with sqlite3.connect(v6_path) as connection:
+        connection.execute("PRAGMA query_only = ON")
+        db._validate_v6_schema(connection)
+        assert connection.execute("PRAGMA query_only").fetchone() == (1,)
 
 
 def test_maintenance_check_emits_desensitized_json_without_ambient_import_path(

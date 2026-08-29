@@ -24,7 +24,9 @@ from typing import Any
 from app.operations.runtime_data_registry import (
     RUNTIME_DATA_ENTRIES,
     RUNTIME_DATA_REGISTRY_DIGEST,
+    RuntimeDataEntry,
     schema_contract_digest_connection,
+    validate_registered_schema_connection,
 )
 
 BACKUP_MANIFEST_NAME = "backup-manifest.json"
@@ -406,6 +408,51 @@ def _sqlite_schema_digest_at(directory_descriptor: int, name: str) -> str:
         _close_sqlite_sidecars(sidecars)
 
 
+def _validate_registered_sqlite_at(
+    directory_descriptor: int,
+    registration: RuntimeDataEntry,
+) -> tuple[int, str, str]:
+    """Validate one registered database, including current semantic state."""
+
+    file_descriptor = -1
+    sidecars: list[tuple[str, int, os.stat_result]] = []
+    try:
+        file_descriptor, expected = _open_regular_at(
+            directory_descriptor, registration.name
+        )
+        sidecars = _hold_sqlite_sidecars_at(directory_descriptor, registration.name)
+        with sqlite3.connect(
+            _sqlite_uri_for_file(file_descriptor, "ro"), uri=True
+        ) as connection:
+            _assert_entry_identity(directory_descriptor, registration.name, expected)
+            _verify_sqlite_sidecars_at(directory_descriptor, registration.name, sidecars)
+            user_version = int(connection.execute("PRAGMA user_version").fetchone()[0])
+            if user_version != registration.user_version:
+                reason = (
+                    "future_schema"
+                    if user_version > registration.user_version
+                    else "schema_mismatch"
+                )
+                raise BackupError(f"{reason}:{registration.name}")
+            if not validate_registered_schema_connection(connection, registration):
+                raise BackupError(f"schema_mismatch:{registration.name}")
+            integrity_rows = connection.execute("PRAGMA integrity_check").fetchall()
+            foreign_key_rows = connection.execute("PRAGMA foreign_key_check").fetchall()
+            _assert_entry_identity(directory_descriptor, registration.name, expected)
+            _verify_sqlite_sidecars_at(directory_descriptor, registration.name, sidecars)
+    except sqlite3.Error:
+        raise BackupError("sqlite_open_or_integrity_failed") from None
+    finally:
+        if file_descriptor >= 0:
+            os.close(file_descriptor)
+        _close_sqlite_sidecars(sidecars)
+    if integrity_rows != [("ok",)]:
+        raise BackupError("sqlite_integrity_failed")
+    if foreign_key_rows:
+        raise BackupError("sqlite_foreign_key_check_failed")
+    return user_version, "ok", registration.schema_contract_digest
+
+
 def _sqlite_page_bytes_at(directory_descriptor: int, name: str) -> int:
     file_descriptor = -1
     sidecars: list[tuple[str, int, os.stat_result]] = []
@@ -475,6 +522,7 @@ def _snapshot_sqlite_at(
     source_name: str,
     destination_directory: int,
     destination_name: str,
+    registration: RuntimeDataEntry,
 ) -> None:
     source_descriptor = -1
     destination_descriptor = -1
@@ -498,7 +546,8 @@ def _snapshot_sqlite_at(
         ) as source_connection:
             _assert_entry_identity(source_directory, source_name, source_status)
             _verify_sqlite_sidecars_at(source_directory, source_name, sidecars)
-            source_connection.execute("PRAGMA query_only = ON")
+            if not validate_registered_schema_connection(source_connection, registration):
+                raise BackupError(f"schema_mismatch:{registration.name}")
             with sqlite3.connect(
                 _sqlite_uri_for_file(destination_descriptor, "rw"), uri=True
             ) as destination_connection:
@@ -1121,9 +1170,9 @@ def _validate_source_registry_at(source_descriptor: int) -> set[str]:
             raise BackupError("sensitive_entry_present")
         raise BackupError(f"unknown_entry:{unknown[0]}")
     present_databases = expected & present
-    for name in present_databases:
-        descriptor, _ = _open_regular_at(source_descriptor, name)
-        os.close(descriptor)
+    for registration in DATABASE_REGISTRY:
+        if registration.name in present_databases:
+            _validate_registered_sqlite_at(source_descriptor, registration)
     for name in sorted(present & allowed_sidecars):
         if name.removesuffix("-wal").removesuffix("-shm") not in present_databases:
             raise BackupError(f"orphan_sqlite_sidecar:{name}")
@@ -1344,26 +1393,18 @@ def _backup_runtime_once(
                 )
                 continue
             capture_started_at = _canonical_now(clock)
-            source_version, _ = _sqlite_metadata_at(source_descriptor, registration.name)
-            if source_version != registration.user_version:
-                reason = (
-                    "future_schema"
-                    if source_version > registration.user_version
-                    else "schema_mismatch"
-                )
-                raise BackupError(f"{reason}:{registration.name}")
-            source_schema_digest = _sqlite_schema_digest_at(source_descriptor, registration.name)
-            if source_schema_digest != registration.schema_contract_digest:
-                raise BackupError(f"schema_mismatch:{registration.name}")
+            source_version, _, _ = _validate_registered_sqlite_at(
+                source_descriptor, registration
+            )
             _snapshot_sqlite_at(
                 source_descriptor,
                 registration.name,
                 destination_descriptor,
                 registration.name,
+                registration,
             )
-            user_version, integrity = _sqlite_metadata_at(destination_descriptor, registration.name)
-            destination_schema_digest = _sqlite_schema_digest_at(
-                destination_descriptor, registration.name
+            user_version, integrity, destination_schema_digest = (
+                _validate_registered_sqlite_at(destination_descriptor, registration)
             )
             if (
                 user_version != source_version
@@ -1755,13 +1796,9 @@ def _verify_backup_tree_at(root_descriptor: int, manifest: dict[str, Any]) -> st
         digest, size = _sha256_regular_at(root_descriptor, registration.name)
         if f"sha256:{digest}" != record["sha256"] or size != record["bytes"]:
             raise BackupError("database_digest_mismatch")
-        user_version, integrity = _sqlite_metadata_at(root_descriptor, registration.name)
-        schema_digest = _sqlite_schema_digest_at(root_descriptor, registration.name)
-        if (
-            user_version != registration.user_version
-            or schema_digest != registration.schema_contract_digest
-        ):
-            raise BackupError(f"schema_mismatch:{registration.name}")
+        user_version, integrity, schema_digest = _validate_registered_sqlite_at(
+            root_descriptor, registration
+        )
         if user_version != record["userVersion"] or integrity != record["integrityCheck"]:
             raise BackupError("database_integrity_mismatch")
 
@@ -2015,6 +2052,49 @@ def _create_synthetic_runtime(root: Path) -> None:
     fixed_at = "2026-08-21T00:00:00+00:00"
     with shiguan_connection:
         shiguan_connection.execute(
+            "INSERT INTO users (id,username,email,password_hash,created_at) "
+            "VALUES (?,?,?,?,?)",
+            (
+                "synthetic-owner",
+                "rc1-synthetic-owner",
+                "rc1-synthetic-owner@example.invalid",
+                "synthetic-not-a-real-password-hash",
+                fixed_at,
+            ),
+        )
+        shiguan_connection.execute(
+            "INSERT INTO tenants (id,kind,created_at) VALUES (?,?,?)",
+            ("rc1-synthetic-tenant", "PERSONAL", fixed_at),
+        )
+        shiguan_connection.execute(
+            """
+            INSERT INTO tenant_memberships (
+                id,user_id,tenant_id,role,created_at,revoked_at
+            ) VALUES (?,?,?,?,?,NULL)
+            """,
+            (
+                "rc1-synthetic-membership",
+                "synthetic-owner",
+                "rc1-synthetic-tenant",
+                "OWNER",
+                fixed_at,
+            ),
+        )
+        shiguan_connection.execute(
+            """
+            INSERT INTO auth_sessions (
+                id,user_id,membership_id,created_at,expires_at,revoked_at
+            ) VALUES (?,?,?,?,?,NULL)
+            """,
+            (
+                "rc1-synthetic-session",
+                "synthetic-owner",
+                "rc1-synthetic-membership",
+                fixed_at,
+                "2027-08-21T00:00:00+00:00",
+            ),
+        )
+        shiguan_connection.execute(
             """
             INSERT INTO archives (
                 id, type, title, content, matter_type, department, created_at,
@@ -2261,6 +2341,32 @@ def probe_synthetic_retention(root: Path) -> dict[str, str]:
             "SELECT id,type,owner_user_id FROM archives WHERE id = ?",
             ("rc1-synthetic-reply",),
         )
+        user = one(
+            "shiguan.sqlite3",
+            "SELECT id,username,email FROM users WHERE id = ?",
+            ("synthetic-owner",),
+        )
+        tenant = one(
+            "shiguan.sqlite3",
+            "SELECT id,kind FROM tenants WHERE id = ?",
+            ("rc1-synthetic-tenant",),
+        )
+        membership = one(
+            "shiguan.sqlite3",
+            """
+            SELECT id,user_id,tenant_id,role,revoked_at
+            FROM tenant_memberships WHERE id = ?
+            """,
+            ("rc1-synthetic-membership",),
+        )
+        session = one(
+            "shiguan.sqlite3",
+            """
+            SELECT id,user_id,membership_id,revoked_at
+            FROM auth_sessions WHERE id = ?
+            """,
+            ("rc1-synthetic-session",),
+        )
         confirmation = one(
             "report_artifacts.sqlite3",
             """
@@ -2317,6 +2423,25 @@ def probe_synthetic_retention(root: Path) -> dict[str, str]:
             "CONFIRMED",
         ),
         "job": ("rc1-synthetic-job", "SUCCEEDED", "rc1-synthetic-reply"),
+        "membership": (
+            "rc1-synthetic-membership",
+            "synthetic-owner",
+            "rc1-synthetic-tenant",
+            "OWNER",
+            None,
+        ),
+        "session": (
+            "rc1-synthetic-session",
+            "synthetic-owner",
+            "rc1-synthetic-membership",
+            None,
+        ),
+        "tenant": ("rc1-synthetic-tenant", "PERSONAL"),
+        "user": (
+            "synthetic-owner",
+            "rc1-synthetic-owner",
+            "rc1-synthetic-owner@example.invalid",
+        ),
     }
     observed = {
         "artifact": artifact,
@@ -2324,6 +2449,10 @@ def probe_synthetic_retention(root: Path) -> dict[str, str]:
         "binding": binding,
         "confirmation": confirmation,
         "job": job,
+        "membership": membership,
+        "session": session,
+        "tenant": tenant,
+        "user": user,
     }
     if observed != expected or artifact_sha256 != expected["artifact"][2]:
         raise BackupError("synthetic_retention_probe_failed")
@@ -2333,6 +2462,10 @@ def probe_synthetic_retention(root: Path) -> dict[str, str]:
         "archiveId": archive[0],
         "bindingId": binding[0],
         "jobId": job[0],
+        "membershipId": membership[0],
+        "sessionId": session[0],
+        "tenantId": tenant[0],
+        "userId": user[0],
         "workProductId": confirmation[0],
     }
     return {

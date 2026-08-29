@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import sqlite3
@@ -18,6 +19,10 @@ from app.operations.runtime_data_registry import (
     RUNTIME_DATA_ENTRIES,
     RUNTIME_DATA_REGISTRY,
     RUNTIME_DATA_REGISTRY_DIGEST,
+    SHIGUAN_V5_PREDECESSOR,
+    RuntimeDataEntry,
+    observe_schema_contract_connection,
+    validate_registered_schema_connection,
 )
 from app.readiness import (
     ReadinessResult,
@@ -26,6 +31,8 @@ from app.readiness import (
     run_readiness_preflight,
 )
 from app.shiguan import db as shiguan_db
+from app.shiguan import maintenance
+from app.shiguan.errors import ShiguanStorageError
 
 
 def _settings(tmp_path: Path) -> ReadinessSettings:
@@ -158,13 +165,167 @@ def test_readiness_checks_existing_decree_job_schema(tmp_path: Path) -> None:
     assert run_readiness_preflight(settings).codes == ("storage_schema_unsupported",)
 
 
-def test_readiness_accepts_current_shiguan_v5_and_jinyiwei_v5(tmp_path: Path) -> None:
+def test_readiness_accepts_current_shiguan_v6_and_jinyiwei_v5(tmp_path: Path) -> None:
     settings = _settings(tmp_path)
     jinyiwei_db.initialize_database(settings.data_dir / "jinyiwei.sqlite3")
     with closing(shiguan_db.get_connection(settings.data_dir / "shiguan.sqlite3")):
         pass
 
     assert run_readiness_preflight(settings).codes == ()
+
+
+def test_registry_preserves_exact_shiguan_v5_predecessor_fact() -> None:
+    assert SHIGUAN_V5_PREDECESSOR == RuntimeDataEntry(
+        name="shiguan.sqlite3",
+        relative_path="shiguan.sqlite3",
+        user_version=5,
+        required_tables=(
+            "archive_decisions",
+            "archive_evidence",
+            "archive_evidence_references",
+            "archive_relations",
+            "archive_review_status",
+            "archives",
+            "auth_sessions",
+            "daily_memorial_fact_snapshots",
+            "daily_memorial_runs",
+            "daily_memorial_stage_results",
+            "users",
+        ),
+        required_triggers=(),
+        schema_contract_digest=(
+            "sha256:be55daeb1f9fa9602915351b8b26831103557a54bfa628a4c3bac70e14da8493"
+        ),
+    )
+
+
+def test_connection_schema_observation_restores_query_only_state(tmp_path: Path) -> None:
+    path = tmp_path / "runtime_bindings.sqlite3"
+    RuntimeBindingLedger(path)
+    entry = next(item for item in RUNTIME_DATA_ENTRIES if item.name == path.name)
+
+    with sqlite3.connect(path) as connection:
+        assert connection.execute("PRAGMA query_only").fetchone() == (0,)
+        assert validate_registered_schema_connection(connection, entry) is True
+        assert connection.execute("PRAGMA query_only").fetchone() == (0,)
+
+        connection.execute("PRAGMA query_only = ON")
+        observe_schema_contract_connection(connection)
+        assert connection.execute("PRAGMA query_only").fetchone() == (1,)
+
+        def mapping_factory(cursor, row):
+            return {column[0]: row[index] for index, column in enumerate(cursor.description)}
+
+        connection.row_factory = mapping_factory
+        assert validate_registered_schema_connection(connection, entry) is True
+        assert connection.row_factory is mapping_factory
+        assert connection.execute("PRAGMA query_only").fetchone()["query_only"] == 1
+
+
+def test_shiguan_registry_requires_one_verified_migration_state(tmp_path: Path) -> None:
+    path = tmp_path / "shiguan.sqlite3"
+    with closing(shiguan_db.get_connection(path)):
+        pass
+    entry = next(item for item in RUNTIME_DATA_ENTRIES if item.name == path.name)
+
+    with sqlite3.connect(path) as connection:
+        observed = observe_schema_contract_connection(connection)
+        connection.execute("DROP TRIGGER schema_migration_verification_guard_update")
+        connection.execute(
+            "UPDATE schema_migration_verification "
+            "SET status = 'PENDING_VERIFICATION', verified_at = NULL WHERE id = 1"
+        )
+        drifted = observe_schema_contract_connection(connection)
+        semantic_entry = replace(
+            entry,
+            required_triggers=tuple(item["name"] for item in drifted["triggers"]),
+            schema_contract_digest=(
+                "sha256:"
+                + hashlib.sha256(
+                    json.dumps(
+                        drifted,
+                        ensure_ascii=True,
+                        sort_keys=True,
+                        separators=(",", ":"),
+                    ).encode("utf-8")
+                ).hexdigest()
+            ),
+        )
+        assert observed["userVersion"] == 6
+        assert validate_registered_schema_connection(connection, semantic_entry) is False
+
+
+def test_shiguan_consumers_reject_empty_verified_timestamp(tmp_path: Path) -> None:
+    path = tmp_path / "shiguan.sqlite3"
+    with closing(shiguan_db.get_connection(path)):
+        pass
+    entry = next(item for item in RUNTIME_DATA_ENTRIES if item.name == path.name)
+
+    with sqlite3.connect(path) as connection:
+        trigger_sql = connection.execute(
+            "SELECT sql FROM sqlite_master "
+            "WHERE type='trigger' AND name='schema_migration_verification_guard_update'"
+        ).fetchone()[0]
+        connection.execute("DROP TRIGGER schema_migration_verification_guard_update")
+        connection.execute("PRAGMA ignore_check_constraints = ON")
+        connection.execute(
+            "UPDATE schema_migration_verification SET verified_at = '' WHERE id = 1"
+        )
+        connection.execute("PRAGMA ignore_check_constraints = OFF")
+        connection.execute(trigger_sql)
+        connection.commit()
+        assert validate_registered_schema_connection(connection, entry) is False
+
+    with pytest.raises(ShiguanStorageError, match="验证"):
+        shiguan_db.get_connection(path)
+    assert maintenance.inspect_runtime_database(path).ready is False
+
+
+@pytest.mark.parametrize(
+    "rows",
+    [
+        (),
+        ((1, "PENDING_VERIFICATION", None),),
+        ((1, "INVALID", "2026-08-28T00:00:00+00:00"),),
+        (
+            (1, "VERIFIED", "2026-08-28T00:00:00+00:00"),
+            (2, "VERIFIED", "2026-08-28T00:00:00+00:00"),
+        ),
+    ],
+)
+def test_shiguan_semantic_validator_rejects_missing_invalid_or_duplicate_state(
+    rows: tuple[tuple[object, ...], ...],
+) -> None:
+    with sqlite3.connect(":memory:") as connection:
+        connection.execute("PRAGMA user_version = 6")
+        connection.execute(
+            "CREATE TABLE schema_migration_verification "
+            "(id INTEGER, status TEXT, verified_at TEXT)"
+        )
+        connection.executemany(
+            "INSERT INTO schema_migration_verification VALUES (?,?,?)", rows
+        )
+        observed = observe_schema_contract_connection(connection)
+        entry = RuntimeDataEntry(
+            name="shiguan.sqlite3",
+            relative_path="shiguan.sqlite3",
+            user_version=6,
+            required_tables=("schema_migration_verification",),
+            required_triggers=(),
+            schema_contract_digest=(
+                "sha256:"
+                + hashlib.sha256(
+                    json.dumps(
+                        observed,
+                        ensure_ascii=True,
+                        sort_keys=True,
+                        separators=(",", ":"),
+                    ).encode("utf-8")
+                ).hexdigest()
+            ),
+        )
+
+        assert validate_registered_schema_connection(connection, entry) is False
 
 
 def test_runtime_data_registry_is_closed_and_includes_all_seven_stores() -> None:

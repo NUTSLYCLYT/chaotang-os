@@ -10,6 +10,7 @@ import subprocess
 import sys
 import threading
 import uuid
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -21,6 +22,10 @@ from app.agents.runtime_skills.execution_ledger import RuntimeBindingLedger
 from app.decree_jobs.storage import DecreeJobStore
 from app.jinyiwei import db as jinyiwei_db
 from app.junjichu_cases import storage as junjichu_storage
+from app.operations.runtime_data_registry import (
+    RUNTIME_DATA_ENTRIES,
+    schema_contract_digest_connection,
+)
 from app.operations.sqlite_backup import (
     BACKUP_MANIFEST_NAME,
     DATABASE_REGISTRY,
@@ -223,6 +228,31 @@ def _create_runtime(root: Path, *, with_artifact: bool = True) -> Path:
     return root
 
 
+def _make_pending_shiguan_schema(path: Path):
+    with sqlite3.connect(path) as connection:
+        connection.execute("DROP TRIGGER schema_migration_verification_guard_update")
+        connection.execute(
+            "UPDATE schema_migration_verification "
+            "SET status = 'PENDING_VERIFICATION', verified_at = NULL WHERE id = 1"
+        )
+        digest = schema_contract_digest_connection(connection)
+        triggers = tuple(
+            row[0]
+            for row in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'trigger' ORDER BY name"
+            )
+        )
+    current = next(item for item in RUNTIME_DATA_ENTRIES if item.name == path.name)
+    return replace(current, required_triggers=triggers, schema_contract_digest=digest)
+
+
+def _registry_with_shiguan(registration):
+    return tuple(
+        registration if item.name == "shiguan.sqlite3" else item
+        for item in RUNTIME_DATA_ENTRIES
+    )
+
+
 def test_backup_verify_and_rehearse_closed_runtime(tmp_path: Path) -> None:
     source = _create_runtime(tmp_path / "source")
     backup = tmp_path / "backup"
@@ -238,6 +268,48 @@ def test_backup_verify_and_rehearse_closed_runtime(tmp_path: Path) -> None:
     assert (restored / "report_artifacts" / "artifact-a.xlsx").read_bytes() == (
         b"synthetic workbook bytes"
     )
+
+
+def test_backup_and_probe_fail_closed_on_pending_migration_verification(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "source"
+    sqlite_backup._create_synthetic_runtime(source)
+    pending = _make_pending_shiguan_schema(source / "shiguan.sqlite3")
+    monkeypatch.setattr(sqlite_backup, "DATABASE_REGISTRY", _registry_with_shiguan(pending))
+
+    with pytest.raises(BackupError, match=r"schema_mismatch:shiguan\.sqlite3"):
+        backup_runtime(source, tmp_path / "backup")
+    with pytest.raises(BackupError, match=r"schema_mismatch:shiguan\.sqlite3"):
+        probe_synthetic_retention(source)
+
+
+def test_verify_backup_fails_closed_on_pending_migration_verification(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "source"
+    sqlite_backup._create_synthetic_runtime(source)
+    backup = tmp_path / "backup"
+    backup_runtime(source, backup)
+
+    shiguan_path = backup / "shiguan.sqlite3"
+    pending = _make_pending_shiguan_schema(shiguan_path)
+    monkeypatch.setattr(sqlite_backup, "DATABASE_REGISTRY", _registry_with_shiguan(pending))
+    manifest_path = backup / BACKUP_MANIFEST_NAME
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    record = next(item for item in manifest["databases"] if item["name"] == shiguan_path.name)
+    content = shiguan_path.read_bytes()
+    record["bytes"] = len(content)
+    record["schemaContractDigest"] = pending.schema_contract_digest
+    record["sha256"] = f"sha256:{_sha256(content)}"
+    _resign_manifest(manifest, snapshot=True)
+    manifest_path.write_text(
+        json.dumps(manifest, ensure_ascii=True, sort_keys=True, separators=(",", ":")) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(BackupError, match=r"schema_mismatch:shiguan\.sqlite3"):
+        verify_backup(backup)
 
 
 def test_backup_preserves_registered_absent_database_shape(tmp_path: Path) -> None:
@@ -958,10 +1030,32 @@ def test_synthetic_cli_runs_real_backup_verify_and_rehearse(tmp_path: Path) -> N
     sentinel_queries = {
         "decree_jobs.sqlite3": "SELECT COUNT(*) FROM decree_jobs",
         "shiguan.sqlite3": "SELECT COUNT(*) FROM archives",
+        "shiguan.sqlite3#user": (
+            "SELECT COUNT(*) FROM users WHERE id = 'synthetic-owner'"
+        ),
+        "shiguan.sqlite3#tenant": (
+            "SELECT COUNT(*) FROM tenants "
+            "WHERE id = 'rc1-synthetic-tenant' AND kind = 'PERSONAL'"
+        ),
+        "shiguan.sqlite3#membership": (
+            "SELECT COUNT(*) FROM tenant_memberships "
+            "WHERE id = 'rc1-synthetic-membership' "
+            "AND user_id = 'synthetic-owner' "
+            "AND tenant_id = 'rc1-synthetic-tenant' "
+            "AND role = 'OWNER' AND revoked_at IS NULL"
+        ),
+        "shiguan.sqlite3#session": (
+            "SELECT COUNT(*) FROM auth_sessions "
+            "WHERE id = 'rc1-synthetic-session' "
+            "AND user_id = 'synthetic-owner' "
+            "AND membership_id = 'rc1-synthetic-membership' "
+            "AND revoked_at IS NULL"
+        ),
         "report_artifacts.sqlite3": "SELECT COUNT(*) FROM confirmation_receipts",
         "runtime_bindings.sqlite3": "SELECT COUNT(*) FROM runtime_resource_bindings",
     }
-    for database_name, query in sentinel_queries.items():
+    for database_key, query in sentinel_queries.items():
+        database_name = database_key.split("#", 1)[0]
         with sqlite3.connect(root / "source" / database_name) as connection:
             assert connection.execute(query).fetchone()[0] == 1
     source_probe = probe_synthetic_retention(root / "source")
@@ -1001,6 +1095,53 @@ def test_retention_probe_fails_closed_when_any_required_sentinel_is_missing(
 
     with pytest.raises(BackupError, match="synthetic_retention_probe_failed"):
         probe_synthetic_retention(root / "source")
+
+
+@pytest.mark.parametrize(
+    "statement,parameters",
+    [
+        (
+            "UPDATE users SET username = ? WHERE id = ?",
+            ("substituted-owner", "synthetic-owner"),
+        ),
+        (
+            "UPDATE tenant_memberships SET revoked_at = ? WHERE id = ?",
+            ("2026-08-22T00:00:00+00:00", "rc1-synthetic-membership"),
+        ),
+        (
+            "UPDATE auth_sessions SET revoked_at = ? WHERE id = ?",
+            ("2026-08-22T00:00:00+00:00", "rc1-synthetic-session"),
+        ),
+    ],
+)
+def test_retention_probe_rejects_substituted_principal_sentinels(
+    tmp_path: Path, statement: str, parameters: tuple[str, str]
+) -> None:
+    source = tmp_path / "source"
+    sqlite_backup._create_synthetic_runtime(source)
+    with sqlite3.connect(source / "shiguan.sqlite3") as connection:
+        connection.execute(statement, parameters)
+
+    with pytest.raises(BackupError, match="synthetic_retention_probe_failed"):
+        probe_synthetic_retention(source)
+
+
+def test_retention_probe_rejects_missing_synthetic_tenant(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    sqlite_backup._create_synthetic_runtime(source)
+    with sqlite3.connect(source / "shiguan.sqlite3") as connection:
+        trigger_sql = connection.execute(
+            "SELECT sql FROM sqlite_master "
+            "WHERE type = 'trigger' AND name = 'tenants_no_delete'"
+        ).fetchone()[0]
+        connection.execute("DROP TRIGGER tenants_no_delete")
+        connection.execute(
+            "DELETE FROM tenants WHERE id = ?", ("rc1-synthetic-tenant",)
+        )
+        connection.execute(trigger_sql)
+
+    with pytest.raises(BackupError, match="sqlite_foreign_key_check_failed"):
+        probe_synthetic_retention(source)
 
 
 def test_cli_rejects_a_prebuilt_cold_writer_session(tmp_path: Path) -> None:

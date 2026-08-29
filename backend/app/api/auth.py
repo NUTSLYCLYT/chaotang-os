@@ -8,15 +8,14 @@ from fastapi import APIRouter, Depends, FastAPI, Header
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, ConfigDict, field_validator
 
-from app.auth import (
-    AuthenticatedUser,
-    authenticate,
-    create_session,
-    create_user,
+from app.auth.errors import DuplicateIdentityError, UserValidationError
+from app.auth.models import AuthenticatedPrincipal, AuthenticatedUser
+from app.auth.storage import (
+    authenticate_and_create_session,
     get_session_user,
+    register_user,
     revoke_session,
 )
-from app.auth.errors import DuplicateIdentityError, UserValidationError
 
 _INVALID_CREDENTIALS_MESSAGE = "invalid credentials"
 
@@ -88,7 +87,9 @@ def _bearer_session_id(authorization: str | None) -> str:
     return session_id
 
 
-def require_current_user(authorization: str | None = Header(default=None)) -> AuthenticatedUser:
+def require_current_user(
+    authorization: str | None = Header(default=None),
+) -> AuthenticatedPrincipal:
     """Resolve an active bearer session or fail closed with a generic 401."""
 
     user = get_session_user(_bearer_session_id(authorization))
@@ -97,25 +98,28 @@ def require_current_user(authorization: str | None = Header(default=None)) -> Au
     return user
 
 
-CurrentUser = Annotated[AuthenticatedUser, Depends(require_current_user)]
+CurrentUser = Annotated[AuthenticatedPrincipal, Depends(require_current_user)]
 
 
 @router.post("/register", response_model=SessionResponse, status_code=201)
 def register(payload: RegisterRequest) -> SessionResponse:
     """Register a local user and issue a server-revocable opaque session."""
 
-    user = create_user(payload.username, payload.email, payload.password)
-    return SessionResponse(user=_public_user(user), session_id=create_session(user.id))
+    principal, session_id = register_user(
+        payload.username, payload.email, payload.password
+    )
+    return SessionResponse(user=_public_user(principal), session_id=session_id)
 
 
 @router.post("/login", response_model=SessionResponse)
 def login(payload: LoginRequest) -> SessionResponse:
     """Issue a new session for a valid username/email and password pair."""
 
-    user = authenticate(payload.identifier, payload.password)
-    if user is None:
+    authenticated = authenticate_and_create_session(payload.identifier, payload.password)
+    if authenticated is None:
         raise InvalidCredentialsError
-    return SessionResponse(user=_public_user(user), session_id=create_session(user.id))
+    principal, session_id = authenticated
+    return SessionResponse(user=_public_user(principal), session_id=session_id)
 
 
 @router.post("/logout", status_code=204)

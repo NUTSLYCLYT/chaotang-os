@@ -31,14 +31,37 @@ REPORT_DATE = date(2026, 8, 4)
 def _create_user(user_id: str, path: Path) -> None:
     conn = db.get_connection(path)
     try:
+        tenant_id = f"tenant-{user_id}"
+        membership_id = f"membership-{user_id}"
         conn.execute(
             "INSERT INTO users (id, username, email, password_hash, created_at) "
             "VALUES (?, ?, ?, ?, ?)",
             (user_id, f"user-{user_id}", f"{user_id}@example.com", "unused", NOW.isoformat()),
         )
+        conn.execute(
+            "INSERT INTO tenants (id, kind, created_at) VALUES (?, 'PERSONAL', ?)",
+            (tenant_id, NOW.isoformat()),
+        )
+        conn.execute(
+            "INSERT INTO tenant_memberships "
+            "(id, user_id, tenant_id, role, created_at, revoked_at) "
+            "VALUES (?, ?, ?, 'OWNER', ?, NULL)",
+            (membership_id, user_id, tenant_id, NOW.isoformat()),
+        )
         conn.commit()
     finally:
         conn.close()
+
+
+def test_fresh_scheduler_database_is_verified_schema_v6(tmp_path: Path) -> None:
+    path = tmp_path / "fresh.sqlite3"
+    _create_user("owner-a", path)
+
+    with sqlite3.connect(path) as connection:
+        assert connection.execute("PRAGMA user_version").fetchone() == (6,)
+        assert connection.execute(
+            "SELECT id,status FROM schema_migration_verification"
+        ).fetchall() == [(1, "VERIFIED")]
 
 
 def _create_fact(owner: str, path: Path, *, archive_id: str = "archive-1") -> None:
@@ -182,6 +205,53 @@ def test_no_facts_skips_without_model_calls(tmp_path):
     assert summary.skipped_no_facts == 2
     assert summary.model_calls == 0
     assert invoker.calls == []
+
+
+def test_revoked_personal_owner_is_excluded_before_scheduler_side_effects(tmp_path):
+    from app.daily_memorial_drafts.scheduler import run_due
+
+    path = tmp_path / "revoked-owner.sqlite3"
+    _create_user("owner-active", path)
+    _create_user("owner-revoked", path)
+    _create_fact("owner-revoked", path, archive_id="revoked-private-fact")
+    connection = db.get_connection(path)
+    try:
+        connection.execute(
+            "UPDATE tenant_memberships SET revoked_at = ? WHERE user_id = ?",
+            (NOW.isoformat(), "owner-revoked"),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    invoker = FakeInvoker()
+    summary = run_due(
+        report_date=REPORT_DATE,
+        now=NOW,
+        invoker=invoker,
+        db_path=path,
+    )
+
+    assert summary.owners_seen == 1
+    assert summary.skipped_no_facts == 1
+    assert summary.model_calls == 0
+    assert invoker.calls == []
+    connection = db.get_connection(path)
+    try:
+        assert [
+            row["owner_user_id"]
+            for row in connection.execute(
+                "SELECT owner_user_id FROM daily_memorial_runs ORDER BY owner_user_id"
+            ).fetchall()
+        ] == ["owner-active"]
+        assert connection.execute(
+            "SELECT COUNT(*) FROM daily_memorial_fact_snapshots"
+        ).fetchone()[0] == 0
+        assert connection.execute(
+            "SELECT COUNT(*) FROM daily_memorial_stage_results"
+        ).fetchone()[0] == 0
+    finally:
+        connection.close()
 
 
 def test_cross_layer_two_owners_generate_isolated_drafts_and_confirm_once(tmp_path):
@@ -598,7 +668,7 @@ def test_cli_production_invoker_honors_exhausted_process_budget_before_network(
     configure_provider_attempt_budget(None)
 
 
-def test_cli_smoke_fresh_v5_database_has_no_users_or_model_call(tmp_path):
+def test_cli_smoke_fresh_v6_database_has_no_users_or_model_call(tmp_path):
     path = tmp_path / "never-created-before.sqlite3"
     assert not path.exists()
 
@@ -634,6 +704,10 @@ def test_cli_smoke_fresh_v5_database_has_no_users_or_model_call(tmp_path):
     }
     conn = sqlite3.connect(path)
     try:
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 5
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 6
+        assert conn.execute(
+            "SELECT id,status FROM schema_migration_verification"
+        ).fetchall() == [(1, "VERIFIED")]
+        assert conn.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 0
     finally:
         conn.close()

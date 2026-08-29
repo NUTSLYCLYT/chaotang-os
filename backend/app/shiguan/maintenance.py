@@ -9,12 +9,20 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shutil
 import sqlite3
+import stat
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
+from app.operations import sqlite_backup as governed_sqlite_backup
+from app.operations.runtime_data_registry import (
+    RUNTIME_DATA_ENTRIES,
+    is_verified_migration_state,
+    schema_contract_digest_connection,
+)
 from app.shiguan import db
 from app.shiguan.errors import ShiguanStorageError
 
@@ -31,6 +39,12 @@ _V4_REQUIRED_TABLES = _V3_REQUIRED_TABLES | {
     "daily_memorial_stage_results",
 }
 _V5_REQUIRED_TABLES = _V4_REQUIRED_TABLES | {"archive_decisions"}
+
+
+def _current_shiguan_entry():
+    return next(
+        entry for entry in RUNTIME_DATA_ENTRIES if entry.name == "shiguan.sqlite3"
+    )
 
 
 @dataclass(frozen=True)
@@ -80,14 +94,39 @@ def inspect_runtime_database(path: Path) -> RuntimeDatabaseReport:
                 "SELECT name FROM sqlite_master WHERE type = 'table'"
             ).fetchall()
         }
-        required_tables_ok = _V5_REQUIRED_TABLES <= tables
+        entry = _current_shiguan_entry()
+        triggers = tuple(
+            row[0]
+            for row in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'trigger' ORDER BY name"
+            ).fetchall()
+        )
+        schema_digest = schema_contract_digest_connection(connection)
+        required_tables_ok = (
+            tuple(sorted(tables - {"sqlite_sequence"})) == entry.required_tables
+            and triggers == entry.required_triggers
+            and schema_digest == entry.schema_contract_digest
+        )
+        verification = None
+        if "schema_migration_verification" in tables:
+            verification = connection.execute(
+                "SELECT id, status, verified_at FROM schema_migration_verification"
+            ).fetchall()
+        foreign_keys_ok = not connection.execute("PRAGMA foreign_key_check").fetchall()
         return RuntimeDatabaseReport(
             database_path=str(target),
             exists=True,
             version=version,
             integrity_ok=integrity_ok,
             required_tables_ok=required_tables_ok,
-            ready=version == 5 and integrity_ok and required_tables_ok,
+            ready=(
+                version == entry.user_version
+                and integrity_ok
+                and foreign_keys_ok
+                and required_tables_ok
+                and verification is not None
+                and is_verified_migration_state(verification)
+            ),
         )
     except sqlite3.Error:
         return RuntimeDatabaseReport(
@@ -110,6 +149,190 @@ def _copy_backup(path: Path, backup: Path) -> None:
         shutil.copystat(path, backup)
     except OSError as exc:
         raise ShiguanStorageError("史馆运行库备份创建失败") from exc
+
+
+def _sqlite_backup_snapshot(source_descriptor: int, backup: Path) -> None:
+    """Create a non-overwriting snapshot through held descriptors only."""
+
+    directory_descriptor = -1
+    destination_descriptor = -1
+    try:
+        directory_descriptor, directory_status = governed_sqlite_backup._open_directory(
+            backup.parent
+        )
+        flags = (
+            os.O_RDWR
+            | os.O_CREAT
+            | os.O_EXCL
+            | getattr(os, "O_CLOEXEC", 0)
+            | getattr(os, "O_NOFOLLOW", 0)
+        )
+        destination_descriptor = os.open(
+            backup.name, flags, 0o600, dir_fd=directory_descriptor
+        )
+        destination_status = os.fstat(destination_descriptor)
+        if (
+            not stat.S_ISREG(destination_status.st_mode)
+            or destination_status.st_nlink != 1
+        ):
+            raise governed_sqlite_backup.BackupError("unsafe_backup_identity")
+        with sqlite3.connect(
+            governed_sqlite_backup._sqlite_uri_for_file(source_descriptor, "ro"),
+            uri=True,
+        ) as source, sqlite3.connect(
+            governed_sqlite_backup._sqlite_uri_for_file(
+                destination_descriptor, "rw"
+            ),
+            uri=True,
+        ) as destination:
+            source.backup(destination)
+            destination.execute("PRAGMA journal_mode = DELETE")
+        governed_sqlite_backup._assert_entry_identity(
+            directory_descriptor, backup.name, destination_status
+        )
+        governed_sqlite_backup._assert_directory_identity(
+            backup.parent, directory_status
+        )
+        os.fsync(destination_descriptor)
+        governed_sqlite_backup._fsync_directory_descriptor(directory_descriptor)
+    except (OSError, sqlite3.Error, governed_sqlite_backup.BackupError) as exc:
+        raise ShiguanStorageError("史馆运行库备份创建失败") from exc
+    finally:
+        if destination_descriptor >= 0:
+            os.close(destination_descriptor)
+        if directory_descriptor >= 0:
+            os.close(directory_descriptor)
+
+
+def _validate_v5_snapshot(
+    path: Path, expected_content: dict[str, tuple[int, str]]
+) -> None:
+    connection: sqlite3.Connection | None = None
+    try:
+        descriptor, expected = governed_sqlite_backup._open_regular_readonly(path)
+        try:
+            connection = sqlite3.connect(
+                governed_sqlite_backup._sqlite_uri_for_file(descriptor, "ro"), uri=True
+            )
+        finally:
+            os.close(descriptor)
+        governed_sqlite_backup._assert_path_identity(path, expected)
+        connection.execute("PRAGMA foreign_keys = ON")
+        db._validate_v5_predecessor(connection)
+        if db._legacy_content_snapshot(connection) != expected_content:
+            raise ValueError("schema-v5 backup content mismatch")
+    except (OSError, sqlite3.Error, ValueError) as exc:
+        raise ShiguanStorageError("史馆运行库备份验证失败") from exc
+    finally:
+        if connection is not None:
+            connection.close()
+
+
+def _validate_current_v6(connection: sqlite3.Connection) -> None:
+    entry = _current_shiguan_entry()
+    if connection.execute("PRAGMA user_version").fetchone()[0] != entry.user_version:
+        raise ValueError("invalid schema-v6 version")
+    db._validate_v6_schema(connection)
+    if connection.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
+        raise ValueError("invalid schema-v6 integrity")
+    if connection.execute("PRAGMA foreign_key_check").fetchall():
+        raise ValueError("invalid schema-v6 foreign keys")
+    digest = schema_contract_digest_connection(connection)
+    if digest != entry.schema_contract_digest:
+        raise ValueError("invalid schema-v6 digest")
+
+
+def _verify_v6_readback(
+    path: Path,
+    expected_content: dict[str, tuple[int, str]],
+    *,
+    source_descriptor: int,
+    source_directory_descriptor: int,
+    source_status: os.stat_result,
+    source_directory_status: os.stat_result,
+) -> None:
+    """Read back and verify the same committed inode, not merely its pathname."""
+
+    connection: sqlite3.Connection | None = None
+    try:
+        governed_sqlite_backup._assert_directory_identity(
+            path.parent, source_directory_status
+        )
+        governed_sqlite_backup._assert_entry_identity(
+            source_directory_descriptor, path.name, source_status
+        )
+        connection = sqlite3.connect(
+            governed_sqlite_backup._sqlite_uri_for_file(source_descriptor, "rw"),
+            uri=True,
+            timeout=0,
+        )
+        connection.execute("PRAGMA foreign_keys = ON")
+        connection.execute("BEGIN IMMEDIATE")
+        _validate_current_v6(connection)
+        if db._legacy_content_snapshot(connection) != expected_content:
+            raise ValueError("schema-v5 content changed after migration")
+        verification = connection.execute(
+            "SELECT id, status, verified_at FROM schema_migration_verification"
+        ).fetchall()
+        if verification != [(1, "PENDING_VERIFICATION", None)]:
+            raise ValueError("invalid pending migration verification")
+        user_count = connection.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+        if connection.execute("SELECT COUNT(*) FROM tenants").fetchone()[0] != user_count:
+            raise ValueError("tenant backfill mismatch")
+        if connection.execute(
+            "SELECT COUNT(*) FROM tenant_memberships"
+        ).fetchone()[0] != user_count:
+            raise ValueError("membership backfill mismatch")
+        if connection.execute(
+            "SELECT COUNT(*) FROM users AS users "
+            "LEFT JOIN tenant_memberships AS memberships "
+            "ON memberships.user_id=users.id AND memberships.revoked_at IS NULL "
+            "LEFT JOIN tenants AS tenants ON tenants.id=memberships.tenant_id "
+            "AND tenants.kind='PERSONAL' "
+            "WHERE memberships.id IS NULL OR memberships.role!='OWNER' "
+            "OR tenants.id IS NULL"
+        ).fetchone()[0]:
+            raise ValueError("active principal backfill mismatch")
+        if connection.execute(
+            "SELECT COUNT(*) FROM auth_sessions AS sessions "
+            "LEFT JOIN tenant_memberships AS memberships "
+            "ON memberships.id=sessions.membership_id "
+            "AND memberships.user_id=sessions.user_id "
+            "AND memberships.revoked_at IS NULL AND memberships.role='OWNER' "
+            "LEFT JOIN tenants AS tenants ON tenants.id=memberships.tenant_id "
+            "AND tenants.kind='PERSONAL' "
+            "WHERE memberships.id IS NULL OR tenants.id IS NULL"
+        ).fetchone()[0]:
+            raise ValueError("session binding mismatch")
+        governed_sqlite_backup._assert_directory_identity(
+            path.parent, source_directory_status
+        )
+        governed_sqlite_backup._assert_entry_identity(
+            source_directory_descriptor, path.name, source_status
+        )
+        connection.execute(
+            "UPDATE schema_migration_verification "
+            "SET status='VERIFIED', "
+            "verified_at=strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id=1"
+        )
+        connection.commit()
+        governed_sqlite_backup._assert_directory_identity(
+            path.parent, source_directory_status
+        )
+        governed_sqlite_backup._assert_entry_identity(
+            source_directory_descriptor, path.name, source_status
+        )
+    except ShiguanStorageError:
+        if connection is not None:
+            connection.rollback()
+        raise
+    except (OSError, sqlite3.Error, ValueError) as exc:
+        if connection is not None:
+            connection.rollback()
+        raise ShiguanStorageError("史馆运行库迁移后验证失败") from exc
+    finally:
+        if connection is not None:
+            connection.close()
 
 
 def migrate_runtime_v2_to_v3(path: Path) -> RuntimeDatabaseReport:
@@ -266,7 +489,7 @@ def migrate_runtime_v4_to_v5(path: Path) -> RuntimeDatabaseReport:
 
     db.migrate_v4_to_v5(target)
     after = inspect_runtime_database(target)
-    if not after.ready:
+    if after.version != 5 or not after.integrity_ok:
         raise ShiguanStorageError("史馆运行库迁移后预检失败")
     connection = None
     try:
@@ -287,6 +510,147 @@ def migrate_runtime_v4_to_v5(path: Path) -> RuntimeDatabaseReport:
     )
 
 
+def migrate_runtime_v5_to_v6(path: Path) -> RuntimeDatabaseReport:
+    """Offline-only v5 migration with a locked, verified SQLite snapshot."""
+
+    target = path.absolute()
+    try:
+        governed_sqlite_backup._require_regular_file(target)
+    except governed_sqlite_backup.BackupError as exc:
+        raise ShiguanStorageError("史馆运行库不满足 v5 迁移条件") from exc
+    backup = target.with_name(f"{target.name}.v5-backup")
+    if backup.exists():
+        raise ShiguanStorageError("史馆运行库备份已存在")
+
+    connection: sqlite3.Connection | None = None
+    source_directory_descriptor = -1
+    source_descriptor = -1
+    verification_directory_descriptor = -1
+    verification_source_descriptor = -1
+    source_directory_status: os.stat_result | None = None
+    source_status: os.stat_result | None = None
+    legacy_content: dict[str, tuple[int, str]]
+    committed = False
+    try:
+        source_directory_descriptor, source_directory_status = (
+            governed_sqlite_backup._open_directory(target.parent)
+        )
+        source_descriptor = os.open(
+            target.name,
+            os.O_RDWR
+            | getattr(os, "O_CLOEXEC", 0)
+            | getattr(os, "O_NOFOLLOW", 0),
+            dir_fd=source_directory_descriptor,
+        )
+        source_status = os.fstat(source_descriptor)
+        if not stat.S_ISREG(source_status.st_mode) or source_status.st_nlink != 1:
+            raise governed_sqlite_backup.BackupError("unsafe_source_identity")
+        connection = sqlite3.connect(
+            governed_sqlite_backup._sqlite_uri_for_file(source_descriptor, "rw"),
+            uri=True,
+            timeout=0,
+        )
+        governed_sqlite_backup._assert_entry_identity(
+            source_directory_descriptor, target.name, source_status
+        )
+        connection.execute("PRAGMA foreign_keys = OFF")
+        connection.execute("BEGIN IMMEDIATE")
+        try:
+            db._validate_v5_predecessor(connection)
+            db._validate_v5_identity_namespace(connection)
+        except (sqlite3.Error, ValueError) as exc:
+            raise ShiguanStorageError("史馆运行库不满足 v5 迁移条件") from exc
+        legacy_content = db._legacy_content_snapshot(connection)
+        _sqlite_backup_snapshot(source_descriptor, backup)
+        _validate_v5_snapshot(backup, legacy_content)
+        db._migrate_v5_to_v6_connection(connection)
+        connection.commit()
+        committed = True
+        verification_source_descriptor = os.dup(source_descriptor)
+        try:
+            verification_directory_descriptor = os.dup(
+                source_directory_descriptor
+            )
+        except OSError:
+            os.close(verification_source_descriptor)
+            verification_source_descriptor = -1
+            raise
+    except ShiguanStorageError:
+        if connection is not None and not committed:
+            connection.rollback()
+        raise
+    except (
+        OSError,
+        sqlite3.Error,
+        ValueError,
+        governed_sqlite_backup.BackupError,
+    ) as exc:
+        if connection is not None and not committed:
+            connection.rollback()
+        raise ShiguanStorageError("史馆运行库 v5 到 v6 迁移失败") from exc
+    finally:
+        if connection is not None:
+            connection.close()
+        if source_descriptor >= 0:
+            os.close(source_descriptor)
+        if source_directory_descriptor >= 0:
+            os.close(source_directory_descriptor)
+
+    # This is deliberately post-commit. Failure leaves PENDING persisted and
+    # retains the independently verified v5 snapshot for governed recovery.
+    readback: sqlite3.Connection | None = None
+    try:
+        if source_status is None or source_directory_status is None:
+            raise ShiguanStorageError("史馆运行库迁移后验证失败")
+        _verify_v6_readback(
+            target,
+            legacy_content,
+            source_descriptor=verification_source_descriptor,
+            source_directory_descriptor=verification_directory_descriptor,
+            source_status=source_status,
+            source_directory_status=source_directory_status,
+        )
+        governed_sqlite_backup._assert_directory_identity(
+            target.parent, source_directory_status
+        )
+        governed_sqlite_backup._assert_entry_identity(
+            verification_directory_descriptor, target.name, source_status
+        )
+        after = inspect_runtime_database(target)
+        if not after.ready:
+            raise ShiguanStorageError("史馆运行库迁移后验证失败")
+        governed_sqlite_backup._assert_directory_identity(
+            target.parent, source_directory_status
+        )
+        governed_sqlite_backup._assert_entry_identity(
+            verification_directory_descriptor, target.name, source_status
+        )
+        readback = sqlite3.connect(
+            governed_sqlite_backup._sqlite_uri_for_file(
+                verification_source_descriptor, "ro"
+            ),
+            uri=True,
+        )
+        archive_count = readback.execute("SELECT COUNT(*) FROM archives").fetchone()[0]
+    except (OSError, sqlite3.Error, governed_sqlite_backup.BackupError) as exc:
+        raise ShiguanStorageError("史馆运行库迁移后计数失败") from exc
+    finally:
+        if readback is not None:
+            readback.close()
+        if verification_source_descriptor >= 0:
+            os.close(verification_source_descriptor)
+        if verification_directory_descriptor >= 0:
+            os.close(verification_directory_descriptor)
+    return RuntimeDatabaseReport(
+        **{
+            **after.to_payload(),
+            "migrated": True,
+            "backup_path": str(backup),
+            "archive_count": archive_count,
+        }
+    )
+
+
 def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Inspect or migrate the local Shiguan database")
     actions = parser.add_mutually_exclusive_group(required=True)
@@ -294,6 +658,7 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     actions.add_argument("--migrate-v2-to-v3", action="store_true")
     actions.add_argument("--migrate-v3-to-v4", action="store_true")
     actions.add_argument("--migrate-v4-to-v5", action="store_true")
+    actions.add_argument("--migrate-v5-to-v6", action="store_true")
     parser.add_argument("--database", type=Path, default=db._DEFAULT_DB_PATH)
     return parser.parse_args(argv)
 
@@ -308,7 +673,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0 if report.ready else 1
 
     try:
-        if args.migrate_v4_to_v5:
+        if args.migrate_v5_to_v6:
+            report = migrate_runtime_v5_to_v6(args.database)
+        elif args.migrate_v4_to_v5:
             report = migrate_runtime_v4_to_v5(args.database)
         elif args.migrate_v3_to_v4:
             report = migrate_runtime_v3_to_v4(args.database)

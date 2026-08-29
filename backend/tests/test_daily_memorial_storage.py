@@ -38,6 +38,31 @@ def _create_user(user_id: str, *, db_path) -> None:
     finally:
         conn.close()
 
+
+def _create_personal_owner(user_id: str, *, db_path) -> None:
+    _create_user(user_id, db_path=db_path)
+    conn = db.get_connection(db_path)
+    try:
+        conn.execute(
+            "INSERT INTO tenants (id, kind, created_at) VALUES (?, 'PERSONAL', ?)",
+            (f"tenant-{user_id}", NOW.isoformat()),
+        )
+        conn.execute(
+            "INSERT INTO tenant_memberships "
+            "(id, user_id, tenant_id, role, created_at, revoked_at) "
+            "VALUES (?, ?, ?, 'OWNER', ?, NULL)",
+            (
+                f"membership-{user_id}",
+                user_id,
+                f"tenant-{user_id}",
+                NOW.isoformat(),
+            ),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def test_get_or_create_run_is_unique_by_owner_and_date(tmp_path):
     path = tmp_path / "shiguan.sqlite3"
     _create_user("owner-a", db_path=path)
@@ -90,7 +115,7 @@ def test_scheduled_user_enumeration_is_sorted_and_internal(tmp_path):
 
     path = tmp_path / "shiguan.sqlite3"
     for user_id in ("owner-c", "owner-a", "owner-b"):
-        _create_user(user_id, db_path=path)
+        _create_personal_owner(user_id, db_path=path)
 
     assert list_user_ids_for_scheduled_jobs(db_path=path) == (
         "owner-a",
@@ -431,23 +456,41 @@ def test_conditional_update_failure_rolls_back_insert(tmp_path, monkeypatch):
     assert tuple(row) == ("READY_FOR_REVIEW", 1)
 
 
-def test_update_exception_rolls_back_insert_and_run(tmp_path):
+def test_update_exception_rolls_back_insert_and_run(tmp_path, monkeypatch):
     from app.shiguan.errors import ShiguanStorageError
 
     path = tmp_path / "shiguan.sqlite3"
     run = _seed_run(path, "owner-a")
-    conn = db.get_connection(path)
-    try:
-        conn.execute(
-            "CREATE TRIGGER reject_daily_confirmation BEFORE UPDATE ON daily_memorial_runs "
-            "WHEN NEW.status = 'CONFIRMED' BEGIN SELECT RAISE(ABORT, 'private update detail'); END"
-        )
-        conn.commit()
-    finally:
-        conn.close()
+    original_get_connection = db.get_connection
+    events: list[str] = []
+
+    class FailingConfirmationConnection:
+        def __init__(self, connection):
+            self._connection = connection
+
+        def __getattr__(self, name):
+            return getattr(self._connection, name)
+
+        def execute(self, sql, parameters=()):
+            normalized = " ".join(sql.split())
+            if normalized.startswith("INSERT INTO archives"):
+                events.append("archive_insert")
+            if normalized.startswith(
+                "UPDATE daily_memorial_runs SET status = 'CONFIRMED'"
+            ):
+                assert events == ["archive_insert"]
+                events.append("confirmation_update")
+                raise sqlite3.OperationalError("private update detail")
+            return self._connection.execute(sql, parameters)
+
+    def get_failing_connection(*args, **kwargs):
+        return FailingConfirmationConnection(original_get_connection(*args, **kwargs))
+
+    monkeypatch.setattr(db, "get_connection", get_failing_connection)
     with pytest.raises(ShiguanStorageError, match="每日奏报确认暂时不可用"):
         _confirm(path, run.id, "owner-a")
-    conn = db.get_connection(path)
+    assert events == ["archive_insert", "confirmation_update"]
+    conn = original_get_connection(path)
     try:
         assert conn.execute("SELECT COUNT(*) FROM archives").fetchone()[0] == 0
         assert conn.execute(

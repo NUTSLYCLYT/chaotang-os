@@ -9,13 +9,21 @@ from fastapi.testclient import TestClient
 
 from app.auth import configure_auth_db
 from app.main import app
+from app.shiguan import db
+
+TEST_LOGIN_VALUE = "six-or-more"
 
 
 @pytest.fixture
-def client(tmp_path):
+def auth_db_path(tmp_path):
+    return tmp_path / "auth.sqlite3"
+
+
+@pytest.fixture
+def client(auth_db_path):
     """Use one isolated authentication database for each HTTP test."""
 
-    configure_auth_db(tmp_path / "auth.sqlite3")
+    configure_auth_db(auth_db_path)
     try:
         with TestClient(app) as test_client:
             yield test_client
@@ -30,6 +38,8 @@ def test_register_login_me_and_logout(client):
     )
 
     assert registration.status_code == 201
+    assert set(registration.json()) == {"user", "session_id"}
+    assert set(registration.json()["user"]) == {"id", "username", "email"}
     assert registration.json()["user"] == {
         "id": registration.json()["user"]["id"],
         "username": "court",
@@ -47,7 +57,9 @@ def test_register_login_me_and_logout(client):
         json={"identifier": "COURT@EXAMPLE.COM", "password": "six-or-more"},
     )
     assert email_login.status_code == 200
-    assert client.get("/api/v1/auth/me", headers=headers).status_code == 200
+    me = client.get("/api/v1/auth/me", headers=headers)
+    assert me.status_code == 200
+    assert set(me.json()) == {"id", "username", "email"}
     assert client.post("/api/v1/auth/logout", headers=headers).status_code == 204
     assert client.get("/api/v1/auth/me", headers=headers).status_code == 401
 
@@ -85,6 +97,78 @@ def test_rejects_unrecognized_fields_and_malformed_bearer_credentials(client):
     malformed = client.get("/api/v1/auth/me", headers={"Authorization": "Basic session"})
     assert missing.status_code == malformed.status_code == 401
     assert missing.json() == malformed.json() == {"message": "invalid credentials"}
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    (
+        ("tenant_id", "client-tenant"),
+        ("owner_id", "client-owner"),
+        ("membership_id", "client-membership"),
+        ("tenant_role", "OWNER"),
+        ("role", "OWNER"),
+    ),
+)
+def test_register_and_login_reject_tenant_principal_field_smuggling(client, field, value):
+    register_payload = {
+        "username": "court",
+        "email": "court@example.test",
+        "password": TEST_LOGIN_VALUE,
+        field: value,
+    }
+    login_payload = {
+        "identifier": "court",
+        "password": TEST_LOGIN_VALUE,
+        field: value,
+    }
+
+    assert client.post("/api/v1/auth/register", json=register_payload).status_code == 422
+    assert client.post("/api/v1/auth/login", json=login_payload).status_code == 422
+
+
+def test_correct_password_with_revoked_membership_is_generic_401_and_adds_no_session(
+    client, auth_db_path
+):
+    registration = client.post(
+        "/api/v1/auth/register",
+        json={
+            "username": "court",
+            "email": "court@example.test",
+            "password": TEST_LOGIN_VALUE,
+        },
+    )
+    assert registration.status_code == 201
+    conn = db.get_connection(auth_db_path)
+    try:
+        user_id = registration.json()["user"]["id"]
+        conn.execute(
+            "UPDATE tenant_memberships SET revoked_at = ? WHERE user_id = ?",
+            ("2026-08-28T00:00:00+00:00", user_id),
+        )
+        conn.commit()
+        before = conn.execute("SELECT COUNT(*) FROM auth_sessions").fetchone()[0]
+    finally:
+        conn.close()
+
+    invalid_principal = client.post(
+        "/api/v1/auth/login",
+        json={"identifier": "court", "password": TEST_LOGIN_VALUE},
+    )
+    unknown = client.post(
+        "/api/v1/auth/login",
+        json={"identifier": "unknown", "password": TEST_LOGIN_VALUE},
+    )
+
+    assert invalid_principal.status_code == unknown.status_code == 401
+    assert invalid_principal.json() == unknown.json() == {
+        "message": "invalid credentials"
+    }
+    conn = db.get_connection(auth_db_path)
+    try:
+        after = conn.execute("SELECT COUNT(*) FROM auth_sessions").fetchone()[0]
+    finally:
+        conn.close()
+    assert after == before
 
 
 def test_public_health_and_protected_route_source_contract():
