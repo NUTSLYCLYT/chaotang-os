@@ -6,15 +6,19 @@ import argparse
 import contextlib
 import email.policy
 import hashlib
+import inspect
 import json
 import os
 import re
+import select
 import shutil
+import signal
 import stat
 import subprocess
 import sys
 import tarfile
 import tempfile
+import time
 import tomllib
 import zipfile
 from collections.abc import Iterator
@@ -64,6 +68,33 @@ MAX_WHEEL_ENTRIES = 100_000
 MAX_MEMBER_BYTES = 8 * 1024**3
 MAX_TOTAL_UNCOMPRESSED = 16 * 1024**3
 MAX_METADATA_BYTES = 4 * 1024**2
+CANDIDATE_ATTESTATION_SCHEMA = "chaotang.python-candidate-guard-attestation.v1"
+CANDIDATE_ATTESTATION_KEYS = {
+    "schemaVersion",
+    "parentCommit",
+    "candidateCommit",
+    "candidateTree",
+    "candidateWheelDigest",
+    "appPath",
+    "distributionDigest",
+    "pluginDigest",
+    "activePlugins",
+    "verificationPhase",
+    "status",
+}
+EXECUTION_EVIDENCE_KEYS = {
+    "schemaVersion",
+    "verificationPhase",
+    "mode",
+    "collectedNodeids",
+    "terminalNodeids",
+    "outcomeCounts",
+    "status",
+}
+OUTCOME_KEYS = ("passed", "skipped", "xfailed", "xpassed", "failed", "error")
+FROZEN_CANDIDATE_CONFTEST_SHA256 = (
+    "sha256:958ba53433b0c8994f3dc8254bc3953c8c3fd0b130d372f4f40f6246cbaebd15"
+)
 
 
 class LockValidationError(ValueError):
@@ -94,6 +125,344 @@ def _sha256_regular_file(path: Path) -> str:
     if identity(before) != identity(opened) or identity(before) != identity(after):
         _fail(f"file identity changed while hashing: {path.name}")
     return f"sha256:{value.hexdigest()}"
+
+
+def _verify_frozen_candidate_conftest(
+    conftest_path: Path, expected_conftests: set[Path]
+) -> None:
+    if (
+        expected_conftests != {conftest_path}
+        or _sha256_regular_file(conftest_path) != FROZEN_CANDIDATE_CONFTEST_SHA256
+    ):
+        _fail("candidate conftest identity mismatch")
+
+
+def _kernel_overflow_uid(path: Path = Path("/proc/sys/kernel/overflowuid")) -> int:
+    try:
+        value = int(path.read_text(encoding="ascii").strip())
+    except (OSError, UnicodeError, ValueError) as exc:
+        raise LockValidationError("kernel overflow uid is unavailable") from exc
+    if value <= 0:
+        _fail("kernel overflow uid is invalid")
+    return value
+
+
+def _validate_verifier_identity(
+    *, effective_uid: int | None = None, overflow_uid: int | None = None
+) -> None:
+    uid = os.geteuid() if effective_uid is None else effective_uid
+    overflow = _kernel_overflow_uid() if overflow_uid is None else overflow_uid
+    if uid in {0, overflow}:
+        _fail("unsafe verifier identity")
+
+
+def _verify_distribution_inventory(actual: dict[str, str], expected: dict[str, str]) -> None:
+    if actual != expected:
+        _fail("candidate distribution inventory mismatch")
+
+
+def _write_candidate_attestation(path: Path, payload: dict[str, Any]) -> None:
+    raw = canonical_json_bytes(payload)
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    try:
+        descriptor = os.open(path, flags, 0o600)
+    except FileExistsError as exc:
+        raise LockValidationError("candidate attestation already exists") from exc
+    try:
+        os.fchmod(descriptor, 0o600)
+        with os.fdopen(descriptor, "wb", closefd=False) as stream:
+            stream.write(raw)
+            stream.flush()
+            os.fsync(stream.fileno())
+    finally:
+        os.close(descriptor)
+    _verify_candidate_attestation(path, payload)
+
+
+def _create_held_evidence_file(
+    path: Path,
+) -> tuple[int, tuple[int, int, int, int, int]]:
+    flags = os.O_RDWR | os.O_CREAT | os.O_EXCL
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    descriptor = os.open(path, flags, 0o600)
+    try:
+        os.fchmod(descriptor, 0o600)
+        info = os.fstat(descriptor)
+        identity = (info.st_dev, info.st_ino, info.st_uid, info.st_mode, info.st_nlink)
+        if stat.S_IMODE(info.st_mode) != 0o600 or info.st_nlink != 1 or info.st_size != 0:
+            _fail("held verifier evidence identity is invalid")
+        return descriptor, identity
+    except BaseException:
+        os.close(descriptor)
+        raise
+
+
+def _load_candidate_attestation(
+    path: Path,
+) -> tuple[dict[str, Any], tuple[int, int, int, int, int]]:
+    before = path.lstat()
+    if (
+        not stat.S_ISREG(before.st_mode)
+        or before.st_uid != os.geteuid()
+        or stat.S_IMODE(before.st_mode) != 0o600
+        or before.st_nlink != 1
+    ):
+        _fail("candidate attestation identity mismatch")
+    with path.open("rb") as stream:
+        raw = stream.read(1024 * 1024 + 1)
+        opened = os.fstat(stream.fileno())
+    after = path.lstat()
+    def identity(item: os.stat_result) -> tuple[int, int, int, int, int]:
+        return (item.st_dev, item.st_ino, item.st_uid, item.st_mode, item.st_nlink)
+
+    if identity(before) != identity(opened) or identity(before) != identity(after):
+        _fail("candidate attestation identity drift")
+    if len(raw) > 1024 * 1024:
+        _fail("candidate attestation exceeds budget")
+    payload = parse_json_no_duplicate_keys(raw)
+    if not isinstance(payload, dict) or set(payload) != CANDIDATE_ATTESTATION_KEYS:
+        _fail("candidate attestation fields mismatch")
+    if raw != canonical_json_bytes(payload):
+        _fail("candidate attestation is not canonical")
+    return payload, identity(before)
+
+
+def _load_held_json(
+    path: Path,
+    descriptor: int,
+    *,
+    expected_identity: tuple[int, int, int, int, int],
+    limit: int,
+) -> dict[str, Any]:
+    path_info = path.lstat()
+    held = os.fstat(descriptor)
+    identity = lambda item: (  # noqa: E731
+        item.st_dev,
+        item.st_ino,
+        item.st_uid,
+        item.st_mode,
+        item.st_nlink,
+    )
+    if identity(path_info) != expected_identity or identity(held) != expected_identity:
+        _fail("held verifier evidence identity drift")
+    if held.st_size > limit:
+        _fail("held verifier evidence exceeds budget")
+    raw = os.pread(descriptor, limit + 1, 0)
+    if len(raw) > limit:
+        _fail("held verifier evidence exceeds budget")
+    payload = parse_json_no_duplicate_keys(raw)
+    if not isinstance(payload, dict) or raw != canonical_json_bytes(payload):
+        _fail("held verifier evidence is not canonical")
+    return payload
+
+
+def _verify_candidate_attestation(
+    path: Path,
+    expected: dict[str, Any],
+    *,
+    expected_identity: tuple[int, int, int, int, int] | None = None,
+) -> tuple[int, int, int, int, int]:
+    payload, identity = _load_candidate_attestation(path)
+    if payload != expected:
+        _fail("candidate attestation bytes mismatch")
+    if expected_identity is not None and identity != expected_identity:
+        _fail("candidate attestation inode drift")
+    return identity
+
+
+def _load_execution_evidence(path: Path) -> dict[str, Any]:
+    before = path.lstat()
+    if (
+        not stat.S_ISREG(before.st_mode)
+        or before.st_uid != os.geteuid()
+        or stat.S_IMODE(before.st_mode) != 0o600
+        or before.st_nlink != 1
+    ):
+        _fail("candidate execution evidence identity mismatch")
+    with path.open("rb") as stream:
+        raw = stream.read(16 * 1024 * 1024 + 1)
+        opened = os.fstat(stream.fileno())
+    after = path.lstat()
+    identity = lambda item: (  # noqa: E731
+        item.st_dev,
+        item.st_ino,
+        item.st_uid,
+        item.st_mode,
+        item.st_nlink,
+    )
+    if identity(before) != identity(opened) or identity(before) != identity(after):
+        _fail("candidate execution evidence identity drift")
+    if len(raw) > 16 * 1024 * 1024:
+        _fail("candidate execution evidence exceeds budget")
+    payload = parse_json_no_duplicate_keys(raw)
+    return _validate_execution_evidence(payload)
+
+
+def _validate_execution_evidence(payload: Any) -> dict[str, Any]:
+    if not isinstance(payload, dict) or set(payload) != EXECUTION_EVIDENCE_KEYS:
+        _fail("candidate execution evidence fields mismatch")
+    if payload["schemaVersion"] != "chaotang.pytest-execution-evidence.v1":
+        _fail("candidate execution evidence schema mismatch")
+    if payload["mode"] not in {"collect-only", "execute"} or payload["status"] != "PASS":
+        _fail("candidate execution evidence state mismatch")
+    for key in ("collectedNodeids", "terminalNodeids"):
+        values = payload[key]
+        if (
+            not isinstance(values, list)
+            or not all(isinstance(value, str) and value for value in values)
+            or len(values) != len(set(values))
+        ):
+            _fail("candidate execution nodeid inventory is invalid")
+    counts = payload["outcomeCounts"]
+    if (
+        not isinstance(counts, dict)
+        or set(counts) != set(OUTCOME_KEYS)
+        or not all(isinstance(value, int) and value >= 0 for value in counts.values())
+    ):
+        _fail("candidate execution outcome counts are invalid")
+    if payload["mode"] == "collect-only":
+        if payload["terminalNodeids"] or any(counts.values()):
+            _fail("collect-only evidence contains terminal outcomes")
+    elif payload["terminalNodeids"] != payload["collectedNodeids"]:
+        _fail("candidate terminal nodeids do not close collected nodeids")
+    if sum(counts.values()) != len(payload["terminalNodeids"]):
+        _fail("candidate execution outcome counts do not close nodeids")
+    return payload
+
+
+def _validate_active_plugin_inventory(
+    rows: list[dict[str, str]], *, guard_path: Path, expected_conftests: set[Path]
+) -> list[dict[str, str]]:
+    if not isinstance(rows, list):
+        _fail("active pytest plugin inventory is invalid")
+    expected_guard = str(guard_path.resolve(strict=True))
+    expected_conftest_paths = {str(path.resolve(strict=True)) for path in expected_conftests}
+    guard_count = 0
+    normalized: list[dict[str, str]] = []
+    for row in rows:
+        if not isinstance(row, dict) or set(row) != {"kind", "module", "name", "origin"}:
+            _fail("active pytest plugin inventory is invalid")
+        if not all(isinstance(value, str) and value for value in row.values()):
+            _fail("active pytest plugin inventory is invalid")
+        kind = row["kind"]
+        if kind == "guard":
+            if (
+                row["module"] != "chaotang_candidate_guard"
+                or row["origin"] != expected_guard
+            ):
+                _fail("candidate guard plugin identity mismatch")
+            guard_count += 1
+        elif kind == "builtin":
+            if row["module"] != "pytest" and not row["module"].startswith("_pytest."):
+                _fail("unapproved active pytest plugin")
+        elif kind == "conftest":
+            if row["origin"] not in expected_conftest_paths:
+                _fail("unapproved candidate conftest plugin")
+        else:
+            _fail("unapproved active pytest plugin")
+        normalized.append(row)
+    normalized.sort(key=lambda row: (row["kind"], row["name"], row["module"], row["origin"]))
+    if rows != normalized or guard_count != 1:
+        _fail("active pytest plugin inventory is not closed")
+    return normalized
+
+
+def _snapshot_active_pytest_plugins(
+    manager: Any,
+    *,
+    guard_module: Any,
+    expected_conftests: set[Path],
+    guard_phase: str,
+    frozen_nonconftest: dict[str, tuple[int, str, str, str]] | None = None,
+) -> tuple[list[dict[str, str]], dict[str, tuple[int, str, str, str]]]:
+    """Close live pytest plugins over canonical modules and pre-yield object identity."""
+
+    if guard_phase not in {"pre-conftest", "post-conftest"}:
+        _fail("candidate guard phase is invalid")
+    pytest_module = sys.modules.get("pytest")
+    if pytest_module is None or not inspect.ismodule(pytest_module):
+        _fail("canonical pytest module is unavailable")
+    pytest_origin = Path(pytest_module.__file__).resolve(strict=True)
+    site_root = pytest_origin.parent.parent
+    builtin_roots = {
+        (site_root / "pytest").resolve(strict=True),
+        (site_root / "_pytest").resolve(strict=True),
+    }
+    expected_paths = {str(path.resolve(strict=True)) for path in expected_conftests}
+    rows: list[dict[str, str]] = []
+    identities: dict[str, tuple[int, str, str, str]] = {}
+    for raw_name, plugin in manager.list_name_plugin():
+        if plugin is None:
+            continue
+        name = str(raw_name)
+        if plugin is guard_module:
+            kind = "guard"
+            module = guard_module.__name__
+            origin = str(Path(guard_module.__file__).resolve(strict=True))
+        elif inspect.ismodule(plugin):
+            module = plugin.__name__
+            if sys.modules.get(module) is not plugin:
+                _fail("active pytest module identity mismatch")
+            origin_value = getattr(plugin, "__file__", None)
+            if not isinstance(origin_value, str):
+                _fail("active pytest module origin is invalid")
+            origin_path = Path(origin_value).resolve(strict=True)
+            origin = str(origin_path)
+            if module == "pytest" or module.startswith("_pytest."):
+                if not any(
+                    origin_path == root or origin_path.is_relative_to(root)
+                    for root in builtin_roots
+                ):
+                    _fail("builtin pytest plugin escaped its distribution")
+                kind = "builtin"
+            elif origin in expected_paths:
+                kind = "conftest"
+            else:
+                _fail("unapproved active pytest plugin")
+        else:
+            plugin_type = type(plugin)
+            module = plugin_type.__module__
+            module_object = sys.modules.get(module)
+            if (
+                not module.startswith("_pytest.")
+                or module_object is None
+                or not inspect.ismodule(module_object)
+                or not any(value is plugin_type for value in vars(module_object).values())
+            ):
+                _fail("unapproved active pytest plugin object")
+            origin_value = getattr(module_object, "__file__", None)
+            if not isinstance(origin_value, str):
+                _fail("builtin pytest plugin object origin is invalid")
+            origin_path = Path(origin_value).resolve(strict=True)
+            if not any(
+                origin_path == root or origin_path.is_relative_to(root)
+                for root in builtin_roots
+            ):
+                _fail("builtin pytest plugin object escaped its distribution")
+            kind = "builtin"
+            origin = str(origin_path)
+        row = {"kind": kind, "module": module, "name": name, "origin": origin}
+        rows.append(row)
+        if kind != "conftest":
+            if name in identities:
+                _fail("active pytest plugin name is duplicated")
+            identities[name] = (id(plugin), kind, module, origin)
+    rows.sort(key=lambda row: (row["kind"], row["name"], row["module"], row["origin"]))
+    conftests = {row["origin"] for row in rows if row["kind"] == "conftest"}
+    expected = set() if guard_phase == "pre-conftest" else expected_paths
+    if conftests != expected:
+        _fail("candidate conftest inventory mismatch")
+    if frozen_nonconftest is not None:
+        additions = set(identities) - set(frozen_nonconftest)
+        if additions - {"capturemanager"} or any(
+            identities.get(name) != frozen
+            for name, frozen in frozen_nonconftest.items()
+        ):
+            _fail("builtin pytest plugin identity drift")
+    return rows, identities
 
 
 def canonical_json_bytes(value: Any) -> bytes:
@@ -659,8 +1028,7 @@ def verify_lock(lock_path: Path, wheelhouse: Path, pyproject: Path) -> dict[str,
 def verify_candidate_wheelhouse_permissions(wheelhouse: Path) -> None:
     """Require the M0 wheelhouse to be root-owned and candidate-read-only."""
 
-    if os.geteuid() == 0:
-        _fail("candidate verification must not run as root")
+    _validate_verifier_identity()
     try:
         root_info = wheelhouse.lstat()
     except OSError as exc:
@@ -750,11 +1118,33 @@ def prepare_install(
 
 
 @contextlib.contextmanager
-def secure_work_root(*, parent: Path = Path("/tmp")) -> Iterator[Path]:
-    parent = parent.resolve(strict=True)
-    if parent != Path("/tmp") and "PYTEST_CURRENT_TEST" not in os.environ:
+def secure_work_root(
+    *,
+    parent: Path = Path("/tmp"),
+    trusted_parent_uids: set[int] | None = None,
+    deadline_at: float | None = None,
+) -> Iterator[Path]:
+    _remaining_seconds(deadline_at)
+    parent_before = parent.lstat()
+    if not stat.S_ISDIR(parent_before.st_mode) or stat.S_ISLNK(parent_before.st_mode):
+        _fail("work root parent must be a real directory")
+    resolved_parent = parent.resolve(strict=True)
+    if resolved_parent != Path("/tmp") and "PYTEST_CURRENT_TEST" not in os.environ:
         _fail("work root parent must be canonical /tmp")
-    root = Path(tempfile.mkdtemp(prefix="chaotang-p15-", dir=parent))
+    trusted_owners = (
+        {0, _kernel_overflow_uid()} if trusted_parent_uids is None else trusted_parent_uids
+    )
+    if stat.S_IMODE(parent_before.st_mode) != 0o1777:
+        _fail("work root parent must be sticky 01777")
+    if parent_before.st_uid not in trusted_owners:
+        _fail("work root parent owner is not trusted")
+    parent_identity = (
+        parent_before.st_dev,
+        parent_before.st_ino,
+        parent_before.st_uid,
+        parent_before.st_mode,
+    )
+    root = Path(tempfile.mkdtemp(prefix="chaotang-p15-", dir=resolved_parent))
     os.chmod(root, 0o700)
     before = root.lstat()
     identity = (before.st_dev, before.st_ino, before.st_uid, before.st_mode, before.st_nlink)
@@ -767,31 +1157,40 @@ def secure_work_root(*, parent: Path = Path("/tmp")) -> Iterator[Path]:
     try:
         yield root
     finally:
-        after = root.lstat()
-        if (
-            not stat.S_ISDIR(after.st_mode)
-            or (after.st_dev, after.st_ino, after.st_uid, after.st_mode) != identity[:4]
-            or after.st_nlink < 2
-        ):
-            _fail("verifier work root identity drift")
-        for child in root.iterdir():
-            if child.is_dir() and not child.is_symlink():
-                shutil.rmtree(child)
-            else:
-                child.unlink()
-        after_cleanup = root.lstat()
-        if (
-            after_cleanup.st_dev,
-            after_cleanup.st_ino,
-            after_cleanup.st_uid,
-            after_cleanup.st_mode,
-            after_cleanup.st_nlink,
-        ) != identity:
-            _fail("verifier work root identity drift")
-        root.rmdir()
+        with _bounded_cleanup_window(deadline_at):
+            parent_after = resolved_parent.lstat()
+            if (
+                parent_after.st_dev,
+                parent_after.st_ino,
+                parent_after.st_uid,
+                parent_after.st_mode,
+            ) != parent_identity:
+                _fail("work root parent identity drift")
+            after = root.lstat()
+            if (
+                not stat.S_ISDIR(after.st_mode)
+                or (after.st_dev, after.st_ino, after.st_uid, after.st_mode) != identity[:4]
+                or after.st_nlink < 2
+            ):
+                _fail("verifier work root identity drift")
+            for child in root.iterdir():
+                if child.is_dir() and not child.is_symlink():
+                    shutil.rmtree(child)
+                else:
+                    child.unlink()
+            after_cleanup = root.lstat()
+            if (
+                after_cleanup.st_dev,
+                after_cleanup.st_ino,
+                after_cleanup.st_uid,
+                after_cleanup.st_mode,
+                after_cleanup.st_nlink,
+            ) != identity:
+                _fail("verifier work root identity drift")
+            root.rmdir()
 
 
-def _git(source_root: Path, *args: str) -> str:
+def _git(source_root: Path, *args: str, deadline_at: float | None = None) -> str:
     environment = {
         "PATH": "/usr/bin:/bin",
         "GIT_CONFIG_GLOBAL": "/dev/null",
@@ -799,7 +1198,7 @@ def _git(source_root: Path, *args: str) -> str:
         "GIT_OPTIONAL_LOCKS": "0",
         "LC_ALL": "C",
     }
-    completed = subprocess.run(
+    return _run_capture(
         [
             "/usr/bin/git",
             "-c",
@@ -810,38 +1209,53 @@ def _git(source_root: Path, *args: str) -> str:
             *args,
         ],
         cwd=source_root,
-        env=environment,
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    if completed.returncode != 0:
-        _fail(f"Git identity check failed: {' '.join(args)}")
-    return completed.stdout.strip()
+        environment=environment,
+        deadline_at=deadline_at,
+    ).strip()
 
 
-def _candidate_identity(source_root: Path) -> dict[str, str]:
-    if _git(source_root, "rev-parse", "--is-shallow-repository") != "false":
+def _candidate_identity(
+    source_root: Path, *, deadline_at: float | None = None
+) -> dict[str, str]:
+    if _git(
+        source_root, "rev-parse", "--is-shallow-repository", deadline_at=deadline_at
+    ) != "false":
         _fail("shallow repository is forbidden")
-    if _git(source_root, "status", "--porcelain=v1", "--untracked-files=all"):
+    if _git(
+        source_root,
+        "status",
+        "--porcelain=v1",
+        "--untracked-files=all",
+        deadline_at=deadline_at,
+    ):
         _fail("candidate source root must be clean")
-    commit = _git(source_root, "rev-parse", "HEAD^{commit}")
-    parents = _git(source_root, "show", "-s", "--format=%P", commit).split()
+    commit = _git(source_root, "rev-parse", "HEAD^{commit}", deadline_at=deadline_at)
+    parents = _git(
+        source_root, "show", "-s", "--format=%P", commit, deadline_at=deadline_at
+    ).split()
     if len(parents) != 1:
         _fail("candidate must have exactly one parent")
     return {
         "candidateCommit": commit,
-        "candidateTree": _git(source_root, "rev-parse", f"{commit}^{{tree}}"),
+        "candidateTree": _git(
+            source_root, "rev-parse", f"{commit}^{{tree}}", deadline_at=deadline_at
+        ),
         "parentCommit": parents[0],
     }
 
 
 def materialize_candidate_snapshot(
-    source_root: Path, candidate_commit: str, target_root: Path
+    source_root: Path,
+    candidate_commit: str,
+    target_root: Path,
+    *,
+    deadline_at: float | None = None,
 ) -> Path:
     """Materialize committed bytes without reading tracked worktree contents."""
 
-    repository_root = Path(_git(source_root, "rev-parse", "--show-toplevel")).resolve()
+    repository_root = Path(
+        _git(source_root, "rev-parse", "--show-toplevel", deadline_at=deadline_at)
+    ).resolve()
     if source_root.resolve() != (repository_root / "backend").resolve():
         _fail("candidate source root is not the repository backend")
     target_root.mkdir(mode=0o700)
@@ -853,7 +1267,7 @@ def materialize_candidate_snapshot(
         "GIT_OPTIONAL_LOCKS": "0",
         "LC_ALL": "C",
     }
-    completed = subprocess.run(
+    _run(
         [
             "/usr/bin/git",
             "-c", "core.fsmonitor=false",
@@ -875,12 +1289,9 @@ def materialize_candidate_snapshot(
             "scripts/six_ministry_evidence_spine_contract.test.mjs",
         ],
         cwd=repository_root,
-        env=environment,
-        check=False,
-        capture_output=True,
+        environment=environment,
+        deadline_at=deadline_at,
     )
-    if completed.returncode != 0:
-        _fail("candidate Git snapshot materialization failed")
     file_count = 0
     total_bytes = 0
     try:
@@ -932,18 +1343,522 @@ def _requirement_lines(document: dict[str, Any], scopes: set[str]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def _run(command: list[str], *, cwd: Path, environment: dict[str, str]) -> None:
-    completed = subprocess.run(command, cwd=cwd, env=environment, check=False)
-    if completed.returncode != 0:
-        _fail(f"verification command failed: {command[0]} ({completed.returncode})")
+def _remaining_seconds(deadline_at: float | None) -> float | None:
+    if deadline_at is None:
+        return None
+    remaining = deadline_at - time.monotonic()
+    if remaining <= 0:
+        _fail("candidate verification deadline exceeded")
+    return remaining
 
 
-def mirror_candidate_support_tree(source_root: Path, target_backend: Path) -> None:
+@contextlib.contextmanager
+def _bounded_cleanup_window(deadline_at: float | None) -> Iterator[None]:
+    """Give finalization its own 30-second bound after execution stops."""
+
+    alarm_handler = signal.getsignal(signal.SIGALRM)
+    if alarm_handler in {signal.SIG_DFL, signal.SIG_IGN}:
+        yield
+        return
+    now = time.monotonic()
+    cleanup_deadline = now + 30.0
+    if deadline_at is not None and deadline_at > now:
+        cleanup_deadline = min(cleanup_deadline, deadline_at)
+    previous_timer = signal.getitimer(signal.ITIMER_REAL)
+    signal.setitimer(signal.ITIMER_REAL, max(0.000001, cleanup_deadline - now))
+    try:
+        yield
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0.0)
+        old_delay, old_interval = previous_timer
+        if old_delay > 0 and deadline_at is not None and deadline_at > time.monotonic():
+            signal.setitimer(
+                signal.ITIMER_REAL,
+                max(0.000001, deadline_at - time.monotonic()),
+                old_interval,
+            )
+
+
+@contextlib.contextmanager
+def _controlled_verifier_lifetime(deadline_at: float) -> Iterator[None]:
+    """Convert deadline and SIGTERM into exceptions so cleanup paths execute."""
+
+    if not hasattr(signal, "setitimer"):
+        _fail("POSIX verifier deadline support is unavailable")
+    previous_alarm = signal.getsignal(signal.SIGALRM)
+    previous_term = signal.getsignal(signal.SIGTERM)
+    previous_timer = signal.getitimer(signal.ITIMER_REAL)
+    started = time.monotonic()
+
+    def on_alarm(_signum: int, _frame: Any) -> None:
+        raise LockValidationError("candidate verification deadline exceeded")
+
+    def on_term(_signum: int, _frame: Any) -> None:
+        raise LockValidationError("candidate verification terminated")
+
+    signal.signal(signal.SIGALRM, on_alarm)
+    signal.signal(signal.SIGTERM, on_term)
+    signal.setitimer(signal.ITIMER_REAL, _remaining_seconds(deadline_at) or 0.0)
+    try:
+        yield
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0.0)
+        signal.signal(signal.SIGALRM, previous_alarm)
+        signal.signal(signal.SIGTERM, previous_term)
+        elapsed = time.monotonic() - started
+        old_delay, old_interval = previous_timer
+        if old_delay > 0:
+            signal.setitimer(
+                signal.ITIMER_REAL,
+                max(0.000001, old_delay - elapsed),
+                old_interval,
+            )
+
+
+def _process_group_exists(process_group: int) -> bool:
+    try:
+        os.killpg(process_group, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError as exc:
+        raise LockValidationError("candidate process group ownership mismatch") from exc
+    return True
+
+
+def _terminate_process_group(
+    process_group: int,
+    *,
+    leader: subprocess.Popen[Any] | None = None,
+    term_grace_seconds: float = 1.0,
+    kill_grace_seconds: float = 2.0,
+) -> None:
+    if not _process_group_exists(process_group):
+        return
+    with contextlib.suppress(ProcessLookupError):
+        os.killpg(process_group, signal.SIGTERM)
+    term_deadline = time.monotonic() + term_grace_seconds
+    while _process_group_exists(process_group) and time.monotonic() < term_deadline:
+        if leader is not None:
+            leader.poll()
+        time.sleep(0.01)
+    if _process_group_exists(process_group):
+        with contextlib.suppress(ProcessLookupError):
+            os.killpg(process_group, signal.SIGKILL)
+    kill_deadline = time.monotonic() + kill_grace_seconds
+    while _process_group_exists(process_group) and time.monotonic() < kill_deadline:
+        if leader is not None:
+            leader.poll()
+        time.sleep(0.01)
+    if _process_group_exists(process_group):
+        _fail("candidate process group survived cleanup")
+    if leader is not None and leader.poll() is None:
+        try:
+            leader.wait(timeout=kill_grace_seconds)
+        except subprocess.TimeoutExpired as exc:
+            raise LockValidationError("candidate process leader survived cleanup") from exc
+
+
+def _run_process(
+    command: list[str],
+    *,
+    cwd: Path,
+    environment: dict[str, str],
+    capture_output: bool,
+    deadline_at: float | None = None,
+) -> str:
+    process: subprocess.Popen[str] | None = None
+    try:
+        process = subprocess.Popen(
+            command,
+            cwd=cwd,
+            env=environment,
+            stdout=subprocess.PIPE if capture_output else None,
+            stderr=subprocess.PIPE if capture_output else None,
+            text=True,
+            start_new_session=True,
+        )
+        try:
+            stdout, _stderr = process.communicate(timeout=_remaining_seconds(deadline_at))
+        except subprocess.TimeoutExpired as exc:
+            raise LockValidationError("candidate verification deadline exceeded") from exc
+        if process.returncode != 0:
+            _fail(f"verification command failed: {command[0]} ({process.returncode})")
+        return stdout or ""
+    finally:
+        if process is not None:
+            _terminate_process_group(process.pid, leader=process)
+
+
+def _run(
+    command: list[str],
+    *,
+    cwd: Path,
+    environment: dict[str, str],
+    deadline_at: float | None = None,
+) -> None:
+    _run_process(
+        command,
+        cwd=cwd,
+        environment=environment,
+        capture_output=False,
+        deadline_at=deadline_at,
+    )
+
+
+def _run_capture(
+    command: list[str],
+    *,
+    cwd: Path,
+    environment: dict[str, str],
+    deadline_at: float | None = None,
+) -> str:
+    return _run_process(
+        command,
+        cwd=cwd,
+        environment=environment,
+        capture_output=True,
+        deadline_at=deadline_at,
+    )
+
+
+def _partition_candidate_tests(
+    records: list[dict[str, str]], *, shard_count: int
+) -> list[list[dict[str, str]]]:
+    if shard_count != 3:
+        _fail("candidate shard count must be exactly 3")
+    paths = [record.get("path") for record in records]
+    if any(not isinstance(path, str) or not path for path in paths):
+        _fail("candidate test inventory path is invalid")
+    if len(set(paths)) != len(paths):
+        _fail("candidate test inventory contains duplicate paths")
+    if paths != sorted(paths):
+        _fail("candidate test inventory is not sorted")
+    shards = [records[index::shard_count] for index in range(shard_count)]
+    flattened = [record["path"] for shard in shards for record in shard]
+    if sorted(flattened) != paths:
+        _fail("candidate test shard union is not closed")
+    return shards
+
+
+_CANDIDATE_TEST_PATH_RE = re.compile(r"backend/tests/test_[^/]+\.py\Z")
+
+
+def _parse_candidate_test_inventory(
+    raw: str, *, expected_count: int = 139
+) -> list[dict[str, str]]:
+    records: list[dict[str, str]] = []
+    for line in raw.splitlines():
+        metadata, separator, path = line.partition("\t")
+        if not separator:
+            _fail("candidate Git tree row is malformed")
+        if not _CANDIDATE_TEST_PATH_RE.fullmatch(path):
+            continue
+        parts = metadata.split()
+        if len(parts) != 3:
+            _fail("candidate Git tree identity is malformed")
+        mode, object_type, blob = parts
+        if mode != "100644":
+            _fail("candidate test file mode is not 100644")
+        if object_type != "blob" or not re.fullmatch(r"[0-9a-f]{40,64}", blob):
+            _fail("candidate test blob identity is invalid")
+        records.append({"path": path, "mode": mode, "blob": blob})
+    records.sort(key=lambda row: row["path"])
+    if len(records) != expected_count:
+        _fail(f"candidate test inventory count must be exactly {expected_count}")
+    _partition_candidate_tests(records, shard_count=3)
+    return records
+
+
+def _candidate_test_inventory(
+    source_root: Path,
+    candidate_commit: str,
+    *,
+    expected_count: int = 139,
+    deadline_at: float | None = None,
+) -> list[dict[str, str]]:
+    raw = _git(
+        source_root,
+        "ls-tree",
+        "-r",
+        "--full-tree",
+        candidate_commit,
+        "--",
+        ":(top)backend/tests",
+        deadline_at=deadline_at,
+    )
+    return _parse_candidate_test_inventory(raw, expected_count=expected_count)
+
+
+def _terminal_outcome(reports: list[dict[str, Any]]) -> str:
+    if not reports:
+        _fail("terminal outcome reports are missing")
+    allowed_when = {"setup", "call", "teardown"}
+    allowed_outcomes = {"passed", "failed", "skipped"}
+    seen_when: set[str] = set()
+    for report in reports:
+        when = report.get("when")
+        outcome = report.get("outcome")
+        wasxfail = report.get("wasxfail")
+        if when not in allowed_when or outcome not in allowed_outcomes:
+            _fail("terminal outcome report is invalid")
+        if when in seen_when:
+            _fail("terminal outcome report contains duplicate phases")
+        if not isinstance(wasxfail, bool):
+            _fail("terminal outcome xfail identity is invalid")
+        seen_when.add(when)
+    if any(
+        report["outcome"] == "failed" and report["when"] in {"setup", "teardown"}
+        for report in reports
+    ):
+        return "error"
+    call = next((report for report in reports if report["when"] == "call"), None)
+    if call is not None and call["outcome"] == "failed":
+        return "failed"
+    if call is not None and call["outcome"] == "passed" and call["wasxfail"]:
+        return "xpassed"
+    if any(report["outcome"] == "skipped" and report["wasxfail"] for report in reports):
+        return "xfailed"
+    if any(report["outcome"] == "skipped" for report in reports):
+        return "skipped"
+    return "passed"
+
+
+def _run_pytest_with_attestation(
+    command: list[str],
+    *,
+    cwd: Path,
+    environment: dict[str, str],
+    attestation_expectations: list[tuple[Path, dict[str, Any], set[Path]]],
+    guard_path: Path,
+    deadline_at: float,
+    execution_evidence_path: Path | None = None,
+    execution_evidence_sink: dict[str, Any] | None = None,
+    sandbox_root: Path | None = None,
+) -> dict[str, str]:
+    if len(attestation_expectations) != 2:
+        _fail("candidate guard requires exactly two attestations")
+    ready_read = ready_write = ack_read = ack_write = -1
+    held_attestations: list[
+        tuple[Path, dict[str, Any], set[Path], tuple[int, int, int, int, int], int]
+    ] = []
+    held_execution: tuple[Path, tuple[int, int, int, int, int], int] | None = None
+    process: subprocess.Popen[bytes] | None = None
+    digests: dict[str, str] = {}
+    try:
+        ready_read, ready_write = os.pipe()
+        ack_read, ack_write = os.pipe()
+        for path, fixed, conftests in attestation_expectations:
+            descriptor, identity = _create_held_evidence_file(path)
+            held_attestations.append((path, fixed, conftests, identity, descriptor))
+        if execution_evidence_path is not None:
+            descriptor, identity = _create_held_evidence_file(execution_evidence_path)
+            held_execution = (execution_evidence_path, identity, descriptor)
+        child_environment = {
+            **environment,
+            "CHAOTANG_CANDIDATE_READY_FD": str(ready_write),
+            "CHAOTANG_CANDIDATE_ACK_FD": str(ack_read),
+            "CHAOTANG_CANDIDATE_ATTESTATION_FDS": canonical_json_bytes(
+                {
+                    fixed["verificationPhase"].rsplit(":", 1)[-1]: descriptor
+                    for _path, fixed, _conftests, _identity, descriptor in held_attestations
+                }
+            ).decode("utf-8"),
+        }
+        if held_execution is not None:
+            child_environment["CHAOTANG_CANDIDATE_EXECUTION_FD"] = str(
+                held_execution[2]
+            )
+        child_command = command
+        if sandbox_root is not None:
+            sandbox_root = sandbox_root.resolve(strict=True)
+            if sandbox_root.parent != Path("/tmp"):
+                _fail("candidate sandbox root must be a direct child of /tmp")
+            child_command = [
+                "/usr/bin/bwrap",
+                "--unshare-user",
+                "--unshare-pid",
+                "--unshare-net",
+                "--die-with-parent",
+                "--ro-bind",
+                "/",
+                "/",
+                "--tmpfs",
+                "/home",
+                "--tmpfs",
+                "/mnt",
+                "--proc",
+                "/proc",
+                "--dev",
+                "/dev",
+                "--perms",
+                "1777",
+                "--tmpfs",
+                "/tmp",
+                "--dir",
+                str(sandbox_root),
+                "--ro-bind",
+                str(sandbox_root),
+                str(sandbox_root),
+                *command,
+            ]
+        passed = [ready_write, ack_read]
+        passed.extend(row[4] for row in held_attestations)
+        if held_execution is not None:
+            passed.append(held_execution[2])
+        process = subprocess.Popen(
+            child_command,
+            cwd=cwd,
+            env=child_environment,
+            pass_fds=tuple(passed),
+            start_new_session=True,
+        )
+        os.close(ready_write)
+        ready_write = -1
+        os.close(ack_read)
+        ack_read = -1
+        verified_attestations: list[
+            tuple[Path, dict[str, Any], tuple[int, int, int, int, int], int]
+        ] = []
+        for (
+            attestation,
+            fixed_expected,
+            expected_conftests,
+            identity,
+            descriptor,
+        ) in held_attestations:
+            handshake_timeout = min(60.0, _remaining_seconds(deadline_at) or 60.0)
+            readable, _, _ = select.select([ready_read], [], [], handshake_timeout)
+            if not readable or os.read(ready_read, 1) != b"1":
+                _fail("candidate guard handshake timed out")
+            payload = _load_held_json(
+                attestation,
+                descriptor,
+                expected_identity=identity,
+                limit=1024 * 1024,
+            )
+            if set(payload) != CANDIDATE_ATTESTATION_KEYS:
+                _fail("candidate attestation fields mismatch")
+            active_plugins = _validate_active_plugin_inventory(
+                payload["activePlugins"],
+                guard_path=guard_path,
+                expected_conftests=expected_conftests,
+            )
+            expected = {
+                **fixed_expected,
+                "activePlugins": active_plugins,
+                "pluginDigest": _sha256(canonical_json_bytes(active_plugins)),
+            }
+            if payload != expected:
+                _fail("candidate attestation bytes mismatch")
+            verified_attestations.append((attestation, expected, identity, descriptor))
+            os.write(ack_write, b"1")
+        try:
+            return_code = process.wait(timeout=_remaining_seconds(deadline_at))
+        except subprocess.TimeoutExpired as exc:
+            raise LockValidationError("candidate pytest timed out") from exc
+        if return_code != 0:
+            _fail(f"verification command failed: {command[0]} ({return_code})")
+        for attestation, expected, initial_identity, descriptor in verified_attestations:
+            payload = _load_held_json(
+                attestation,
+                descriptor,
+                expected_identity=initial_identity,
+                limit=1024 * 1024,
+            )
+            if payload != expected:
+                _fail("candidate attestation bytes mismatch")
+            digests[expected["verificationPhase"]] = _sha256(canonical_json_bytes(payload))
+        if held_execution is not None:
+            path, identity, descriptor = held_execution
+            payload = _load_held_json(
+                path,
+                descriptor,
+                expected_identity=identity,
+                limit=16 * 1024 * 1024,
+            )
+            if execution_evidence_sink is None:
+                _fail("candidate execution evidence sink is missing")
+            execution_evidence_sink.update(payload)
+        return digests
+    finally:
+        for descriptor in (ready_read, ready_write, ack_read, ack_write):
+            if descriptor >= 0:
+                with contextlib.suppress(OSError):
+                    os.close(descriptor)
+        for _path, _fixed, _conftests, _identity, descriptor in held_attestations:
+            with contextlib.suppress(OSError):
+                os.close(descriptor)
+        if held_execution is not None:
+            with contextlib.suppress(OSError):
+                os.close(held_execution[2])
+        if process is not None:
+            _terminate_process_group(process.pid, leader=process)
+
+
+def _expected_candidate_distributions(document: dict[str, Any]) -> dict[str, str]:
+    expected = {
+        row["normalizedName"]: row["version"]
+        for row in document["distributions"]
+        if {"RUNTIME", "TEST"}.intersection(row["scopes"])
+    }
+    if "chaotang-os-backend" in expected:
+        _fail("candidate distribution collides with runtime lock")
+    expected["chaotang-os-backend"] = "0.1.0"
+    return dict(sorted(expected.items()))
+
+
+def _probe_candidate_environment(
+    python: Path,
+    *,
+    cwd: Path,
+    environment: dict[str, str],
+    deadline_at: float | None = None,
+) -> dict[str, Any]:
+    script = (
+        "import importlib.metadata as m,json,re\n"
+        "norm=lambda value:re.sub(r'[-_.]+','-',value).lower()\n"
+        "distributions={}\n"
+        "plugins=[]\n"
+        "for dist in m.distributions():\n"
+        "    name=norm(dist.metadata['Name'])\n"
+        "    if name in distributions: raise RuntimeError('duplicate distribution identity')\n"
+        "    distributions[name]=dist.version\n"
+        "    for entry in dist.entry_points:\n"
+        "        if entry.group=='pytest11':\n"
+        "            plugins.append({'distribution':name,'name':entry.name,'value':entry.value})\n"
+        "plugins.sort(key=lambda row:(row['distribution'],row['name'],row['value']))\n"
+        "print(json.dumps({'distributions':dict(sorted(distributions.items())),"
+        "'plugins':plugins},sort_keys=True,separators=(',',':')))\n"
+    )
+    raw = _run_capture(
+        [str(python), "-I", "-P", "-c", script],
+        cwd=cwd,
+        environment=environment,
+        deadline_at=deadline_at,
+    ).strip()
+    payload = parse_json_no_duplicate_keys(raw.encode("utf-8"))
+    if not isinstance(payload, dict) or set(payload) != {"distributions", "plugins"}:
+        _fail("candidate environment inventory is invalid")
+    if raw.encode("utf-8") != canonical_json_bytes(payload):
+        _fail("candidate environment inventory is not canonical")
+    if not isinstance(payload["distributions"], dict) or not isinstance(payload["plugins"], list):
+        _fail("candidate environment inventory is invalid")
+    return payload
+
+
+def mirror_candidate_support_tree(
+    source_root: Path, target_backend: Path, *, deadline_at: float | None = None
+) -> None:
     """Mirror tracked non-application backend files into a venv-owned layout."""
 
     target_backend.mkdir(parents=True, mode=0o700)
     tracked = (
-        [source_root / value for value in _git(source_root, "ls-files", "--", ".").splitlines()]
+        [
+            source_root / value
+            for value in _git(
+                source_root, "ls-files", "--", ".", deadline_at=deadline_at
+            ).splitlines()
+        ]
         if (source_root / ".git").exists()
         else sorted(path for path in source_root.rglob("*") if path.is_file())
     )
@@ -977,7 +1892,9 @@ def mirror_candidate_support_tree(source_root: Path, target_backend: Path) -> No
             _fail("candidate support mirror drift")
 
 
-def mirror_candidate_repository_support(source_root: Path, target_repository: Path) -> None:
+def mirror_candidate_repository_support(
+    source_root: Path, target_repository: Path, *, deadline_at: float | None = None
+) -> None:
     """Mirror the closed, tracked repository facts consumed by backend tests."""
 
     repository_root = source_root.parent
@@ -1007,6 +1924,7 @@ def mirror_candidate_repository_support(source_root: Path, target_repository: Pa
                 "scripts/execution_authority_ext.mjs",
                 "scripts/run_rc1_release_acceptance.mjs",
                 "scripts/six_ministry_evidence_spine_contract.test.mjs",
+                deadline_at=deadline_at,
             ).splitlines()
         ]
         if (repository_root / ".git").exists()
@@ -1057,7 +1975,45 @@ def mirror_candidate_repository_support(source_root: Path, target_repository: Pa
             _fail("candidate repository support mirror drift")
 
 
-def verify_candidate(lock_path: Path, wheelhouse: Path, pyproject: Path, source_root: Path) -> dict:
+def verify_candidate(
+    lock_path: Path,
+    wheelhouse: Path,
+    pyproject: Path,
+    source_root: Path,
+    *,
+    shard_count: int,
+    shard_index: int,
+    deadline_seconds: int,
+) -> dict:
+    if shard_count != 3:
+        _fail("candidate shard count must be exactly 3")
+    if shard_index not in range(shard_count):
+        _fail("candidate shard index is invalid")
+    if deadline_seconds != 240:
+        _fail("candidate deadline must be exactly 240 seconds")
+    deadline_at = time.monotonic() + deadline_seconds
+    with _controlled_verifier_lifetime(deadline_at):
+        return _verify_candidate(
+            lock_path,
+            wheelhouse,
+            pyproject,
+            source_root,
+            shard_count=shard_count,
+            shard_index=shard_index,
+            deadline_at=deadline_at,
+        )
+
+
+def _verify_candidate(
+    lock_path: Path,
+    wheelhouse: Path,
+    pyproject: Path,
+    source_root: Path,
+    *,
+    shard_count: int,
+    shard_index: int,
+    deadline_at: float,
+) -> dict:
     source_root = source_root.resolve(strict=True)
     verify_candidate_wheelhouse_permissions(wheelhouse)
     expected_lock = (source_root / "requirements-runtime.lock").resolve(strict=True)
@@ -1067,10 +2023,22 @@ def verify_candidate(lock_path: Path, wheelhouse: Path, pyproject: Path, source_
         or pyproject.resolve(strict=True) != expected_pyproject
     ):
         _fail("candidate lock or pyproject path is not exact")
-    start_identity = _candidate_identity(source_root)
-    with secure_work_root() as work:
+    start_identity = _candidate_identity(source_root, deadline_at=deadline_at)
+    test_inventory = _candidate_test_inventory(
+        source_root,
+        start_identity["candidateCommit"],
+        deadline_at=deadline_at,
+    )
+    test_shards = _partition_candidate_tests(test_inventory, shard_count=shard_count)
+    selected_test_inventory = test_shards[shard_index]
+    full_file_digest = _sha256(canonical_json_bytes(test_inventory))
+    shard_file_digest = _sha256(canonical_json_bytes(selected_test_inventory))
+    with secure_work_root(deadline_at=deadline_at) as work:
         snapshot_backend = materialize_candidate_snapshot(
-            source_root, start_identity["candidateCommit"], work / "candidate-source"
+            source_root,
+            start_identity["candidateCommit"],
+            work / "candidate-source",
+            deadline_at=deadline_at,
         )
         snapshot_lock = snapshot_backend / "requirements-runtime.lock"
         snapshot_pyproject = snapshot_backend / "pyproject.toml"
@@ -1098,7 +2066,10 @@ def verify_candidate(lock_path: Path, wheelhouse: Path, pyproject: Path, source_
         }
         Path(environment["HOME"]).mkdir(mode=0o700)
         _run(
-            [sys.executable, "-I", "-m", "venv", str(build_venv)], cwd=work, environment=environment
+            [sys.executable, "-I", "-m", "venv", str(build_venv)],
+            cwd=work,
+            environment=environment,
+            deadline_at=deadline_at,
         )
         build_python = build_venv / "bin/python"
         pip_flags = [
@@ -1119,6 +2090,7 @@ def verify_candidate(lock_path: Path, wheelhouse: Path, pyproject: Path, source_
             [str(build_python), *pip_flags, "-r", str(build_requirements)],
             cwd=work,
             environment=environment,
+            deadline_at=deadline_at,
         )
         wheel_output = work / "candidate-wheel"
         wheel_output.mkdir(mode=0o700)
@@ -1140,6 +2112,7 @@ def verify_candidate(lock_path: Path, wheelhouse: Path, pyproject: Path, source_
             ],
             cwd=work,
             environment=environment,
+            deadline_at=deadline_at,
         )
         candidate_wheels = list(wheel_output.glob("chaotang_os_backend-*.whl"))
         if len(candidate_wheels) != 1:
@@ -1147,21 +2120,47 @@ def verify_candidate(lock_path: Path, wheelhouse: Path, pyproject: Path, source_
         candidate_wheel = candidate_wheels[0]
         candidate_wheel_digest = _sha256_regular_file(candidate_wheel)
         _run(
-            [sys.executable, "-I", "-m", "venv", str(test_venv)], cwd=work, environment=environment
+            [sys.executable, "-I", "-m", "venv", "--without-pip", str(test_venv)],
+            cwd=work,
+            environment=environment,
+            deadline_at=deadline_at,
         )
         test_python = test_venv / "bin/python"
         _run(
-            [str(test_python), *pip_flags, "-r", str(test_requirements)],
+            [
+                sys.executable,
+                "-I",
+                "-m",
+                "pip",
+                "--python",
+                str(test_python),
+                "install",
+                "--isolated",
+                "--no-cache-dir",
+                "--no-index",
+                "--require-hashes",
+                "--only-binary=:all:",
+                "--no-deps",
+                "--find-links",
+                str(wheelhouse),
+                "-r",
+                str(test_requirements),
+            ],
             cwd=work,
             environment=environment,
+            deadline_at=deadline_at,
         )
         staged_repository = test_venv / "candidate" / "repository"
         staged_backend = staged_repository / "backend"
-        mirror_candidate_support_tree(snapshot_backend, staged_backend)
-        mirror_candidate_repository_support(snapshot_backend, staged_repository)
+        mirror_candidate_support_tree(
+            snapshot_backend, staged_backend, deadline_at=deadline_at
+        )
+        mirror_candidate_repository_support(
+            snapshot_backend, staged_repository, deadline_at=deadline_at
+        )
         _run(
             [
-                str(test_python),
+                str(build_python),
                 "-I",
                 "-m",
                 "pip",
@@ -1177,6 +2176,7 @@ def verify_candidate(lock_path: Path, wheelhouse: Path, pyproject: Path, source_
             ],
             cwd=work,
             environment=environment,
+            deadline_at=deadline_at,
         )
         test_site_packages = (
             test_venv
@@ -1189,6 +2189,13 @@ def verify_candidate(lock_path: Path, wheelhouse: Path, pyproject: Path, source_
         (test_site_packages / "chaotang-candidate.pth").write_text(
             f"{staged_backend}\n", encoding="utf-8"
         )
+        expected_distributions = _expected_candidate_distributions(document)
+        inventory = _probe_candidate_environment(
+            test_python, cwd=work, environment=environment, deadline_at=deadline_at
+        )
+        _verify_distribution_inventory(inventory["distributions"], expected_distributions)
+        distribution_digest = _sha256(canonical_json_bytes(inventory["distributions"]))
+        available_plugin_digest = _sha256(canonical_json_bytes(inventory["plugins"]))
         config_root = work / "pytest-root"
         config_root.mkdir(mode=0o700)
         pytest_config = config_root / "pytest.ini"
@@ -1196,71 +2203,399 @@ def verify_candidate(lock_path: Path, wheelhouse: Path, pyproject: Path, source_
         source_literal = repr(str(source_root))
         test_venv_literal = repr(str(test_venv))
         staged_backend_literal = repr(str(staged_backend))
+        staged_repository_literal = repr(str(staged_repository))
         candidate_wheel_literal = repr(str(candidate_wheel))
         candidate_wheel_digest_literal = repr(candidate_wheel_digest)
         candidate_commit_literal = repr(start_identity["candidateCommit"])
         candidate_tree_literal = repr(start_identity["candidateTree"])
-        plugin = config_root / "conftest.py"
+        expected_distributions_literal = repr(expected_distributions)
+        expected_plugins_literal = repr(inventory["plugins"])
+        expected_conftests = set((staged_backend / "tests").rglob("conftest.py"))
+        expected_conftests_literal = repr(
+            sorted(str(path.resolve(strict=True)) for path in expected_conftests)
+        )
+        attestation_paths = {
+            phase: {
+                guard_phase: config_root / f"{phase}.{guard_phase}.attestation.json"
+                for guard_phase in ("pre-conftest", "post-conftest")
+            }
+            for phase in ("runtime-lock-targeted", "backend-collect", "backend-shard")
+        }
+        execution_evidence_paths = {
+            phase: config_root / f"{phase}.execution.json"
+            for phase in ("runtime-lock-targeted", "backend-collect", "backend-shard")
+        }
+        attestation_paths_literal = repr(
+            {
+                phase: {
+                    guard_phase: str(path)
+                    for guard_phase, path in phase_paths.items()
+                }
+                for phase, phase_paths in attestation_paths.items()
+            }
+        )
+        execution_evidence_paths_literal = repr(
+            {phase: str(path) for phase, path in execution_evidence_paths.items()}
+        )
+        expected_distributions_bytes_literal = repr(
+            canonical_json_bytes(expected_distributions)
+        )
+        expected_plugins_bytes_literal = repr(canonical_json_bytes(inventory["plugins"]))
+        expected_conftests_bytes_literal = repr(
+            canonical_json_bytes(
+                sorted(str(path.resolve(strict=True)) for path in expected_conftests)
+            )
+        )
+        attestation_paths_bytes_literal = repr(
+            canonical_json_bytes(
+                {
+                    phase: {
+                        guard_phase: str(path)
+                        for guard_phase, path in phase_paths.items()
+                    }
+                    for phase, phase_paths in attestation_paths.items()
+                }
+            )
+        )
+        plugin = test_site_packages / "chaotang_candidate_guard.py"
         plugin.write_text(
-            "import hashlib, importlib.metadata, os, pathlib, subprocess, sys\n"
-            f"sys.path.insert(0, {staged_backend_literal})\n"
-            "def _candidate_git(*args):\n"
-            "    env = {'PATH':'/usr/bin:/bin','GIT_CONFIG_GLOBAL':'/dev/null',"
-            "'GIT_CONFIG_SYSTEM':'/dev/null','GIT_OPTIONAL_LOCKS':'0','LC_ALL':'C'}\n"
-            "    result = subprocess.run(['/usr/bin/git','-c','core.fsmonitor=false',"
-            "'-c','core.hooksPath=/dev/null','--no-replace-objects',*args],"
-            f"cwd={source_literal}, env=env, check=True, capture_output=True, text=True)\n"
-            "    return result.stdout.strip()\n"
-            "def pytest_sessionstart(session):\n"
-            f"    source = pathlib.Path({source_literal}).resolve()\n"
-            f"    venv = pathlib.Path({test_venv_literal}).resolve()\n"
-            f"    staged = pathlib.Path({staged_backend_literal}).resolve()\n"
-            "    for entry in sys.path:\n"
-            "        if entry and pathlib.Path(entry).resolve() == source:\n"
+            "import hashlib, importlib.metadata, json, os, pathlib, re, sys, pytest\n"
+            "from app.operations.runtime_lock import _snapshot_active_pytest_plugins\n"
+            f"EXPECTED_DISTRIBUTIONS={expected_distributions_literal}\n"
+            f"EXPECTED_PLUGINS={expected_plugins_literal}\n"
+            f"EXPECTED_CONFTESTS=set({expected_conftests_literal})\n"
+            f"ATTESTATION_PATHS={attestation_paths_literal}\n"
+            f"EXECUTION_EVIDENCE_PATHS={execution_evidence_paths_literal}\n"
+            "COLLECTED=[]\n"
+            "RAW_TO_CANONICAL={}\n"
+            "REPORTS={}\n"
+            "TERMINAL=[]\n"
+            "OUTCOMES={}\n"
+            "def _canonical(value,_json=json):\n"
+            "    return _json.dumps(value,ensure_ascii=False,allow_nan=False,sort_keys=True,"
+            "separators=(',',':')).encode('utf-8')\n"
+            "def _digest(value,_hashlib=hashlib,_canonical_fn=_canonical):\n"
+            "    return 'sha256:'+_hashlib.sha256(_canonical_fn(value)).hexdigest()\n"
+            "def _inventory(_metadata=importlib.metadata,_re=re):\n"
+            "    norm=lambda value:_re.sub(r'[-_.]+','-',value).lower()\n"
+            "    distributions={}\n"
+            "    plugins=[]\n"
+            "    for dist in _metadata.distributions():\n"
+            "        name=norm(dist.metadata['Name'])\n"
+            "        if name in distributions:\n"
+            "            raise RuntimeError('duplicate distribution identity')\n"
+            "        distributions[name]=dist.version\n"
+            "        for entry in dist.entry_points:\n"
+            "            if entry.group=='pytest11':\n"
+            "                plugins.append({'distribution':name,'name':entry.name,"
+            "'value':entry.value})\n"
+            "    plugins.sort(key=lambda row:(row['distribution'],row['name'],row['value']))\n"
+            "    return dict(sorted(distributions.items())),plugins\n"
+            "def _active_plugins(manager,guard_phase,frozen_nonconftest=None,"
+            "expected_conftests=None,"
+            "_sys=sys,_pathlib=pathlib,_snapshot=_snapshot_active_pytest_plugins):\n"
+            "    if manager.getplugin('chaotang_candidate_guard') is not _sys.modules[__name__]:\n"
+            "        raise RuntimeError('candidate guard plugin identity mismatch')\n"
+            "    if manager.list_plugin_distinfo():\n"
+            "        raise RuntimeError('third-party pytest plugin was loaded')\n"
+            "    if expected_conftests is None:\n"
+            "        raise RuntimeError('trusted conftest inventory is missing')\n"
+            "    return _snapshot(manager,guard_module=_sys.modules[__name__],"
+            "expected_conftests={_pathlib.Path(value) for value in expected_conftests},"
+            "guard_phase=guard_phase,frozen_nonconftest=frozen_nonconftest)\n"
+            "def _attest(manager,guard_phase,frozen_nonconftest=None,"
+            "_pathlib=pathlib,_metadata=importlib.metadata,_os=os,_json=json,"
+            "_sys=sys,_hashlib=hashlib,"
+            "_inventory_fn=_inventory,_active_plugins_fn=_active_plugins,"
+            "_canonical_fn=_canonical,_digest_fn=_digest,"
+            f"_expected_distributions_raw={expected_distributions_bytes_literal},"
+            f"_expected_plugins_raw={expected_plugins_bytes_literal},"
+            f"_expected_conftests_raw={expected_conftests_bytes_literal},"
+            f"_attestation_paths_raw={attestation_paths_bytes_literal}):\n"
+            "    expected_distributions=_json.loads(_expected_distributions_raw)\n"
+            "    expected_plugins=_json.loads(_expected_plugins_raw)\n"
+            "    expected_conftests=set(_json.loads(_expected_conftests_raw))\n"
+            "    attestation_paths=_json.loads(_attestation_paths_raw)\n"
+            f"    source = _pathlib.Path({source_literal}).resolve()\n"
+            f"    venv = _pathlib.Path({test_venv_literal}).resolve()\n"
+            f"    staged = _pathlib.Path({staged_backend_literal}).resolve()\n"
+            "    if source.exists():\n"
+            "        raise RuntimeError('candidate source root remained visible')\n"
+            "    staged_entries=[_pathlib.Path(entry).resolve() for entry in _sys.path "
+            "if entry and _pathlib.Path(entry).resolve()==staged]\n"
+            "    if len(staged_entries)!=1:\n"
+            "        raise RuntimeError('candidate staged path multiplicity mismatch')\n"
+            "    for entry in _sys.path:\n"
+            "        if not entry: continue\n"
+            "        resolved_entry=_pathlib.Path(entry).resolve()\n"
+            "        if resolved_entry==source or resolved_entry.is_relative_to(source):\n"
             "            raise RuntimeError('source root leaked into pytest sys.path')\n"
             "    import app\n"
-            "    app_path = pathlib.Path(app.__file__).resolve()\n"
+            "    app_path = _pathlib.Path(app.__file__).resolve()\n"
             "    if (not app_path.is_relative_to(venv) or not app_path.is_relative_to(staged)"
             " or app_path.is_relative_to(source)):\n"
             "        raise RuntimeError('app import did not come from candidate wheel')\n"
-            "    if importlib.metadata.version('chaotang-os-backend') != '0.1.0':\n"
+            "    if _metadata.version('chaotang-os-backend') != '0.1.0':\n"
             "        raise RuntimeError('candidate metadata version mismatch')\n"
-            f"    wheel = pathlib.Path({candidate_wheel_literal})\n"
-            "    wheel_hasher = hashlib.sha256()\n"
+            "    distributions,plugins=_inventory_fn()\n"
+            "    if distributions!=expected_distributions:\n"
+            "        raise RuntimeError('candidate distribution inventory mismatch')\n"
+            "    if plugins!=expected_plugins:\n"
+            "        raise RuntimeError('candidate pytest plugin inventory mismatch')\n"
+            "    active_plugins,plugin_identities=_active_plugins_fn("
+            "manager,guard_phase,frozen_nonconftest,expected_conftests)\n"
+            f"    wheel = _pathlib.Path({candidate_wheel_literal})\n"
+            "    wheel_hasher = _hashlib.sha256()\n"
             "    with wheel.open('rb') as wheel_stream:\n"
             "        while chunk := wheel_stream.read(1024 * 1024):\n"
             "            wheel_hasher.update(chunk)\n"
             "    wheel_digest = 'sha256:' + wheel_hasher.hexdigest()\n"
             f"    if wheel_digest != {candidate_wheel_digest_literal}:\n"
             "        raise RuntimeError('candidate wheel digest mismatch')\n"
-            f"    if _candidate_git('rev-parse','HEAD^{{commit}}') != {candidate_commit_literal}:\n"
-            "        raise RuntimeError('candidate commit mismatch')\n"
-            f"    if _candidate_git('rev-parse','HEAD^{{tree}}') != {candidate_tree_literal}:\n"
-            "        raise RuntimeError('candidate tree mismatch')\n"
-            "    if _candidate_git('status','--porcelain=v1','--untracked-files=all'):\n"
-            "        raise RuntimeError('candidate worktree became dirty')\n",
+            "    phase=_os.environ.get('CHAOTANG_CANDIDATE_VERIFICATION_PHASE','')\n"
+            "    if (phase not in attestation_paths or "
+            "guard_phase not in attestation_paths[phase]):\n"
+            "        raise RuntimeError('candidate attestation target mismatch')\n"
+            "    attestation=_pathlib.Path(attestation_paths[phase][guard_phase])\n"
+            "    payload={'schemaVersion':'chaotang.python-candidate-guard-attestation.v1',"
+            f"'parentCommit':{repr(start_identity['parentCommit'])},"
+            f"'candidateCommit':{candidate_commit_literal},'candidateTree':{candidate_tree_literal},"
+            f"'candidateWheelDigest':{candidate_wheel_digest_literal},'appPath':str(app_path),"
+            "'distributionDigest':_digest_fn(distributions),'pluginDigest':_digest_fn(active_plugins),"
+            "'activePlugins':active_plugins,'verificationPhase':phase+':'+guard_phase,"
+            "'status':'PASS'}\n"
+            "    descriptors=_json.loads(_os.environ['CHAOTANG_CANDIDATE_ATTESTATION_FDS'])\n"
+            "    descriptor=int(descriptors[guard_phase])\n"
+            "    info=_os.fstat(descriptor)\n"
+            "    if info.st_size!=0 or info.st_nlink!=1 or (info.st_mode & 0o777)!=0o600:\n"
+            "        raise RuntimeError('candidate attestation fd identity mismatch')\n"
+            "    raw=_canonical_fn(payload)\n"
+            "    if _os.write(descriptor,raw)!=len(raw):\n"
+            "        raise RuntimeError('candidate attestation fd short write')\n"
+            "    _os.fsync(descriptor)\n"
+            "    ready_fd=int(_os.environ['CHAOTANG_CANDIDATE_READY_FD'])\n"
+            "    ack_fd=int(_os.environ['CHAOTANG_CANDIDATE_ACK_FD'])\n"
+            "    _os.write(ready_fd,b'1')\n"
+            "    if _os.read(ack_fd,1)!=b'1':\n"
+            "        raise RuntimeError('candidate guard handshake failed')\n"
+            "    return plugin_identities\n"
+            "@pytest.hookimpl(hookwrapper=True,tryfirst=True)\n"
+            "def pytest_load_initial_conftests(early_config,parser,args):\n"
+            "    trusted_attest=_attest\n"
+            "    trusted_functions=[];pending=[trusted_attest];seen=set()\n"
+            "    while pending:\n"
+            "        function=pending.pop()\n"
+            "        if id(function) in seen: continue\n"
+            "        seen.add(id(function))\n"
+            "        code=function.__code__;defaults=function.__defaults__\n"
+            "        trusted_functions.append((function,code,defaults))\n"
+            "        for dependency in defaults or ():\n"
+            "            if hasattr(dependency,'__code__'):\n"
+            "                pending.append(dependency)\n"
+            "    frozen_nonconftest=trusted_attest("
+            "early_config.pluginmanager,'pre-conftest')\n"
+            "    yield\n"
+            "    if any(function.__code__ is not code or function.__defaults__ is not defaults "
+            "for function,code,defaults in trusted_functions):\n"
+            "        raise RuntimeError('trusted candidate guard function identity drift')\n"
+            "    trusted_attest(early_config.pluginmanager,'post-conftest',"
+            "frozen_nonconftest)\n"
+            "    os.close(int(os.environ['CHAOTANG_CANDIDATE_READY_FD']))\n"
+            "    os.close(int(os.environ['CHAOTANG_CANDIDATE_ACK_FD']))\n"
+            "def _canonical_nodeid(item):\n"
+            f"    repository=pathlib.Path({staged_repository_literal}).resolve()\n"
+            "    try:\n"
+            "        relative=item.path.resolve().relative_to(repository).as_posix()\n"
+            "    except ValueError as exc:\n"
+            "        raise RuntimeError('candidate nodeid path escaped repository') from exc\n"
+            "    if not re.fullmatch(r'backend/tests/test_[^/]+\\.py',relative):\n"
+            "        raise RuntimeError('candidate nodeid path is outside frozen inventory')\n"
+            "    suffix=item.nodeid.split('::',1)\n"
+            "    return relative+('::'+suffix[1] if len(suffix)==2 else '')\n"
+            "def pytest_collection_finish(session):\n"
+            "    expected=json.loads(os.environ['CHAOTANG_CANDIDATE_EXPECTED_TEST_FILES'])\n"
+            "    observed_files=[];seen_files=set();seen_nodeids=set()\n"
+            "    for item in session.items:\n"
+            "        canonical_nodeid=_canonical_nodeid(item)\n"
+            "        if canonical_nodeid in seen_nodeids:\n"
+            "            raise RuntimeError('duplicate collected nodeid')\n"
+            "        seen_nodeids.add(canonical_nodeid);COLLECTED.append(canonical_nodeid)\n"
+            "        RAW_TO_CANONICAL[item.nodeid]=canonical_nodeid\n"
+            "        file_path=canonical_nodeid.split('::',1)[0]\n"
+            "        if file_path not in seen_files:\n"
+            "            seen_files.add(file_path);observed_files.append(file_path)\n"
+            "    if observed_files!=expected:\n"
+            "        raise RuntimeError('candidate collected file inventory mismatch')\n"
+            "def pytest_runtest_logreport(report):\n"
+            "    if report.nodeid not in RAW_TO_CANONICAL:\n"
+            "        raise RuntimeError('unexpected runtime nodeid')\n"
+            "    if report.when not in ('setup','call','teardown') or report.outcome not in "
+            "('passed','failed','skipped'):\n"
+            "        raise RuntimeError('unknown runtime report state')\n"
+            "    rows=REPORTS.setdefault(report.nodeid,[])\n"
+            "    if any(row['when']==report.when for row in rows):\n"
+            "        raise RuntimeError('duplicate runtime report phase:'"
+            "+report.nodeid+':'+report.when)\n"
+            "    rows.append({'when':report.when,'outcome':report.outcome,"
+            "'wasxfail':hasattr(report,'wasxfail')})\n"
+            "def _terminal_outcome(rows):\n"
+            "    if any(row['outcome']=='failed' and row['when'] in ('setup','teardown') "
+            "for row in rows): return 'error'\n"
+            "    call=next((row for row in rows if row['when']=='call'),None)\n"
+            "    if call is not None and call['outcome']=='failed': return 'failed'\n"
+            "    if (call is not None and call['outcome']=='passed' "
+            "and call['wasxfail']): return 'xpassed'\n"
+            "    if any(row['outcome']=='skipped' and row['wasxfail'] "
+            "for row in rows): return 'xfailed'\n"
+            "    if any(row['outcome']=='skipped' for row in rows): return 'skipped'\n"
+            "    return 'passed'\n"
+            "def pytest_runtest_logfinish(nodeid,location):\n"
+            "    canonical_nodeid=RAW_TO_CANONICAL.get(nodeid)\n"
+            "    if canonical_nodeid is None or canonical_nodeid in TERMINAL:\n"
+            "        raise RuntimeError('terminal nodeid is missing or duplicate')\n"
+            "    outcome=_terminal_outcome(REPORTS.get(nodeid,[]))\n"
+            "    TERMINAL.append(canonical_nodeid);OUTCOMES[canonical_nodeid]=outcome\n"
+            "@pytest.hookimpl(trylast=True)\n"
+            "def pytest_sessionfinish(session,exitstatus):\n"
+            "    phase=os.environ.get('CHAOTANG_CANDIDATE_VERIFICATION_PHASE','')\n"
+            "    mode=os.environ.get('CHAOTANG_CANDIDATE_EXECUTION_MODE','')\n"
+            "    if (phase not in EXECUTION_EVIDENCE_PATHS or "
+            "mode not in ('collect-only','execute')):\n"
+            "        raise RuntimeError('candidate execution evidence target mismatch')\n"
+            "    if mode=='collect-only':\n"
+            "        if TERMINAL or OUTCOMES:\n"
+            "            raise RuntimeError('collect-only produced terminal outcomes')\n"
+            "    elif TERMINAL!=COLLECTED:\n"
+            "        raise RuntimeError('terminal nodeids do not close collection order')\n"
+            "    counts={key:0 for key in "
+            "('passed','skipped','xfailed','xpassed','failed','error')}\n"
+            "    for outcome in OUTCOMES.values(): counts[outcome]+=1\n"
+            "    payload={'schemaVersion':'chaotang.pytest-execution-evidence.v1',"
+            "'verificationPhase':phase,'mode':mode,'collectedNodeids':COLLECTED,"
+            "'terminalNodeids':TERMINAL,'outcomeCounts':counts,"
+            "'status':('PASS' if exitstatus==0 else 'STOP')}\n"
+            "    descriptor=int(os.environ['CHAOTANG_CANDIDATE_EXECUTION_FD'])\n"
+            "    info=os.fstat(descriptor)\n"
+            "    if info.st_size!=0 or info.st_nlink!=1 or (info.st_mode & 0o777)!=0o600:\n"
+            "        raise RuntimeError('candidate execution fd identity mismatch')\n"
+            "    raw=_canonical(payload)\n"
+            "    if os.write(descriptor,raw)!=len(raw):\n"
+            "        raise RuntimeError('candidate execution fd short write')\n"
+            "    os.fsync(descriptor)\n",
             encoding="utf-8",
         )
-        tests = sorted(str(path) for path in (staged_backend / "tests").glob("test_*.py"))
-        _run(
-            [
-                str(test_python),
-                "-I",
-                "-P",
-                "-m",
-                "pytest",
-                "-c",
-                str(pytest_config),
-                "--rootdir",
-                str(config_root),
-                "--confcutdir",
-                str(staged_backend / "tests"),
-                "--import-mode=importlib",
-                *tests,
-            ],
-            cwd=config_root,
-            environment=environment,
-        )
+        plugin.chmod(0o600)
+        plugin_digest_before = _sha256_regular_file(plugin)
+        tests = [str(staged_repository / row["path"]) for row in test_inventory]
+        selected_tests = [
+            str(staged_repository / row["path"]) for row in selected_test_inventory
+        ]
+        targeted_test = str(staged_backend / "tests/test_runtime_lock.py")
+        if not tests or targeted_test not in tests:
+            _fail("candidate test inventory is incomplete")
+        conftest_path = staged_backend / "tests/conftest.py"
+        _verify_frozen_candidate_conftest(conftest_path, expected_conftests)
+        pytest_environment = {
+            **environment,
+            "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
+        }
+        pytest_base = [
+            str(test_python),
+            "-I",
+            "-P",
+            "-m",
+            "pytest",
+            "-p",
+            "chaotang_candidate_guard",
+            "-c",
+            str(pytest_config),
+            "--rootdir",
+            str(staged_repository),
+            "--confcutdir",
+            str(staged_backend / "tests"),
+            "--import-mode=importlib",
+        ]
+        attestation_digests: dict[str, str] = {}
+        execution_evidence: dict[str, dict[str, Any]] = {}
+        for phase, execution_mode, phase_tests, extra_arguments, expected_files in (
+            (
+                "runtime-lock-targeted",
+                "execute",
+                [targeted_test],
+                [],
+                ["backend/tests/test_runtime_lock.py"],
+            ),
+            (
+                "backend-collect",
+                "collect-only",
+                tests,
+                ["--collect-only"],
+                [row["path"] for row in test_inventory],
+            ),
+            (
+                "backend-shard",
+                "execute",
+                selected_tests,
+                [],
+                [row["path"] for row in selected_test_inventory],
+            ),
+        ):
+            phase_environment = {
+                **pytest_environment,
+                "CHAOTANG_CANDIDATE_VERIFICATION_PHASE": phase,
+                "CHAOTANG_CANDIDATE_EXECUTION_MODE": execution_mode,
+                "CHAOTANG_CANDIDATE_EXPECTED_TEST_FILES": canonical_json_bytes(
+                    expected_files
+                ).decode("utf-8"),
+            }
+            attestation_expectations = []
+            for guard_phase in ("pre-conftest", "post-conftest"):
+                fixed_expected = {
+                    "schemaVersion": CANDIDATE_ATTESTATION_SCHEMA,
+                    **start_identity,
+                    "candidateWheelDigest": candidate_wheel_digest,
+                    "appPath": str(staged_backend / "app/__init__.py"),
+                    "distributionDigest": distribution_digest,
+                    "verificationPhase": f"{phase}:{guard_phase}",
+                    "status": "PASS",
+                }
+                attestation_expectations.append(
+                    (
+                        attestation_paths[phase][guard_phase],
+                        fixed_expected,
+                        set() if guard_phase == "pre-conftest" else expected_conftests,
+                    )
+                )
+            phase_evidence: dict[str, Any] = {}
+            attestation_digests.update(
+                _run_pytest_with_attestation(
+                    [*pytest_base, *extra_arguments, *phase_tests],
+                    cwd=config_root,
+                    environment=phase_environment,
+                    attestation_expectations=attestation_expectations,
+                    guard_path=plugin,
+                    deadline_at=deadline_at,
+                    execution_evidence_path=execution_evidence_paths[phase],
+                    execution_evidence_sink=phase_evidence,
+                    sandbox_root=work,
+                )
+            )
+            phase_evidence = _validate_execution_evidence(phase_evidence)
+            if (
+                phase_evidence["verificationPhase"] != phase
+                or phase_evidence["mode"] != execution_mode
+            ):
+                _fail("candidate execution evidence phase mismatch")
+            execution_evidence[phase] = phase_evidence
+            if _sha256_regular_file(plugin) != plugin_digest_before:
+                _fail("candidate guard module identity drift")
+        full_nodeids = execution_evidence["backend-collect"]["collectedNodeids"]
+        selected_paths = {row["path"] for row in selected_test_inventory}
+        expected_shard_nodeids = [
+            nodeid for nodeid in full_nodeids if nodeid.split("::", 1)[0] in selected_paths
+        ]
+        if execution_evidence["backend-shard"]["collectedNodeids"] != expected_shard_nodeids:
+            _fail("candidate shard nodeids do not match full collection")
         _run(
             [
                 str(test_venv / "bin/ruff"),
@@ -1270,8 +2605,9 @@ def verify_candidate(lock_path: Path, wheelhouse: Path, pyproject: Path, source_
             ],
             cwd=config_root,
             environment=environment,
+            deadline_at=deadline_at,
         )
-    end_identity = _candidate_identity(source_root)
+    end_identity = _candidate_identity(source_root, deadline_at=deadline_at)
     if start_identity != end_identity:
         _fail("candidate identity changed during verification")
     return {
@@ -1279,6 +2615,30 @@ def verify_candidate(lock_path: Path, wheelhouse: Path, pyproject: Path, source_
         **start_identity,
         **lock_summary,
         "candidateWheelDigest": candidate_wheel_digest,
+        "candidateGuardAttestations": attestation_digests,
+        "candidateTestInventory": {
+            "count": len(test_inventory),
+            "digest": full_file_digest,
+            "shardCount": shard_count,
+            "shardIndex": shard_index,
+            "shardFileCount": len(selected_test_inventory),
+            "shardFileDigest": shard_file_digest,
+        },
+        "candidatePytestEvidence": {
+            phase: {
+                "collectedNodeidCount": len(payload["collectedNodeids"]),
+                "collectedNodeidDigest": _sha256(
+                    canonical_json_bytes(payload["collectedNodeids"])
+                ),
+                "terminalNodeidCount": len(payload["terminalNodeids"]),
+                "terminalNodeidDigest": _sha256(
+                    canonical_json_bytes(payload["terminalNodeids"])
+                ),
+                "outcomeCounts": payload["outcomeCounts"],
+            }
+            for phase, payload in execution_evidence.items()
+        },
+        "availablePytestPluginDigest": available_plugin_digest,
         "status": "PASS",
     }
 
@@ -1291,6 +2651,9 @@ def _build_parser() -> argparse.ArgumentParser:
     verify.add_argument("--wheelhouse", required=True, type=Path)
     verify.add_argument("--pyproject", required=True, type=Path)
     verify.add_argument("--source-root", required=True, type=Path)
+    verify.add_argument("--shard-count", required=True, type=int)
+    verify.add_argument("--shard-index", required=True, type=int)
+    verify.add_argument("--deadline-seconds", required=True, type=int)
     render = subparsers.add_parser("render-lock")
     render.add_argument("--wheelhouse", required=True, type=Path)
     render.add_argument("--pyproject", required=True, type=Path)
@@ -1318,8 +2681,20 @@ def main(argv: list[str] | None = None) -> int:
             )
             sys.stdout.buffer.write(canonical_json_bytes(evidence) + b"\n")
             return 0
+        if arguments.shard_count != 3:
+            _fail("candidate shard count must be exactly 3")
+        if arguments.shard_index not in range(arguments.shard_count):
+            _fail("candidate shard index is invalid")
+        if arguments.deadline_seconds != 240:
+            _fail("candidate deadline must be exactly 240 seconds")
         evidence = verify_candidate(
-            arguments.lock, arguments.wheelhouse, arguments.pyproject, arguments.source_root
+            arguments.lock,
+            arguments.wheelhouse,
+            arguments.pyproject,
+            arguments.source_root,
+            shard_count=arguments.shard_count,
+            shard_index=arguments.shard_index,
+            deadline_seconds=arguments.deadline_seconds,
         )
     except (LockValidationError, OSError) as exc:
         print(f"STOP: {exc}", file=sys.stderr)
