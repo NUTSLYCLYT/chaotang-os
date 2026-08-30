@@ -1,0 +1,134 @@
+{
+  "schemaVersion": "product-authority.m0.approval.v1",
+  "authorityId": "product-authority.m0.v1",
+  "taskId": "PACKET-10B1-CLAIM-EVIDENCE-DURABLE-COMMITMENT-V1-EXACT8-SCOPE-CORRECTIVE-SUCCESSOR-20260830",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "789586467c70fd6d2f784e2343e4c5f4427e62cf",
+    "baseTree": "71e470018cf105d58c6c592d683abe92d203a89d",
+    "approvalPath": ".harness/approvals/PACKET-10B1-CLAIM-EVIDENCE-DURABLE-COMMITMENT-V1-EXACT8-SCOPE-CORRECTIVE-SUCCESSOR-20260830.json",
+    "approvalCommitPaths": [
+      ".harness/approvals/PACKET-10B1-CLAIM-EVIDENCE-DURABLE-COMMITMENT-V1-EXACT8-SCOPE-CORRECTIVE-SUCCESSOR-20260830.json",
+      "docs/product/tasks/2026-08-30-packet-10b1-claim-evidence-durable-commitment-v1-exact8-scope-corrective-successor.md",
+      "docs/superpowers/plans/2026-08-30-packet-10b1-claim-evidence-durable-commitment-v1-exact8-scope-corrective-successor.md"
+    ],
+    "productPaths": [
+      "backend/app/api/decree_jobs.py",
+      "backend/app/api/decrees.py",
+      "backend/app/decree_jobs/models.py",
+      "backend/app/decree_jobs/storage.py",
+      "backend/app/decree_jobs/worker.py",
+      "backend/tests/test_decree_job_storage.py",
+      "backend/tests/test_decree_job_worker.py",
+      "backend/tests/test_decree_jobs_api.py"
+    ]
+  },
+  "nonGoals": [
+    "CANDIDATE_COMMIT_PUSH_VERIFY_OR_IDENTITY_INHERITANCE",
+    "CLIENT_MODEL_ENV_OR_CONFIG_CONTROLLED_ACTIVATION",
+    "FINAL_MEMORIAL_DECREE_RUNTIME_REPORT_ARCHIVE_PUBLISH_OR_FRONTEND_ACTIVATION",
+    "FORCE_PUSH_MERGE_REBASE_FETCH_PULL_PILOT_RELEASE_OR_DEPLOYMENT",
+    "JINYIWEI_SHIGUAN_P10A_EXECUTOR_GRAPH_RUNTIME_REGISTRY_READINESS_OR_HARNESS_CHANGE",
+    "NEW_DATABASE_TABLE_INDEX_TRIGGER_LEDGER_AUTHORITY_OR_FACT_SOURCE",
+    "NON_NULL_COMMITMENT_WRITE_BACKFILL_OR_EXISTING_ROW_REWRITE",
+    "P10_A_V1_TENANT_SEMANTIC_CHANGE_OR_TENANT_PRINCIPAL_BINDING_CLAIM",
+    "P10_B2_RUNTIME_ACTIVATION_PRINCIPAL_COMMITMENT_OR_RESULT_READY_TRUTH_CAS",
+    "PREDECESSOR_APPROVAL_AUTHORITY_CANDIDATE_VERIFICATION_OR_REVIEW_INHERITANCE",
+    "RUNTIME_BINDING_LEDGER_AS_CLAIM_TRUTH_SOURCE",
+    "TEST_WEAKENING_SCHEMA_AMBIGUITY_FAIL_OPEN_OR_UNRELATED_REFACTOR"
+  ],
+  "verification": [
+    {
+      "id": "backend-p10a-regression-pytest",
+      "tool": "python3",
+      "args": ["-m", "pytest", "-q", "tests/test_claim_evidence_gate.py"],
+      "cwd": "backend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "backend-p10b1-focused-pytest",
+      "tool": "python3",
+      "args": ["-m", "pytest", "-q", "tests/test_decree_job_storage.py", "tests/test_decree_job_worker.py", "tests/test_decree_jobs_api.py"],
+      "cwd": "backend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "backend-ruff-p10b1-exact8",
+      "tool": "python3",
+      "args": ["-m", "ruff", "check", "app/api/decree_jobs.py", "app/api/decrees.py", "app/decree_jobs/models.py", "app/decree_jobs/storage.py", "app/decree_jobs/worker.py", "tests/test_decree_job_storage.py", "tests/test_decree_job_worker.py", "tests/test_decree_jobs_api.py"],
+      "cwd": "backend",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "candidate-exact8-structure",
+      "tool": "node",
+      "args": [
+        "--input-type=module",
+        "--eval",
+        "import{execFileSync}from'node:child_process';const expected=['backend/app/api/decree_jobs.py','backend/app/api/decrees.py','backend/app/decree_jobs/models.py','backend/app/decree_jobs/storage.py','backend/app/decree_jobs/worker.py','backend/tests/test_decree_job_storage.py','backend/tests/test_decree_job_worker.py','backend/tests/test_decree_jobs_api.py'];const env={PATH:'/usr/bin:/bin',GIT_CONFIG_NOSYSTEM:'1',GIT_NO_REPLACE_OBJECTS:'1',GIT_TERMINAL_PROMPT:'0'};const git=(args)=>execFileSync('/usr/bin/git',['--no-replace-objects',...args],{encoding:'utf8',env,maxBuffer:4194304});const rows=git(['diff-tree','--no-commit-id','--name-status','-r','HEAD^','HEAD']).trim().split('\\n').filter(Boolean).map(row=>row.split('\\t'));if(JSON.stringify(rows.map(row=>row.at(-1)))!==JSON.stringify(expected)||rows.some(row=>row[0]!=='M'))throw new Error('EXACT8_SCOPE');for(const path of expected){const[mode,type]=git(['ls-tree','HEAD','--',path]).trim().split(/\\s+/u);if(mode!=='100644'||type!=='blob')throw new Error('EXACT8_MODE:'+path)}"
+      ],
+      "cwd": ".",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "git-diff-check",
+      "tool": "node",
+      "args": ["--input-type=module", "--eval", "import{execFileSync}from'node:child_process';execFileSync('/usr/bin/git',['--no-replace-objects','diff','--check','HEAD^','HEAD'],{stdio:'inherit',env:{PATH:'/usr/bin:/bin',GIT_CONFIG_NOSYSTEM:'1',GIT_NO_REPLACE_OBJECTS:'1',GIT_TERMINAL_PROMPT:'0'}})"],
+      "cwd": ".",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "hook-harness-self-test",
+      "tool": "node",
+      "args": [".agents/hooks/check-harness.mjs", "--self-test"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "product-authority-regression",
+      "tool": "python3",
+      "args": ["-I", "-c", "import os;n='/usr/bin/node';t='/tmp';e={'PATH':'/usr/bin:/bin','TMPDIR':t,'TEMP':t,'TMP':t,'CI':'1','NODE_ENV':'test','LANG':'C.UTF-8','LC_ALL':'C.UTF-8','NO_COLOR':'1'};os.execve(n,[n,'--test','scripts/product-authority.test.mjs'],e)"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "root-harness",
+      "tool": "node",
+      "args": ["scripts/check_harness.mjs"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "root-harness-doctor",
+      "tool": "node",
+      "args": ["scripts/harness-doctor.mjs", "--check"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "root-harness-self-test",
+      "tool": "node",
+      "args": ["scripts/check_harness.mjs", "--self-test"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v2-convergence",
+      "tool": "node",
+      "args": ["scripts/ext-full-value-convergence.mjs", "--check"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v2-convergence-regression",
+      "tool": "node",
+      "args": ["--test", "scripts/ext-full-value-convergence.test.mjs"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    }
+  ],
+  "state": "APPROVED_FOR_ONE_CHILD"
+}
