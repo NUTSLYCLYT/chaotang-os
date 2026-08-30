@@ -1,0 +1,136 @@
+{
+  "schemaVersion": "governance-repair.packet.v1",
+  "taskId": "PACKET-10B1-CLAIM-EVIDENCE-DURABLE-COMMITMENT-V1-COMPATIBILITY-PREREQUISITE-SUCCESSOR-20260830",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "642848e8bfc960c709372b2fa8c453f189a8ad61",
+    "baseTree": "6661fb313b52c4773cd67f8717996ddfa98019a7",
+    "approvalCommitPaths": [
+      "docs/product/tasks/2026-08-30-packet-10b1-claim-evidence-durable-commitment-v1-compatibility-prerequisite-successor.md",
+      "docs/product/tasks/2026-08-30-packet-10b1-claim-evidence-durable-commitment-v1-compatibility-prerequisite-successor.packet.json",
+      "docs/superpowers/plans/2026-08-30-packet-10b1-claim-evidence-durable-commitment-v1-compatibility-prerequisite-successor.md"
+    ],
+    "candidatePaths": [
+      "backend/app/operations/runtime_data_registry.py",
+      "backend/app/operations/sqlite_backup.py",
+      "backend/tests/test_readiness.py",
+      "backend/tests/test_six_ministry_readiness_report.py",
+      "backend/tests/test_sqlite_backup.py",
+      "scripts/check_harness.mjs"
+    ]
+  },
+  "shadowBinding": {
+    "sourceTaskId": "PACKET-10B1-CLAIM-EVIDENCE-DURABLE-COMMITMENT-V1-CANONICAL-REBUILD-SUCCESSOR-20260830",
+    "sourceBaseCommit": "642848e8bfc960c709372b2fa8c453f189a8ad61",
+    "sourceBaseTree": "6661fb313b52c4773cd67f8717996ddfa98019a7",
+    "sourceDisposition": "SHADOW_EVIDENCE_FROZEN / NOT_A_CANDIDATE / ABANDONED_UNCONSUMED / PREREQUISITE_REISSUE_REQUIRED",
+    "exact8Bundle": "sha256:d750580bbc26138589367aba51710097f044c7193eff9ede097b5fc44c7c3b2f",
+    "combinedFullIndexDiff": "sha256:afce5a35187aaa5b7abfd09f7867e1ed8ea67e26937a151e0ce4e33de6e38c97",
+    "storageRawSchemaIdentity": "sha256:8b38c49b719aa2a758ba037eb436d6fdf97db50e0a4b8cabd874b1a20f3059c2",
+    "runtimeRegistryObservedDigest": "sha256:5372895aff08d4b39a19c4100b1b30ec8eaf7a9e597960425fee13c52552f5e3",
+    "verificationEvidenceDigest": "sha256:8351e659def70d67de45e2f74df2e6611cd5213dba6206642cea9ae53c1cbab9",
+    "shadowEvidenceDigest": "sha256:19cf73b398d244fb34bddf43b095fc97a5db18a4d02a4e5879b36b81af6ae1ac",
+    "candidateIdentityInherited": false,
+    "verificationInherited": false,
+    "authorityInherited": false
+  },
+  "schemaCompatibility": {
+    "registryPolicy": "SINGLE_EXPLICIT_ORDERED_NONEMPTY_UNIQUE_TUPLE_PER_ENTRY",
+    "registryDocumentSchemaVersionBefore": "chaotang.runtime-data-registry.v2",
+    "registryDocumentSchemaVersionAfter": "chaotang.runtime-data-registry.v3",
+    "registryDocumentDigestField": "schemaContractDigests",
+    "decreeJobsAcceptedRuntimeDigests": [
+      "sha256:fa4e21efd694b2160197f9202419ed0889b83098e182932ec75231e78fd92b9d",
+      "sha256:5372895aff08d4b39a19c4100b1b30ec8eaf7a9e597960425fee13c52552f5e3"
+    ],
+    "rejectedStorageRawIdentityAsRuntimeDigest": "sha256:8b38c49b719aa2a758ba037eb436d6fdf97db50e0a4b8cabd874b1a20f3059c2",
+    "rejectedSingleAlterRuntimeDigest": "sha256:5d928d429bbc134125649a5cbafe320947e0b9150303304cb63186696607707c",
+    "backupMustBindActualObservedDigest": true,
+    "sourceDestinationObservedDigestMustMatch": true,
+    "manifestActualObservedDigestMustMatch": true,
+    "defaultDigestSelectionForbidden": true,
+    "secondAllowlistForbidden": true
+  },
+  "readinessBinding": {
+    "historicalFileCount": 69,
+    "runtimeContentFileCount": 65,
+    "historicalReviewStatus": "approved-with-notes",
+    "historicalReviewedFingerprint": "sha256:a6c2de2ca7f15069a6d997ce2cccb9498ddd4dd1269d539c192993e85a265190",
+    "excludedPaths": [
+      "backend/app/accounting_reports/storage.py",
+      "backend/tests/test_six_ministry_accounting_evidence_adapter.py",
+      "backend/tests/test_six_ministry_readiness_report.py",
+      "scripts/check_harness.mjs"
+    ],
+    "successorContentPaths": [
+      "backend/app/accounting_reports/storage.py",
+      "backend/tests/test_six_ministry_accounting_evidence_adapter.py"
+    ],
+    "existingAllowedPairs": [
+      ["sha256:013bfb8272e936be85c2d470033787c3b7f105ad6eae2dfe680373df023b5e69", "sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"],
+      ["sha256:c95630be3d79f2641ff6e483f4096b0763b9e5071544f1e0ead0d7e24eb1cba5", "sha256:268cab13e516d0f716f600819f2bddc8242269312d392eca4ed1be2de05ce051"],
+      ["sha256:d330b7f177f5bbb761eb359ffffca6f12250e5bbe90d13d0414d0fdefb78e98a", "sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"],
+      ["sha256:da31e8098bf76c72ff8d00b073d86e3442b0811223ef3e3bab770af31e89c28e", "sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"],
+      ["sha256:a6d109de75e877620a89241a4dcabcc716e1a5a1a18a024c9a3cb73e578de80c", "sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"]
+    ],
+    "currentObservedPair": [
+      "sha256:a6d109de75e877620a89241a4dcabcc716e1a5a1a18a024c9a3cb73e578de80c",
+      "sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"
+    ],
+    "dormantFuturePair": [
+      "sha256:cc42339eaa423d71307ef96ff713ec095a89ba2cc4d4f6630ee1b40dec94d34d",
+      "sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"
+    ],
+    "existingPairCount": 5,
+    "requiredPostAppendPairCount": 6,
+    "requiredPairSetDelta": "+1/-0",
+    "candidatePathsDisjointFromRuntimeAndSuccessorSets": true,
+    "singleSideOrCartesianAcceptanceForbidden": true
+  },
+  "policy": {
+    "commitProtocol": "EXACT_SINGLE_PARENT_AND_PATHS_OWNER_AUTHORIZED",
+    "forwardOnly": true,
+    "forcePushAllowed": false,
+    "protectedPathGovernanceRepair": true,
+    "ordinaryProductAuthorityApplicable": false,
+    "ordinaryProductAuthorityInapplicabilityReason": "PRODUCT_PATH_PROTECTED",
+    "ownerLongRunAuthorizationAppliesToGovernanceAndLocalCandidate": true,
+    "exactCandidateShaTreeConfirmationRequiredBeforePush": true,
+    "liveRemoteParentConfirmationRequiredBeforePush": true,
+    "reviewersReadOnly": true,
+    "failureMode": "FAIL_CLOSED_STOP"
+  },
+  "nonGoals": [
+    "ARBITRARY_SCHEMA_DIGEST_OR_RUNTIME_FINGERPRINT_ALLOWLIST",
+    "BACKUP_MANIFEST_DEFAULT_DIGEST_SUBSTITUTION_OR_DOWNGRADE",
+    "CANDIDATE_VERIFICATION_REVIEW_OR_AUTHORITY_INHERITANCE",
+    "EXACT8_PRODUCT_COMMIT_OR_RUNTIME_ACTIVATION",
+    "FIFTH_READINESS_EXCLUSION_OR_SEVENTH_COMPATIBILITY_PAIR",
+    "FORCE_PUSH_MERGE_REBASE_FETCH_PULL_PILOT_RELEASE_OR_DEPLOYMENT",
+    "HISTORICAL_READINESS_REPORT_REVIEW_IDENTITY_OR_FILE_LIST_CHANGE",
+    "NON_NULL_COMMITMENT_WRITER_OR_P10_B2_TENANT_ACTIVATION",
+    "SECOND_RUNTIME_REGISTRY_BACKUP_SYSTEM_LEDGER_OR_AUTHORITY",
+    "TEST_WEAKENING_UNRELATED_REFACTOR_OR_PRODUCT_API_CHANGE"
+  ],
+  "verification": [
+    {"id":"backend-full","tool":"python3","args":["-m","pytest","-q"],"cwd":"backend","timeoutMs":300000},
+    {"id":"backend-focused","tool":"python3","args":["-m","pytest","-q","tests/test_readiness.py","tests/test_six_ministry_readiness_report.py","tests/test_sqlite_backup.py"],"cwd":"backend","timeoutMs":300000},
+    {"id":"backend-ruff","tool":"python3","args":["-m","ruff","check","app/operations/runtime_data_registry.py","app/operations/sqlite_backup.py","tests/test_readiness.py","tests/test_six_ministry_readiness_report.py","tests/test_sqlite_backup.py"],"cwd":"backend","timeoutMs":180000},
+    {"id":"candidate-exact6-structure","tool":"node","args":["--input-type=module","--eval","import{execFileSync}from'node:child_process';const expected=['backend/app/operations/runtime_data_registry.py','backend/app/operations/sqlite_backup.py','backend/tests/test_readiness.py','backend/tests/test_six_ministry_readiness_report.py','backend/tests/test_sqlite_backup.py','scripts/check_harness.mjs'];const env={PATH:'/usr/bin:/bin',GIT_CONFIG_NOSYSTEM:'1',GIT_NO_REPLACE_OBJECTS:'1',GIT_TERMINAL_PROMPT:'0'};const git=(args)=>execFileSync('/usr/bin/git',['--no-replace-objects',...args],{encoding:'utf8',env,maxBuffer:4194304});const parents=git(['show','-s','--format=%P','HEAD']).trim().split(/\\s+/u).filter(Boolean);if(parents.length!==1)throw new Error('EXACT6_PARENT_COUNT');const rows=git(['diff-tree','--no-commit-id','--name-status','-r','HEAD^','HEAD']).trim().split('\\n').filter(Boolean).map(row=>row.split('\\t'));if(JSON.stringify(rows.map(row=>row.at(-1)))!==JSON.stringify(expected)||rows.some(row=>row[0]!=='M'))throw new Error('EXACT6_SCOPE');for(const path of expected){const[mode,type]=git(['ls-tree','HEAD','--',path]).trim().split(/\\s+/u);if(mode!=='100644'||type!=='blob')throw new Error('EXACT6_MODE:'+path)}"],"cwd":".","timeoutMs":30000},
+    {"id":"candidate-live-remote-parent","tool":"node","args":["--input-type=module","--eval","import{execFileSync}from'node:child_process';const env={PATH:'/usr/bin:/bin',HOME:'/nonexistent',GIT_CONFIG_NOSYSTEM:'1',GIT_CONFIG_GLOBAL:'/dev/null',GIT_NO_REPLACE_OBJECTS:'1',GIT_TERMINAL_PROMPT:'0'};const git=(args,timeout=10000)=>execFileSync('/usr/bin/git',['--no-replace-objects',...args],{encoding:'utf8',env,timeout,maxBuffer:4194304}).trim();const remote=git(['config','--local','--get','remote.origin.url']);const normalized=remote.replace(/^https?:\\/\\//u,'').replace(/^git@/u,'').replace(':','/').replace(/\\.git$/u,'');if(normalized!=='gitee.com/msxn/chaotang-os')throw new Error('REPOSITORY_IDENTITY_INVALID');if(git(['rev-parse','--is-shallow-repository'])!=='false')throw new Error('SHALLOW_REPOSITORY_UNSUPPORTED');try{const rules=git(['config','--local','--get-regexp','^url\\..*\\.insteadof$']);if(rules)throw new Error('URL_REWRITE_FORBIDDEN')}catch(error){if(error?.message==='URL_REWRITE_FORBIDDEN'||error?.status!==1)throw error}const parent=git(['rev-parse','HEAD^']);const row=git(['ls-remote','--exit-code',remote,'refs/heads/ext-dev'],60000);if(row.split(/\\s+/u)[0]!==parent)throw new Error('REMOTE_PARENT_MISMATCH')"],"cwd":".","timeoutMs":90000},
+    {"id":"root-harness","tool":"node","args":["scripts/check_harness.mjs"],"cwd":".","timeoutMs":180000},
+    {"id":"root-harness-self-test","tool":"node","args":["scripts/check_harness.mjs","--self-test"],"cwd":".","timeoutMs":180000},
+    {"id":"root-harness-doctor","tool":"node","args":["scripts/harness-doctor.mjs","--check"],"cwd":".","timeoutMs":180000},
+    {"id":"root-harness-doctor-tests","tool":"node","args":["--test","scripts/harness-doctor.test.mjs"],"cwd":".","timeoutMs":180000},
+    {"id":"harness-hook-self-test","tool":"node","args":[".agents/hooks/check-harness.mjs","--self-test"],"cwd":".","timeoutMs":180000},
+    {"id":"product-authority-regression","tool":"python3","args":["-I","-c","import os;n='/usr/bin/node';t='/tmp';e={'PATH':'/usr/bin:/bin','TMPDIR':t,'TEMP':t,'TMP':t,'CI':'1','NODE_ENV':'test','LANG':'C.UTF-8','LC_ALL':'C.UTF-8','NO_COLOR':'1'};os.execve(n,[n,'--test','scripts/product-authority.test.mjs'],e)"],"cwd":".","timeoutMs":180000},
+    {"id":"v2-convergence","tool":"node","args":["scripts/ext-full-value-convergence.mjs","--check"],"cwd":".","timeoutMs":180000},
+    {"id":"v2-convergence-tests","tool":"node","args":["--test","scripts/ext-full-value-convergence.test.mjs"],"cwd":".","timeoutMs":180000},
+    {"id":"git-diff-check","tool":"node","args":["--input-type=module","--eval","import{execFileSync}from'node:child_process';execFileSync('/usr/bin/git',['--no-replace-objects','diff','--check','HEAD^','HEAD'],{stdio:'inherit',env:{PATH:'/usr/bin:/bin',GIT_CONFIG_NOSYSTEM:'1',GIT_NO_REPLACE_OBJECTS:'1',GIT_TERMINAL_PROMPT:'0'}})"],"cwd":".","timeoutMs":30000}
+  ],
+  "state": "AUTHORIZED_FOR_LOCAL_MATERIALIZATION",
+  "authorizationState": "REMOTE_FF_OWNER_CONFIRMATION_REQUIRED_AFTER_EXACT_CANDIDATE_IDENTITY"
+}
