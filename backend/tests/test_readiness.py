@@ -13,6 +13,7 @@ from types import SimpleNamespace
 import pytest
 
 from app.agents.runtime_skills.execution_ledger import RuntimeBindingLedger
+from app.decree_jobs.storage import DecreeJobStore
 from app.jinyiwei import db as jinyiwei_db
 from app.main import app
 from app.operations.runtime_data_registry import (
@@ -52,6 +53,70 @@ def _settings(tmp_path: Path) -> ReadinessSettings:
         mcp_registry_loader=lambda: SimpleNamespace(servers=(), approvals=()),
         local_credential_available=lambda: True,
     )
+
+
+_DECREE_SCHEMA_OLD = (
+    "sha256:fa4e21efd694b2160197f9202419ed0889b83098e182932ec75231e78fd92b9d"
+)
+_DECREE_SCHEMA_NEW = (
+    "sha256:5372895aff08d4b39a19c4100b1b30ec8eaf7a9e597960425fee13c52552f5e3"
+)
+_DEGREE_STORAGE_RAW_SCHEMA = (
+    "sha256:8b38c49b719aa2a758ba037eb436d6fdf97db50e0a4b8cabd874b1a20f3059c2"
+)
+_DEGREE_SINGLE_ALTER_RUNTIME_SCHEMA = (
+    "sha256:5d928d429bbc134125649a5cbafe320947e0b9150303304cb63186696607707c"
+)
+
+
+def _create_canonical_new_decree_schema(path: Path) -> None:
+    with closing(sqlite3.connect(path)) as connection:
+        connection.execute(
+            """
+                CREATE TABLE main.decree_jobs (
+                    job_id TEXT PRIMARY KEY,
+                    owner_user_id TEXT NOT NULL,
+                    idempotency_key TEXT NOT NULL,
+                    request_hash TEXT NOT NULL,
+                    draft_fingerprint TEXT NOT NULL,
+                    decree_text TEXT NOT NULL,
+                    approved_route_json TEXT NOT NULL,
+                    state TEXT NOT NULL,
+                    attempt_count INTEGER NOT NULL DEFAULT 0,
+                    provider_request_count INTEGER NOT NULL DEFAULT 0,
+                    provider_request_limit INTEGER NOT NULL DEFAULT 8,
+                    cancel_requested INTEGER NOT NULL DEFAULT 0,
+                    result_json TEXT,
+                    reply_id TEXT,
+                    error_code TEXT,
+                    error_stage TEXT,
+                    error_category TEXT,
+                    authority_committed INTEGER NOT NULL DEFAULT 1,
+                    acceptance_committed INTEGER NOT NULL DEFAULT 1,
+                    deadline_at TEXT NOT NULL,
+                    retry_at TEXT,
+                    lease_owner TEXT,
+                    lease_expires_at TEXT,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    claim_evidence_commitment_json TEXT,
+                    UNIQUE(owner_user_id, idempotency_key),
+                    UNIQUE(owner_user_id, draft_fingerprint)
+                )
+                """
+        )
+        connection.execute(
+            """
+                CREATE TABLE main.decree_job_idempotency_keys (
+                    owner_user_id TEXT NOT NULL,
+                    idempotency_key TEXT NOT NULL,
+                    request_hash TEXT NOT NULL,
+                    job_id TEXT NOT NULL REFERENCES decree_jobs(job_id),
+                    PRIMARY KEY(owner_user_id, idempotency_key)
+                )
+                """
+        )
+        connection.commit()
 
 
 def test_readyz_is_additive_and_preserves_all_existing_routes(monkeypatch) -> None:
@@ -165,6 +230,93 @@ def test_readiness_checks_existing_decree_job_schema(tmp_path: Path) -> None:
     assert run_readiness_preflight(settings).codes == ("storage_schema_unsupported",)
 
 
+def test_registry_accepts_exact_old_and_canonical_new_decree_schemas(tmp_path: Path) -> None:
+    entry = next(item for item in RUNTIME_DATA_ENTRIES if item.name == "decree_jobs.sqlite3")
+
+    assert entry.schema_contract_digests == (_DECREE_SCHEMA_OLD, _DECREE_SCHEMA_NEW)
+    assert len(entry.schema_contract_digests) == len(set(entry.schema_contract_digests)) == 2
+    assert _DEGREE_STORAGE_RAW_SCHEMA not in entry.schema_contract_digests
+    assert _DEGREE_SINGLE_ALTER_RUNTIME_SCHEMA not in entry.schema_contract_digests
+
+    old_root = tmp_path / "old"
+    old_root.mkdir()
+    old_settings = _settings(old_root)
+    DecreeJobStore(old_settings.data_dir / "decree_jobs.sqlite3")
+    assert run_readiness_preflight(old_settings).codes == ()
+
+    new_root = tmp_path / "new"
+    new_root.mkdir()
+    new_settings = _settings(new_root)
+    _create_canonical_new_decree_schema(new_settings.data_dir / "decree_jobs.sqlite3")
+    with closing(sqlite3.connect(new_settings.data_dir / "decree_jobs.sqlite3")) as connection:
+        observed = observe_schema_contract_connection(connection)
+    observed_digest = "sha256:" + hashlib.sha256(
+        json.dumps(
+            observed,
+            ensure_ascii=True,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    ).hexdigest()
+    assert observed_digest == _DECREE_SCHEMA_NEW
+    assert run_readiness_preflight(new_settings).codes == ()
+
+
+def test_registry_contract_is_plural_and_multi_digest_has_no_singular_default() -> None:
+    decree_entry = next(
+        item for item in RUNTIME_DATA_ENTRIES if item.name == "decree_jobs.sqlite3"
+    )
+    document = next(
+        item for item in RUNTIME_DATA_REGISTRY["entries"]
+        if item["name"] == "decree_jobs.sqlite3"
+    )
+
+    assert RUNTIME_DATA_REGISTRY["schemaVersion"] == "chaotang.runtime-data-registry.v3"
+    assert document["schemaContractDigests"] == [_DECREE_SCHEMA_OLD, _DECREE_SCHEMA_NEW]
+    assert "schemaContractDigest" not in document
+    with pytest.raises(ValueError, match="multiple schema contract digests"):
+        _ = decree_entry.schema_contract_digest
+
+
+def test_registry_rejects_invalid_or_reordered_digest_tuples() -> None:
+    decree_entry = next(
+        item for item in RUNTIME_DATA_ENTRIES if item.name == "decree_jobs.sqlite3"
+    )
+
+    for invalid in (
+        (),
+        (_DECREE_SCHEMA_OLD, _DECREE_SCHEMA_OLD),
+        ("sha256:not-a-digest",),
+        tuple(reversed(decree_entry.schema_contract_digests)),
+    ):
+        with pytest.raises(ValueError):
+            replace(decree_entry, schema_contract_digests=invalid)
+    with pytest.raises(ValueError, match="tuple"):
+        replace(decree_entry, schema_contract_digests=[_DECREE_SCHEMA_OLD])
+
+
+def test_registry_mechanically_rejects_single_alter_decree_schema(tmp_path: Path) -> None:
+    path = tmp_path / "decree_jobs.sqlite3"
+    DecreeJobStore(path)
+    entry = next(item for item in RUNTIME_DATA_ENTRIES if item.name == path.name)
+
+    with closing(sqlite3.connect(path)) as connection:
+        connection.execute(
+            "ALTER TABLE decree_jobs ADD COLUMN claim_evidence_commitment_json TEXT"
+        )
+        observed = observe_schema_contract_connection(connection)
+        observed_digest = "sha256:" + hashlib.sha256(
+            json.dumps(
+                observed,
+                ensure_ascii=True,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
+        ).hexdigest()
+        assert observed_digest == _DEGREE_SINGLE_ALTER_RUNTIME_SCHEMA
+        assert validate_registered_schema_connection(connection, entry) is False
+
+
 def test_readiness_accepts_current_shiguan_v6_and_jinyiwei_v5(tmp_path: Path) -> None:
     settings = _settings(tmp_path)
     jinyiwei_db.initialize_database(settings.data_dir / "jinyiwei.sqlite3")
@@ -193,8 +345,8 @@ def test_registry_preserves_exact_shiguan_v5_predecessor_fact() -> None:
             "users",
         ),
         required_triggers=(),
-        schema_contract_digest=(
-            "sha256:be55daeb1f9fa9602915351b8b26831103557a54bfa628a4c3bac70e14da8493"
+        schema_contract_digests=(
+            "sha256:be55daeb1f9fa9602915351b8b26831103557a54bfa628a4c3bac70e14da8493",
         ),
     )
 
@@ -239,7 +391,7 @@ def test_shiguan_registry_requires_one_verified_migration_state(tmp_path: Path) 
         semantic_entry = replace(
             entry,
             required_triggers=tuple(item["name"] for item in drifted["triggers"]),
-            schema_contract_digest=(
+            schema_contract_digests=(
                 "sha256:"
                 + hashlib.sha256(
                     json.dumps(
@@ -248,7 +400,7 @@ def test_shiguan_registry_requires_one_verified_migration_state(tmp_path: Path) 
                         sort_keys=True,
                         separators=(",", ":"),
                     ).encode("utf-8")
-                ).hexdigest()
+                ).hexdigest(),
             ),
         )
         assert observed["userVersion"] == 6
@@ -312,7 +464,7 @@ def test_shiguan_semantic_validator_rejects_missing_invalid_or_duplicate_state(
             user_version=6,
             required_tables=("schema_migration_verification",),
             required_triggers=(),
-            schema_contract_digest=(
+            schema_contract_digests=(
                 "sha256:"
                 + hashlib.sha256(
                     json.dumps(
@@ -321,7 +473,7 @@ def test_shiguan_semantic_validator_rejects_missing_invalid_or_duplicate_state(
                         sort_keys=True,
                         separators=(",", ":"),
                     ).encode("utf-8")
-                ).hexdigest()
+                ).hexdigest(),
             ),
         )
 
@@ -338,7 +490,7 @@ def test_runtime_data_registry_is_closed_and_includes_all_seven_stores() -> None
         "runtime_bindings.sqlite3",
         "shiguan.sqlite3",
     )
-    assert RUNTIME_DATA_REGISTRY["schemaVersion"] == ("chaotang.runtime-data-registry.v2")
+    assert RUNTIME_DATA_REGISTRY["schemaVersion"] == ("chaotang.runtime-data-registry.v3")
     assert RUNTIME_DATA_REGISTRY["registryDigest"] == RUNTIME_DATA_REGISTRY_DIGEST
     assert RUNTIME_DATA_REGISTRY_DIGEST.startswith("sha256:")
     assert len(RUNTIME_DATA_REGISTRY_DIGEST) == 71

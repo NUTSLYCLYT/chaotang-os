@@ -39,6 +39,12 @@ from app.qintianjian import storage as qintianjian_storage
 from app.shiguan import db as shiguan_db
 
 BACKEND_ROOT = Path(__file__).resolve().parent.parent
+_DECREE_SCHEMA_OLD = (
+    "sha256:fa4e21efd694b2160197f9202419ed0889b83098e182932ec75231e78fd92b9d"
+)
+_DECREE_SCHEMA_NEW = (
+    "sha256:5372895aff08d4b39a19c4100b1b30ec8eaf7a9e597960425fee13c52552f5e3"
+)
 
 
 def _sha256(content: bytes) -> str:
@@ -228,6 +234,76 @@ def _create_runtime(root: Path, *, with_artifact: bool = True) -> Path:
     return root
 
 
+def _replace_decree_schema_with_canonical_new(path: Path) -> None:
+    with sqlite3.connect(path) as connection:
+        connection.execute("PRAGMA foreign_keys = OFF")
+        existing = {
+            row[0]
+            for row in connection.execute(
+                "SELECT name FROM sqlite_schema WHERE type = 'table'"
+            )
+        }
+        if "decree_job_idempotency_keys" in existing:
+            connection.execute("DROP TABLE decree_job_idempotency_keys")
+        if "decree_jobs" in existing:
+            connection.execute("DROP TABLE decree_jobs")
+        connection.execute(
+            """
+                CREATE TABLE main.decree_jobs (
+                    job_id TEXT PRIMARY KEY,
+                    owner_user_id TEXT NOT NULL,
+                    idempotency_key TEXT NOT NULL,
+                    request_hash TEXT NOT NULL,
+                    draft_fingerprint TEXT NOT NULL,
+                    decree_text TEXT NOT NULL,
+                    approved_route_json TEXT NOT NULL,
+                    state TEXT NOT NULL,
+                    attempt_count INTEGER NOT NULL DEFAULT 0,
+                    provider_request_count INTEGER NOT NULL DEFAULT 0,
+                    provider_request_limit INTEGER NOT NULL DEFAULT 8,
+                    cancel_requested INTEGER NOT NULL DEFAULT 0,
+                    result_json TEXT,
+                    reply_id TEXT,
+                    error_code TEXT,
+                    error_stage TEXT,
+                    error_category TEXT,
+                    authority_committed INTEGER NOT NULL DEFAULT 1,
+                    acceptance_committed INTEGER NOT NULL DEFAULT 1,
+                    deadline_at TEXT NOT NULL,
+                    retry_at TEXT,
+                    lease_owner TEXT,
+                    lease_expires_at TEXT,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    claim_evidence_commitment_json TEXT,
+                    UNIQUE(owner_user_id, idempotency_key),
+                    UNIQUE(owner_user_id, draft_fingerprint)
+                )
+                """
+        )
+        connection.execute(
+            """
+                CREATE TABLE main.decree_job_idempotency_keys (
+                    owner_user_id TEXT NOT NULL,
+                    idempotency_key TEXT NOT NULL,
+                    request_hash TEXT NOT NULL,
+                    job_id TEXT NOT NULL REFERENCES decree_jobs(job_id),
+                    PRIMARY KEY(owner_user_id, idempotency_key)
+                )
+                """
+        )
+        connection.commit()
+
+
+def _decree_manifest_record(backup: Path) -> tuple[Path, dict[str, object], dict[str, object]]:
+    manifest_path = backup / BACKUP_MANIFEST_NAME
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    record = next(
+        item for item in manifest["databases"] if item["name"] == "decree_jobs.sqlite3"
+    )
+    return manifest_path, manifest, record
+
+
 def _make_pending_shiguan_schema(path: Path):
     with sqlite3.connect(path) as connection:
         connection.execute("DROP TRIGGER schema_migration_verification_guard_update")
@@ -243,7 +319,7 @@ def _make_pending_shiguan_schema(path: Path):
             )
         )
     current = next(item for item in RUNTIME_DATA_ENTRIES if item.name == path.name)
-    return replace(current, required_triggers=triggers, schema_contract_digest=digest)
+    return replace(current, required_triggers=triggers, schema_contract_digests=(digest,))
 
 
 def _registry_with_shiguan(registration):
@@ -268,6 +344,83 @@ def test_backup_verify_and_rehearse_closed_runtime(tmp_path: Path) -> None:
     assert (restored / "report_artifacts" / "artifact-a.xlsx").read_bytes() == (
         b"synthetic workbook bytes"
     )
+
+
+@pytest.mark.parametrize("canonical_new", [False, True])
+def test_backup_manifest_binds_the_actual_allowed_decree_schema(
+    tmp_path: Path, canonical_new: bool
+) -> None:
+    source = _create_runtime(tmp_path / "source")
+    if canonical_new:
+        _replace_decree_schema_with_canonical_new(source / "decree_jobs.sqlite3")
+    expected = _DECREE_SCHEMA_NEW if canonical_new else _DECREE_SCHEMA_OLD
+    with sqlite3.connect(source / "decree_jobs.sqlite3") as connection:
+        assert schema_contract_digest_connection(connection) == expected
+
+    backup = tmp_path / "backup"
+    result = backup_runtime(source, backup)
+    _, _, record = _decree_manifest_record(backup)
+
+    assert record["schemaContractDigest"] == expected
+    assert verify_backup(backup).source_snapshot_identity == result.source_snapshot_identity
+    assert rehearse_restore(backup, tmp_path / "restored").source_snapshot_identity == (
+        result.source_snapshot_identity
+    )
+
+
+@pytest.mark.parametrize(
+    ("canonical_new", "forged_digest"),
+    [(False, _DECREE_SCHEMA_NEW), (True, _DECREE_SCHEMA_OLD)],
+)
+def test_verify_rejects_allowed_but_spliced_decree_manifest_digest(
+    tmp_path: Path, canonical_new: bool, forged_digest: str
+) -> None:
+    source = _create_runtime(tmp_path / "source")
+    if canonical_new:
+        _replace_decree_schema_with_canonical_new(source / "decree_jobs.sqlite3")
+    backup = tmp_path / "backup"
+    backup_runtime(source, backup)
+    manifest_path, manifest, record = _decree_manifest_record(backup)
+    record["schemaContractDigest"] = forged_digest
+    _resign_manifest(manifest, snapshot=True)
+    manifest_path.write_text(
+        json.dumps(manifest, ensure_ascii=True, sort_keys=True, separators=(",", ":"))
+        + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(BackupError, match="database_(manifest|schema)_mismatch"):
+        verify_backup(backup)
+
+
+@pytest.mark.parametrize("source_is_new", [False, True])
+def test_backup_rejects_allowed_but_spliced_source_and_snapshot_schemas(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, source_is_new: bool
+) -> None:
+    source = _create_runtime(tmp_path / "source")
+    if source_is_new:
+        _replace_decree_schema_with_canonical_new(source / "decree_jobs.sqlite3")
+    original_snapshot = sqlite_backup._snapshot_sqlite_at
+
+    def splice_snapshot(*args, **kwargs):
+        observed = original_snapshot(*args, **kwargs)
+        destination_directory = args[2]
+        destination_name = args[3]
+        registration = args[4]
+        if registration.name == "decree_jobs.sqlite3":
+            destination_root = Path(f"/proc/self/fd/{destination_directory}").resolve()
+            destination = destination_root / destination_name
+            destination.unlink()
+            if source_is_new:
+                DecreeJobStore(destination)
+            else:
+                _replace_decree_schema_with_canonical_new(destination)
+        return observed
+
+    monkeypatch.setattr(sqlite_backup, "_snapshot_sqlite_at", splice_snapshot)
+
+    with pytest.raises(BackupError, match="schema_mismatch:decree_jobs.sqlite3"):
+        backup_runtime(source, tmp_path / "backup")
 
 
 def test_backup_and_probe_fail_closed_on_pending_migration_verification(
@@ -873,13 +1026,13 @@ def test_backup_rejects_destination_root_replacement(
     original_snapshot = sqlite_backup._snapshot_sqlite_at
     replaced = False
 
-    def replacing_snapshot(*args: object, **kwargs: object) -> None:
+    def replacing_snapshot(*args: object, **kwargs: object) -> str:
         nonlocal replaced
         if not replaced:
             replaced = True
             destination.rename(tmp_path / "original-backup-root")
             destination.mkdir(mode=0o700)
-        original_snapshot(*args, **kwargs)
+        return original_snapshot(*args, **kwargs)
 
     monkeypatch.setattr(sqlite_backup, "_snapshot_sqlite_at", replacing_snapshot)
     with pytest.raises(BackupError, match="directory_replaced_during_operation"):

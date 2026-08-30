@@ -17,10 +17,14 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-REGISTRY_SCHEMA_VERSION = "chaotang.runtime-data-registry.v2"
+REGISTRY_SCHEMA_VERSION = "chaotang.runtime-data-registry.v3"
 SCHEMA_CONTRACT_VERSION = "chaotang.sqlite-schema-contract.v1"
 _VERIFICATION_TIMESTAMP_PATTERN = re.compile(
     r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z"
+)
+_DECREE_JOB_SCHEMA_CONTRACT_DIGESTS = (
+    "sha256:fa4e21efd694b2160197f9202419ed0889b83098e182932ec75231e78fd92b9d",
+    "sha256:5372895aff08d4b39a19c4100b1b30ec8eaf7a9e597960425fee13c52552f5e3",
 )
 
 
@@ -50,14 +54,40 @@ class RuntimeDataEntry:
     user_version: int
     required_tables: tuple[str, ...]
     required_triggers: tuple[str, ...]
-    schema_contract_digest: str
+    schema_contract_digests: tuple[str, ...]
     artifact_root: str | None = None
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.schema_contract_digests, tuple):
+            raise ValueError("schema contract digests must be a tuple")
+        if not self.schema_contract_digests:
+            raise ValueError("schema contract digests must be nonempty")
+        if len(self.schema_contract_digests) != len(set(self.schema_contract_digests)):
+            raise ValueError("schema contract digests must be unique")
+        if not all(
+            re.fullmatch(r"sha256:[0-9a-f]{64}", digest)
+            for digest in self.schema_contract_digests
+        ):
+            raise ValueError("schema contract digests must be canonical sha256 values")
+        if (
+            self.name == "decree_jobs.sqlite3"
+            and self.schema_contract_digests != _DECREE_JOB_SCHEMA_CONTRACT_DIGESTS
+        ):
+            raise ValueError("decree job schema contract digests are closed and ordered")
 
     @property
     def max_user_version(self) -> int:
         """Compatibility name for the exact (not ranged) schema version."""
 
         return self.user_version
+
+    @property
+    def schema_contract_digest(self) -> str:
+        """Preserve singleton callers without inventing a multi-digest default."""
+
+        if len(self.schema_contract_digests) != 1:
+            raise ValueError("multiple schema contract digests have no singular default")
+        return self.schema_contract_digests[0]
 
     def as_contract(self) -> dict[str, Any]:
         return {
@@ -66,7 +96,7 @@ class RuntimeDataEntry:
             "relativePath": self.relative_path,
             "requiredTables": list(self.required_tables),
             "requiredTriggers": list(self.required_triggers),
-            "schemaContractDigest": self.schema_contract_digest,
+            "schemaContractDigests": list(self.schema_contract_digests),
             "userVersion": self.user_version,
         }
 
@@ -238,7 +268,7 @@ SHIGUAN_V5_PREDECESSOR = RuntimeDataEntry(
         "users",
     ),
     (),
-    "sha256:be55daeb1f9fa9602915351b8b26831103557a54bfa628a4c3bac70e14da8493",
+    ("sha256:be55daeb1f9fa9602915351b8b26831103557a54bfa628a4c3bac70e14da8493",),
 )
 
 # The explicit v1→v2→v3→v4→v5 migration chain preserves the original
@@ -251,7 +281,7 @@ SHIGUAN_V5_HISTORICAL_PREDECESSOR = RuntimeDataEntry(
     5,
     SHIGUAN_V5_PREDECESSOR.required_tables,
     (),
-    "sha256:b99c42f729b16d6134d71cd77a894270fef79f192466e651407df5941fc8ab02",
+    ("sha256:b99c42f729b16d6134d71cd77a894270fef79f192466e651407df5941fc8ab02",),
 )
 SHIGUAN_V5_DIRECT_AUTH_HISTORICAL_PREDECESSOR = RuntimeDataEntry(
     "shiguan.sqlite3",
@@ -259,7 +289,7 @@ SHIGUAN_V5_DIRECT_AUTH_HISTORICAL_PREDECESSOR = RuntimeDataEntry(
     5,
     SHIGUAN_V5_PREDECESSOR.required_tables,
     (),
-    "sha256:5e94f8c4540705e1bce67e012af857691aa6d9bb3b4e7ce77e332dc1ece5077f",
+    ("sha256:5e94f8c4540705e1bce67e012af857691aa6d9bb3b4e7ce77e332dc1ece5077f",),
 )
 SHIGUAN_V5_EVOLVED_AUTH_HISTORICAL_PREDECESSOR = RuntimeDataEntry(
     "shiguan.sqlite3",
@@ -267,7 +297,7 @@ SHIGUAN_V5_EVOLVED_AUTH_HISTORICAL_PREDECESSOR = RuntimeDataEntry(
     5,
     SHIGUAN_V5_PREDECESSOR.required_tables,
     (),
-    "sha256:0fba339d71e9e0eea0c5605a4b9b2fb49f919c9d7504242660cf6a83eb1c2b8e",
+    ("sha256:0fba339d71e9e0eea0c5605a4b9b2fb49f919c9d7504242660cf6a83eb1c2b8e",),
 )
 SHIGUAN_V5_PREDECESSORS = (
     SHIGUAN_V5_PREDECESSOR,
@@ -284,7 +314,7 @@ RUNTIME_DATA_ENTRIES = (
         0,
         ("decree_job_idempotency_keys", "decree_jobs"),
         (),
-        "sha256:fa4e21efd694b2160197f9202419ed0889b83098e182932ec75231e78fd92b9d",
+        _DECREE_JOB_SCHEMA_CONTRACT_DIGESTS,
     ),
     RuntimeDataEntry(
         "jinyiwei.sqlite3",
@@ -303,7 +333,7 @@ RUNTIME_DATA_ENTRIES = (
             "source_attempts",
         ),
         (),
-        "sha256:16a0978427dae6005f9040ac25d38e07526eedca25abd8b6f622eecaf7ea75aa",
+        ("sha256:16a0978427dae6005f9040ac25d38e07526eedca25abd8b6f622eecaf7ea75aa",),
     ),
     RuntimeDataEntry(
         "junjichu_cases.sqlite3",
@@ -316,7 +346,7 @@ RUNTIME_DATA_ENTRIES = (
             "junjichu_runtime_reports_no_delete",
             "junjichu_runtime_reports_no_update",
         ),
-        "sha256:1fede14376500aae9c4fc3df8a1c625c1d7d3a224cc416cd126fa674b0130574",
+        ("sha256:1fede14376500aae9c4fc3df8a1c625c1d7d3a224cc416cd126fa674b0130574",),
     ),
     RuntimeDataEntry(
         "qintianjian.sqlite3",
@@ -324,7 +354,7 @@ RUNTIME_DATA_ENTRIES = (
         0,
         ("forecasts", "reviews"),
         (),
-        "sha256:b8773991e0bff936235f0b82f9daca1aea7bcc6e9a25ae7689af9ddddce01c01",
+        ("sha256:b8773991e0bff936235f0b82f9daca1aea7bcc6e9a25ae7689af9ddddce01c01",),
     ),
     RuntimeDataEntry(
         "report_artifacts.sqlite3",
@@ -341,7 +371,7 @@ RUNTIME_DATA_ENTRIES = (
             "work_products_guard_update",
             "work_products_no_delete",
         ),
-        "sha256:e4828afc1e1bc909d2fd1e726ec14333bdbf7aae6c3f37e22ed9e1dcf7f38e07",
+        ("sha256:e4828afc1e1bc909d2fd1e726ec14333bdbf7aae6c3f37e22ed9e1dcf7f38e07",),
         "report_artifacts",
     ),
     RuntimeDataEntry(
@@ -350,7 +380,7 @@ RUNTIME_DATA_ENTRIES = (
         0,
         ("runtime_resource_bindings",),
         ("runtime_bindings_no_delete", "runtime_bindings_no_update"),
-        "sha256:46f9467f83f08b48e0f82c167c77d716ca527288e06dd7cdccebf8812e23b09b",
+        ("sha256:46f9467f83f08b48e0f82c167c77d716ca527288e06dd7cdccebf8812e23b09b",),
     ),
     RuntimeDataEntry(
         "shiguan.sqlite3",
@@ -385,7 +415,7 @@ RUNTIME_DATA_ENTRIES = (
             "tenants_guard_update",
             "tenants_no_delete",
         ),
-        "sha256:6c8cf1368bae53cd0c80b10ca5e2a82603c2b47dd43dd38f550622fffec4ccc7",
+        ("sha256:6c8cf1368bae53cd0c80b10ca5e2a82603c2b47dd43dd38f550622fffec4ccc7",),
     ),
 )
 
@@ -420,16 +450,26 @@ def validate_registered_schema_connection(
 ) -> bool:
     """Validate structure and current-runtime semantic state on a caller-owned connection."""
 
+    return validated_registered_schema_digest_connection(connection, entry) is not None
+
+
+def validated_registered_schema_digest_connection(
+    connection: sqlite3.Connection,
+    entry: RuntimeDataEntry,
+) -> str | None:
+    """Return the actual accepted digest observed on this connection, or fail closed."""
+
     try:
         observed = observe_schema_contract_connection(connection)
+        actual_digest = _digest(observed)
         if not (
             observed["userVersion"] == entry.user_version
             and tuple(item["name"] for item in observed["tables"]) == entry.required_tables
             and tuple(item["name"] for item in observed["triggers"])
             == entry.required_triggers
-            and _digest(observed) == entry.schema_contract_digest
+            and actual_digest in entry.schema_contract_digests
         ):
-            return False
+            return None
         if entry.name == "shiguan.sqlite3" and entry.user_version >= 6:
             previous_factory = connection.row_factory
             connection.row_factory = None
@@ -439,10 +479,11 @@ def validate_registered_schema_connection(
                 ).fetchall()
             finally:
                 connection.row_factory = previous_factory
-            return is_verified_migration_state(rows)
-        return True
+            if not is_verified_migration_state(rows):
+                return None
+        return actual_digest
     except (OSError, sqlite3.Error, TypeError, ValueError):
-        return False
+        return None
 
 
 __all__ = [
@@ -464,4 +505,5 @@ __all__ = [
     "schema_contract_digest_connection",
     "validate_registered_schema",
     "validate_registered_schema_connection",
+    "validated_registered_schema_digest_connection",
 ]

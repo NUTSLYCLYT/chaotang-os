@@ -26,7 +26,7 @@ from app.operations.runtime_data_registry import (
     RUNTIME_DATA_REGISTRY_DIGEST,
     RuntimeDataEntry,
     schema_contract_digest_connection,
-    validate_registered_schema_connection,
+    validated_registered_schema_digest_connection,
 )
 
 BACKUP_MANIFEST_NAME = "backup-manifest.json"
@@ -434,7 +434,10 @@ def _validate_registered_sqlite_at(
                     else "schema_mismatch"
                 )
                 raise BackupError(f"{reason}:{registration.name}")
-            if not validate_registered_schema_connection(connection, registration):
+            actual_schema_digest = validated_registered_schema_digest_connection(
+                connection, registration
+            )
+            if actual_schema_digest is None:
                 raise BackupError(f"schema_mismatch:{registration.name}")
             integrity_rows = connection.execute("PRAGMA integrity_check").fetchall()
             foreign_key_rows = connection.execute("PRAGMA foreign_key_check").fetchall()
@@ -450,7 +453,7 @@ def _validate_registered_sqlite_at(
         raise BackupError("sqlite_integrity_failed")
     if foreign_key_rows:
         raise BackupError("sqlite_foreign_key_check_failed")
-    return user_version, "ok", registration.schema_contract_digest
+    return user_version, "ok", actual_schema_digest
 
 
 def _sqlite_page_bytes_at(directory_descriptor: int, name: str) -> int:
@@ -523,7 +526,7 @@ def _snapshot_sqlite_at(
     destination_directory: int,
     destination_name: str,
     registration: RuntimeDataEntry,
-) -> None:
+) -> str:
     source_descriptor = -1
     destination_descriptor = -1
     sidecars: list[tuple[str, int, os.stat_result]] = []
@@ -546,7 +549,10 @@ def _snapshot_sqlite_at(
         ) as source_connection:
             _assert_entry_identity(source_directory, source_name, source_status)
             _verify_sqlite_sidecars_at(source_directory, source_name, sidecars)
-            if not validate_registered_schema_connection(source_connection, registration):
+            source_schema_digest = validated_registered_schema_digest_connection(
+                source_connection, registration
+            )
+            if source_schema_digest is None:
                 raise BackupError(f"schema_mismatch:{registration.name}")
             with sqlite3.connect(
                 _sqlite_uri_for_file(destination_descriptor, "rw"), uri=True
@@ -557,6 +563,7 @@ def _snapshot_sqlite_at(
             _assert_entry_identity(source_directory, source_name, source_status)
             _verify_sqlite_sidecars_at(source_directory, source_name, sidecars)
         os.fsync(destination_descriptor)
+        return source_schema_digest
     except FileExistsError:
         raise BackupError("destination_create_failed") from None
     except OSError:
@@ -1393,10 +1400,10 @@ def _backup_runtime_once(
                 )
                 continue
             capture_started_at = _canonical_now(clock)
-            source_version, _, _ = _validate_registered_sqlite_at(
+            source_version, _, source_schema_digest = _validate_registered_sqlite_at(
                 source_descriptor, registration
             )
-            _snapshot_sqlite_at(
+            snapshot_source_schema_digest = _snapshot_sqlite_at(
                 source_descriptor,
                 registration.name,
                 destination_descriptor,
@@ -1408,7 +1415,8 @@ def _backup_runtime_once(
             )
             if (
                 user_version != source_version
-                or destination_schema_digest != registration.schema_contract_digest
+                or source_schema_digest != snapshot_source_schema_digest
+                or snapshot_source_schema_digest != destination_schema_digest
             ):
                 raise BackupError(f"schema_mismatch:{registration.name}")
             digest, size = _sha256_regular_at(destination_descriptor, registration.name)
@@ -1775,7 +1783,7 @@ def _verify_backup_tree_at(root_descriptor: int, manifest: dict[str, Any]) -> st
             continue
         if (
             record["relativePath"] != registration.relative_path
-            or record["schemaContractDigest"] != registration.schema_contract_digest
+            or record["schemaContractDigest"] not in registration.schema_contract_digests
             or record["integrityCheck"] != "ok"
             or not _is_sha256(record["sha256"])
             or not _is_nonnegative_int(record["bytes"])
@@ -1801,6 +1809,8 @@ def _verify_backup_tree_at(root_descriptor: int, manifest: dict[str, Any]) -> st
         )
         if user_version != record["userVersion"] or integrity != record["integrityCheck"]:
             raise BackupError("database_integrity_mismatch")
+        if schema_digest != record["schemaContractDigest"]:
+            raise BackupError("database_schema_mismatch")
 
     present_database_names = {
         record["name"] for record in databases if record["presence"] == "PRESENT"
