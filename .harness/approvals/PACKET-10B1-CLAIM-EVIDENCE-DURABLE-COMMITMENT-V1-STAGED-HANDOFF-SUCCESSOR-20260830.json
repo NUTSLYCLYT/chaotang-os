@@ -1,0 +1,150 @@
+{
+  "schemaVersion": "product-authority.m0.approval.v1",
+  "authorityId": "product-authority.m0.v1",
+  "taskId": "PACKET-10B1-CLAIM-EVIDENCE-DURABLE-COMMITMENT-V1-STAGED-HANDOFF-SUCCESSOR-20260830",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "a41890f0c86c499a4b8133decd73a712baa0f19c",
+    "baseTree": "2df52b20c7ebafd6e7629cc07abdfb777be2ccdd",
+    "approvalPath": ".harness/approvals/PACKET-10B1-CLAIM-EVIDENCE-DURABLE-COMMITMENT-V1-STAGED-HANDOFF-SUCCESSOR-20260830.json",
+    "approvalCommitPaths": [
+      ".harness/approvals/PACKET-10B1-CLAIM-EVIDENCE-DURABLE-COMMITMENT-V1-STAGED-HANDOFF-SUCCESSOR-20260830.json",
+      "docs/product/tasks/2026-08-30-packet-10b1-claim-evidence-durable-commitment-v1-staged-handoff-successor.md",
+      "docs/superpowers/plans/2026-08-30-packet-10b1-claim-evidence-durable-commitment-v1-staged-handoff-successor.md"
+    ],
+    "productPaths": [
+      "backend/app/api/decree_jobs.py",
+      "backend/app/api/decrees.py",
+      "backend/app/decree_jobs/models.py",
+      "backend/app/decree_jobs/storage.py",
+      "backend/app/decree_jobs/worker.py",
+      "backend/tests/test_decree_job_storage.py",
+      "backend/tests/test_decree_job_worker.py",
+      "backend/tests/test_decree_jobs_api.py"
+    ]
+  },
+  "nonGoals": [
+    "ARBITRARY_DIRECT_SQLITE_WRITER_SERIALIZABILITY_OR_ADMIN_TAMPER_TOLERANCE",
+    "CANDIDATE_IDENTITY_OR_PREDECESSOR_VERIFICATION_INHERITANCE",
+    "FINAL_MEMORIAL_RUNTIME_REPORT_ARCHIVE_PUBLISH_OR_FRONTEND_ACTIVATION",
+    "FORCE_PUSH_MERGE_REBASE_FETCH_PULL_PILOT_RELEASE_OR_DEPLOYMENT",
+    "NET_NEW_DATABASE_OBJECT_BEYOND_CANONICAL_NEW_OR_SECOND_FACT_SOURCE",
+    "NON_NULL_COMMITMENT_WRITER_OR_P10_B2_RUNTIME_ACTIVATION",
+    "PREDECESSOR_ONE_CHILD_AUTHORITY_CONSUMPTION_RECOVERY_OR_REANCHOR",
+    "RUNTIME_REGISTRY_READINESS_HARNESS_OR_AUTHORITY_CHANGE",
+    "TENANT_PRINCIPAL_OR_P10_A_SEMANTIC_CHANGE",
+    "TEST_WEAKENING_CRASH_RECOVERY_REMOVAL_OR_UNRELATED_REFACTOR",
+    "UNOBSERVED_POST_PREFLIGHT_ROGUE_WRITER_ATOMICITY_CLAIM"
+  ],
+  "verification": [
+    {
+      "id": "backend-full-prerequisite-stop",
+      "tool": "python3",
+      "args": ["-m", "pytest", "-q"],
+      "cwd": "backend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "backend-p10a-regression",
+      "tool": "python3",
+      "args": ["-m", "pytest", "-q", "tests/test_claim_evidence_gate.py"],
+      "cwd": "backend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "backend-p10b1-focused",
+      "tool": "python3",
+      "args": ["-m", "pytest", "-q", "tests/test_decree_job_storage.py", "tests/test_decree_job_worker.py", "tests/test_decree_jobs_api.py", "tests/test_decrees_api.py", "tests/test_decree_async_integration.py"],
+      "cwd": "backend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "backend-p10b1-ruff",
+      "tool": "python3",
+      "args": ["-m", "ruff", "check", "app/api/decree_jobs.py", "app/api/decrees.py", "app/decree_jobs/models.py", "app/decree_jobs/storage.py", "app/decree_jobs/worker.py", "tests/test_decree_job_storage.py", "tests/test_decree_job_worker.py", "tests/test_decree_jobs_api.py"],
+      "cwd": "backend",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "backend-readiness-prerequisite-stop",
+      "tool": "python3",
+      "args": ["-m", "pytest", "-q", "tests/test_six_ministry_readiness_report.py"],
+      "cwd": "backend",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "candidate-exact8-structure",
+      "tool": "node",
+      "args": ["--input-type=module", "--eval", "import{execFileSync}from'node:child_process';const expected=['backend/app/api/decree_jobs.py','backend/app/api/decrees.py','backend/app/decree_jobs/models.py','backend/app/decree_jobs/storage.py','backend/app/decree_jobs/worker.py','backend/tests/test_decree_job_storage.py','backend/tests/test_decree_job_worker.py','backend/tests/test_decree_jobs_api.py'];const env={PATH:'/usr/bin:/bin',GIT_CONFIG_NOSYSTEM:'1',GIT_NO_REPLACE_OBJECTS:'1',GIT_TERMINAL_PROMPT:'0'};const git=(args)=>execFileSync('/usr/bin/git',['--no-replace-objects',...args],{encoding:'utf8',env,maxBuffer:4194304});const rows=git(['diff-tree','--no-commit-id','--name-status','-r','HEAD^','HEAD']).trim().split('\\n').filter(Boolean).map(row=>row.split('\\t'));if(JSON.stringify(rows.map(row=>row.at(-1)))!==JSON.stringify(expected)||rows.some(row=>row[0]!=='M'))throw new Error('EXACT8_SCOPE');for(const path of expected){const[mode,type]=git(['ls-tree','HEAD','--',path]).trim().split(/\\s+/u);if(mode!=='100644'||type!=='blob')throw new Error('EXACT8_MODE:'+path)}"],
+      "cwd": ".",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "git-diff-check",
+      "tool": "node",
+      "args": ["--input-type=module", "--eval", "import{execFileSync}from'node:child_process';execFileSync('/usr/bin/git',['--no-replace-objects','diff','--check','HEAD^','HEAD'],{stdio:'inherit',env:{PATH:'/usr/bin:/bin',GIT_CONFIG_NOSYSTEM:'1',GIT_NO_REPLACE_OBJECTS:'1',GIT_TERMINAL_PROMPT:'0'}})"],
+      "cwd": ".",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "product-authority-regression",
+      "tool": "python3",
+      "args": ["-I", "-c", "import os;n='/usr/bin/node';t='/tmp';e={'PATH':'/usr/bin:/bin','TMPDIR':t,'TEMP':t,'TMP':t,'CI':'1','NODE_ENV':'test','LANG':'C.UTF-8','LC_ALL':'C.UTF-8','NO_COLOR':'1'};os.execve(n,[n,'--test','scripts/product-authority.test.mjs'],e)"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "root-harness",
+      "tool": "node",
+      "args": ["scripts/check_harness.mjs"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "root-harness-doctor",
+      "tool": "node",
+      "args": ["scripts/harness-doctor.mjs", "--check"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "root-harness-doctor-regression",
+      "tool": "node",
+      "args": ["--test", "scripts/harness-doctor.test.mjs"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "root-harness-self-test",
+      "tool": "node",
+      "args": ["scripts/check_harness.mjs", "--self-test"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "root-hook-self-test",
+      "tool": "node",
+      "args": [".agents/hooks/check-harness.mjs", "--self-test"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v2-convergence",
+      "tool": "node",
+      "args": ["scripts/ext-full-value-convergence.mjs", "--check"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v2-convergence-regression",
+      "tool": "node",
+      "args": ["--test", "scripts/ext-full-value-convergence.test.mjs"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    }
+  ],
+  "state": "APPROVED_FOR_ONE_CHILD"
+}
