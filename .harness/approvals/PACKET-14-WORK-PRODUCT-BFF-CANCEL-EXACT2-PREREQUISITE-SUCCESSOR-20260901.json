@@ -1,0 +1,177 @@
+{
+  "schemaVersion": "product-authority.m0.approval.v1",
+  "authorityId": "product-authority.m0.v1",
+  "taskId": "PACKET-14-WORK-PRODUCT-BFF-CANCEL-EXACT2-PREREQUISITE-SUCCESSOR-20260901",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "976393db991c480b8cf733b4184b4cc0f9584bc6",
+    "baseTree": "13b0d855d15f8d555b468d329489f37531ac6f96",
+    "approvalPath": ".harness/approvals/PACKET-14-WORK-PRODUCT-BFF-CANCEL-EXACT2-PREREQUISITE-SUCCESSOR-20260901.json",
+    "approvalCommitPaths": [
+      ".harness/approvals/PACKET-14-WORK-PRODUCT-BFF-CANCEL-EXACT2-PREREQUISITE-SUCCESSOR-20260901.json",
+      "docs/product/tasks/2026-09-01-packet-14-work-product-bff-cancel-exact2-prerequisite-successor.md",
+      "docs/superpowers/plans/2026-09-01-packet-14-work-product-bff-cancel-exact2-prerequisite-successor.md"
+    ],
+    "productPaths": [
+      "frontend/src/app/api/report-artifacts/[id]/work-product/handler.ts",
+      "frontend/src/app/api/report-artifacts/[id]/work-product/route.test.ts"
+    ]
+  },
+  "nonGoals": [
+    "BACKEND_ARTIFACT_OR_DATABASE_CHANGE",
+    "EXACT30_OR_EXACT32_SCOPE_EXPANSION",
+    "LEGACY_APPROVAL_AUTHORITY_CANDIDATE_OR_VERIFICATION_INHERITANCE",
+    "P14_COMPLETION_RELEASE_PILOT_OR_DEPLOYMENT_CLAIM",
+    "PRODUCTION_SIDE_EFFECT_OR_EXTERNAL_PUBLICATION",
+    "PRODUCT_AUTHORITY_HARNESS_OR_READINESS_CHANGE",
+    "SECOND_ARTIFACT_LEDGER_OR_API_NAMESPACE"
+  ],
+  "verification": [
+    {
+      "id": "00-live-remote-approval-before-matrix",
+      "tool": "python3",
+      "args": [
+        "-I",
+        "-c",
+        "import os,pwd,subprocess;E={'PATH':'/usr/bin:/bin','HOME':'/nonexistent','GIT_CONFIG_GLOBAL':'/dev/null','GIT_CONFIG_NOSYSTEM':'1','GIT_CONFIG_SYSTEM':'/dev/null','GIT_NO_REPLACE_OBJECTS':'1','GIT_TERMINAL_PROMPT':'0'};g=lambda a:subprocess.check_output(['/usr/bin/git','--no-replace-objects',*a],text=True,env=E).strip();assert g(['config','--local','--get','remote.origin.url'])=='git@gitee.com:msxn/chaotang-os.git';r=lambda a:subprocess.run(['/usr/bin/git',*a],text=True,capture_output=True,env=E);assert all((x:=r(['config','--local','--get-regexp',p])).returncode==1 and not x.stdout and not x.stderr for p in ('^(include[.]path|includeif[.].*[.]path)$','^core[.]sshcommand$','^url[.].*[.]insteadof$'));approval=g(['rev-parse','HEAD^']);R={**E,'HOME':pwd.getpwuid(os.getuid()).pw_dir,'GIT_SSH_COMMAND':'/usr/bin/ssh -F /dev/null'};remote=subprocess.check_output(['/usr/bin/git','--no-replace-objects','-C','/tmp','ls-remote','git@gitee.com:msxn/chaotang-os.git','refs/heads/ext-dev'],text=True,env=R).strip().split();assert remote==[approval,'refs/heads/ext-dev']"
+      ],
+      "cwd": ".",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "01-exact2-identity-and-donor-freeze",
+      "tool": "node",
+      "args": [
+        "--input-type=module",
+        "--eval",
+        "import{execFileSync}from'node:child_process';import{createHash}from'node:crypto';import{canonicalizeRfc8785}from'./scripts/product-authority.mjs';const x=[['frontend/src/app/api/report-artifacts/[id]/work-product/handler.ts',2020,'6f157d070e01d5caac2cc9738f3787c7cac529f57355714d918100c586c14988','471e34f994a4b06e9e602a79095f36deac72956a'],['frontend/src/app/api/report-artifacts/[id]/work-product/route.test.ts',2442,'bab4f5d6cfec93c03fab9e4e2c5ffda0ded3e6725e83180438c6cfe14ad78b2e','f8a0b8cb388de74776f8705326c0f2c4a0a2bbd6']],e={PATH:'/usr/bin:/bin',HOME:'/nonexistent',GIT_CONFIG_GLOBAL:'/dev/null',GIT_CONFIG_SYSTEM:'/dev/null',GIT_CONFIG_NOSYSTEM:'1',GIT_ATTR_NOSYSTEM:'1',GIT_NO_REPLACE_OBJECTS:'1',GIT_TERMINAL_PROMPT:'0'},g=(a,o={})=>execFileSync('/usr/bin/git',['--no-replace-objects',...a],{env:e,maxBuffer:16777216,...o}),q=g(['rev-list','--parents','-n','1','HEAD'],{encoding:'utf8'}).trim().split(/\\s+/u);if(q.length!==2)throw Error('PARENT_COUNT');const r=g(['diff-tree','--no-commit-id','--name-status','-r',q[1],'HEAD'],{encoding:'utf8'}).trim().split('\\n').filter(Boolean).map(v=>v.split('\\t'));if(JSON.stringify(r.map(v=>v.at(-1)))!==JSON.stringify(x.map(v=>v[0]))||r.some(v=>v[0]!=='M'))throw Error('EXACT2_SCOPE');const b=[];for(const[p,n,h,o]of x){const t=g(['ls-tree','HEAD','--',p],{encoding:'utf8'}).toString().trim().split(/\\s+/u),z=g(['show','HEAD:'+p]);if(t[0]!=='100644'||t[2]!==o||z.length!==n||createHash('sha256').update(z).digest('hex')!==h)throw Error('IDENTITY:'+p);b.push({path:p,mode:'100644',bytes:n,rawSha256:'sha256:'+h})}if(createHash('sha256').update(canonicalizeRfc8785(b)).digest('hex')!=='7d6eb6471c2d7a4c2be9a988f4b529a9ab7b5fbfa83c974419728868d925d5fa')throw Error('BUNDLE');const d=g(['-c','core.attributesFile=/dev/null','diff','--no-ext-diff','--no-textconv','--full-index','--binary','HEAD^','HEAD']);if(createHash('sha256').update(d).digest('hex')!=='c40b12b29529b110f86b070b686e40eee7d554bab440c67928f1b77c96c3a539')throw Error('DIFF')"
+      ],
+      "cwd": ".",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "02-work-product-route-focused",
+      "tool": "node",
+      "args": [
+        "--test",
+        "route.test.ts"
+      ],
+      "cwd": "frontend/src/app/api/report-artifacts/[id]/work-product",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "03-frontend-tests",
+      "tool": "npm",
+      "args": ["test"],
+      "cwd": "frontend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "04-frontend-lint",
+      "tool": "npm",
+      "args": ["run", "lint"],
+      "cwd": "frontend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "05-frontend-typecheck",
+      "tool": "npm",
+      "args": ["run", "typecheck"],
+      "cwd": "frontend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "06-frontend-production-build",
+      "tool": "npm",
+      "args": ["run", "build"],
+      "cwd": "frontend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "07-root-harness",
+      "tool": "node",
+      "args": ["scripts/check_harness.mjs"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "08-root-harness-self-test",
+      "tool": "node",
+      "args": ["scripts/check_harness.mjs", "--self-test"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "09-root-harness-doctor",
+      "tool": "node",
+      "args": ["scripts/harness-doctor.mjs", "--check"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "10-root-harness-doctor-regression",
+      "tool": "node",
+      "args": ["--test", "scripts/harness-doctor.test.mjs"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "11-root-hook-self-test",
+      "tool": "node",
+      "args": [".agents/hooks/check-harness.mjs", "--self-test"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "12-product-authority-regression",
+      "tool": "python3",
+      "args": [
+        "-I",
+        "-c",
+        "import os;n='/usr/bin/node';t='/tmp';e={'PATH':'/usr/bin:/bin','TMPDIR':t,'TEMP':t,'TMP':t,'CI':'1','NODE_ENV':'test','LANG':'C.UTF-8','LC_ALL':'C.UTF-8','NO_COLOR':'1'};os.execve(n,[n,'--test','scripts/product-authority.test.mjs'],e)"
+      ],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "13-v2-convergence",
+      "tool": "node",
+      "args": ["scripts/ext-full-value-convergence.mjs", "--check"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "14-v2-convergence-regression",
+      "tool": "node",
+      "args": ["--test", "scripts/ext-full-value-convergence.test.mjs"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "15-git-diff-check",
+      "tool": "node",
+      "args": [
+        "--input-type=module",
+        "--eval",
+        "import{execFileSync}from'node:child_process';execFileSync('/usr/bin/git',['--no-replace-objects','diff','--check','HEAD^','HEAD'],{stdio:'inherit',env:{PATH:'/usr/bin:/bin',GIT_CONFIG_NOSYSTEM:'1',GIT_NO_REPLACE_OBJECTS:'1',GIT_TERMINAL_PROMPT:'0'}})"
+      ],
+      "cwd": ".",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "16-live-remote-approval-after-matrix",
+      "tool": "python3",
+      "args": [
+        "-I",
+        "-c",
+        "import os,pwd,subprocess;E={'PATH':'/usr/bin:/bin','HOME':'/nonexistent','GIT_CONFIG_GLOBAL':'/dev/null','GIT_CONFIG_NOSYSTEM':'1','GIT_CONFIG_SYSTEM':'/dev/null','GIT_NO_REPLACE_OBJECTS':'1','GIT_TERMINAL_PROMPT':'0'};g=lambda a:subprocess.check_output(['/usr/bin/git','--no-replace-objects',*a],text=True,env=E).strip();assert g(['config','--local','--get','remote.origin.url'])=='git@gitee.com:msxn/chaotang-os.git';r=lambda a:subprocess.run(['/usr/bin/git',*a],text=True,capture_output=True,env=E);assert all((x:=r(['config','--local','--get-regexp',p])).returncode==1 and not x.stdout and not x.stderr for p in ('^(include[.]path|includeif[.].*[.]path)$','^core[.]sshcommand$','^url[.].*[.]insteadof$'));approval=g(['rev-parse','HEAD^']);R={**E,'HOME':pwd.getpwuid(os.getuid()).pw_dir,'GIT_SSH_COMMAND':'/usr/bin/ssh -F /dev/null'};remote=subprocess.check_output(['/usr/bin/git','--no-replace-objects','-C','/tmp','ls-remote','git@gitee.com:msxn/chaotang-os.git','refs/heads/ext-dev'],text=True,env=R).strip().split();assert remote==[approval,'refs/heads/ext-dev']"
+      ],
+      "cwd": ".",
+      "timeoutMs": 30000
+    }
+  ],
+  "state": "APPROVED_FOR_ONE_CHILD"
+}
