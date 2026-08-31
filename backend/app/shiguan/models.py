@@ -21,7 +21,7 @@ import math
 import re
 import unicodedata
 from collections.abc import Mapping
-from datetime import datetime
+from datetime import UTC, datetime
 from types import MappingProxyType
 from typing import Any, Literal
 
@@ -52,6 +52,14 @@ ArchiveFactCategory = Literal[
     "ENTITY_REFERENCE",
 ]
 ArchiveDataScope = Literal["INTERNAL_BUSINESS", "EXTERNAL_PUBLIC", "HYBRID"]
+OutcomeValue = Literal["ACHIEVED", "PARTIAL", "NOT_ACHIEVED", "OBSERVING"]
+OutcomeEventKind = Literal["RECORDED", "CORRECTED"]
+OutcomeSourceType = Literal["OWNER_ATTESTATION"]
+OutcomeSourceAuthLevel = Literal["AUTHENTICATED_OWNER_ASSERTION"]
+
+_OUTCOME_KEY_PATTERN = re.compile(r"[A-Za-z0-9._:-]{8,128}")
+_OUTCOME_EVENT_ID_PATTERN = re.compile(r"[0-9a-f]{32}")
+_OUTCOME_DIGEST_PATTERN = re.compile(r"sha256:[0-9a-f]{64}")
 
 _REPLY_ONLY_FIELDS = (
     "source_kind",
@@ -144,6 +152,129 @@ class ArchiveDecision(BaseModel):
     @classmethod
     def _validate_decided_at(cls, value: str) -> str:
         return _validate_iso8601_string(value, "decided_at")
+
+
+def _normalize_outcome_timestamp(value: str, field_name: str) -> str:
+    parsed_value = _validate_iso8601_string(value, field_name)
+    normalized = parsed_value[:-1] + "+00:00" if parsed_value.endswith("Z") else parsed_value
+    parsed = datetime.fromisoformat(normalized)
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise ValueError(f"{field_name} 必须包含时区")
+    return parsed.astimezone(UTC).isoformat(timespec="microseconds").replace(
+        "+00:00", "Z"
+    )
+
+
+class OutcomeCreate(BaseModel):
+    """Closed authenticated Owner assertion request."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    outcome: OutcomeValue
+    occurred_at: str
+    idempotency_key: str
+    supersedes_event_id: str | None = None
+
+    @field_validator("occurred_at")
+    @classmethod
+    def _normalize_occurred_at(cls, value: str) -> str:
+        return _normalize_outcome_timestamp(value, "occurred_at")
+
+    @field_validator("idempotency_key")
+    @classmethod
+    def _validate_idempotency_key(cls, value: str) -> str:
+        if not isinstance(value, str) or not _OUTCOME_KEY_PATTERN.fullmatch(value):
+            raise ValueError("idempotency_key 必须是 8 到 128 位受限 ASCII")
+        return value
+
+    @field_validator("supersedes_event_id")
+    @classmethod
+    def _validate_supersedes_event_id(cls, value: str | None) -> str | None:
+        if value is not None and not _OUTCOME_EVENT_ID_PATTERN.fullmatch(value):
+            raise ValueError("supersedes_event_id 必须是 32 位小写十六进制")
+        return value
+
+
+class OutcomeEvent(BaseModel):
+    """Complete immutable event contract used by storage integrity checks."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    event_id: str
+    tenant_id: str
+    owner_user_id: str
+    membership_id: str
+    actor_user_id: str
+    archive_id: str
+    event_kind: OutcomeEventKind
+    outcome: OutcomeValue
+    source_type: OutcomeSourceType
+    source_auth_level: OutcomeSourceAuthLevel
+    occurred_at: str
+    recorded_at: str
+    idempotency_key: str
+    request_digest: str
+    archive_digest: str
+    decision_digest: str
+    evidence_bundle_digest: str
+    evidence_count: int = Field(ge=1)
+    supersedes_event_id: str | None = None
+    event_digest: str
+
+    @field_validator("event_id")
+    @classmethod
+    def _validate_event_id(cls, value: str) -> str:
+        if not _OUTCOME_EVENT_ID_PATTERN.fullmatch(value):
+            raise ValueError("event_id 必须是 32 位小写十六进制")
+        return value
+
+    @field_validator("occurred_at", "recorded_at")
+    @classmethod
+    def _normalize_event_time(cls, value: str, info) -> str:
+        return _normalize_outcome_timestamp(value, info.field_name)
+
+    @field_validator(
+        "request_digest",
+        "archive_digest",
+        "decision_digest",
+        "evidence_bundle_digest",
+        "event_digest",
+    )
+    @classmethod
+    def _validate_digest(cls, value: str) -> str:
+        if not _OUTCOME_DIGEST_PATTERN.fullmatch(value):
+            raise ValueError("Outcome digest 必须是 canonical SHA-256")
+        return value
+
+
+class OutcomeProjection(BaseModel):
+    """Strictly redacted API projection; no rich Archive fields can enter."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    event_id: str
+    archive_id: str
+    event_kind: OutcomeEventKind
+    outcome: OutcomeValue
+    source_type: OutcomeSourceType
+    source_auth_level: OutcomeSourceAuthLevel
+    occurred_at: str
+    recorded_at: str
+    archive_digest: str
+    decision_digest: str
+    evidence_bundle_digest: str
+    evidence_count: int = Field(ge=1)
+    supersedes_event_id: str | None = None
+    event_digest: str
+
+
+class OutcomePage(BaseModel):
+    """Bounded stable page of redacted Outcome projections."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    items: list[OutcomeProjection]
+    next_cursor: str | None = None
 
 
 class _FrozenJsonMapping(Mapping[str, Any]):

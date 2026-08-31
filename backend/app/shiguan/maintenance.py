@@ -20,6 +20,7 @@ from pathlib import Path
 from app.operations import sqlite_backup as governed_sqlite_backup
 from app.operations.runtime_data_registry import (
     RUNTIME_DATA_ENTRIES,
+    SHIGUAN_V6_PREDECESSOR,
     is_verified_migration_state,
     schema_contract_digest_connection,
 )
@@ -69,6 +70,55 @@ def _readonly_connection(path: Path) -> sqlite3.Connection:
     return sqlite3.connect(f"{path.resolve().as_uri()}?mode=ro", uri=True)
 
 
+def _inspect_runtime_connection(
+    connection: sqlite3.Connection, *, database_path: str
+) -> RuntimeDatabaseReport:
+    """Inspect one already-open SQLite identity without reopening its pathname."""
+
+    version = connection.execute("PRAGMA user_version").fetchone()[0]
+    integrity_ok = connection.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
+    tables = {
+        row[0]
+        for row in connection.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table'"
+        ).fetchall()
+    }
+    entry = _current_shiguan_entry()
+    triggers = tuple(
+        row[0]
+        for row in connection.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'trigger' ORDER BY name"
+        ).fetchall()
+    )
+    schema_digest = schema_contract_digest_connection(connection)
+    required_tables_ok = (
+        tuple(sorted(tables - {"sqlite_sequence"})) == entry.required_tables
+        and triggers == entry.required_triggers
+        and schema_digest == entry.schema_contract_digest
+    )
+    verification = None
+    if "schema_migration_verification" in tables:
+        verification = connection.execute(
+            "SELECT id, status, verified_at FROM schema_migration_verification"
+        ).fetchall()
+    foreign_keys_ok = not connection.execute("PRAGMA foreign_key_check").fetchall()
+    return RuntimeDatabaseReport(
+        database_path=database_path,
+        exists=True,
+        version=version,
+        integrity_ok=integrity_ok,
+        required_tables_ok=required_tables_ok,
+        ready=(
+            version == entry.user_version
+            and integrity_ok
+            and foreign_keys_ok
+            and required_tables_ok
+            and verification is not None
+            and is_verified_migration_state(verification)
+        ),
+    )
+
+
 def inspect_runtime_database(path: Path) -> RuntimeDatabaseReport:
     """Inspect schema health without creating or modifying the database."""
 
@@ -86,47 +136,9 @@ def inspect_runtime_database(path: Path) -> RuntimeDatabaseReport:
     connection: sqlite3.Connection | None = None
     try:
         connection = _readonly_connection(target)
-        version = connection.execute("PRAGMA user_version").fetchone()[0]
-        integrity_ok = connection.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
-        tables = {
-            row[0]
-            for row in connection.execute(
-                "SELECT name FROM sqlite_master WHERE type = 'table'"
-            ).fetchall()
-        }
-        entry = _current_shiguan_entry()
-        triggers = tuple(
-            row[0]
-            for row in connection.execute(
-                "SELECT name FROM sqlite_master WHERE type = 'trigger' ORDER BY name"
-            ).fetchall()
-        )
-        schema_digest = schema_contract_digest_connection(connection)
-        required_tables_ok = (
-            tuple(sorted(tables - {"sqlite_sequence"})) == entry.required_tables
-            and triggers == entry.required_triggers
-            and schema_digest == entry.schema_contract_digest
-        )
-        verification = None
-        if "schema_migration_verification" in tables:
-            verification = connection.execute(
-                "SELECT id, status, verified_at FROM schema_migration_verification"
-            ).fetchall()
-        foreign_keys_ok = not connection.execute("PRAGMA foreign_key_check").fetchall()
-        return RuntimeDatabaseReport(
+        return _inspect_runtime_connection(
+            connection,
             database_path=str(target),
-            exists=True,
-            version=version,
-            integrity_ok=integrity_ok,
-            required_tables_ok=required_tables_ok,
-            ready=(
-                version == entry.user_version
-                and integrity_ok
-                and foreign_keys_ok
-                and required_tables_ok
-                and verification is not None
-                and is_verified_migration_state(verification)
-            ),
         )
     except sqlite3.Error:
         return RuntimeDatabaseReport(
@@ -229,8 +241,10 @@ def _validate_v5_snapshot(
 
 
 def _validate_current_v6(connection: sqlite3.Connection) -> None:
-    entry = _current_shiguan_entry()
-    if connection.execute("PRAGMA user_version").fetchone()[0] != entry.user_version:
+    if (
+        connection.execute("PRAGMA user_version").fetchone()[0]
+        != SHIGUAN_V6_PREDECESSOR.user_version
+    ):
         raise ValueError("invalid schema-v6 version")
     db._validate_v6_schema(connection)
     if connection.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
@@ -238,8 +252,50 @@ def _validate_current_v6(connection: sqlite3.Connection) -> None:
     if connection.execute("PRAGMA foreign_key_check").fetchall():
         raise ValueError("invalid schema-v6 foreign keys")
     digest = schema_contract_digest_connection(connection)
-    if digest != entry.schema_contract_digest:
+    if digest != SHIGUAN_V6_PREDECESSOR.schema_contract_digest:
         raise ValueError("invalid schema-v6 digest")
+
+
+def _validate_v6_snapshot(
+    path: Path, expected_content: dict[str, tuple[int, str]]
+) -> None:
+    connection: sqlite3.Connection | None = None
+    try:
+        descriptor, expected = governed_sqlite_backup._open_regular_readonly(path)
+        try:
+            connection = sqlite3.connect(
+                governed_sqlite_backup._sqlite_uri_for_file(descriptor, "ro"), uri=True
+            )
+        finally:
+            os.close(descriptor)
+        governed_sqlite_backup._assert_path_identity(path, expected)
+        connection.execute("PRAGMA foreign_keys = ON")
+        _validate_current_v6(connection)
+        verification = connection.execute(
+            "SELECT id, status, verified_at FROM schema_migration_verification"
+        ).fetchall()
+        if not is_verified_migration_state(verification):
+            raise ValueError("schema-v6 backup is not verified")
+        if db._v6_content_snapshot(connection) != expected_content:
+            raise ValueError("schema-v6 backup content mismatch")
+    except (OSError, sqlite3.Error, ValueError) as exc:
+        raise ShiguanStorageError("史馆运行库备份验证失败") from exc
+    finally:
+        if connection is not None:
+            connection.close()
+
+
+def _validate_current_v7(connection: sqlite3.Connection) -> None:
+    entry = _current_shiguan_entry()
+    if connection.execute("PRAGMA user_version").fetchone()[0] != entry.user_version:
+        raise ValueError("invalid schema-v7 version")
+    db._validate_v7_schema(connection)
+    if connection.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
+        raise ValueError("invalid schema-v7 integrity")
+    if connection.execute("PRAGMA foreign_key_check").fetchall():
+        raise ValueError("invalid schema-v7 foreign keys")
+    if schema_contract_digest_connection(connection) != entry.schema_contract_digest:
+        raise ValueError("invalid schema-v7 digest")
 
 
 def _verify_v6_readback(
@@ -333,6 +389,99 @@ def _verify_v6_readback(
     finally:
         if connection is not None:
             connection.close()
+
+
+def _verify_v7_readback(
+    path: Path,
+    expected_content: dict[str, tuple[int, str]],
+    *,
+    backup_path: Path,
+    source_descriptor: int,
+    source_directory_descriptor: int,
+    source_status: os.stat_result,
+    source_directory_status: os.stat_result,
+) -> tuple[RuntimeDatabaseReport, int]:
+    """Inspect the held PENDING v7 inode fully, then promote it as the last write."""
+
+    connection: sqlite3.Connection | None = None
+    promoted = False
+    try:
+        governed_sqlite_backup._assert_directory_identity(
+            path.parent, source_directory_status
+        )
+        governed_sqlite_backup._assert_entry_identity(
+            source_directory_descriptor, path.name, source_status
+        )
+        connection = sqlite3.connect(
+            governed_sqlite_backup._sqlite_uri_for_file(source_descriptor, "rw"),
+            uri=True,
+            timeout=0,
+        )
+        connection.execute("PRAGMA foreign_keys = ON")
+        connection.execute("BEGIN IMMEDIATE")
+        _validate_current_v7(connection)
+        if db._v6_content_snapshot(connection) != expected_content:
+            raise ValueError("schema-v6 content changed after migration")
+        if connection.execute("SELECT COUNT(*) FROM outcome_events").fetchone() != (0,):
+            raise ValueError("outcome table is not empty after migration")
+        verification = connection.execute(
+            "SELECT id, status, verified_at FROM schema_migration_verification"
+        ).fetchall()
+        if verification != [(1, "PENDING_VERIFICATION", None)]:
+            raise ValueError("invalid pending migration verification")
+        pending_report = _inspect_runtime_connection(
+            connection,
+            database_path=str(path),
+        )
+        if not (
+            pending_report.exists
+            and pending_report.version == 7
+            and pending_report.integrity_ok
+            and pending_report.required_tables_ok
+            and not pending_report.ready
+        ):
+            raise ValueError("invalid pending schema-v7 inspection")
+        archive_count = connection.execute("SELECT COUNT(*) FROM archives").fetchone()[0]
+        final_report = RuntimeDatabaseReport(
+            **{
+                **pending_report.to_payload(),
+                "ready": True,
+                "migrated": True,
+                "backup_path": str(backup_path),
+                "archive_count": archive_count,
+            }
+        )
+        governed_sqlite_backup._assert_directory_identity(
+            path.parent, source_directory_status
+        )
+        governed_sqlite_backup._assert_entry_identity(
+            source_directory_descriptor, path.name, source_status
+        )
+        promotion = connection.execute(
+            "UPDATE schema_migration_verification "
+            "SET status='VERIFIED', "
+            "verified_at=strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id=1"
+        )
+        if promotion.rowcount != 1:
+            raise ValueError("schema-v7 verification promotion failed")
+        connection.commit()
+        promoted = True
+        return final_report, archive_count
+    except ShiguanStorageError:
+        if connection is not None:
+            connection.rollback()
+        raise
+    except (OSError, sqlite3.Error, ValueError) as exc:
+        if connection is not None:
+            connection.rollback()
+        raise ShiguanStorageError("史馆运行库迁移后验证失败") from exc
+    finally:
+        if connection is not None:
+            try:
+                connection.close()
+            except Exception:
+                if not promoted:
+                    raise
 
 
 def migrate_runtime_v2_to_v3(path: Path) -> RuntimeDatabaseReport:
@@ -617,7 +766,7 @@ def migrate_runtime_v5_to_v6(path: Path) -> RuntimeDatabaseReport:
             verification_directory_descriptor, target.name, source_status
         )
         after = inspect_runtime_database(target)
-        if not after.ready:
+        if after.version != 6 or not after.integrity_ok:
             raise ShiguanStorageError("史馆运行库迁移后验证失败")
         governed_sqlite_backup._assert_directory_identity(
             target.parent, source_directory_status
@@ -631,6 +780,12 @@ def migrate_runtime_v5_to_v6(path: Path) -> RuntimeDatabaseReport:
             ),
             uri=True,
         )
+        _validate_current_v6(readback)
+        verification = readback.execute(
+            "SELECT id, status, verified_at FROM schema_migration_verification"
+        ).fetchall()
+        if not is_verified_migration_state(verification):
+            raise ShiguanStorageError("史馆运行库迁移后验证失败")
         archive_count = readback.execute("SELECT COUNT(*) FROM archives").fetchone()[0]
     except (OSError, sqlite3.Error, governed_sqlite_backup.BackupError) as exc:
         raise ShiguanStorageError("史馆运行库迁移后计数失败") from exc
@@ -651,6 +806,128 @@ def migrate_runtime_v5_to_v6(path: Path) -> RuntimeDatabaseReport:
     )
 
 
+def migrate_runtime_v6_to_v7(path: Path) -> RuntimeDatabaseReport:
+    """Offline-only v6 migration with a locked, verified SQLite snapshot."""
+
+    target = path.absolute()
+    try:
+        governed_sqlite_backup._require_regular_file(target)
+    except governed_sqlite_backup.BackupError as exc:
+        raise ShiguanStorageError("史馆运行库不满足 v6 迁移条件") from exc
+    backup = target.with_name(f"{target.name}.v6-backup")
+    if backup.exists():
+        raise ShiguanStorageError("史馆运行库备份已存在")
+
+    connection: sqlite3.Connection | None = None
+    source_directory_descriptor = -1
+    source_descriptor = -1
+    verification_directory_descriptor = -1
+    verification_source_descriptor = -1
+    source_directory_status: os.stat_result | None = None
+    source_status: os.stat_result | None = None
+    predecessor_content: dict[str, tuple[int, str]]
+    committed = False
+    try:
+        source_directory_descriptor, source_directory_status = (
+            governed_sqlite_backup._open_directory(target.parent)
+        )
+        source_descriptor = os.open(
+            target.name,
+            os.O_RDWR
+            | getattr(os, "O_CLOEXEC", 0)
+            | getattr(os, "O_NOFOLLOW", 0),
+            dir_fd=source_directory_descriptor,
+        )
+        source_status = os.fstat(source_descriptor)
+        if not stat.S_ISREG(source_status.st_mode) or source_status.st_nlink != 1:
+            raise governed_sqlite_backup.BackupError("unsafe_source_identity")
+        connection = sqlite3.connect(
+            governed_sqlite_backup._sqlite_uri_for_file(source_descriptor, "rw"),
+            uri=True,
+            timeout=0,
+        )
+        governed_sqlite_backup._assert_entry_identity(
+            source_directory_descriptor, target.name, source_status
+        )
+        connection.execute("PRAGMA foreign_keys = ON")
+        connection.execute("BEGIN IMMEDIATE")
+        try:
+            _validate_current_v6(connection)
+            verification = connection.execute(
+                "SELECT id, status, verified_at FROM schema_migration_verification"
+            ).fetchall()
+            if not is_verified_migration_state(verification):
+                raise ValueError("schema-v6 is not verified")
+        except (sqlite3.Error, ValueError) as exc:
+            raise ShiguanStorageError("史馆运行库不满足 v6 迁移条件") from exc
+        predecessor_content = db._v6_content_snapshot(connection)
+        _sqlite_backup_snapshot(source_descriptor, backup)
+        _validate_v6_snapshot(backup, predecessor_content)
+        db._migrate_v6_to_v7_connection(connection)
+        connection.commit()
+        committed = True
+        verification_source_descriptor = os.dup(source_descriptor)
+        try:
+            verification_directory_descriptor = os.dup(
+                source_directory_descriptor
+            )
+        except OSError:
+            os.close(verification_source_descriptor)
+            verification_source_descriptor = -1
+            raise
+    except ShiguanStorageError:
+        if connection is not None and not committed:
+            connection.rollback()
+        raise
+    except (
+        OSError,
+        sqlite3.Error,
+        ValueError,
+        governed_sqlite_backup.BackupError,
+    ) as exc:
+        if connection is not None and not committed:
+            connection.rollback()
+        raise ShiguanStorageError("史馆运行库 v6 到 v7 迁移失败") from exc
+    finally:
+        if connection is not None:
+            connection.close()
+        if source_descriptor >= 0:
+            os.close(source_descriptor)
+        if source_directory_descriptor >= 0:
+            os.close(source_directory_descriptor)
+
+    verified = False
+    try:
+        if source_status is None or source_directory_status is None:
+            raise ShiguanStorageError("史馆运行库迁移后验证失败")
+        after, archive_count = _verify_v7_readback(
+            target,
+            predecessor_content,
+            backup_path=backup,
+            source_descriptor=verification_source_descriptor,
+            source_directory_descriptor=verification_directory_descriptor,
+            source_status=source_status,
+            source_directory_status=source_directory_status,
+        )
+        verified = True
+    except (OSError, sqlite3.Error, governed_sqlite_backup.BackupError) as exc:
+        raise ShiguanStorageError("史馆运行库迁移后计数失败") from exc
+    finally:
+        if verification_source_descriptor >= 0:
+            try:
+                os.close(verification_source_descriptor)
+            except OSError:
+                if not verified:
+                    raise
+        if verification_directory_descriptor >= 0:
+            try:
+                os.close(verification_directory_descriptor)
+            except OSError:
+                if not verified:
+                    raise
+    return after
+
+
 def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Inspect or migrate the local Shiguan database")
     actions = parser.add_mutually_exclusive_group(required=True)
@@ -659,6 +936,7 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     actions.add_argument("--migrate-v3-to-v4", action="store_true")
     actions.add_argument("--migrate-v4-to-v5", action="store_true")
     actions.add_argument("--migrate-v5-to-v6", action="store_true")
+    actions.add_argument("--migrate-v6-to-v7", action="store_true")
     parser.add_argument("--database", type=Path, default=db._DEFAULT_DB_PATH)
     return parser.parse_args(argv)
 
@@ -673,7 +951,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0 if report.ready else 1
 
     try:
-        if args.migrate_v5_to_v6:
+        if args.migrate_v6_to_v7:
+            report = migrate_runtime_v6_to_v7(args.database)
+        elif args.migrate_v5_to_v6:
             report = migrate_runtime_v5_to_v6(args.database)
         elif args.migrate_v4_to_v5:
             report = migrate_runtime_v4_to_v5(args.database)

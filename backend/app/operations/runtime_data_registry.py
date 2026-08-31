@@ -306,6 +306,42 @@ SHIGUAN_V5_PREDECESSORS = (
     SHIGUAN_V5_EVOLVED_AUTH_HISTORICAL_PREDECESSOR,
 )
 
+SHIGUAN_V6_PREDECESSOR = RuntimeDataEntry(
+    "shiguan.sqlite3",
+    "shiguan.sqlite3",
+    6,
+    (
+        "archive_decisions",
+        "archive_evidence",
+        "archive_evidence_references",
+        "archive_relations",
+        "archive_review_status",
+        "archives",
+        "auth_sessions",
+        "daily_memorial_fact_snapshots",
+        "daily_memorial_runs",
+        "daily_memorial_stage_results",
+        "schema_migration_verification",
+        "tenant_memberships",
+        "tenants",
+        "users",
+    ),
+    (
+        "auth_sessions_guard_insert",
+        "auth_sessions_guard_update",
+        "schema_migration_verification_guard_insert",
+        "schema_migration_verification_guard_update",
+        "schema_migration_verification_no_delete",
+        "tenant_memberships_guard_insert",
+        "tenant_memberships_guard_update",
+        "tenant_memberships_no_delete",
+        "tenants_guard_insert",
+        "tenants_guard_update",
+        "tenants_no_delete",
+    ),
+    ("sha256:6c8cf1368bae53cd0c80b10ca5e2a82603c2b47dd43dd38f550622fffec4ccc7",),
+)
+
 
 RUNTIME_DATA_ENTRIES = (
     RuntimeDataEntry(
@@ -385,7 +421,7 @@ RUNTIME_DATA_ENTRIES = (
     RuntimeDataEntry(
         "shiguan.sqlite3",
         "shiguan.sqlite3",
-        6,
+        7,
         (
             "archive_decisions",
             "archive_evidence",
@@ -397,14 +433,20 @@ RUNTIME_DATA_ENTRIES = (
             "daily_memorial_fact_snapshots",
             "daily_memorial_runs",
             "daily_memorial_stage_results",
+            "outcome_events",
             "schema_migration_verification",
             "tenant_memberships",
             "tenants",
             "users",
         ),
         (
+            "archive_decisions_no_delete",
+            "archive_decisions_no_update",
             "auth_sessions_guard_insert",
             "auth_sessions_guard_update",
+            "outcome_events_guard_insert",
+            "outcome_events_no_delete",
+            "outcome_events_no_update",
             "schema_migration_verification_guard_insert",
             "schema_migration_verification_guard_update",
             "schema_migration_verification_no_delete",
@@ -415,7 +457,7 @@ RUNTIME_DATA_ENTRIES = (
             "tenants_guard_update",
             "tenants_no_delete",
         ),
-        ("sha256:6c8cf1368bae53cd0c80b10ca5e2a82603c2b47dd43dd38f550622fffec4ccc7",),
+        ("sha256:ae277d810308c76e6c8dc4bbc07dba8a31813ffa9d905ad321d0c14f18a7861a",),
     ),
 )
 
@@ -496,6 +538,7 @@ __all__ = [
     "SHIGUAN_V5_EVOLVED_AUTH_HISTORICAL_PREDECESSOR",
     "SHIGUAN_V5_PREDECESSOR",
     "SHIGUAN_V5_PREDECESSORS",
+    "SHIGUAN_V6_PREDECESSOR",
     "RuntimeDataEntry",
     "observe_schema_contract",
     "observe_schema_contract_connection",

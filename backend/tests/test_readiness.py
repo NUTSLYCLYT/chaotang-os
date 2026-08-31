@@ -20,6 +20,7 @@ from app.operations.runtime_data_registry import (
     RUNTIME_DATA_REGISTRY,
     RUNTIME_DATA_REGISTRY_DIGEST,
     SHIGUAN_V5_PREDECESSOR,
+    SHIGUAN_V6_PREDECESSOR,
     RuntimeDataEntry,
     observe_schema_contract_connection,
     validate_registered_schema_connection,
@@ -386,13 +387,17 @@ def test_registry_mechanically_rejects_single_alter_decree_schema(tmp_path: Path
         assert validate_registered_schema_connection(connection, entry) is False
 
 
-def test_readiness_accepts_current_shiguan_v6_and_jinyiwei_v5(tmp_path: Path) -> None:
+def test_readiness_accepts_current_shiguan_v7_and_jinyiwei_v5(tmp_path: Path) -> None:
     settings = _settings(tmp_path)
     jinyiwei_db.initialize_database(settings.data_dir / "jinyiwei.sqlite3")
     with closing(shiguan_db.get_connection(settings.data_dir / "shiguan.sqlite3")):
         pass
 
     assert run_readiness_preflight(settings).codes == ()
+    assert SHIGUAN_V6_PREDECESSOR.user_version == 6
+    assert SHIGUAN_V6_PREDECESSOR.schema_contract_digest == (
+        "sha256:6c8cf1368bae53cd0c80b10ca5e2a82603c2b47dd43dd38f550622fffec4ccc7"
+    )
 
 
 def test_registry_preserves_exact_shiguan_v5_predecessor_fact() -> None:
@@ -472,7 +477,7 @@ def test_shiguan_registry_requires_one_verified_migration_state(tmp_path: Path) 
                 ).hexdigest(),
             ),
         )
-        assert observed["userVersion"] == 6
+        assert observed["userVersion"] == 7
         assert validate_registered_schema_connection(connection, semantic_entry) is False
 
 

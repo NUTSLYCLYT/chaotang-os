@@ -390,8 +390,129 @@ PRAGMA user_version = 6;
 """
 )
 
+_V7_OUTCOME_SCHEMA = """
+CREATE TABLE outcome_events (
+    event_id TEXT PRIMARY KEY CHECK (
+        length(event_id) = 32 AND event_id NOT GLOB '*[^0-9a-f]*'
+    ),
+    tenant_id TEXT NOT NULL,
+    owner_user_id TEXT NOT NULL,
+    membership_id TEXT NOT NULL,
+    actor_user_id TEXT NOT NULL,
+    archive_id TEXT NOT NULL,
+    event_kind TEXT NOT NULL CHECK (event_kind IN ('RECORDED', 'CORRECTED')),
+    outcome TEXT NOT NULL CHECK (
+        outcome IN ('ACHIEVED', 'PARTIAL', 'NOT_ACHIEVED', 'OBSERVING')
+    ),
+    source_type TEXT NOT NULL CHECK (source_type = 'OWNER_ATTESTATION'),
+    source_auth_level TEXT NOT NULL CHECK (
+        source_auth_level = 'AUTHENTICATED_OWNER_ASSERTION'
+    ),
+    occurred_at TEXT NOT NULL,
+    recorded_at TEXT NOT NULL,
+    idempotency_key TEXT NOT NULL CHECK (
+        length(idempotency_key) BETWEEN 8 AND 128
+        AND idempotency_key NOT GLOB '*[^A-Za-z0-9._:-]*'
+    ),
+    request_digest TEXT NOT NULL,
+    archive_digest TEXT NOT NULL,
+    decision_digest TEXT NOT NULL,
+    evidence_bundle_digest TEXT NOT NULL,
+    evidence_count INTEGER NOT NULL CHECK (evidence_count > 0),
+    supersedes_event_id TEXT UNIQUE,
+    event_digest TEXT NOT NULL UNIQUE,
+    UNIQUE (tenant_id, owner_user_id, membership_id, idempotency_key),
+    CHECK (supersedes_event_id IS NULL OR supersedes_event_id != event_id),
+    CHECK (
+        (event_kind = 'RECORDED' AND supersedes_event_id IS NULL)
+        OR (event_kind = 'CORRECTED' AND supersedes_event_id IS NOT NULL)
+    ),
+    FOREIGN KEY (tenant_id) REFERENCES tenants(id),
+    FOREIGN KEY (membership_id, owner_user_id)
+        REFERENCES tenant_memberships(id, user_id),
+    FOREIGN KEY (actor_user_id) REFERENCES users(id),
+    FOREIGN KEY (archive_id) REFERENCES archives(id),
+    FOREIGN KEY (supersedes_event_id) REFERENCES outcome_events(event_id)
+);
+
+CREATE INDEX idx_outcome_events_owner_page
+ON outcome_events (tenant_id, owner_user_id, membership_id, recorded_at DESC, event_id ASC);
+
+CREATE INDEX idx_outcome_events_archive_page
+ON outcome_events (
+    tenant_id, owner_user_id, membership_id, archive_id, recorded_at DESC, event_id ASC
+);
+
+CREATE TRIGGER outcome_events_guard_insert
+BEFORE INSERT ON outcome_events
+WHEN NOT EXISTS (
+    SELECT 1 FROM tenant_memberships AS memberships
+    JOIN tenants AS tenants ON tenants.id = memberships.tenant_id
+    JOIN archives AS archives ON archives.id = NEW.archive_id
+    JOIN archive_decisions AS decisions
+      ON decisions.archive_id = archives.id
+     AND decisions.owner_user_id = archives.owner_user_id
+    WHERE memberships.id = NEW.membership_id
+      AND memberships.user_id = NEW.owner_user_id
+      AND memberships.tenant_id = NEW.tenant_id
+      AND memberships.role = 'OWNER'
+      AND memberships.revoked_at IS NULL
+      AND tenants.kind = 'PERSONAL'
+      AND archives.owner_user_id = NEW.owner_user_id
+      AND archives.type = 'REPLY'
+      AND decisions.decision = 'ADOPTED'
+) OR (
+    NEW.supersedes_event_id IS NOT NULL
+    AND NOT EXISTS (
+        SELECT 1 FROM outcome_events AS prior
+        WHERE prior.event_id = NEW.supersedes_event_id
+          AND prior.tenant_id = NEW.tenant_id
+          AND prior.owner_user_id = NEW.owner_user_id
+          AND prior.membership_id = NEW.membership_id
+          AND prior.archive_id = NEW.archive_id
+          AND NOT EXISTS (
+              SELECT 1 FROM outcome_events AS successor
+              WHERE successor.supersedes_event_id = prior.event_id
+          )
+    )
+)
+BEGIN
+    SELECT RAISE(ABORT, 'outcome source or head is invalid');
+END;
+
+CREATE TRIGGER outcome_events_no_update
+BEFORE UPDATE ON outcome_events
+BEGIN
+    SELECT RAISE(ABORT, 'outcome event is immutable');
+END;
+
+CREATE TRIGGER outcome_events_no_delete
+BEFORE DELETE ON outcome_events
+BEGIN
+    SELECT RAISE(ABORT, 'outcome event cannot be deleted');
+END;
+
+CREATE TRIGGER archive_decisions_no_update
+BEFORE UPDATE ON archive_decisions
+BEGIN
+    SELECT RAISE(ABORT, 'archive decision is immutable');
+END;
+
+CREATE TRIGGER archive_decisions_no_delete
+BEFORE DELETE ON archive_decisions
+BEGIN
+    SELECT RAISE(ABORT, 'archive decision cannot be deleted');
+END;
+"""
+
+_V7_SCHEMA_STATEMENTS = (
+    _V6_SCHEMA_STATEMENTS.replace("PRAGMA user_version = 6;", "")
+    + _V7_OUTCOME_SCHEMA
+    + "\nPRAGMA user_version = 7;\n"
+)
+
 # Compatibility name for callers that only need the current fresh schema.
-_SCHEMA_STATEMENTS = _V6_SCHEMA_STATEMENTS
+_SCHEMA_STATEMENTS = _V7_SCHEMA_STATEMENTS
 
 _LEGACY_MIGRATION_ERROR = "史馆旧库无法迁移；请核对已确认档案对后重试"
 
@@ -452,7 +573,7 @@ def get_connection(path: Path | None = None) -> sqlite3.Connection:
             "SELECT type, name FROM sqlite_master "
             "WHERE name NOT LIKE 'sqlite_%' ORDER BY type, name"
         ).fetchall()
-        if has_schema and version != 6:
+        if has_schema and version != 7:
             connection.close()
             raise ShiguanStorageError("史馆旧库需要显式迁移后才能使用")
         if not has_schema:
@@ -463,15 +584,15 @@ def get_connection(path: Path | None = None) -> sqlite3.Connection:
             _validate_v3_table(connection)
             _validate_v4_tables(connection)
             _validate_v5_table(connection)
-            _validate_v6_schema(connection)
+            _validate_v7_schema(connection)
             _require_verified_migration(connection)
             if connection.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
-                raise ValueError("invalid fresh schema-v6 integrity")
+                raise ValueError("invalid fresh schema-v7 integrity")
         else:
             _validate_v3_table(connection)
             _validate_v4_tables(connection)
             _validate_v5_table(connection)
-            _validate_v6_schema(connection)
+            _validate_v7_schema(connection)
             _require_verified_migration(connection)
         connection.commit()
     except ShiguanStorageError:
@@ -619,16 +740,74 @@ def _validate_v6_schema(connection: sqlite3.Connection) -> None:
     if connection.execute("PRAGMA foreign_key_check").fetchall():
         raise ValueError("invalid schema-v6 foreign keys")
     from app.operations.runtime_data_registry import (
-        RUNTIME_DATA_ENTRIES,
+        SHIGUAN_V6_PREDECESSOR,
         schema_contract_digest_connection,
     )
 
-    current = next(
-        entry for entry in RUNTIME_DATA_ENTRIES if entry.name == "shiguan.sqlite3"
-    )
     digest = schema_contract_digest_connection(connection)
-    if current.user_version != 6 or digest != current.schema_contract_digest:
+    if digest != SHIGUAN_V6_PREDECESSOR.schema_contract_digest:
         raise ValueError("invalid schema-v6 contract")
+
+
+_V7_TRIGGER_NAMES = _V6_TRIGGER_NAMES | {
+    "archive_decisions_no_delete",
+    "archive_decisions_no_update",
+    "outcome_events_guard_insert",
+    "outcome_events_no_delete",
+    "outcome_events_no_update",
+}
+
+
+def _validate_v7_schema(
+    connection: sqlite3.Connection, *, check_registry: bool = True
+) -> None:
+    if connection.execute("PRAGMA user_version").fetchone()[0] != 7:
+        raise ValueError("invalid schema-v7 version")
+    if _table_columns(connection, "outcome_events") != (
+        "event_id",
+        "tenant_id",
+        "owner_user_id",
+        "membership_id",
+        "actor_user_id",
+        "archive_id",
+        "event_kind",
+        "outcome",
+        "source_type",
+        "source_auth_level",
+        "occurred_at",
+        "recorded_at",
+        "idempotency_key",
+        "request_digest",
+        "archive_digest",
+        "decision_digest",
+        "evidence_bundle_digest",
+        "evidence_count",
+        "supersedes_event_id",
+        "event_digest",
+    ):
+        raise ValueError("invalid outcome_events schema")
+    trigger_names = {
+        row[0]
+        for row in connection.execute(
+            "SELECT name FROM sqlite_master WHERE type='trigger'"
+        ).fetchall()
+    }
+    if trigger_names != _V7_TRIGGER_NAMES:
+        raise ValueError("invalid schema-v7 triggers")
+    if connection.execute("PRAGMA foreign_key_check").fetchall():
+        raise ValueError("invalid schema-v7 foreign keys")
+    if check_registry:
+        from app.operations.runtime_data_registry import (
+            RUNTIME_DATA_ENTRIES,
+            schema_contract_digest_connection,
+        )
+
+        current = next(
+            entry for entry in RUNTIME_DATA_ENTRIES if entry.name == "shiguan.sqlite3"
+        )
+        digest = schema_contract_digest_connection(connection)
+        if current.user_version != 7 or digest != current.schema_contract_digest:
+            raise ValueError("invalid schema-v7 contract")
 
 
 def _require_verified_migration(connection: sqlite3.Connection) -> None:
@@ -801,6 +980,93 @@ def _legacy_content_snapshot(
                     digest.update(encoded)
         snapshot[table] = (row_count, f"sha256:{digest.hexdigest()}")
     return snapshot
+
+
+def _v6_content_snapshot(
+    connection: sqlite3.Connection,
+) -> dict[str, tuple[int, str]]:
+    """Freeze canonical v6 business bytes with the existing typed framing."""
+
+    from app.operations.runtime_data_registry import SHIGUAN_V6_PREDECESSOR
+
+    snapshot: dict[str, tuple[int, str]] = {}
+    for table in SHIGUAN_V6_PREDECESSOR.required_tables:
+        if table == "schema_migration_verification":
+            continue
+        table_info = connection.execute(f'PRAGMA table_info("{table}")').fetchall()
+        columns = tuple(row[1] for row in table_info)
+        primary_key = tuple(
+            column
+            for _, column in sorted(
+                (row[5], row[1]) for row in table_info if row[5]
+            )
+        )
+        if not primary_key:
+            raise ValueError(f"schema-v6 table has no primary key: {table}")
+        projection = tuple(sorted(columns))
+        quoted_columns = ", ".join(f'"{column}"' for column in projection)
+        order_by = ", ".join(f'"{column}"' for column in primary_key)
+        cursor = connection.execute(
+            f'SELECT {quoted_columns} FROM "{table}" ORDER BY {order_by}'
+        )
+        digest = hashlib.sha256()
+        row_count = 0
+        while rows := cursor.fetchmany(512):
+            for row in rows:
+                row_count += 1
+                digest.update(len(row).to_bytes(4, "big"))
+                for value in row:
+                    encoded = _content_digest_value(value)
+                    digest.update(len(encoded).to_bytes(8, "big"))
+                    digest.update(encoded)
+        snapshot[table] = (row_count, f"sha256:{digest.hexdigest()}")
+    return snapshot
+
+
+def _migrate_v6_to_v7_connection(connection: sqlite3.Connection) -> None:
+    """Apply v7 on a verified canonical-v6 transaction, leaving it pending."""
+
+    _validate_v6_schema(connection)
+    _require_verified_migration(connection)
+    content_before = _v6_content_snapshot(connection)
+    guard_row = connection.execute(
+        "SELECT sql FROM sqlite_master WHERE type='trigger' "
+        "AND name='schema_migration_verification_guard_update'"
+    ).fetchone()
+    if guard_row is None or not isinstance(guard_row[0], str):
+        raise ValueError("missing schema-v6 migration guard")
+    connection.execute("DROP TRIGGER schema_migration_verification_guard_update")
+    connection.execute(
+        "UPDATE schema_migration_verification "
+        "SET status='PENDING_VERIFICATION', verified_at=NULL WHERE id=1"
+    )
+    connection.execute(guard_row[0])
+    _execute_script_in_transaction(connection, _V7_OUTCOME_SCHEMA)
+    connection.execute("PRAGMA user_version = 7")
+    _validate_v7_schema(connection)
+    if _v6_content_snapshot(connection) != content_before:
+        raise ValueError("schema-v6 content changed during v7 migration")
+    if connection.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
+        raise ValueError("invalid schema-v7 integrity")
+
+
+def migrate_v6_to_v7(path: Path) -> None:
+    """Atomically add Outcome storage, leaving post-commit verification pending."""
+
+    connection: sqlite3.Connection | None = None
+    try:
+        connection = sqlite3.connect(path)
+        connection.execute("PRAGMA foreign_keys = ON")
+        connection.execute("BEGIN IMMEDIATE")
+        _migrate_v6_to_v7_connection(connection)
+        connection.commit()
+    except (OSError, sqlite3.Error, ValueError, ShiguanStorageError) as exc:
+        if connection is not None:
+            connection.rollback()
+        raise ShiguanStorageError("史馆 v6 到 v7 无法迁移") from exc
+    finally:
+        if connection is not None:
+            connection.close()
 
 
 def _validate_v5_identity_namespace(connection: sqlite3.Connection) -> None:

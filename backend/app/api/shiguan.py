@@ -29,11 +29,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, FastAPI, Query
+from fastapi import APIRouter, FastAPI, Header, Query
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.api.auth import CurrentUser
+from app.api.auth import CurrentUser, _bearer_session_id
 from app.shiguan import storage
 from app.shiguan.errors import (
     ArchiveDecisionConflictError,
@@ -47,6 +47,9 @@ from app.shiguan.models import (
     ArchiveDecisionValue,
     ArchiveType,
     DadianOverview,
+    OutcomeCreate,
+    OutcomePage,
+    OutcomeProjection,
     ReviewStatus,
     Statistics,
 )
@@ -161,6 +164,64 @@ def update_archive_decision(
         archive_id,
         payload.decision,
         owner_user_id=current_user.id,
+    )
+
+
+@router.post(
+    "/archives/{archive_id}/outcomes",
+    response_model=OutcomeProjection,
+    status_code=201,
+)
+def create_authenticated_outcome(
+    archive_id: str,
+    payload: OutcomeCreate,
+    current_user: CurrentUser,
+    authorization: str | None = Header(default=None),
+) -> OutcomeProjection:
+    """Append one authenticated Owner assertion and return a redacted receipt."""
+
+    event = storage.create_outcome(
+        archive_id,
+        payload,
+        principal=current_user,
+        session_id=_bearer_session_id(authorization),
+    )
+    return storage.project_outcome(event)
+
+
+@router.get("/archives/{archive_id}/outcomes", response_model=OutcomePage)
+def list_authenticated_archive_outcomes(
+    archive_id: str,
+    current_user: CurrentUser,
+    limit: int = Query(default=50, ge=1, le=100),
+    cursor: str | None = Query(default=None, max_length=256),
+    authorization: str | None = Header(default=None),
+) -> OutcomePage:
+    """List stable, redacted Outcome receipts for one owner-scoped archive."""
+
+    return storage.list_archive_outcomes(
+        archive_id,
+        principal=current_user,
+        session_id=_bearer_session_id(authorization),
+        limit=limit,
+        cursor=cursor,
+    )
+
+
+@router.get("/outcomes", response_model=OutcomePage)
+def list_authenticated_outcomes(
+    current_user: CurrentUser,
+    limit: int = Query(default=50, ge=1, le=100),
+    cursor: str | None = Query(default=None, max_length=256),
+    authorization: str | None = Header(default=None),
+) -> OutcomePage:
+    """List the active principal's stable, redacted Outcome receipts."""
+
+    return storage.list_outcomes(
+        principal=current_user,
+        session_id=_bearer_session_id(authorization),
+        limit=limit,
+        cursor=cursor,
     )
 
 

@@ -26,7 +26,7 @@ from app.jinyiwei.models import (
     RequiredFact,
     SourceType,
 )
-from app.shiguan import archive_decree, db, storage
+from app.shiguan import archive_decree, db, maintenance, storage
 from app.shiguan.errors import (
     ArchiveNotFoundError,
     ArchiveValidationError,
@@ -164,7 +164,7 @@ def _response() -> SimpleNamespace:
     )
 
 
-def test_fresh_database_is_verified_v6_and_initialization_is_idempotent(tmp_path) -> None:
+def test_fresh_database_is_verified_v7_and_initialization_is_idempotent(tmp_path) -> None:
     path = tmp_path / "fresh.sqlite3"
     for _ in range(2):
         connection = db.get_connection(path)
@@ -172,7 +172,7 @@ def test_fresh_database_is_verified_v6_and_initialization_is_idempotent(tmp_path
 
     connection = sqlite3.connect(path)
     try:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 6
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 7
         assert connection.execute(
             "SELECT status FROM schema_migration_verification WHERE id=1"
         ).fetchone()[0] == "VERIFIED"
@@ -195,7 +195,7 @@ def test_fresh_database_is_verified_v6_and_initialization_is_idempotent(tmp_path
         connection.close()
 
 
-def test_explicit_v2_to_v6_migration_and_runtime_rejects_each_old_version(
+def test_explicit_v2_to_v7_migration_and_runtime_rejects_each_old_version(
     tmp_path,
 ) -> None:
     path = tmp_path / "v2.sqlite3"
@@ -217,9 +217,11 @@ def test_explicit_v2_to_v6_migration_and_runtime_rejects_each_old_version(
     db.migrate_v4_to_v5(path)
     with pytest.raises(ShiguanStorageError, match="显式迁移"):
         db.get_connection(path)
-    db.migrate_v5_to_v6(path)
-    with pytest.raises(ShiguanStorageError, match="验证"):
+    maintenance.migrate_runtime_v5_to_v6(path)
+    with pytest.raises(ShiguanStorageError, match="显式迁移"):
         db.get_connection(path)
+    maintenance.migrate_runtime_v6_to_v7(path)
+    db.get_connection(path).close()
 
 
 def test_failed_v2_migration_rolls_back_table_and_version(tmp_path, monkeypatch) -> None:

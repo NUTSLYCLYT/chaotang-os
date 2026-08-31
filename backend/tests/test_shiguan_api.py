@@ -15,21 +15,31 @@ recall's matching/ranking logic itself is covered end-to-end in
 
 from __future__ import annotations
 
+import hashlib
 import sqlite3
+import uuid
+from datetime import UTC, datetime
 
 import pytest
 from fastapi.testclient import TestClient
 
 import app.api.shiguan as shiguan_api
-from app.auth import configure_auth_db, create_session, create_user
+from app.auth import (
+    configure_auth_db,
+    create_session,
+    create_user,
+    get_session_user,
+)
 from app.main import app
 from app.shiguan import db as shiguan_db
+from app.shiguan import storage as shiguan_storage
 from app.shiguan.errors import (
     ArchiveDecisionConflictError,
     ArchiveNotFoundError,
     ArchiveValidationError,
     ShiguanStorageError,
 )
+from app.shiguan.models import ArchiveEvidenceReferenceCreate
 
 client = TestClient(app)
 
@@ -46,6 +56,21 @@ def _authenticate_client(isolate_shiguan_default_db_path, tmp_path):
     client.headers["Authorization"] = f"Bearer {create_session(user.id)}"
     yield
     client.headers.pop("Authorization", None)
+    configure_auth_db(None)
+
+
+@pytest.fixture
+def outcome_client():
+    """Use the production identity boundary: auth and Outcome share one DB."""
+
+    configure_auth_db(shiguan_db._DEFAULT_DB_PATH)
+    user = create_user(
+        "shiguan-outcome-user", "shiguan-outcome@example.com", "six-or-more"
+    )
+    session_id = create_session(user.id)
+    with TestClient(app) as isolated_client:
+        isolated_client.headers["Authorization"] = f"Bearer {session_id}"
+        yield isolated_client
     configure_auth_db(None)
 
 
@@ -83,6 +108,50 @@ def _reply_payload(**overrides) -> dict:
 def _second_user_headers() -> dict[str, str]:
     user = create_user("shiguan-other", "shiguan-other@example.com", "six-or-more")
     return {"Authorization": f"Bearer {create_session(user.id)}"}
+
+
+def _outcome_reference() -> ArchiveEvidenceReferenceCreate:
+    return ArchiveEvidenceReferenceCreate.model_validate(
+        {
+            "pack_id": "pack-api-outcome",
+            "investigation_id": "investigation-api-outcome",
+            "snapshot": {
+                "evidence_id": "evidence-api-outcome",
+                "fact_key": "acceptance",
+                "category": "ENTITY_REFERENCE",
+                "data_scope": "INTERNAL_BUSINESS",
+                "subject": "验收结果",
+                "value": {"accepted": True},
+                "as_of": "2026-08-31T08:00:00+00:00",
+                "retrieved_at": "2026-08-31T08:00:00+00:00",
+                "source_url": "https://example.test/private-outcome",
+                "publisher": "朝堂 OS",
+                "source_type": "SHIGUAN",
+                "quality": "PRIMARY",
+                "stance": "SUPPORTS",
+                "excerpt": "敏感验收正文不得进入 Outcome 投影。",
+                "content_hash": hashlib.sha256(b"api-outcome").hexdigest(),
+                "confidence": 1.0,
+            },
+        }
+    )
+
+
+def _adopted_reply_for_current_session(outcome_client: TestClient) -> str:
+    session_id = outcome_client.headers["Authorization"].removeprefix("Bearer ")
+    principal = get_session_user(session_id)
+    assert principal is not None
+    reply_id = uuid.uuid4().hex
+    shiguan_storage.create_reply_with_evidence(
+        _reply_payload(),
+        [_outcome_reference()],
+        reply_id=reply_id,
+        owner_user_id=principal.id,
+    )
+    shiguan_storage.set_archive_decision(
+        reply_id, "ADOPTED", owner_user_id=principal.id
+    )
+    return reply_id
 
 
 class TestCreateArchive:
@@ -454,6 +523,218 @@ class TestArchiveDecision:
             lock_probe.rollback()
         finally:
             lock_probe.close()
+
+
+class TestAuthenticatedOutcomeApi:
+    def test_outcome_api_derives_identity_and_rejects_client_authority_fields(
+        self, outcome_client
+    ):
+        archive_id = _adopted_reply_for_current_session(outcome_client)
+        url = f"{ARCHIVES_URL}/{archive_id}/outcomes"
+        request = {
+            "outcome": "ACHIEVED",
+            "occurred_at": datetime.now(UTC).isoformat(),
+            "idempotency_key": "api-outcome-key-001",
+            "supersedes_event_id": None,
+        }
+        response = outcome_client.post(url, json=request)
+        assert response.status_code == 201
+        body = response.json()
+        assert set(body) == {
+            "event_id",
+            "archive_id",
+            "event_kind",
+            "outcome",
+            "source_type",
+            "source_auth_level",
+            "occurred_at",
+            "recorded_at",
+            "archive_digest",
+            "decision_digest",
+            "evidence_bundle_digest",
+            "evidence_count",
+            "supersedes_event_id",
+            "event_digest",
+        }
+        assert body["source_type"] == "OWNER_ATTESTATION"
+        assert body["source_auth_level"] == "AUTHENTICATED_OWNER_ASSERTION"
+        assert "example.test" not in response.text
+        assert "敏感验收" not in response.text
+
+        rejected = outcome_client.post(
+            url, json={**request, "tenant_id": "client-controlled"}
+        )
+        assert rejected.status_code == 422
+
+    def test_outcome_api_missing_and_cross_scope_have_identical_404(
+        self, outcome_client
+    ):
+        archive_id = _adopted_reply_for_current_session(outcome_client)
+        other_headers = _second_user_headers()
+        cross = outcome_client.get(
+            f"{ARCHIVES_URL}/{archive_id}/outcomes", headers=other_headers
+        )
+        missing = outcome_client.get(
+            f"{ARCHIVES_URL}/{uuid.uuid4().hex}/outcomes", headers=other_headers
+        )
+        assert cross.status_code == missing.status_code == 404
+        assert cross.content == missing.content
+
+    def test_outcome_api_cursor_limit_order_and_projection_whitelist(
+        self, outcome_client
+    ):
+        archive_id = _adopted_reply_for_current_session(outcome_client)
+        url = f"{ARCHIVES_URL}/{archive_id}/outcomes"
+        for ordinal, outcome in enumerate(("OBSERVING", "PARTIAL"), start=1):
+            response = outcome_client.post(
+                url,
+                json={
+                    "outcome": outcome,
+                    "occurred_at": datetime.now(UTC).isoformat(),
+                    "idempotency_key": f"api-page-key-{ordinal:03d}",
+                    "supersedes_event_id": None,
+                },
+            )
+            assert response.status_code == 201
+        first = outcome_client.get(url, params={"limit": 1})
+        assert first.status_code == 200
+        assert len(first.json()["items"]) == 1
+        assert first.json()["next_cursor"]
+        second = outcome_client.get(
+            url,
+            params={"limit": 1, "cursor": first.json()["next_cursor"]},
+        )
+        assert second.status_code == 200
+        assert first.json()["items"][0]["event_id"] != second.json()["items"][0][
+            "event_id"
+        ]
+        assert outcome_client.get(url, params={"limit": 101}).status_code == 422
+        assert outcome_client.get(url, params={"cursor": "not+base64"}).status_code == 422
+
+    def test_outcome_api_revoked_session_fails_before_storage(
+        self, monkeypatch, outcome_client
+    ):
+        archive_id = _adopted_reply_for_current_session(outcome_client)
+        session_id = outcome_client.headers["Authorization"].removeprefix("Bearer ")
+        principal = get_session_user(session_id)
+        assert principal is not None
+        connection = shiguan_db.get_connection()
+        try:
+            connection.execute(
+                "UPDATE tenant_memberships SET revoked_at=? WHERE id=?",
+                (datetime.now(UTC).isoformat(), principal.membership_id),
+            )
+            connection.commit()
+        finally:
+            connection.close()
+        called = False
+
+        def _unexpected(*args, **kwargs):
+            nonlocal called
+            called = True
+            raise AssertionError("storage must not be called")
+
+        monkeypatch.setattr(shiguan_api.storage, "create_outcome", _unexpected)
+        response = outcome_client.post(
+            f"{ARCHIVES_URL}/{archive_id}/outcomes",
+            json={
+                "outcome": "ACHIEVED",
+                "occurred_at": datetime.now(UTC).isoformat(),
+                "idempotency_key": "api-revoked-key",
+                "supersedes_event_id": None,
+            },
+        )
+        assert response.status_code == 401
+        assert called is False
+
+    def test_outcome_api_session_revoked_after_dependency_fails_in_transaction(
+        self, monkeypatch, outcome_client
+    ):
+        archive_id = _adopted_reply_for_current_session(outcome_client)
+        session_id = outcome_client.headers["Authorization"].removeprefix("Bearer ")
+        real_create_outcome = shiguan_api.storage.create_outcome
+
+        def _revoke_after_dependency(*args, **kwargs):
+            with sqlite3.connect(shiguan_db._DEFAULT_DB_PATH) as connection:
+                connection.execute(
+                    "UPDATE auth_sessions SET revoked_at=? WHERE id=?",
+                    (datetime.now(UTC).isoformat(), session_id),
+                )
+            return real_create_outcome(*args, **kwargs)
+
+        monkeypatch.setattr(
+            shiguan_api.storage, "create_outcome", _revoke_after_dependency
+        )
+        response = outcome_client.post(
+            f"{ARCHIVES_URL}/{archive_id}/outcomes",
+            json={
+                "outcome": "ACHIEVED",
+                "occurred_at": datetime.now(UTC).isoformat(),
+                "idempotency_key": "api-session-race-key",
+                "supersedes_event_id": None,
+            },
+        )
+
+        assert response.status_code == 404
+        with sqlite3.connect(shiguan_db._DEFAULT_DB_PATH) as connection:
+            assert connection.execute("SELECT COUNT(*) FROM outcome_events").fetchone() == (
+                0,
+            )
+
+    def test_outcome_api_reads_recheck_session_in_transaction(
+        self, monkeypatch, outcome_client
+    ):
+        archive_id = _adopted_reply_for_current_session(outcome_client)
+        url = f"{ARCHIVES_URL}/{archive_id}/outcomes"
+        created = outcome_client.post(
+            url,
+            json={
+                "outcome": "ACHIEVED",
+                "occurred_at": datetime.now(UTC).isoformat(),
+                "idempotency_key": "api-session-reader-key",
+                "supersedes_event_id": None,
+            },
+        )
+        assert created.status_code == 201
+
+        first_session_id = outcome_client.headers["Authorization"].removeprefix(
+            "Bearer "
+        )
+        principal = get_session_user(first_session_id)
+        assert principal is not None
+        real_list_archive_outcomes = shiguan_api.storage.list_archive_outcomes
+
+        def _revoke_archive_reader_after_dependency(*args, **kwargs):
+            with sqlite3.connect(shiguan_db._DEFAULT_DB_PATH) as connection:
+                connection.execute(
+                    "UPDATE auth_sessions SET revoked_at=? WHERE id=?",
+                    (datetime.now(UTC).isoformat(), first_session_id),
+                )
+            return real_list_archive_outcomes(*args, **kwargs)
+
+        monkeypatch.setattr(
+            shiguan_api.storage,
+            "list_archive_outcomes",
+            _revoke_archive_reader_after_dependency,
+        )
+        assert outcome_client.get(url).status_code == 404
+
+        second_session_id = create_session(principal.id)
+        outcome_client.headers["Authorization"] = f"Bearer {second_session_id}"
+        real_list_outcomes = shiguan_api.storage.list_outcomes
+
+        def _revoke_global_reader_after_dependency(*args, **kwargs):
+            with sqlite3.connect(shiguan_db._DEFAULT_DB_PATH) as connection:
+                connection.execute(
+                    "UPDATE auth_sessions SET revoked_at=? WHERE id=?",
+                    (datetime.now(UTC).isoformat(), second_session_id),
+                )
+            return real_list_outcomes(*args, **kwargs)
+
+        monkeypatch.setattr(
+            shiguan_api.storage, "list_outcomes", _revoke_global_reader_after_dependency
+        )
+        assert outcome_client.get("/api/v1/shiguan/outcomes").status_code == 404
 
 
 class TestStatistics:

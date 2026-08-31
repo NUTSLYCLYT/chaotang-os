@@ -53,15 +53,16 @@ def _create_user(user_id: str, path: Path) -> None:
         conn.close()
 
 
-def test_fresh_scheduler_database_is_verified_schema_v6(tmp_path: Path) -> None:
+def test_fresh_scheduler_database_is_verified_schema_v7(tmp_path: Path) -> None:
     path = tmp_path / "fresh.sqlite3"
     _create_user("owner-a", path)
 
     with sqlite3.connect(path) as connection:
-        assert connection.execute("PRAGMA user_version").fetchone() == (6,)
+        assert connection.execute("PRAGMA user_version").fetchone() == (7,)
         assert connection.execute(
             "SELECT id,status FROM schema_migration_verification"
         ).fetchall() == [(1, "VERIFIED")]
+        assert connection.execute("SELECT COUNT(*) FROM outcome_events").fetchone() == (0,)
 
 
 def _create_fact(owner: str, path: Path, *, archive_id: str = "archive-1") -> None:
@@ -668,7 +669,7 @@ def test_cli_production_invoker_honors_exhausted_process_budget_before_network(
     configure_provider_attempt_budget(None)
 
 
-def test_cli_smoke_fresh_v6_database_has_no_users_or_model_call(tmp_path):
+def test_cli_smoke_fresh_v7_database_has_no_users_or_model_call(tmp_path):
     path = tmp_path / "never-created-before.sqlite3"
     assert not path.exists()
 
@@ -704,10 +705,11 @@ def test_cli_smoke_fresh_v6_database_has_no_users_or_model_call(tmp_path):
     }
     conn = sqlite3.connect(path)
     try:
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 6
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 7
         assert conn.execute(
             "SELECT id,status FROM schema_migration_verification"
         ).fetchall() == [(1, "VERIFIED")]
         assert conn.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 0
+        assert conn.execute("SELECT COUNT(*) FROM outcome_events").fetchone()[0] == 0
     finally:
         conn.close()

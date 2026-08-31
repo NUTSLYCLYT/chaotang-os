@@ -13,14 +13,25 @@ tests it exercises.
 
 from __future__ import annotations
 
+import hashlib
 import sqlite3
+import threading
 import types
 import uuid
+from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime
 
 import pytest
 
+from app.auth import (
+    configure_auth_db,
+    create_session,
+    create_user,
+    get_session_user,
+)
 from app.shiguan import archive_decree, db, errors, storage
 from app.shiguan.errors import ArchiveNotFoundError, ArchiveValidationError, ShiguanStorageError
+from app.shiguan.models import ArchiveEvidenceReferenceCreate
 
 
 def _memorial_payload(**overrides) -> dict:
@@ -52,6 +63,56 @@ def _reply_payload(**overrides) -> dict:
     }
     payload.update(overrides)
     return payload
+
+
+def _outcome_reference() -> ArchiveEvidenceReferenceCreate:
+    return ArchiveEvidenceReferenceCreate.model_validate(
+        {
+            "pack_id": "pack-outcome",
+            "investigation_id": "investigation-outcome",
+            "snapshot": {
+                "evidence_id": "evidence-outcome",
+                "fact_key": "delivery_result",
+                "category": "ENTITY_REFERENCE",
+                "data_scope": "INTERNAL_BUSINESS",
+                "subject": "交付结果",
+                "value": {"accepted": True},
+                "as_of": "2026-08-31T08:00:00+00:00",
+                "retrieved_at": "2026-08-31T08:00:00+00:00",
+                "source_url": "https://example.test/outcome",
+                "publisher": "朝堂 OS",
+                "source_type": "SHIGUAN",
+                "quality": "PRIMARY",
+                "stance": "SUPPORTS",
+                "excerpt": "Owner 已验收交付结果。",
+                "content_hash": hashlib.sha256(b"outcome-source").hexdigest(),
+                "confidence": 1.0,
+            },
+        }
+    )
+
+
+def _outcome_source(tmp_path):
+    database = tmp_path / "outcome.sqlite3"
+    configure_auth_db(database)
+    user = create_user("outcome-owner", "outcome@example.com", "six-or-more")
+    session_id = create_session(user.id)
+    principal = get_session_user(session_id)
+    assert principal is not None
+    archive = storage.create_reply_with_evidence(
+        _reply_payload(),
+        [_outcome_reference()],
+        reply_id=uuid.uuid4().hex,
+        owner_user_id=principal.id,
+        db_path=database,
+    )
+    decision = storage.set_archive_decision(
+        archive.id,
+        "ADOPTED",
+        owner_user_id=principal.id,
+        db_path=database,
+    )
+    return database, session_id, principal, archive, decision
 
 
 @pytest.fixture(autouse=True)
@@ -518,6 +579,600 @@ class TestArchiveDecisionStorage:
             )
         monkeypatch.setattr(db, "get_connection", real_get_connection)
         assert storage.get_archive(archive.id, db_path=db_path).decision_status is None
+
+
+class TestAuthenticatedOutcomeStorage:
+    def test_outcome_requires_reply_adopted_evidence_and_active_owner_membership(
+        self, tmp_path
+    ):
+        database, session_id, principal, archive, decision = _outcome_source(tmp_path)
+        occurred_at = datetime.now(UTC).isoformat()
+
+        event = storage.create_outcome(
+            archive.id,
+            {
+                "outcome": "ACHIEVED",
+                "occurred_at": occurred_at,
+                "idempotency_key": "outcome-key-001",
+                "supersedes_event_id": None,
+            },
+            principal=principal,
+            session_id=session_id,
+            db_path=database,
+        )
+
+        assert event.event_kind == "RECORDED"
+        assert event.outcome == "ACHIEVED"
+        assert event.source_type == "OWNER_ATTESTATION"
+        assert event.source_auth_level == "AUTHENTICATED_OWNER_ASSERTION"
+        assert event.decision_digest.startswith("sha256:")
+        assert event.evidence_count == 1
+        assert datetime.fromisoformat(event.occurred_at) >= datetime.fromisoformat(
+            decision.decided_at
+        )
+
+        connection = db.get_connection(database)
+        try:
+            connection.execute(
+                "UPDATE tenant_memberships SET revoked_at=? WHERE id=?",
+                (datetime.now(UTC).isoformat(), principal.membership_id),
+            )
+            connection.commit()
+        finally:
+            connection.close()
+        with pytest.raises(ArchiveNotFoundError):
+            storage.create_outcome(
+                archive.id,
+                {
+                    "outcome": "PARTIAL",
+                    "occurred_at": datetime.now(UTC).isoformat(),
+                    "idempotency_key": "outcome-key-002",
+                    "supersedes_event_id": None,
+                },
+                principal=principal,
+                session_id=session_id,
+                db_path=database,
+            )
+        configure_auth_db(None)
+
+    def test_outcome_idempotency_and_snapshot_drift_fail_closed(self, tmp_path):
+        database, session_id, principal, archive, _decision = _outcome_source(tmp_path)
+        request = {
+            "outcome": "PARTIAL",
+            "occurred_at": datetime.now(UTC).isoformat(),
+            "idempotency_key": "outcome-key-retry",
+            "supersedes_event_id": None,
+        }
+        first = storage.create_outcome(
+            archive.id,
+            request,
+            principal=principal,
+            session_id=session_id,
+            db_path=database,
+        )
+        assert storage.create_outcome(
+            archive.id,
+            request,
+            principal=principal,
+            session_id=session_id,
+            db_path=database,
+        ) == first
+
+        connection = sqlite3.connect(database)
+        try:
+            connection.execute(
+                "UPDATE archives SET title='drifted' WHERE id=?", (archive.id,)
+            )
+            connection.commit()
+        finally:
+            connection.close()
+        with pytest.raises(ShiguanStorageError):
+            storage.create_outcome(
+                archive.id,
+                request,
+                principal=principal,
+                session_id=session_id,
+                db_path=database,
+            )
+        configure_auth_db(None)
+
+    def test_outcome_correction_is_head_only_and_database_append_only(self, tmp_path):
+        database, session_id, principal, archive, _decision = _outcome_source(tmp_path)
+        first = storage.create_outcome(
+            archive.id,
+            {
+                "outcome": "OBSERVING",
+                "occurred_at": datetime.now(UTC).isoformat(),
+                "idempotency_key": "outcome-key-head-1",
+                "supersedes_event_id": None,
+            },
+            principal=principal,
+            session_id=session_id,
+            db_path=database,
+        )
+        correction = storage.create_outcome(
+            archive.id,
+            {
+                "outcome": "ACHIEVED",
+                "occurred_at": datetime.now(UTC).isoformat(),
+                "idempotency_key": "outcome-key-head-2",
+                "supersedes_event_id": first.event_id,
+            },
+            principal=principal,
+            session_id=session_id,
+            db_path=database,
+        )
+        assert correction.event_kind == "CORRECTED"
+        with pytest.raises(errors.ArchiveDecisionConflictError):
+            storage.create_outcome(
+                archive.id,
+                {
+                    "outcome": "NOT_ACHIEVED",
+                    "occurred_at": datetime.now(UTC).isoformat(),
+                    "idempotency_key": "outcome-key-head-3",
+                    "supersedes_event_id": first.event_id,
+                },
+                principal=principal,
+                session_id=session_id,
+                db_path=database,
+            )
+
+        connection = sqlite3.connect(database)
+        try:
+            with pytest.raises(sqlite3.IntegrityError):
+                connection.execute(
+                    "UPDATE outcome_events SET outcome='PARTIAL' WHERE event_id=?",
+                    (correction.event_id,),
+                )
+            with pytest.raises(sqlite3.IntegrityError):
+                connection.execute(
+                    "DELETE FROM archive_decisions WHERE archive_id=?", (archive.id,)
+                )
+        finally:
+            connection.close()
+        configure_auth_db(None)
+
+    def test_outcome_reader_is_redacted_and_revalidates_current_state(self, tmp_path):
+        database, session_id, principal, archive, _decision = _outcome_source(tmp_path)
+        created = storage.create_outcome(
+            archive.id,
+            {
+                "outcome": "ACHIEVED",
+                "occurred_at": datetime.now(UTC).isoformat(),
+                "idempotency_key": "outcome-key-list",
+                "supersedes_event_id": None,
+            },
+            principal=principal,
+            session_id=session_id,
+            db_path=database,
+        )
+        page = storage.list_outcomes(
+            principal=principal, session_id=session_id, db_path=database
+        )
+        assert [item.event_id for item in page.items] == [created.event_id]
+        assert set(page.items[0].model_dump()) == {
+            "event_id",
+            "archive_id",
+            "event_kind",
+            "outcome",
+            "source_type",
+            "source_auth_level",
+            "occurred_at",
+            "recorded_at",
+            "archive_digest",
+            "decision_digest",
+            "evidence_bundle_digest",
+            "evidence_count",
+            "supersedes_event_id",
+            "event_digest",
+        }
+        serialized = page.model_dump_json()
+        assert "example.test" not in serialized
+        assert "Owner 已验收" not in serialized
+        configure_auth_db(None)
+
+def test_create_outcome_rejects_revoked_presented_session_in_transaction(tmp_path):
+    database, session_id, principal, archive, _decision = _outcome_source(tmp_path)
+    with sqlite3.connect(database) as connection:
+        connection.execute(
+            "UPDATE auth_sessions SET revoked_at=? WHERE id=?",
+            (datetime.now(UTC).isoformat(), session_id),
+        )
+
+    with pytest.raises(ArchiveNotFoundError):
+        storage.create_outcome(
+            archive.id,
+            {
+                "outcome": "ACHIEVED",
+                "occurred_at": datetime.now(UTC).isoformat(),
+                "idempotency_key": "outcome-key-revoked-session",
+                "supersedes_event_id": None,
+            },
+            principal=principal,
+            session_id=session_id,
+            db_path=database,
+        )
+
+    with sqlite3.connect(database) as connection:
+        assert connection.execute("SELECT COUNT(*) FROM outcome_events").fetchone() == (
+            0,
+        )
+    configure_auth_db(None)
+
+
+def test_list_outcomes_rejects_revoked_presented_session_in_transaction(tmp_path):
+    database, session_id, principal, archive, _decision = _outcome_source(tmp_path)
+    storage.create_outcome(
+        archive.id,
+        {
+            "outcome": "ACHIEVED",
+            "occurred_at": datetime.now(UTC).isoformat(),
+            "idempotency_key": "outcome-key-revoked-reader",
+            "supersedes_event_id": None,
+        },
+        principal=principal,
+        session_id=session_id,
+        db_path=database,
+    )
+    with sqlite3.connect(database) as connection:
+        connection.execute(
+            "UPDATE auth_sessions SET revoked_at=? WHERE id=?",
+            (datetime.now(UTC).isoformat(), session_id),
+        )
+
+    with pytest.raises(ArchiveNotFoundError):
+        storage.list_outcomes(
+            principal=principal, session_id=session_id, db_path=database
+        )
+    configure_auth_db(None)
+
+
+def test_outcome_rejects_expired_session_and_all_digest_or_idempotency_splices(
+    tmp_path,
+):
+    expired_dir = tmp_path / "expired"
+    expired_dir.mkdir()
+    database, session_id, principal, archive, _decision = _outcome_source(expired_dir)
+    expired_session_id = uuid.uuid4().hex
+    with sqlite3.connect(database) as connection:
+        connection.execute(
+            "INSERT INTO auth_sessions "
+            "(id,user_id,membership_id,created_at,expires_at,revoked_at) "
+            "VALUES (?,?,?,?,?,NULL)",
+            (
+                expired_session_id,
+                principal.id,
+                principal.membership_id,
+                "1999-01-01T00:00:00+00:00",
+                "2000-01-01T00:00:00+00:00",
+            ),
+        )
+    with pytest.raises(ArchiveNotFoundError):
+        storage.create_outcome(
+            archive.id,
+            {
+                "outcome": "ACHIEVED",
+                "occurred_at": datetime.now(UTC).isoformat(),
+                "idempotency_key": "expired-session-key",
+                "supersedes_event_id": None,
+            },
+            principal=principal,
+            session_id=expired_session_id,
+            db_path=database,
+        )
+    with sqlite3.connect(database) as connection:
+        assert connection.execute("SELECT COUNT(*) FROM outcome_events").fetchone() == (
+            0,
+        )
+
+    for field in (
+        "request_digest",
+        "archive_digest",
+        "decision_digest",
+        "evidence_bundle_digest",
+        "event_digest",
+    ):
+        case_dir = tmp_path / field
+        case_dir.mkdir()
+        database, session_id, principal, archive, _decision = _outcome_source(case_dir)
+        request = {
+            "outcome": "PARTIAL",
+            "occurred_at": datetime.now(UTC).isoformat(),
+            "idempotency_key": f"digest-splice-{field}",
+            "supersedes_event_id": None,
+        }
+        event = storage.create_outcome(
+            archive.id,
+            request,
+            principal=principal,
+            session_id=session_id,
+            db_path=database,
+        )
+        with sqlite3.connect(database) as connection:
+            trigger_sql = connection.execute(
+                "SELECT sql FROM sqlite_master WHERE type='trigger' "
+                "AND name='outcome_events_no_update'"
+            ).fetchone()[0]
+            connection.execute("DROP TRIGGER outcome_events_no_update")
+            connection.execute(
+                f"UPDATE outcome_events SET {field}=? WHERE event_id=?",
+                ("sha256:" + "0" * 64, event.event_id),
+            )
+            connection.execute(trigger_sql)
+        with pytest.raises(ShiguanStorageError):
+            storage.create_outcome(
+                archive.id,
+                request,
+                principal=principal,
+                session_id=session_id,
+                db_path=database,
+            )
+
+    idempotency_dir = tmp_path / "idempotency"
+    idempotency_dir.mkdir()
+    database, session_id, principal, archive, _decision = _outcome_source(
+        idempotency_dir
+    )
+    occurred_at = datetime.now(UTC).isoformat()
+    storage.create_outcome(
+        archive.id,
+        {
+            "outcome": "PARTIAL",
+            "occurred_at": occurred_at,
+            "idempotency_key": "idempotency-splice-key",
+            "supersedes_event_id": None,
+        },
+        principal=principal,
+        session_id=session_id,
+        db_path=database,
+    )
+    with pytest.raises(errors.ArchiveDecisionConflictError):
+        storage.create_outcome(
+            archive.id,
+            {
+                "outcome": "ACHIEVED",
+                "occurred_at": occurred_at,
+                "idempotency_key": "idempotency-splice-key",
+                "supersedes_event_id": None,
+            },
+            principal=principal,
+            session_id=session_id,
+            db_path=database,
+        )
+    configure_auth_db(None)
+
+
+def test_outcome_rejects_coherent_request_and_event_digest_splice(tmp_path):
+    database, session_id, principal, archive, _decision = _outcome_source(tmp_path)
+    request = {
+        "outcome": "PARTIAL",
+        "occurred_at": datetime.now(UTC).isoformat(),
+        "idempotency_key": "coherent-request-splice-key",
+        "supersedes_event_id": None,
+    }
+    event = storage.create_outcome(
+        archive.id,
+        request,
+        principal=principal,
+        session_id=session_id,
+        db_path=database,
+    )
+    tampered = event.model_copy(update={"request_digest": "sha256:" + "0" * 64})
+    tampered = tampered.model_copy(
+        update={
+            "event_digest": storage._canonical_digest(
+                storage._event_digest_payload(tampered)
+            )
+        }
+    )
+    with sqlite3.connect(database) as connection:
+        trigger_sql = connection.execute(
+            "SELECT sql FROM sqlite_master WHERE type='trigger' "
+            "AND name='outcome_events_no_update'"
+        ).fetchone()[0]
+        connection.execute("DROP TRIGGER outcome_events_no_update")
+        connection.execute(
+            "UPDATE outcome_events SET request_digest=?, event_digest=? WHERE event_id=?",
+            (tampered.request_digest, tampered.event_digest, event.event_id),
+        )
+        connection.execute(trigger_sql)
+
+    with pytest.raises(ShiguanStorageError):
+        storage.list_outcomes(
+            principal=principal, session_id=session_id, db_path=database
+        )
+    with pytest.raises(ShiguanStorageError):
+        storage.create_outcome(
+            archive.id,
+            request,
+            principal=principal,
+            session_id=session_id,
+            db_path=database,
+        )
+    configure_auth_db(None)
+
+
+def test_outcome_correction_rejects_self_cross_scope_and_concurrent_forks(tmp_path):
+    database, session_id, principal, archive, _decision = _outcome_source(tmp_path)
+    first = storage.create_outcome(
+        archive.id,
+        {
+            "outcome": "OBSERVING",
+            "occurred_at": datetime.now(UTC).isoformat(),
+            "idempotency_key": "fork-root-key",
+            "supersedes_event_id": None,
+        },
+        principal=principal,
+        session_id=session_id,
+        db_path=database,
+    )
+
+    with sqlite3.connect(database) as connection:
+        connection.row_factory = sqlite3.Row
+        source = dict(
+            connection.execute(
+                "SELECT * FROM outcome_events WHERE event_id=?", (first.event_id,)
+            ).fetchone()
+        )
+        self_id = "f" * 32
+        source.update(
+            {
+                "event_id": self_id,
+                "event_kind": "CORRECTED",
+                "idempotency_key": "self-loop-key",
+                "supersedes_event_id": self_id,
+                "event_digest": "sha256:" + "1" * 64,
+            }
+        )
+        columns = tuple(source)
+        with pytest.raises(sqlite3.IntegrityError):
+            connection.execute(
+                f"INSERT INTO outcome_events ({','.join(columns)}) "
+                f"VALUES ({','.join('?' for _ in columns)})",
+                tuple(source[column] for column in columns),
+            )
+
+    second_archive = storage.create_reply_with_evidence(
+        _reply_payload(title="第二回奏"),
+        [_outcome_reference()],
+        reply_id=uuid.uuid4().hex,
+        owner_user_id=principal.id,
+        db_path=database,
+    )
+    storage.set_archive_decision(
+        second_archive.id,
+        "ADOPTED",
+        owner_user_id=principal.id,
+        db_path=database,
+    )
+    with pytest.raises(ArchiveNotFoundError):
+        storage.create_outcome(
+            second_archive.id,
+            {
+                "outcome": "PARTIAL",
+                "occurred_at": datetime.now(UTC).isoformat(),
+                "idempotency_key": "cross-scope-key",
+                "supersedes_event_id": first.event_id,
+            },
+            principal=principal,
+            session_id=session_id,
+            db_path=database,
+        )
+
+    other_user = create_user(
+        "other-outcome-owner", "other-outcome@example.com", "six-or-more"
+    )
+    other_session_id = create_session(other_user.id)
+    other_principal = get_session_user(other_session_id)
+    assert other_principal is not None
+    assert (
+        other_principal.id,
+        other_principal.tenant_id,
+        other_principal.membership_id,
+    ) != (principal.id, principal.tenant_id, principal.membership_id)
+    other_archive = storage.create_reply_with_evidence(
+        _reply_payload(title="跨租户回奏"),
+        [_outcome_reference()],
+        reply_id=uuid.uuid4().hex,
+        owner_user_id=other_principal.id,
+        db_path=database,
+    )
+    storage.set_archive_decision(
+        other_archive.id,
+        "ADOPTED",
+        owner_user_id=other_principal.id,
+        db_path=database,
+    )
+    with pytest.raises(ArchiveNotFoundError):
+        storage.create_outcome(
+            other_archive.id,
+            {
+                "outcome": "PARTIAL",
+                "occurred_at": datetime.now(UTC).isoformat(),
+                "idempotency_key": "cross-tenant-owner-membership-key",
+                "supersedes_event_id": first.event_id,
+            },
+            principal=other_principal,
+            session_id=other_session_id,
+            db_path=database,
+        )
+
+    barrier = threading.Barrier(2)
+
+    def append_correction(ordinal):
+        barrier.wait(timeout=5)
+        try:
+            return storage.create_outcome(
+                archive.id,
+                {
+                    "outcome": "ACHIEVED" if ordinal == 1 else "NOT_ACHIEVED",
+                    "occurred_at": datetime.now(UTC).isoformat(),
+                    "idempotency_key": f"concurrent-fork-{ordinal}",
+                    "supersedes_event_id": first.event_id,
+                },
+                principal=principal,
+                session_id=session_id,
+                db_path=database,
+            )
+        except (errors.ArchiveDecisionConflictError, ShiguanStorageError) as exc:
+            return exc
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        results = list(executor.map(append_correction, (1, 2)))
+    assert sum(not isinstance(result, Exception) for result in results) == 1
+    assert sum(isinstance(result, Exception) for result in results) == 1
+    with pytest.raises(
+        errors.ArchiveDecisionConflictError,
+        match="outcome correction target is not head",
+    ):
+        storage.create_outcome(
+            archive.id,
+            {
+                "outcome": "PARTIAL",
+                "occurred_at": datetime.now(UTC).isoformat(),
+                "idempotency_key": "serial-non-head-proof-key",
+                "supersedes_event_id": first.event_id,
+            },
+            principal=principal,
+            session_id=session_id,
+            db_path=database,
+        )
+    with sqlite3.connect(database) as connection:
+        assert connection.execute(
+            "SELECT COUNT(*) FROM outcome_events WHERE supersedes_event_id=?",
+            (first.event_id,),
+        ).fetchone() == (1,)
+    configure_auth_db(None)
+
+
+def test_outcome_and_decision_triggers_reject_update_and_delete(tmp_path):
+    database, session_id, principal, archive, _decision = _outcome_source(tmp_path)
+    event = storage.create_outcome(
+        archive.id,
+        {
+            "outcome": "ACHIEVED",
+            "occurred_at": datetime.now(UTC).isoformat(),
+            "idempotency_key": "trigger-matrix-key",
+            "supersedes_event_id": None,
+        },
+        principal=principal,
+        session_id=session_id,
+        db_path=database,
+    )
+    statements = (
+        ("UPDATE outcome_events SET outcome='PARTIAL' WHERE event_id=?", event.event_id),
+        ("DELETE FROM outcome_events WHERE event_id=?", event.event_id),
+        (
+            "UPDATE archive_decisions SET decision='REJECTED' WHERE archive_id=?",
+            archive.id,
+        ),
+        ("DELETE FROM archive_decisions WHERE archive_id=?", archive.id),
+    )
+    with sqlite3.connect(database) as connection:
+        for statement, identity in statements:
+            with pytest.raises(sqlite3.IntegrityError):
+                connection.execute(statement, (identity,))
+    configure_auth_db(None)
 
 
 class TestGetStatistics:

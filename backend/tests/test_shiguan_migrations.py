@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import secrets
+import shutil
 import sqlite3
 import subprocess
 import sys
@@ -625,11 +626,11 @@ def test_jinyiwei_v1_to_v5_failure_rolls_back_entire_chain(tmp_path, monkeypatch
         connection.close()
 
 
-def test_new_database_is_created_directly_at_verified_schema_v6(tmp_path):
+def test_new_database_is_created_directly_at_verified_schema_v7(tmp_path):
     path = tmp_path / "new.sqlite3"
     conn = db.get_connection(path)
     try:
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 6
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 7
         columns = {row[1] for row in conn.execute("PRAGMA table_info(archives)")}
         reply_columns = {
             "source_kind",
@@ -678,8 +679,13 @@ def test_new_database_is_created_directly_at_verified_schema_v6(tmp_path):
             )
         }
         assert trigger_names == {
+            "archive_decisions_no_delete",
+            "archive_decisions_no_update",
             "auth_sessions_guard_insert",
             "auth_sessions_guard_update",
+            "outcome_events_guard_insert",
+            "outcome_events_no_delete",
+            "outcome_events_no_update",
             "schema_migration_verification_guard_insert",
             "schema_migration_verification_guard_update",
             "schema_migration_verification_no_delete",
@@ -692,6 +698,119 @@ def test_new_database_is_created_directly_at_verified_schema_v6(tmp_path):
         }
     finally:
         conn.close()
+
+
+def _make_verified_v6(path: Path) -> None:
+    connection = sqlite3.connect(path)
+    try:
+        connection.executescript(db._V6_SCHEMA_STATEMENTS)
+        connection.commit()
+    finally:
+        connection.close()
+
+
+def test_runtime_v6_to_v7_uses_verified_backup_and_publishes_current_schema(
+    tmp_path, monkeypatch
+):
+    path = tmp_path / "schema-v6.sqlite3"
+    _make_verified_v6(path)
+    monkeypatch.setattr(
+        maintenance,
+        "_copy_backup",
+        lambda *_args: (_ for _ in ()).throw(AssertionError("raw copy forbidden")),
+    )
+
+    report = maintenance.migrate_runtime_v6_to_v7(path)
+
+    backup = path.with_name("schema-v6.sqlite3.v6-backup")
+    assert report.version == 7
+    assert report.ready is True
+    assert report.migrated is True
+    assert report.backup_path == str(backup)
+    assert report.archive_count == 0
+    assert backup.stat().st_mode & 0o777 == 0o600
+    with sqlite3.connect(backup) as backup_connection:
+        assert backup_connection.execute("PRAGMA user_version").fetchone() == (6,)
+        db._validate_v6_schema(backup_connection)
+    with db.get_connection(path) as connection:
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 7
+        assert connection.execute("SELECT COUNT(*) FROM outcome_events").fetchone()[0] == 0
+
+
+def test_runtime_v6_to_v7_path_replacement_keeps_all_inodes_pending_and_unrunnable(
+    tmp_path, monkeypatch
+):
+    path = tmp_path / "schema-v6-path-replacement.sqlite3"
+    displaced = tmp_path / "schema-v7-original-inode.sqlite3"
+    replacement = tmp_path / "schema-v7-replacement-inode.sqlite3"
+    _make_verified_v6(path)
+    real_inspect = maintenance._inspect_runtime_connection
+    replaced = False
+
+    def _replace_before_final_report(connection, *, database_path):
+        nonlocal replaced
+        if Path(database_path) == path and not replaced:
+            shutil.copy2(path, replacement)
+            path.rename(displaced)
+            replacement.rename(path)
+            replaced = True
+        return real_inspect(connection, database_path=database_path)
+
+    monkeypatch.setattr(
+        maintenance, "_inspect_runtime_connection", _replace_before_final_report
+    )
+
+    with pytest.raises(ShiguanStorageError):
+        maintenance.migrate_runtime_v6_to_v7(path)
+    assert replaced is True
+    for candidate in (path, displaced):
+        with sqlite3.connect(candidate) as connection:
+            assert connection.execute(
+                "SELECT status, verified_at FROM schema_migration_verification WHERE id=1"
+            ).fetchone() == ("PENDING_VERIFICATION", None)
+        with pytest.raises(ShiguanStorageError, match="验证"):
+            db.get_connection(candidate)
+
+
+def test_runtime_v6_to_v7_report_materialization_failure_keeps_database_pending(
+    tmp_path, monkeypatch
+):
+    path = tmp_path / "schema-v6-report-materialization.sqlite3"
+    _make_verified_v6(path)
+    real_to_payload = maintenance.RuntimeDatabaseReport.to_payload
+
+    def _fail_pending_v7_report(report):
+        if report.version == 7 and not report.ready:
+            raise RuntimeError("report materialization failed")
+        return real_to_payload(report)
+
+    monkeypatch.setattr(
+        maintenance.RuntimeDatabaseReport, "to_payload", _fail_pending_v7_report
+    )
+
+    with pytest.raises(RuntimeError, match="report materialization failed"):
+        maintenance.migrate_runtime_v6_to_v7(path)
+    with sqlite3.connect(path) as connection:
+        assert connection.execute(
+            "SELECT status, verified_at FROM schema_migration_verification WHERE id=1"
+        ).fetchone() == ("PENDING_VERIFICATION", None)
+    with pytest.raises(ShiguanStorageError, match="验证"):
+        db.get_connection(path)
+
+
+def test_direct_v6_to_v7_is_pending_until_maintenance_readback(tmp_path):
+    path = tmp_path / "schema-v6-direct.sqlite3"
+    _make_verified_v6(path)
+
+    db.migrate_v6_to_v7(path)
+
+    with sqlite3.connect(path) as connection:
+        assert connection.execute("PRAGMA user_version").fetchone() == (7,)
+        assert connection.execute(
+            "SELECT status, verified_at FROM schema_migration_verification WHERE id=1"
+        ).fetchone() == ("PENDING_VERIFICATION", None)
+    with pytest.raises(ShiguanStorageError, match="验证"):
+        db.get_connection(path)
 
 
 def _make_v5_with_principal_data(path):
@@ -828,7 +947,8 @@ def test_v5_to_v6_allows_same_principal_to_share_one_identifier_key(tmp_path):
 
     report = maintenance.migrate_runtime_v5_to_v6(path)
 
-    assert report.ready is True
+    assert report.ready is False
+    maintenance.migrate_runtime_v6_to_v7(path)
     configure_auth_db(path)
     try:
         authenticated = authenticate_and_create_session("same@example.test", login_value)
@@ -916,7 +1036,7 @@ def _make_real_historical_v1(path, *, evolved_from_base):
         ),
     ],
 )
-def test_real_historical_v1_layouts_migrate_to_verified_v6(
+def test_real_historical_v1_layouts_migrate_to_verified_v7(
     tmp_path, evolved_from_base, expected_v5_digest
 ):
     from app.operations.runtime_data_registry import schema_contract_digest
@@ -929,7 +1049,10 @@ def test_real_historical_v1_layouts_migrate_to_verified_v6(
     db.migrate_v4_to_v5(path)
     assert schema_contract_digest(path) == expected_v5_digest
 
-    report = maintenance.migrate_runtime_v5_to_v6(path)
+    intermediate = maintenance.migrate_runtime_v5_to_v6(path)
+    assert intermediate.version == 6
+    assert intermediate.ready is False
+    report = maintenance.migrate_runtime_v6_to_v7(path)
 
     assert report.ready is True
     with sqlite3.connect(path) as connection:
@@ -970,7 +1093,7 @@ def test_v5_to_v6_backfills_one_personal_owner_membership_and_binds_sessions(tmp
     finally:
         connection.close()
 
-    with pytest.raises(ShiguanStorageError, match="验证"):
+    with pytest.raises(ShiguanStorageError, match="显式迁移"):
         db.get_connection(path)
 
 
@@ -1128,7 +1251,7 @@ def test_v6_rejects_blank_verified_timestamp_consistently(tmp_path, verified_at)
     connection.commit()
     connection.close()
 
-    with pytest.raises(ShiguanStorageError, match="验证"):
+    with pytest.raises(ShiguanStorageError, match="显式迁移"):
         db.get_connection(path)
     assert maintenance.inspect_runtime_database(path).ready is False
 
@@ -1257,7 +1380,10 @@ def test_explicit_confirmed_pair_migration_merges_fake_memorial_into_reply(tmp_p
     db.migrate_v4_to_v5(path)
     report = maintenance.migrate_runtime_v5_to_v6(path)
     assert report.version == 6
-    assert report.ready is True
+    assert report.ready is False
+    current = maintenance.migrate_runtime_v6_to_v7(path)
+    assert current.version == 7
+    assert current.ready is True
     conn = sqlite3.connect(path)
     conn.row_factory = sqlite3.Row
     try:
@@ -1366,7 +1492,10 @@ def test_runtime_migration_backs_up_v2_and_reads_archives(tmp_path):
     assert current.ready is False
     verified = maintenance.migrate_runtime_v5_to_v6(path)
     assert verified.version == 6
-    assert verified.ready is True
+    assert verified.ready is False
+    latest = maintenance.migrate_runtime_v6_to_v7(path)
+    assert latest.version == 7
+    assert latest.ready is True
     assert storage.list_archives(db_path=path) == []
 
 
@@ -1425,7 +1554,7 @@ def test_runtime_v5_to_v6_uses_sqlite_backup_and_marks_verified(tmp_path, monkey
 
     backup = path.with_name("schema-v5.sqlite3.v5-backup")
     assert report.version == 6
-    assert report.ready is True
+    assert report.ready is False
     assert report.migrated is True
     assert report.backup_path == str(backup)
     assert report.archive_count == 1
@@ -1445,8 +1574,9 @@ def test_runtime_v5_to_v6_uses_sqlite_backup_and_marks_verified(tmp_path, monkey
         ]
     finally:
         backup_connection.close()
-    reopened = db.get_connection(path)
+    reopened = sqlite3.connect(path)
     try:
+        maintenance._validate_current_v6(reopened)
         assert reopened.execute(
             "SELECT status FROM schema_migration_verification WHERE id=1"
         ).fetchone()[0] == "VERIFIED"
@@ -1553,7 +1683,7 @@ def test_postcommit_readback_failure_keeps_pending_database_and_backup(
         ).fetchone()[0] == "PENDING_VERIFICATION"
     finally:
         connection.close()
-    with pytest.raises(ShiguanStorageError, match="验证"):
+    with pytest.raises(ShiguanStorageError, match="显式迁移"):
         db.get_connection(path)
 
 
@@ -1617,7 +1747,7 @@ def test_schema_validators_preserve_caller_query_only_state(tmp_path):
         assert connection.execute("PRAGMA query_only").fetchone() == (1,)
 
     v6_path = tmp_path / "schema-v6-query-only.sqlite3"
-    db.get_connection(v6_path).close()
+    _make_verified_v6(v6_path)
     with sqlite3.connect(v6_path) as connection:
         connection.execute("PRAGMA query_only = ON")
         db._validate_v6_schema(connection)
