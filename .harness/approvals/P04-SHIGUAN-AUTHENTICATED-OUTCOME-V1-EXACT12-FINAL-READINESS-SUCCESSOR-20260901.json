@@ -1,0 +1,181 @@
+{
+  "schemaVersion": "product-authority.m0.approval.v1",
+  "authorityId": "product-authority.m0.v1",
+  "taskId": "P04-SHIGUAN-AUTHENTICATED-OUTCOME-V1-EXACT12-FINAL-READINESS-SUCCESSOR-20260901",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "6c59da0c2fe67d028d025c32b626b6edec70386f",
+    "baseTree": "f23ca4c311dbc15b1a8da3cec1bf3aa57d2d128f",
+    "approvalPath": ".harness/approvals/P04-SHIGUAN-AUTHENTICATED-OUTCOME-V1-EXACT12-FINAL-READINESS-SUCCESSOR-20260901.json",
+    "approvalCommitPaths": [
+      ".harness/approvals/P04-SHIGUAN-AUTHENTICATED-OUTCOME-V1-EXACT12-FINAL-READINESS-SUCCESSOR-20260901.json",
+      "docs/product/tasks/2026-09-01-p04-shiguan-authenticated-outcome-v1-exact12-final-readiness-successor.md",
+      "docs/superpowers/plans/2026-09-01-p04-shiguan-authenticated-outcome-v1-exact12-final-readiness-successor.md"
+    ],
+    "productPaths": [
+      "backend/app/api/shiguan.py",
+      "backend/app/operations/runtime_data_registry.py",
+      "backend/app/shiguan/db.py",
+      "backend/app/shiguan/maintenance.py",
+      "backend/app/shiguan/models.py",
+      "backend/app/shiguan/storage.py",
+      "backend/tests/test_daily_memorial_scheduler.py",
+      "backend/tests/test_readiness.py",
+      "backend/tests/test_shiguan_adopted_evidence.py",
+      "backend/tests/test_shiguan_api.py",
+      "backend/tests/test_shiguan_migrations.py",
+      "backend/tests/test_shiguan_storage.py"
+    ]
+  },
+  "nonGoals": [
+    "CT00_GATE_E_MAPPING_OR_JIQUN_IMPLEMENTATION",
+    "CUSTOM_AUTHORITY_OR_SECOND_OUTCOME_LEDGER",
+    "EXTERNAL_NETWORK_MODEL_TOOL_OR_AGENT_EXECUTION",
+    "JIQUN_EXECUTION_PROMOTION_OR_PRODUCTION_QUALIFICATION",
+    "LEGACY_APPROVAL_AUTHORITY_CANDIDATE_OR_VERIFICATION_INHERITANCE",
+    "LEGACY_REVIEW_STATUS_AS_OUTCOME_TRUTH",
+    "LIVE_CUSTOMER_FIXTURE_OR_AUTOMATIC_SUCCESS_INFERENCE",
+    "PILOT_RELEASE_DEPLOY_OR_FORCE_PUSH",
+    "RAW_ARCHIVE_PROMPT_EVIDENCE_OR_CUSTOMER_TEXT_PROJECTION",
+    "RUNTIME_SKILL_CAPSULE_OR_AUTHORITY_MANIFEST_CHANGE",
+    "SILENT_LEGACY_BACKFILL_OR_MUTABLE_OUTCOME_HISTORY"
+  ],
+  "verification": [
+    {
+      "id": "00-live-remote-approval-before-matrix",
+      "tool": "python3",
+      "args": [
+        "-I",
+        "-c",
+        "import os,pwd,subprocess;E={'PATH':'/usr/bin:/bin','HOME':'/nonexistent','GIT_CONFIG_GLOBAL':'/dev/null','GIT_CONFIG_NOSYSTEM':'1','GIT_CONFIG_SYSTEM':'/dev/null','GIT_NO_REPLACE_OBJECTS':'1','GIT_TERMINAL_PROMPT':'0'};g=lambda a:subprocess.check_output(['/usr/bin/git','--no-replace-objects',*a],text=True,env=E).strip();assert g(['config','--local','--get','remote.origin.url'])=='git@gitee.com:msxn/chaotang-os.git';r=lambda a:subprocess.run(['/usr/bin/git',*a],text=True,capture_output=True,env=E);assert all((x:=r(['config','--local','--get-regexp',p])).returncode==1 and not x.stdout and not x.stderr for p in ('^(include[.]path|includeif[.].*[.]path)$','^core[.]sshcommand$','^url[.].*[.]insteadof$'));approval=g(['rev-parse','HEAD^']);R={**E,'HOME':pwd.getpwuid(os.getuid()).pw_dir,'GIT_SSH_COMMAND':'/usr/bin/ssh -F /dev/null'};remote=subprocess.check_output(['/usr/bin/git','--no-replace-objects','-C','/tmp','ls-remote','git@gitee.com:msxn/chaotang-os.git','refs/heads/ext-dev'],text=True,env=R).strip().split();assert remote==[approval,'refs/heads/ext-dev']"
+      ],
+      "cwd": ".",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "01-candidate-exact12-structure",
+      "tool": "node",
+      "args": [
+        "--input-type=module",
+        "--eval",
+        "import{execFileSync}from'node:child_process';const p=[\"backend/app/api/shiguan.py\",\"backend/app/operations/runtime_data_registry.py\",\"backend/app/shiguan/db.py\",\"backend/app/shiguan/maintenance.py\",\"backend/app/shiguan/models.py\",\"backend/app/shiguan/storage.py\",\"backend/tests/test_daily_memorial_scheduler.py\",\"backend/tests/test_readiness.py\",\"backend/tests/test_shiguan_adopted_evidence.py\",\"backend/tests/test_shiguan_api.py\",\"backend/tests/test_shiguan_migrations.py\",\"backend/tests/test_shiguan_storage.py\"],e={PATH:'/usr/bin:/bin',GIT_CONFIG_NOSYSTEM:'1',GIT_NO_REPLACE_OBJECTS:'1',GIT_TERMINAL_PROMPT:'0'},g=a=>execFileSync('/usr/bin/git',['--no-replace-objects',...a],{encoding:'utf8',env:e,maxBuffer:4194304}).trim(),q=g(['rev-list','--parents','-n','1','HEAD']).split(/\\s+/u);if(q.length!==2)throw Error('CANDIDATE_PARENT_COUNT');const r=g(['diff-tree','--no-commit-id','--name-status','-r',q[1],'HEAD']).split('\\n').filter(Boolean).map(v=>v.split('\\t'));if(JSON.stringify(r.map(v=>v.at(-1)))!==JSON.stringify(p)||r.length!==12||r.some(v=>v[0]!==\"M\"))throw Error('EXACT12_SCOPE');for(const x of p){const[m,t]=g(['ls-tree','HEAD','--',x]).split(/\\s+/u);if(m!==\"100644\"||t!==\"blob\")throw Error('EXACT12_MODE:'+x)}"
+      ],
+      "cwd": ".",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "01b-final-donor-disposition-and-candidate-byte-freeze",
+      "tool": "node",
+      "args": [
+        "--input-type=module",
+        "--eval",
+        "import fs from'node:fs';import crypto from'node:crypto';import{execFileSync}from'node:child_process';import{canonicalizeRfc8785}from'./scripts/product-authority.mjs';const rows=[[\"backend/app/api/shiguan.py\",\"bad4a9dcc807abab61dbb91832ad6dc27a996814ee466610116e260d224c9288\",\"6bedf562608bc8ccbb2e3417f6b990570b48f026\",10965],[\"backend/app/operations/runtime_data_registry.py\",\"6394111f89552c39b4c52e394e9ed7cf42859e74bc1d1e8534a3f7f780e4ee05\",\"e338ec48c7abb420b49a1e9a849b6c9bcb817144\",19089],[\"backend/app/shiguan/db.py\",\"47b36d3c3612fce5a692ecd8d8b0026baea4e677a163c203c37ade23627cfd11\",\"c8ab85a04425a70ce11231e800f1f91721bbf40d\",51621],[\"backend/app/shiguan/maintenance.py\",\"3a1d8fdb69e5e8eb38fb507c039e8e15f5553d64b6e5365e54fd5d09f95d0ced\",\"642e66f61f41723f2da5f1045834d78dc813e110\",37810],[\"backend/app/shiguan/models.py\",\"db7608dc244f3a0bc537efa997cae2086cefc53f50f399ad64c2ae9c118b9159\",\"b8a355d10a5e3831dd59a6beb7600a7f31d08219\",23016],[\"backend/app/shiguan/storage.py\",\"a2fa6f99bb1c9afdf3c5f5ef7e652655f9eccb067e8519513c4c4be86184b9b5\",\"e284da9fba6af81b77c4797d280b163170326403\",47208],[\"backend/tests/test_daily_memorial_scheduler.py\",\"714200ad954db0b3bdbe7ef2098536e697bfd85042daaece8bd0f67d63210bf4\",\"ba824c4e2e2afbae4b4942d4e70a0dee3794e87c\",23726],[\"backend/tests/test_readiness.py\",\"6ae63a7a708c657c9b51c8dc6fb6ab2806d6816e6be63835ef25fd19055f4cb6\",\"69667b60a7e53a23d35b8feea5eee17317fad299\",26975],[\"backend/tests/test_shiguan_adopted_evidence.py\",\"065001b49052f008aa028898c44d2a3a23eea27880d1289a12237858876c8334\",\"5de489fb907f052932371798c6c4a0544c9e1f4f\",46723],[\"backend/tests/test_shiguan_api.py\",\"daa4bba048b0ddb7e62f292ef5c00ad9d482b99a109a36be4a546f4d8fcd729f\",\"7e9f34270f2894b98fa2df813b0b943de8e906ea\",32503],[\"backend/tests/test_shiguan_migrations.py\",\"46ac00ac7a84b9828d16bfbd3f464db6a97dfcbfae1b53429410c65523b8b06f\",\"6ec344251ea6a0474b43fa2eae971591028ff006\",62969],[\"backend/tests/test_shiguan_storage.py\",\"5caed6cca448f133ba3bbd8b5f9c96c78391d22be9980b385f0e83daa1693446\",\"8504184d44bbf8f36cf94e0df0da27ea07961828\",49912]],e={PATH:'/usr/bin:/bin',HOME:'/tmp',XDG_CONFIG_HOME:'/tmp',GIT_CONFIG_NOSYSTEM:'1',GIT_CONFIG_SYSTEM:'/dev/null',GIT_CONFIG_GLOBAL:'/dev/null',GIT_ATTR_NOSYSTEM:'1',GIT_NO_REPLACE_OBJECTS:'1',GIT_TERMINAL_PROMPT:'0'},g=(a,o={})=>execFileSync('/usr/bin/git',['--no-replace-objects',...a],{env:e,maxBuffer:16777216,...o});if(g(['status','--porcelain=v1'],{encoding:'utf8'}).trim())throw Error('WORKTREE_NOT_CLEAN');const bundle=[];for(const[path,raw,blob,bytes]of rows){const t=g(['ls-tree','HEAD','--',path],{encoding:'utf8'}).trim().split(/\\s+/u),b=g(['show','HEAD:'+path]),actualRaw=crypto.createHash('sha256').update(b).digest('hex');if(t[0]!==\"100644\"||t[1]!==\"blob\"||t[2]!==blob||b.length!==bytes||actualRaw!==raw||!fs.readFileSync(path).equals(b))throw Error('FINAL_DONOR_IDENTITY:'+path);bundle.push({path,mode:'100644',bytes,rawSha256:'sha256:'+actualRaw})}bundle.sort((a,b)=>a.path<b.path?-1:a.path>b.path?1:0);const digest='sha256:'+crypto.createHash('sha256').update(Buffer.from(canonicalizeRfc8785(bundle),'utf8')).digest('hex');if(digest!==\"sha256:98afb3e6b387fa3ce80afe5d7b741883211056bd674ddbd1a867638a14baba3c\")throw Error('FINAL_DONOR_BUNDLE:'+digest);console.log(JSON.stringify({candidateBundle:digest,pathCount:rows.length}))"
+      ],
+      "cwd": ".",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "01c-security-corrective-focused",
+      "tool": "python3",
+      "args": [
+        "-I",
+        "-c",
+        "import os;n='/usr/bin/python3';t='/tmp';e={'PATH':'/usr/bin:/bin','TMPDIR':t,'TEMP':t,'TMP':t,'CI':'1','LANG':'C.UTF-8','LC_ALL':'C.UTF-8','NO_COLOR':'1'};os.chdir('backend');os.execve(n,[n,'-m','pytest','-q','tests/test_shiguan_api.py::TestAuthenticatedOutcomeApi::test_outcome_api_session_revoked_after_dependency_fails_in_transaction','tests/test_shiguan_api.py::TestAuthenticatedOutcomeApi::test_outcome_api_reads_recheck_session_in_transaction','tests/test_shiguan_storage.py::test_create_outcome_rejects_revoked_presented_session_in_transaction','tests/test_shiguan_storage.py::test_list_outcomes_rejects_revoked_presented_session_in_transaction','tests/test_shiguan_migrations.py::test_runtime_v6_to_v7_path_replacement_keeps_all_inodes_pending_and_unrunnable','tests/test_shiguan_migrations.py::test_runtime_v6_to_v7_report_materialization_failure_keeps_database_pending','tests/test_shiguan_storage.py::test_outcome_rejects_expired_session_and_all_digest_or_idempotency_splices','tests/test_shiguan_storage.py::test_outcome_rejects_coherent_request_and_event_digest_splice','tests/test_shiguan_storage.py::test_outcome_correction_rejects_self_cross_scope_and_concurrent_forks','tests/test_shiguan_storage.py::test_outcome_and_decision_triggers_reject_update_and_delete'],e)"
+      ],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "01d-candidate-full-index-diff-is-exact12-only",
+      "tool": "python3",
+      "args": [
+        "-I",
+        "-c",
+        "import hashlib,subprocess;E={'PATH':'/usr/bin:/bin','HOME':'/nonexistent','GIT_CONFIG_GLOBAL':'/dev/null','GIT_CONFIG_NOSYSTEM':'1','GIT_ATTR_NOSYSTEM':'1','GIT_NO_REPLACE_OBJECTS':'1','GIT_TERMINAL_PROMPT':'0'};p=subprocess.check_output(['/usr/bin/git','--no-replace-objects','-c','core.attributesFile=/dev/null','diff','--no-ext-diff','--no-textconv','--full-index','--binary','HEAD^','HEAD'],env=E);d='sha256:'+hashlib.sha256(p).hexdigest();assert p and b'diff --git a/' in p and d=='sha256:7b62a654bd4cc6f6668132568839b518dd7f74c57e21266210432820f1b36ad8';print(d)"
+      ],
+      "cwd": ".",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "02-shiguan-outcome-focused",
+      "tool": "python3",
+      "args": [
+        "-I",
+        "-c",
+        "import os;n='/usr/bin/python3';t='/tmp';e={'PATH':'/usr/bin:/bin','TMPDIR':t,'TEMP':t,'TMP':t,'CI':'1','LANG':'C.UTF-8','LC_ALL':'C.UTF-8','NO_COLOR':'1'};os.chdir('backend');os.execve(n,[n,'-m','pytest','-q','tests/test_shiguan_storage.py','tests/test_shiguan_migrations.py','tests/test_shiguan_api.py','tests/test_readiness.py','tests/test_shiguan_adopted_evidence.py','tests/test_daily_memorial_scheduler.py','tests/test_sqlite_backup.py'],e)"
+      ],
+      "cwd": ".",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "03-backend-full",
+      "tool": "python3",
+      "args": [
+        "-I",
+        "-c",
+        "import os;n='/usr/bin/python3';t='/tmp';e={'PATH':'/usr/bin:/bin','TMPDIR':t,'TEMP':t,'TMP':t,'CI':'1','LANG':'C.UTF-8','LC_ALL':'C.UTF-8','NO_COLOR':'1'};os.chdir('backend');os.execve(n,[n,'-m','pytest','-q'],e)"
+      ],
+      "cwd": ".",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "04-exact12-ruff",
+      "tool": "python3",
+      "args": [
+        "-m",
+        "ruff",
+        "check",
+        "backend/app/api/shiguan.py",
+        "backend/app/operations/runtime_data_registry.py",
+        "backend/app/shiguan/db.py",
+        "backend/app/shiguan/maintenance.py",
+        "backend/app/shiguan/models.py",
+        "backend/app/shiguan/storage.py",
+        "backend/tests/test_daily_memorial_scheduler.py",
+        "backend/tests/test_readiness.py",
+        "backend/tests/test_shiguan_adopted_evidence.py",
+        "backend/tests/test_shiguan_api.py",
+        "backend/tests/test_shiguan_migrations.py",
+        "backend/tests/test_shiguan_storage.py"
+      ],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {"id":"05-root-harness","tool":"node","args":["scripts/check_harness.mjs"],"cwd":".","timeoutMs":180000},
+    {"id":"06-root-harness-self-test","tool":"node","args":["scripts/check_harness.mjs","--self-test"],"cwd":".","timeoutMs":180000},
+    {"id":"07-root-harness-doctor","tool":"node","args":["scripts/harness-doctor.mjs","--check"],"cwd":".","timeoutMs":180000},
+    {"id":"07b-root-harness-doctor-regression","tool":"node","args":["--test","scripts/harness-doctor.test.mjs"],"cwd":".","timeoutMs":180000},
+    {"id":"07c-root-hook-self-test","tool":"node","args":[".agents/hooks/check-harness.mjs","--self-test"],"cwd":".","timeoutMs":180000},
+    {
+      "id": "08-product-authority-regression",
+      "tool": "python3",
+      "args": ["-I","-c","import os;n='/usr/bin/node';t='/tmp';e={'PATH':'/usr/bin:/bin','TMPDIR':t,'TEMP':t,'TMP':t,'CI':'1','NODE_ENV':'test','LANG':'C.UTF-8','LC_ALL':'C.UTF-8','NO_COLOR':'1'};os.execve(n,[n,'--test','scripts/product-authority.test.mjs'],e)"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {"id":"09-v2-convergence","tool":"node","args":["scripts/ext-full-value-convergence.mjs","--check"],"cwd":".","timeoutMs":180000},
+    {"id":"10-v2-convergence-regression","tool":"node","args":["--test","scripts/ext-full-value-convergence.test.mjs"],"cwd":".","timeoutMs":180000},
+    {
+      "id": "11-git-diff-check",
+      "tool": "node",
+      "args": ["--input-type=module","--eval","import{execFileSync}from'node:child_process';execFileSync('/usr/bin/git',['--no-replace-objects','diff','--check','HEAD^','HEAD'],{stdio:'inherit',env:{PATH:'/usr/bin:/bin',GIT_CONFIG_NOSYSTEM:'1',GIT_NO_REPLACE_OBJECTS:'1',GIT_TERMINAL_PROMPT:'0'}})"],
+      "cwd": ".",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "12-live-remote-approval-after-matrix",
+      "tool": "python3",
+      "args": [
+        "-I",
+        "-c",
+        "import os,pwd,subprocess;E={'PATH':'/usr/bin:/bin','HOME':'/nonexistent','GIT_CONFIG_GLOBAL':'/dev/null','GIT_CONFIG_NOSYSTEM':'1','GIT_CONFIG_SYSTEM':'/dev/null','GIT_NO_REPLACE_OBJECTS':'1','GIT_TERMINAL_PROMPT':'0'};g=lambda a:subprocess.check_output(['/usr/bin/git','--no-replace-objects',*a],text=True,env=E).strip();assert g(['config','--local','--get','remote.origin.url'])=='git@gitee.com:msxn/chaotang-os.git';r=lambda a:subprocess.run(['/usr/bin/git',*a],text=True,capture_output=True,env=E);assert all((x:=r(['config','--local','--get-regexp',p])).returncode==1 and not x.stdout and not x.stderr for p in ('^(include[.]path|includeif[.].*[.]path)$','^core[.]sshcommand$','^url[.].*[.]insteadof$'));approval=g(['rev-parse','HEAD^']);R={**E,'HOME':pwd.getpwuid(os.getuid()).pw_dir,'GIT_SSH_COMMAND':'/usr/bin/ssh -F /dev/null'};remote=subprocess.check_output(['/usr/bin/git','--no-replace-objects','-C','/tmp','ls-remote','git@gitee.com:msxn/chaotang-os.git','refs/heads/ext-dev'],text=True,env=R).strip().split();assert remote==[approval,'refs/heads/ext-dev']"
+      ],
+      "cwd": ".",
+      "timeoutMs": 30000
+    }
+  ],
+  "state": "APPROVED_FOR_ONE_CHILD"
+}
