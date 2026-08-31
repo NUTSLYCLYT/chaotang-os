@@ -1,0 +1,174 @@
+{
+  "schemaVersion": "product-authority.m0.approval.v1",
+  "authorityId": "product-authority.m0.v1",
+  "taskId": "PACKET-10B1-CLAIM-EVIDENCE-DURABLE-COMMITMENT-V1-FINAL-EXACT10-RED-VERIFIER-CORRECTIVE-SUCCESSOR-20260831",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "d7561f0bf213959c564f4f37636741792719dff7",
+    "baseTree": "5d2d6ab6afd90c9dc463cc8ccaf67d532120bf6d",
+    "approvalPath": ".harness/approvals/PACKET-10B1-CLAIM-EVIDENCE-DURABLE-COMMITMENT-V1-FINAL-EXACT10-RED-VERIFIER-CORRECTIVE-SUCCESSOR-20260831.json",
+    "approvalCommitPaths": [
+      ".harness/approvals/PACKET-10B1-CLAIM-EVIDENCE-DURABLE-COMMITMENT-V1-FINAL-EXACT10-RED-VERIFIER-CORRECTIVE-SUCCESSOR-20260831.json",
+      "docs/product/tasks/2026-08-31-packet-10b1-claim-evidence-durable-commitment-v1-final-exact10-red-verifier-corrective-successor.md",
+      "docs/superpowers/plans/2026-08-31-packet-10b1-claim-evidence-durable-commitment-v1-final-exact10-red-verifier-corrective-successor.md"
+    ],
+    "productPaths": [
+      "backend/app/api/decree_jobs.py",
+      "backend/app/api/decrees.py",
+      "backend/app/decree_jobs/models.py",
+      "backend/app/decree_jobs/storage.py",
+      "backend/app/decree_jobs/worker.py",
+      "backend/tests/test_decree_job_storage.py",
+      "backend/tests/test_decree_job_worker.py",
+      "backend/tests/test_decree_jobs_api.py",
+      "backend/tests/test_readiness.py",
+      "backend/tests/test_sqlite_backup.py"
+    ]
+  },
+  "nonGoals": [
+    "ARBITRARY_DIRECT_SQLITE_WRITER_SERIALIZABILITY_OR_ADMIN_TAMPER_TOLERANCE",
+    "CANDIDATE_IDENTITY_OR_PREDECESSOR_VERIFICATION_INHERITANCE",
+    "EXACT8_ONE_CHILD_AUTHORITY_CONSUMPTION_RECOVERY_OR_REANCHOR",
+    "FINAL_MEMORIAL_RUNTIME_REPORT_ARCHIVE_PUBLISH_OR_FRONTEND_ACTIVATION",
+    "FORCE_PUSH_MERGE_REBASE_FETCH_PULL_PILOT_RELEASE_OR_DEPLOYMENT",
+    "NET_NEW_DATABASE_OBJECT_BEYOND_CANONICAL_NEW_OR_SECOND_FACT_SOURCE",
+    "NON_NULL_COMMITMENT_WRITER_OR_P10_B2_RUNTIME_ACTIVATION",
+    "PREDECESSOR_ONE_CHILD_AUTHORITY_CONSUMPTION_RECOVERY_OR_REANCHOR",
+    "RUNTIME_REGISTRY_READINESS_HARNESS_OR_AUTHORITY_CHANGE",
+    "TENANT_PRINCIPAL_OR_P10_A_SEMANTIC_CHANGE",
+    "TEST_WEAKENING_CRASH_RECOVERY_REMOVAL_OR_UNRELATED_REFACTOR",
+    "UNOBSERVED_POST_PREFLIGHT_ROGUE_WRITER_ATOMICITY_CLAIM"
+  ],
+  "verification": [
+    {
+      "id": "backend-exact10-compatibility",
+      "tool": "python3",
+      "args": ["-m", "pytest", "-q", "tests/test_readiness.py", "tests/test_sqlite_backup.py"],
+      "cwd": "backend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "backend-full",
+      "tool": "python3",
+      "args": ["-m", "pytest", "-q"],
+      "cwd": "backend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "backend-p10a-regression",
+      "tool": "python3",
+      "args": ["-m", "pytest", "-q", "tests/test_claim_evidence_gate.py"],
+      "cwd": "backend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "backend-p10b1-focused",
+      "tool": "python3",
+      "args": ["-m", "pytest", "-q", "tests/test_decree_job_storage.py", "tests/test_decree_job_worker.py", "tests/test_decree_jobs_api.py", "tests/test_decrees_api.py", "tests/test_decree_async_integration.py"],
+      "cwd": "backend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "backend-p10b1-ruff",
+      "tool": "python3",
+      "args": ["-m", "ruff", "check", "app/api/decree_jobs.py", "app/api/decrees.py", "app/decree_jobs/models.py", "app/decree_jobs/storage.py", "app/decree_jobs/worker.py", "tests/test_decree_job_storage.py", "tests/test_decree_job_worker.py", "tests/test_decree_jobs_api.py", "tests/test_readiness.py", "tests/test_sqlite_backup.py"],
+      "cwd": "backend",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "backend-readiness",
+      "tool": "python3",
+      "args": ["-m", "pytest", "-q", "tests/test_six_ministry_readiness_report.py"],
+      "cwd": "backend",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "candidate-compatibility-red-evidence",
+      "tool": "node",
+      "args": ["--input-type=module", "--eval", "import{execFileSync,spawnSync}from'node:child_process';import{createHash}from'node:crypto';import{mkdtempSync,mkdirSync,rmSync,writeFileSync}from'node:fs';import path from'node:path';import{canonicalizeRfc8785}from'./scripts/product-authority.mjs';const taskId='PACKET-10B1-CLAIM-EVIDENCE-DURABLE-COMMITMENT-V1-FINAL-EXACT10-RED-VERIFIER-CORRECTIVE-SUCCESSOR-20260831';const frozen=['backend/app/api/decree_jobs.py','backend/app/api/decrees.py','backend/app/decree_jobs/models.py','backend/app/decree_jobs/storage.py','backend/app/decree_jobs/worker.py','backend/tests/test_decree_job_storage.py','backend/tests/test_decree_job_worker.py','backend/tests/test_decree_jobs_api.py'];const tests=['backend/tests/test_readiness.py','backend/tests/test_sqlite_backup.py'];const nodes=['tests/test_readiness.py::test_registry_mechanically_rejects_single_alter_decree_schema','tests/test_sqlite_backup.py::test_backup_manifest_binds_the_actual_allowed_decree_schema[False]','tests/test_sqlite_backup.py::test_verify_rejects_allowed_but_spliced_decree_manifest_digest[False-sha256:5372895aff08d4b39a19c4100b1b30ec8eaf7a9e597960425fee13c52552f5e3]','tests/test_sqlite_backup.py::test_backup_rejects_allowed_but_spliced_source_and_snapshot_schemas[False]','tests/test_sqlite_backup.py::test_backup_rejects_allowed_but_spliced_source_and_snapshot_schemas[True]'];const env={PATH:'/usr/bin:/bin',GIT_CONFIG_NOSYSTEM:'1',GIT_NO_REPLACE_OBJECTS:'1',GIT_TERMINAL_PROMPT:'0'};const git=(args,encoding='utf8')=>execFileSync('/usr/bin/git',['--no-replace-objects',...args],{encoding,env,maxBuffer:268435456});const sha=b=>'sha256:'+createHash('sha256').update(b).digest('hex');const identity=(rev,p)=>{const entry=git(['ls-tree',rev,'--',p]).trim().split(String.fromCharCode(9))[0].split(' ');const body=git(['show',rev+':'+p],null);if(entry[0]!=='100644'||entry[1]!=='blob')throw new Error('RED_TEST_IDENTITY:'+p);return{path:p,mode:entry[0],bytes:body.length,rawSha256:sha(body),blob:entry[2]}};const root=mkdtempSync('/tmp/p10b1-exact10-red-');try{const archive=git(['archive','--format=tar','HEAD^'],null);const extract=spawnSync('/usr/bin/tar',['-x','-C',root],{input:archive,maxBuffer:268435456});if(extract.status!==0)throw new Error('RED_ARCHIVE_EXTRACT');for(const p of frozen){const target=path.join(root,p);mkdirSync(path.dirname(target),{recursive:true});writeFileSync(target,git(['show','HEAD:'+p],null),{mode:0o644})}const run=spawnSync('/usr/bin/python3',['-m','pytest','-q',...nodes],{cwd:path.join(root,'backend'),env:{...process.env,TMPDIR:'/tmp',TEMP:'/tmp',TMP:'/tmp',PYTHONDONTWRITEBYTECODE:'1'},encoding:null,maxBuffer:67108864});const stdout=run.stdout??Buffer.alloc(0);const stderr=run.stderr??Buffer.alloc(0);const out=stdout.toString('utf8');const failed=[...out.matchAll(/^FAILED ([^ ]+)(?: - .*)?$/gmu)].map(m=>m[1]);const unexpected=[...out.matchAll(/^(?:ERROR|XPASS|XFAIL|SKIPPED) .+$/gmu)];const terminal=out.split(/\\r?\\n/u).filter(line=>/^5 failed(?:, [0-9]+ warnings?)? in /u.test(line));if(run.status!==1||JSON.stringify(failed)!==JSON.stringify(nodes)||unexpected.length!==0||terminal.length!==1)throw new Error('RED_TOPOLOGY');const record={schemaVersion:'p10b1.exact10.red-evidence.v2',taskId,approvalCommit:git(['rev-parse','HEAD^']).trim(),candidateCommit:git(['rev-parse','HEAD']).trim(),preTestIdentities:tests.map(p=>identity('HEAD^',p)),postTestIdentities:tests.map(p=>identity('HEAD',p)),nodeIds:nodes,exitStatus:run.status,stdoutSha256:sha(stdout),stderrSha256:sha(stderr)};console.log(JSON.stringify({record,evidenceDigest:sha(canonicalizeRfc8785(record))}))}finally{rmSync(root,{recursive:true,force:true})}"],
+      "cwd": ".",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "candidate-exact10-structure",
+      "tool": "node",
+      "args": ["--input-type=module", "--eval", "import{execFileSync}from'node:child_process';import{createHash}from'node:crypto';import{canonicalizeRfc8785}from'./scripts/product-authority.mjs';const frozen=[['backend/app/api/decree_jobs.py',7454,'74bc75f564d61264786ab8d801834d78404dee2a97f1cd11333070f6b7319b72','3011ddfd01905cb24d520ae67cb22b049359cd06'],['backend/app/api/decrees.py',62679,'762485814b6e8f175f687d14fcc82635a76acc9c26e02b0f784a8b38c7d43e8d','243bcee26aa2dc8e64ef886debd7bd46769c8c24'],['backend/app/decree_jobs/models.py',5195,'513b7f37fdf8d314406a8875ea1c707f7562f152f236cd4f1fa3275850c45d69','5f751ac9488aaea041bbfc3a25615652c63f2ce2'],['backend/app/decree_jobs/storage.py',74161,'7d6b960bf74380cedbf29482e9743ee39d65484f4eaa698b5eded877d0d96373','aa77a3485c1db51d64baa1dc3cda3848e7519e24'],['backend/app/decree_jobs/worker.py',13942,'f9ac190e69fe74a013a91ef0bf245e1a097e99c44c1b27b2a3c5bb539a88a2af','b7d774a1f17d4f04ba6fe13acdd4d9409189e1a2'],['backend/tests/test_decree_job_storage.py',63772,'5cec58d69f4c466e877ab4bde57e6b74d4a2acf9db57bdeccd8876b9fcc6c31d','4dc67d1350666bb3810d5d372d356ab70f34e6dc'],['backend/tests/test_decree_job_worker.py',42749,'2543092c5d866e4765abd8374e1a9fd3aeb0038f562af7f9a58f3867e34aed51','c61b2aa154bd3649aaab3ac8619f5587bd42f890'],['backend/tests/test_decree_jobs_api.py',34115,'e2411dc8343a1b9a72a398e09cf6f290e91c24e1022a5a9c12b94afafc436789','3044eced657ac5ea6e76b92aaac8eeece4736121']];const tests=['backend/tests/test_readiness.py','backend/tests/test_sqlite_backup.py'];const expected=[...frozen.map(row=>row[0]),...tests];const env={PATH:'/usr/bin:/bin',GIT_CONFIG_NOSYSTEM:'1',GIT_NO_REPLACE_OBJECTS:'1',GIT_TERMINAL_PROMPT:'0'};const git=(args,encoding='utf8')=>execFileSync('/usr/bin/git',['--no-replace-objects',...args],{encoding,env,maxBuffer:16777216});const parents=git(['rev-list','--parents','-n','1','HEAD']).trim().split(' ');if(parents.length!==2)throw new Error('EXACT10_PARENT_COUNT');const rows=git(['diff-tree','--no-commit-id','--name-status','-r','HEAD^','HEAD']).trim().split('\\n').filter(Boolean).map(row=>row.split('\\t'));if(JSON.stringify(rows.map(row=>row.at(-1)))!==JSON.stringify(expected)||rows.some(row=>row[0]!=='M'))throw new Error('EXACT10_SCOPE');const records=[];for(const[path,bytes,raw,blob]of frozen){const line=git(['ls-tree','HEAD','--',path]).trim().split(/\\s+/u);if(line[0]!=='100644'||line[1]!=='blob'||line[2]!==blob)throw new Error('EXACT8_DONOR_BLOB:'+path);const body=git(['show','HEAD:'+path],null);if(body.length!==bytes||createHash('sha256').update(body).digest('hex')!==raw)throw new Error('EXACT8_DONOR_RAW:'+path);records.push({path,mode:'100644',bytes,rawSha256:'sha256:'+raw})}const donorBundle=createHash('sha256').update(canonicalizeRfc8785(records)).digest('hex');if(donorBundle!=='d750580bbc26138589367aba51710097f044c7193eff9ede097b5fc44c7c3b2f')throw new Error('EXACT8_DONOR_BUNDLE');const donorPatch=git(['diff','--full-index','--binary','--no-ext-diff','HEAD^','HEAD','--',...frozen.map(row=>row[0])],null);if(createHash('sha256').update(donorPatch).digest('hex')!=='afce5a35187aaa5b7abfd09f7867e1ed8ea67e26937a151e0ce4e33de6e38c97')throw new Error('EXACT8_DONOR_DIFF');for(const path of tests){const head=git(['ls-tree','HEAD','--',path]).trim().split(/\\s+/u);const parent=git(['ls-tree','HEAD^','--',path]).trim().split(/\\s+/u);if(head[0]!=='100644'||head[1]!=='blob'||parent[0]!=='100644'||parent[1]!=='blob'||head[2]===parent[2])throw new Error('COMPATIBILITY_TEST_IDENTITY:'+path)}"],
+      "cwd": ".",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "candidate-exact10-structure-frozen-identity",
+      "tool": "node",
+      "args": ["--input-type=module", "--eval", "import{execFileSync}from'node:child_process';import{createHash}from'node:crypto';import{canonicalizeRfc8785}from'./scripts/product-authority.mjs';const frozen=[['backend/app/api/decree_jobs.py',7454,'74bc75f564d61264786ab8d801834d78404dee2a97f1cd11333070f6b7319b72','3011ddfd01905cb24d520ae67cb22b049359cd06'],['backend/app/api/decrees.py',62679,'762485814b6e8f175f687d14fcc82635a76acc9c26e02b0f784a8b38c7d43e8d','243bcee26aa2dc8e64ef886debd7bd46769c8c24'],['backend/app/decree_jobs/models.py',5195,'513b7f37fdf8d314406a8875ea1c707f7562f152f236cd4f1fa3275850c45d69','5f751ac9488aaea041bbfc3a25615652c63f2ce2'],['backend/app/decree_jobs/storage.py',74161,'7d6b960bf74380cedbf29482e9743ee39d65484f4eaa698b5eded877d0d96373','aa77a3485c1db51d64baa1dc3cda3848e7519e24'],['backend/app/decree_jobs/worker.py',13942,'f9ac190e69fe74a013a91ef0bf245e1a097e99c44c1b27b2a3c5bb539a88a2af','b7d774a1f17d4f04ba6fe13acdd4d9409189e1a2'],['backend/tests/test_decree_job_storage.py',63772,'5cec58d69f4c466e877ab4bde57e6b74d4a2acf9db57bdeccd8876b9fcc6c31d','4dc67d1350666bb3810d5d372d356ab70f34e6dc'],['backend/tests/test_decree_job_worker.py',42749,'2543092c5d866e4765abd8374e1a9fd3aeb0038f562af7f9a58f3867e34aed51','c61b2aa154bd3649aaab3ac8619f5587bd42f890'],['backend/tests/test_decree_jobs_api.py',34115,'e2411dc8343a1b9a72a398e09cf6f290e91c24e1022a5a9c12b94afafc436789','3044eced657ac5ea6e76b92aaac8eeece4736121'],['backend/tests/test_readiness.py',26745,'a33f50989831407f2560ecb5aa9ab988f60f407171eb818dcacc9a660aed0b21','0c04783f73bee360772743a74caf8495b9d98685'],['backend/tests/test_sqlite_backup.py',60767,'00c8f3196ab1f8e808a1dcdbdcd86a112f2e318b8bd5055c870da6d0158f8859','399731bfaad766d1daf7d05aa1eebb71916f6da0']];const env={PATH:'/usr/bin:/bin',GIT_CONFIG_NOSYSTEM:'1',GIT_NO_REPLACE_OBJECTS:'1',GIT_TERMINAL_PROMPT:'0'};const git=(args,encoding='utf8')=>execFileSync('/usr/bin/git',['--no-replace-objects',...args],{encoding,env,maxBuffer:268435456});const records=[];for(const[path,bytes,raw,blob]of frozen){const row=git(['ls-tree','HEAD','--',path]).trim().split(/\\s+/u);const body=git(['show','HEAD:'+path],null);if(row[0]!=='100644'||row[1]!=='blob'||row[2]!==blob||body.length!==bytes||createHash('sha256').update(body).digest('hex')!==raw)throw new Error('EXACT10_IDENTITY:'+path);records.push({path,mode:'100644',bytes,rawSha256:'sha256:'+raw})}const bundle=createHash('sha256').update(canonicalizeRfc8785(records)).digest('hex');if(bundle!=='b331117a553c95d616c7c5bbef5a7f2f43c1031453f1f935ebab582ac1294243')throw new Error('EXACT10_BUNDLE');const patch=git(['diff','--full-index','--binary','--no-ext-diff','HEAD^','HEAD','--',...frozen.map(row=>row[0])],null);if(createHash('sha256').update(patch).digest('hex')!=='583f451f9ae76baad2a4f92fd9b90f08f300d8375aba81b0f5ca7b928af892d9')throw new Error('EXACT10_DIFF');"],
+      "cwd": ".",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "git-diff-check",
+      "tool": "node",
+      "args": ["--input-type=module", "--eval", "import{execFileSync}from'node:child_process';execFileSync('/usr/bin/git',['--no-replace-objects','diff','--check','HEAD^','HEAD'],{stdio:'inherit',env:{PATH:'/usr/bin:/bin',GIT_CONFIG_NOSYSTEM:'1',GIT_NO_REPLACE_OBJECTS:'1',GIT_TERMINAL_PROMPT:'0'}})"],
+      "cwd": ".",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "product-authority-regression",
+      "tool": "python3",
+      "args": ["-I", "-c", "import os;n='/usr/bin/node';t='/tmp';e={'PATH':'/usr/bin:/bin','TMPDIR':t,'TEMP':t,'TMP':t,'CI':'1','NODE_ENV':'test','LANG':'C.UTF-8','LC_ALL':'C.UTF-8','NO_COLOR':'1'};os.execve(n,[n,'--test','scripts/product-authority.test.mjs'],e)"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "root-harness",
+      "tool": "node",
+      "args": ["scripts/check_harness.mjs"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "root-harness-doctor",
+      "tool": "node",
+      "args": ["scripts/harness-doctor.mjs", "--check"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "root-harness-doctor-regression",
+      "tool": "node",
+      "args": ["--test", "scripts/harness-doctor.test.mjs"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "root-harness-self-test",
+      "tool": "node",
+      "args": ["scripts/check_harness.mjs", "--self-test"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "root-hook-self-test",
+      "tool": "node",
+      "args": [".agents/hooks/check-harness.mjs", "--self-test"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v2-convergence",
+      "tool": "node",
+      "args": ["scripts/ext-full-value-convergence.mjs", "--check"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v2-convergence-regression",
+      "tool": "node",
+      "args": ["--test", "scripts/ext-full-value-convergence.test.mjs"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    }
+  ],
+  "state": "APPROVED_FOR_ONE_CHILD"
+}
