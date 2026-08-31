@@ -364,7 +364,7 @@ const SIX_MINISTRY_RUNTIME_CONTENT_EXCLUSIONS = Object.freeze([
   "scripts/check_harness.mjs",
 ]);
 const SIX_MINISTRY_SUCCESSOR_CONTENT_PATHS = ["backend/app/accounting_reports/storage.py","backend/tests/test_six_ministry_accounting_evidence_adapter.py"];
-const SIX_MINISTRY_CONTENT_FINGERPRINT_PAIRS = [["sha256:013bfb8272e936be85c2d470033787c3b7f105ad6eae2dfe680373df023b5e69","sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"],["sha256:c95630be3d79f2641ff6e483f4096b0763b9e5071544f1e0ead0d7e24eb1cba5","sha256:268cab13e516d0f716f600819f2bddc8242269312d392eca4ed1be2de05ce051"],["sha256:d330b7f177f5bbb761eb359ffffca6f12250e5bbe90d13d0414d0fdefb78e98a","sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"],["sha256:da31e8098bf76c72ff8d00b073d86e3442b0811223ef3e3bab770af31e89c28e","sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"],["sha256:a6d109de75e877620a89241a4dcabcc716e1a5a1a18a024c9a3cb73e578de80c","sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"],["sha256:cc42339eaa423d71307ef96ff713ec095a89ba2cc4d4f6630ee1b40dec94d34d","sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"],["sha256:eb0d8d214c2dc51ca4eb37ce5a13423e424fd6fdd3b6b8c3dac6a5f5757bd2df","sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"]];
+const SIX_MINISTRY_CONTENT_FINGERPRINT_PAIRS = [["sha256:013bfb8272e936be85c2d470033787c3b7f105ad6eae2dfe680373df023b5e69","sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"],["sha256:c95630be3d79f2641ff6e483f4096b0763b9e5071544f1e0ead0d7e24eb1cba5","sha256:268cab13e516d0f716f600819f2bddc8242269312d392eca4ed1be2de05ce051"],["sha256:d330b7f177f5bbb761eb359ffffca6f12250e5bbe90d13d0414d0fdefb78e98a","sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"],["sha256:da31e8098bf76c72ff8d00b073d86e3442b0811223ef3e3bab770af31e89c28e","sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"],["sha256:a6d109de75e877620a89241a4dcabcc716e1a5a1a18a024c9a3cb73e578de80c","sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"],["sha256:cc42339eaa423d71307ef96ff713ec095a89ba2cc4d4f6630ee1b40dec94d34d","sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"],["sha256:eb0d8d214c2dc51ca4eb37ce5a13423e424fd6fdd3b6b8c3dac6a5f5757bd2df","sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"],["sha256:82885fc13cec86318e4436fccfd80c78d7880e4aa25cdb530d0f4d18c9c73fe3","sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"]];
 const SIX_MINISTRY_HISTORICAL_FILE_COUNT = 69;
 const SIX_MINISTRY_RUNTIME_CONTENT_FILE_COUNT = 65;
 const SIX_MINISTRY_REVIEWED_HARNESS_BASELINE_FILES = 133;
@@ -2464,7 +2464,7 @@ Escalation: name observable evidence
           && SIX_MINISTRY_RUNTIME_CONTENT_FILES.length === SIX_MINISTRY_RUNTIME_CONTENT_FILE_COUNT
           && SIX_MINISTRY_RUNTIME_CONTENT_EXCLUSIONS.length === 4
           && SIX_MINISTRY_SUCCESSOR_CONTENT_PATHS.length === 2
-          && SIX_MINISTRY_CONTENT_FINGERPRINT_PAIRS.length === 7
+          && SIX_MINISTRY_CONTENT_FINGERPRINT_PAIRS.length === 8
           && SIX_MINISTRY_CONTENT_FINGERPRINT_PAIRS.every(
             (pair) => Array.isArray(pair) && pair.length === 2,
           )
@@ -2478,7 +2478,7 @@ Escalation: name observable evidence
       true,
     ],
     [
-      "六部 Runtime 指纹门禁只接受七组精确兼容对并拒绝单边、混搭、篡改与未知状态",
+      "六部 Runtime 指纹门禁只接受八组精确兼容对并拒绝单边、混搭、篡改与未知状态",
       (() => {
         const unknown = `sha256:${"0".repeat(64)}`;
         const fifthPair = [
@@ -2489,8 +2489,12 @@ Escalation: name observable evidence
           "sha256:cc42339eaa423d71307ef96ff713ec095a89ba2cc4d4f6630ee1b40dec94d34d",
           "sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924",
         ];
-        const approvedPair = [
+        const seventhPair = [
           "sha256:eb0d8d214c2dc51ca4eb37ce5a13423e424fd6fdd3b6b8c3dac6a5f5757bd2df",
+          "sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924",
+        ];
+        const approvedPair = [
+          "sha256:82885fc13cec86318e4436fccfd80c78d7880e4aa25cdb530d0f4d18c9c73fe3",
           "sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924",
         ];
         const expectedPairs = [
@@ -2500,6 +2504,7 @@ Escalation: name observable evidence
           ["sha256:da31e8098bf76c72ff8d00b073d86e3442b0811223ef3e3bab770af31e89c28e", "sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"],
           fifthPair,
           sixthPair,
+          seventhPair,
           approvedPair,
         ];
         const validPairs = new Set(
