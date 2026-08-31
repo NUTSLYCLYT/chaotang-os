@@ -54,6 +54,10 @@ _CONTENT_FINGERPRINT_PAIRS = (
         "sha256:cc42339eaa423d71307ef96ff713ec095a89ba2cc4d4f6630ee1b40dec94d34d",
         "sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924",
     ),
+    (
+        "sha256:eb0d8d214c2dc51ca4eb37ce5a13423e424fd6fdd3b6b8c3dac6a5f5757bd2df",
+        "sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924",
+    ),
 )
 _HISTORICAL_REVIEW_STATUS = "approved-with-notes"
 _HISTORICAL_FILE_COUNT = 69
@@ -224,7 +228,7 @@ def test_content_pair_rejects_mixed_or_third_state() -> None:
     runtime_fingerprints = {*(pair[0] for pair in valid_pairs), unknown}
     successor_fingerprints = {*(pair[1] for pair in valid_pairs), unknown}
 
-    assert len(valid_pairs) == len(_CONTENT_FINGERPRINT_PAIRS) == 6
+    assert len(valid_pairs) == len(_CONTENT_FINGERPRINT_PAIRS) == 7
     for runtime_fingerprint in runtime_fingerprints:
         for successor_fingerprint in successor_fingerprints:
             candidate = (runtime_fingerprint, successor_fingerprint)
@@ -232,7 +236,7 @@ def test_content_pair_rejects_mixed_or_third_state() -> None:
                 assert candidate not in _CONTENT_FINGERPRINT_PAIRS
 
 
-def test_content_pair_policy_appends_only_the_approved_sixth_pair() -> None:
+def test_content_pair_policy_appends_only_the_approved_seventh_pair() -> None:
     predecessor_pairs = (
         (
             "sha256:013bfb8272e936be85c2d470033787c3b7f105ad6eae2dfe680373df023b5e69",
@@ -255,19 +259,25 @@ def test_content_pair_policy_appends_only_the_approved_sixth_pair() -> None:
         "sha256:a6d109de75e877620a89241a4dcabcc716e1a5a1a18a024c9a3cb73e578de80c",
         "sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924",
     )
-    approved_pair = (
+    sixth_pair = (
         "sha256:cc42339eaa423d71307ef96ff713ec095a89ba2cc4d4f6630ee1b40dec94d34d",
         "sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924",
     )
-    expected_pairs = (*predecessor_pairs, fifth_pair, approved_pair)
+    approved_pair = (
+        "sha256:eb0d8d214c2dc51ca4eb37ce5a13423e424fd6fdd3b6b8c3dac6a5f5757bd2df",
+        "sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924",
+    )
+    expected_pairs = (*predecessor_pairs, fifth_pair, sixth_pair, approved_pair)
 
     assert _CONTENT_FINGERPRINT_PAIRS == expected_pairs
-    assert len(set(_CONTENT_FINGERPRINT_PAIRS)) == len(_CONTENT_FINGERPRINT_PAIRS) == 6
+    assert len(set(_CONTENT_FINGERPRINT_PAIRS)) == len(_CONTENT_FINGERPRINT_PAIRS) == 7
 
     unknown_runtime = "sha256:" + "f" * 64
     unknown_successor = "sha256:" + "e" * 64
-    tampered_runtime = f"{approved_pair[0][:-1]}f"
-    tampered_successor = f"{approved_pair[1][:-1]}f"
+    tampered_runtime = f"{approved_pair[0][:-1]}{'0' if approved_pair[0][-1] != '0' else '1'}"
+    tampered_successor = (
+        f"{approved_pair[1][:-1]}{'0' if approved_pair[1][-1] != '0' else '1'}"
+    )
     rejected_pairs = (
         (approved_pair[0], unknown_successor),
         (unknown_runtime, approved_pair[1]),
