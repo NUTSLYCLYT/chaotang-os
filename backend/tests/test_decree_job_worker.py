@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import sqlite3
 import threading
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
@@ -36,6 +37,22 @@ def _accept(store: DecreeJobStore, *, suffix: str = "a") -> str:
     ).job.job_id
 
 
+def _spliced_commitment() -> str:
+    return json.dumps(
+        {
+            "aggregate_digest": "sha256:" + "1" * 64,
+            "candidate_digest": "sha256:" + "2" * 64,
+            "control_ref": "sha256:" + "3" * 64,
+            "decision_digest": "sha256:" + "4" * 64,
+            "evidence_snapshot_digest": "sha256:" + "5" * 64,
+            "schema_version": "claim-evidence-job-commitment.v1",
+            "state": "SIDECAR_EXPECTED",
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+
+
 class RecordingExecutor:
     def __init__(self) -> None:
         self.calls: list[str] = []
@@ -67,6 +84,149 @@ def test_worker_runs_one_job_through_durable_side_effect_stages(tmp_path) -> Non
     assert completed.reply_id == "reply-1"
     assert completed.provider_request_count == 1
     assert executor.calls == ["execute", "archive", "publish"]
+
+
+@pytest.mark.parametrize(
+    "state",
+    [
+        DecreeJobState.QUEUED,
+        DecreeJobState.RESULT_READY,
+        DecreeJobState.ARCHIVING,
+        DecreeJobState.PUBLISHING,
+    ],
+)
+@pytest.mark.parametrize("raw", ["{", _spliced_commitment()])
+def test_worker_never_claims_or_mutates_future_commitment(
+    tmp_path, state, raw: str
+) -> None:
+    store = DecreeJobStore(tmp_path / f"future-{state.value}.sqlite3")
+    job_id = _accept(store)
+    if state is not DecreeJobState.QUEUED:
+        store.claim_next("dead-worker", now=NOW, lease_seconds=1)
+        store.checkpoint_result(
+            job_id, "dead-worker", result_json='{"status":"ok"}', now=NOW
+        )
+    if state in {DecreeJobState.ARCHIVING, DecreeJobState.PUBLISHING}:
+        store.begin_archiving(job_id, "dead-worker", now=NOW)
+    if state is DecreeJobState.PUBLISHING:
+        store.begin_publishing(
+            job_id, "dead-worker", reply_id="reply-1", now=NOW
+        )
+    with sqlite3.connect(store.db_path) as connection:
+        connection.execute(
+            "UPDATE decree_jobs SET claim_evidence_commitment_json = ? "
+            "WHERE job_id = ?",
+            (raw, job_id),
+        )
+        connection.commit()
+        before = connection.execute(
+            "SELECT * FROM decree_jobs WHERE job_id = ?", (job_id,)
+        ).fetchone()
+
+    executor = RecordingExecutor()
+    worker = DecreeJobWorker(
+        store,
+        executor,
+        worker_id="future-worker",
+        clock=lambda: NOW + timedelta(seconds=2),
+    )
+
+    assert worker.run_once() is False
+    with sqlite3.connect(store.db_path) as connection:
+        after = connection.execute(
+            "SELECT * FROM decree_jobs WHERE job_id = ?", (job_id,)
+        ).fetchone()
+    assert before == after
+    assert executor.calls == []
+
+
+@pytest.mark.parametrize("raw", ["{", _spliced_commitment()])
+def test_worker_defense_rejects_future_commitment_before_heartbeat_or_executor(
+    tmp_path, raw: str
+) -> None:
+    store = DecreeJobStore(tmp_path / "future-defense.sqlite3")
+    accepted = store.accept(
+        AcceptDecreeJob(
+            owner_user_id="owner-a",
+            idempotency_key="future-defense",
+            request_hash="future-defense",
+            draft_fingerprint="f" * 64,
+            decree_text="请户部核查国库",
+            approved_route_json='{"route_type":"single"}',
+            deadline_at=NOW + timedelta(minutes=30),
+        ),
+        now=NOW,
+    ).job
+    poisoned = replace(accepted, claim_evidence_commitment_json=raw)
+    calls: list[str] = []
+    fake_store = SimpleNamespace(
+        claim_next=lambda *_args, **_kwargs: calls.append("claim") or poisoned,
+    )
+    executor = RecordingExecutor()
+    worker = DecreeJobWorker(
+        fake_store,
+        executor,
+        worker_id="future-worker",
+        clock=lambda: NOW,
+    )
+
+    assert worker.run_once() is True
+    assert calls == ["claim"]
+    assert executor.calls == []
+
+
+@pytest.mark.parametrize("checkpoint", ["archive", "publish"])
+def test_worker_rechecks_commitment_immediately_before_external_side_effect(
+    tmp_path, monkeypatch, checkpoint: str
+) -> None:
+    store = DecreeJobStore(tmp_path / f"late-{checkpoint}.sqlite3")
+    job_id = _accept(store)
+    store.claim_next("dead-worker", now=NOW, lease_seconds=1)
+    store.checkpoint_result(
+        job_id, "dead-worker", result_json='{"status":"ok"}', now=NOW
+    )
+    if checkpoint == "publish":
+        store.begin_archiving(job_id, "dead-worker", now=NOW)
+        store.begin_publishing(
+            job_id, "dead-worker", reply_id="reply-1", now=NOW
+        )
+
+    real_get = store.get_for_owner
+    poisoned_snapshot: list[tuple[object, ...]] = []
+
+    def poison_before_side_effect(candidate_job_id: str, owner_user_id: str):
+        with sqlite3.connect(store.db_path) as connection:
+            connection.execute(
+                "UPDATE decree_jobs SET claim_evidence_commitment_json = ? "
+                "WHERE job_id = ?",
+                (_spliced_commitment(), candidate_job_id),
+            )
+            connection.commit()
+            poisoned_snapshot.append(
+                connection.execute(
+                    "SELECT * FROM decree_jobs WHERE job_id = ?",
+                    (candidate_job_id,),
+                ).fetchone()
+            )
+        return real_get(candidate_job_id, owner_user_id)
+
+    monkeypatch.setattr(store, "get_for_owner", poison_before_side_effect)
+    executor = RecordingExecutor()
+    worker = DecreeJobWorker(
+        store,
+        executor,
+        worker_id="future-worker",
+        clock=lambda: NOW + timedelta(seconds=2),
+    )
+
+    assert worker.run_once() is True
+    assert len(poisoned_snapshot) == 1
+    with sqlite3.connect(store.db_path) as connection:
+        after = connection.execute(
+            "SELECT * FROM decree_jobs WHERE job_id = ?", (job_id,)
+        ).fetchone()
+    assert after == poisoned_snapshot[0]
+    assert executor.calls == []
 
 
 def test_archival_checkpoint_finishes_after_cancel_and_deadline(tmp_path) -> None:

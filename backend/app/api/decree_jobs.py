@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict
 
 from app.api.auth import CurrentUser
 from app.decree_jobs import DecreeJob, DecreeJobState, DecreeJobStore, JobNotFound
+from app.decree_jobs.storage import ClaimEvidenceCommitmentUnavailable
 
 router = APIRouter(prefix="/api/v1/decree-jobs", tags=["decree-jobs"])
 
@@ -225,6 +226,8 @@ def get_decree_job(
         job = store.get_for_owner(job_id, current_user.id)
     except JobNotFound:
         return _not_found()
+    except ClaimEvidenceCommitmentUnavailable:
+        return _job_unavailable()
     try:
         return _response(job)
     except (ValueError, json.JSONDecodeError):
@@ -239,6 +242,8 @@ def cancel_decree_job(
         job = store.request_cancel(job_id, current_user.id)
     except JobNotFound:
         return _not_found()
+    except ClaimEvidenceCommitmentUnavailable:
+        return _job_unavailable()
     try:
         return _response(job)
     except (ValueError, json.JSONDecodeError):

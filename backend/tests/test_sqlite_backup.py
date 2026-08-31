@@ -295,6 +295,66 @@ def _replace_decree_schema_with_canonical_new(path: Path) -> None:
         connection.commit()
 
 
+def _replace_decree_schema_with_canonical_old(path: Path) -> None:
+    with sqlite3.connect(path) as connection:
+        connection.execute("PRAGMA foreign_keys = OFF")
+        existing = {
+            row[0]
+            for row in connection.execute(
+                "SELECT name FROM sqlite_schema WHERE type = 'table'"
+            )
+        }
+        if "decree_job_idempotency_keys" in existing:
+            connection.execute("DROP TABLE decree_job_idempotency_keys")
+        if "decree_jobs" in existing:
+            connection.execute("DROP TABLE decree_jobs")
+        connection.execute(
+            """
+                CREATE TABLE main.decree_jobs (
+                    job_id TEXT PRIMARY KEY,
+                    owner_user_id TEXT NOT NULL,
+                    idempotency_key TEXT NOT NULL,
+                    request_hash TEXT NOT NULL,
+                    draft_fingerprint TEXT NOT NULL,
+                    decree_text TEXT NOT NULL,
+                    approved_route_json TEXT NOT NULL,
+                    state TEXT NOT NULL,
+                    attempt_count INTEGER NOT NULL DEFAULT 0,
+                    provider_request_count INTEGER NOT NULL DEFAULT 0,
+                    provider_request_limit INTEGER NOT NULL DEFAULT 8,
+                    cancel_requested INTEGER NOT NULL DEFAULT 0,
+                    result_json TEXT,
+                    reply_id TEXT,
+                    error_code TEXT,
+                    error_stage TEXT,
+                    error_category TEXT,
+                    authority_committed INTEGER NOT NULL DEFAULT 1,
+                    acceptance_committed INTEGER NOT NULL DEFAULT 1,
+                    deadline_at TEXT NOT NULL,
+                    retry_at TEXT,
+                    lease_owner TEXT,
+                    lease_expires_at TEXT,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    UNIQUE(owner_user_id, idempotency_key),
+                    UNIQUE(owner_user_id, draft_fingerprint)
+                )
+                """
+        )
+        connection.execute(
+            """
+                CREATE TABLE main.decree_job_idempotency_keys (
+                    owner_user_id TEXT NOT NULL,
+                    idempotency_key TEXT NOT NULL,
+                    request_hash TEXT NOT NULL,
+                    job_id TEXT NOT NULL REFERENCES decree_jobs(job_id),
+                    PRIMARY KEY(owner_user_id, idempotency_key)
+                )
+                """
+        )
+        connection.commit()
+
+
 def _decree_manifest_record(backup: Path) -> tuple[Path, dict[str, object], dict[str, object]]:
     manifest_path = backup / BACKUP_MANIFEST_NAME
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -353,6 +413,8 @@ def test_backup_manifest_binds_the_actual_allowed_decree_schema(
     source = _create_runtime(tmp_path / "source")
     if canonical_new:
         _replace_decree_schema_with_canonical_new(source / "decree_jobs.sqlite3")
+    else:
+        _replace_decree_schema_with_canonical_old(source / "decree_jobs.sqlite3")
     expected = _DECREE_SCHEMA_NEW if canonical_new else _DECREE_SCHEMA_OLD
     with sqlite3.connect(source / "decree_jobs.sqlite3") as connection:
         assert schema_contract_digest_connection(connection) == expected
@@ -378,6 +440,11 @@ def test_verify_rejects_allowed_but_spliced_decree_manifest_digest(
     source = _create_runtime(tmp_path / "source")
     if canonical_new:
         _replace_decree_schema_with_canonical_new(source / "decree_jobs.sqlite3")
+    else:
+        _replace_decree_schema_with_canonical_old(source / "decree_jobs.sqlite3")
+    expected = _DECREE_SCHEMA_NEW if canonical_new else _DECREE_SCHEMA_OLD
+    with sqlite3.connect(source / "decree_jobs.sqlite3") as connection:
+        assert schema_contract_digest_connection(connection) == expected
     backup = tmp_path / "backup"
     backup_runtime(source, backup)
     manifest_path, manifest, record = _decree_manifest_record(backup)
@@ -400,6 +467,12 @@ def test_backup_rejects_allowed_but_spliced_source_and_snapshot_schemas(
     source = _create_runtime(tmp_path / "source")
     if source_is_new:
         _replace_decree_schema_with_canonical_new(source / "decree_jobs.sqlite3")
+    else:
+        _replace_decree_schema_with_canonical_old(source / "decree_jobs.sqlite3")
+    source_digest = _DECREE_SCHEMA_NEW if source_is_new else _DECREE_SCHEMA_OLD
+    snapshot_digest = _DECREE_SCHEMA_OLD if source_is_new else _DECREE_SCHEMA_NEW
+    with sqlite3.connect(source / "decree_jobs.sqlite3") as connection:
+        assert schema_contract_digest_connection(connection) == source_digest
     original_snapshot = sqlite_backup._snapshot_sqlite_at
 
     def splice_snapshot(*args, **kwargs):
@@ -412,9 +485,11 @@ def test_backup_rejects_allowed_but_spliced_source_and_snapshot_schemas(
             destination = destination_root / destination_name
             destination.unlink()
             if source_is_new:
-                DecreeJobStore(destination)
+                _replace_decree_schema_with_canonical_old(destination)
             else:
                 _replace_decree_schema_with_canonical_new(destination)
+            with sqlite3.connect(destination) as connection:
+                assert schema_contract_digest_connection(connection) == snapshot_digest
         return observed
 
     monkeypatch.setattr(sqlite_backup, "_snapshot_sqlite_at", splice_snapshot)

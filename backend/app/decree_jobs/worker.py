@@ -7,7 +7,11 @@ from datetime import UTC, datetime, timedelta
 from typing import Protocol
 
 from .models import DecreeJob, DecreeJobState
-from .storage import DecreeJobStore, LeaseConflict
+from .storage import (
+    ClaimEvidenceCommitmentUnavailable,
+    DecreeJobStore,
+    LeaseConflict,
+)
 
 
 class JobControlAbort(BaseException):
@@ -208,7 +212,12 @@ class DecreeJobWorker:
                         now=self.clock(),
                         lease_seconds=self.lease_seconds,
                     )
-                except (LeaseConflict, sqlite3.Error, OSError):
+                except (
+                    ClaimEvidenceCommitmentUnavailable,
+                    LeaseConflict,
+                    sqlite3.Error,
+                    OSError,
+                ):
                     lease_lost.set()
                     return
 
@@ -257,7 +266,12 @@ class DecreeJobWorker:
                     transient=transient,
                     now=failure_now,
                 )
-        except (LeaseConflict, sqlite3.Error, OSError):
+        except (
+            ClaimEvidenceCommitmentUnavailable,
+            LeaseConflict,
+            sqlite3.Error,
+            OSError,
+        ):
             # A concurrent/ambiguous durable transition owns the truth. The next
             # poll reloads it; a secondary error must never kill the worker loop.
             return
@@ -269,6 +283,8 @@ class DecreeJobWorker:
         )
         if job is None:
             return False
+        if job.claim_evidence_commitment_json is not None:
+            return True
         heartbeat_stop, lease_lost, heartbeat = self._start_heartbeat(job.job_id)
         control = DecreeJobControl(
             self.store, job, self.worker_id, self.clock, lease_lost
@@ -297,6 +313,7 @@ class DecreeJobWorker:
                     job.job_id, self.worker_id, now=self.clock()
                 )
             if job.state is DecreeJobState.ARCHIVING:
+                self.store.get_for_owner(job.job_id, job.owner_user_id)
                 reply_id = self.executor.archive(job)
                 job = self.store.begin_publishing(
                     job.job_id,
@@ -305,6 +322,7 @@ class DecreeJobWorker:
                     now=self.clock(),
                 )
             if job.state is DecreeJobState.PUBLISHING:
+                self.store.get_for_owner(job.job_id, job.owner_user_id)
                 final_result_json = self.executor.publish(job)
                 self.store.complete(
                     job.job_id,
@@ -347,6 +365,8 @@ class DecreeJobWorker:
                 transient=False,
             )
             return True
+        except ClaimEvidenceCommitmentUnavailable:
+            return True
         except Exception:
             self._record_failure(
                 job,
@@ -365,7 +385,7 @@ class DecreeJobWorker:
         while not self._stop.is_set():
             try:
                 worked = self.run_once()
-            except (sqlite3.Error, OSError):
+            except (ClaimEvidenceCommitmentUnavailable, sqlite3.Error, OSError):
                 worked = False
             if not worked:
                 self._stop.wait(self.poll_seconds)

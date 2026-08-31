@@ -104,6 +104,7 @@ from app.agents.synthesis_failures import (
 from app.api.auth import CurrentUser
 from app.api.decree_jobs import get_decree_job_store
 from app.decree_jobs import AcceptDecreeJob, DecreeJobStore, IdempotencyConflict
+from app.decree_jobs.storage import ClaimEvidenceCommitmentUnavailable
 from app.junjichu_cases import (
     JunjichuCaseOpenInput,
     append_runtime_council_report,
@@ -1130,8 +1131,33 @@ def accept_decree(
             status_code=409,
             content={"status": "error", "reason": "idempotency_conflict"},
         )
+    except ClaimEvidenceCommitmentUnavailable:
+        return JSONResponse(
+            status_code=503,
+            content={"status": "error", "reason": "job_unavailable"},
+        )
     if recovered is not None:
         return _accepted_response(recovered.job, replayed=True)
+
+    try:
+        preflight_acceptance = getattr(store, "preflight_acceptance", None)
+        if preflight_acceptance is not None:
+            preflight_acceptance(
+                owner_user_id=current_user.id,
+                idempotency_key=idempotency_key,
+                request_hash=request_hash,
+                draft_fingerprint=payload.draft_fingerprint or "",
+            )
+    except IdempotencyConflict:
+        return JSONResponse(
+            status_code=409,
+            content={"status": "error", "reason": "idempotency_conflict"},
+        )
+    except ClaimEvidenceCommitmentUnavailable:
+        return JSONResponse(
+            status_code=503,
+            content={"status": "error", "reason": "job_unavailable"},
+        )
 
     if safety_decision.applicable:
         _preflight_decree_authority(payload, current_user.id)
@@ -1182,6 +1208,17 @@ def accept_decree(
             status_code=409,
             content={"status": "error", "reason": "idempotency_conflict"},
         )
+    except ClaimEvidenceCommitmentUnavailable:
+        try:
+            draft_authority_registry.release_reservation(
+                owner_user_id=current_user.id, reservation_id=reservation_id
+            )
+        except Exception:
+            pass
+        return JSONResponse(
+            status_code=503,
+            content={"status": "error", "reason": "job_unavailable"},
+        )
     except Exception:
         draft_authority_registry.release_reservation(
             owner_user_id=current_user.id, reservation_id=reservation_id
@@ -1201,19 +1238,25 @@ def accept_decree(
         raise AccountingReportPublicationError("draft_authority_commit_failed")
     try:
         store.mark_authority_committed(accepted.job.job_id, current_user.id)
+    except ClaimEvidenceCommitmentUnavailable:
+        return JSONResponse(
+            status_code=503,
+            content={"status": "error", "reason": "job_unavailable"},
+        )
     except Exception:
-        # The process-local authority has already been consumed.  Without a
-        # durable commit marker this acceptance must never be recovered or
-        # claimed after restart.
-        try:
-            store.abandon_acceptance(accepted.job.job_id, current_user.id)
-        except Exception:
-            pass
+        # The authority has already been consumed. Preserve the durable
+        # (authority_committed=0, acceptance_committed=0) intent so a later
+        # authority reissue can reconcile it; deleting it loses intent.
         raise AccountingReportPublicationError(
             "draft_authority_commit_marker_failed"
         ) from None
     try:
         job = store.activate_acceptance(accepted.job.job_id, current_user.id)
+    except ClaimEvidenceCommitmentUnavailable:
+        return JSONResponse(
+            status_code=503,
+            content={"status": "error", "reason": "job_unavailable"},
+        )
     except Exception:
         abandoned = False
         try:

@@ -13,7 +13,6 @@ from types import SimpleNamespace
 import pytest
 
 from app.agents.runtime_skills.execution_ledger import RuntimeBindingLedger
-from app.decree_jobs.storage import DecreeJobStore
 from app.jinyiwei import db as jinyiwei_db
 from app.main import app
 from app.operations.runtime_data_registry import (
@@ -67,6 +66,55 @@ _DEGREE_STORAGE_RAW_SCHEMA = (
 _DEGREE_SINGLE_ALTER_RUNTIME_SCHEMA = (
     "sha256:5d928d429bbc134125649a5cbafe320947e0b9150303304cb63186696607707c"
 )
+
+
+def _create_canonical_old_decree_schema(path: Path) -> None:
+    with closing(sqlite3.connect(path)) as connection:
+        connection.execute(
+            """
+                CREATE TABLE main.decree_jobs (
+                    job_id TEXT PRIMARY KEY,
+                    owner_user_id TEXT NOT NULL,
+                    idempotency_key TEXT NOT NULL,
+                    request_hash TEXT NOT NULL,
+                    draft_fingerprint TEXT NOT NULL,
+                    decree_text TEXT NOT NULL,
+                    approved_route_json TEXT NOT NULL,
+                    state TEXT NOT NULL,
+                    attempt_count INTEGER NOT NULL DEFAULT 0,
+                    provider_request_count INTEGER NOT NULL DEFAULT 0,
+                    provider_request_limit INTEGER NOT NULL DEFAULT 8,
+                    cancel_requested INTEGER NOT NULL DEFAULT 0,
+                    result_json TEXT,
+                    reply_id TEXT,
+                    error_code TEXT,
+                    error_stage TEXT,
+                    error_category TEXT,
+                    authority_committed INTEGER NOT NULL DEFAULT 1,
+                    acceptance_committed INTEGER NOT NULL DEFAULT 1,
+                    deadline_at TEXT NOT NULL,
+                    retry_at TEXT,
+                    lease_owner TEXT,
+                    lease_expires_at TEXT,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    UNIQUE(owner_user_id, idempotency_key),
+                    UNIQUE(owner_user_id, draft_fingerprint)
+                )
+                """
+        )
+        connection.execute(
+            """
+                CREATE TABLE main.decree_job_idempotency_keys (
+                    owner_user_id TEXT NOT NULL,
+                    idempotency_key TEXT NOT NULL,
+                    request_hash TEXT NOT NULL,
+                    job_id TEXT NOT NULL REFERENCES decree_jobs(job_id),
+                    PRIMARY KEY(owner_user_id, idempotency_key)
+                )
+                """
+        )
+        connection.commit()
 
 
 def _create_canonical_new_decree_schema(path: Path) -> None:
@@ -241,7 +289,18 @@ def test_registry_accepts_exact_old_and_canonical_new_decree_schemas(tmp_path: P
     old_root = tmp_path / "old"
     old_root.mkdir()
     old_settings = _settings(old_root)
-    DecreeJobStore(old_settings.data_dir / "decree_jobs.sqlite3")
+    _create_canonical_old_decree_schema(old_settings.data_dir / "decree_jobs.sqlite3")
+    with closing(sqlite3.connect(old_settings.data_dir / "decree_jobs.sqlite3")) as connection:
+        observed = observe_schema_contract_connection(connection)
+    observed_digest = "sha256:" + hashlib.sha256(
+        json.dumps(
+            observed,
+            ensure_ascii=True,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    ).hexdigest()
+    assert observed_digest == _DECREE_SCHEMA_OLD
     assert run_readiness_preflight(old_settings).codes == ()
 
     new_root = tmp_path / "new"
@@ -297,10 +356,20 @@ def test_registry_rejects_invalid_or_reordered_digest_tuples() -> None:
 
 def test_registry_mechanically_rejects_single_alter_decree_schema(tmp_path: Path) -> None:
     path = tmp_path / "decree_jobs.sqlite3"
-    DecreeJobStore(path)
+    _create_canonical_old_decree_schema(path)
     entry = next(item for item in RUNTIME_DATA_ENTRIES if item.name == path.name)
 
     with closing(sqlite3.connect(path)) as connection:
+        old_schema = observe_schema_contract_connection(connection)
+        old_digest = "sha256:" + hashlib.sha256(
+            json.dumps(
+                old_schema,
+                ensure_ascii=True,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
+        ).hexdigest()
+        assert old_digest == _DECREE_SCHEMA_OLD
         connection.execute(
             "ALTER TABLE decree_jobs ADD COLUMN claim_evidence_commitment_json TEXT"
         )
