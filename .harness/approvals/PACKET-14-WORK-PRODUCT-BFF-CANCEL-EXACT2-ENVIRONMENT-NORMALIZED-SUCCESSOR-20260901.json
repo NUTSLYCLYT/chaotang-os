@@ -1,0 +1,208 @@
+{
+  "schemaVersion": "product-authority.m0.approval.v1",
+  "authorityId": "product-authority.m0.v1",
+  "taskId": "PACKET-14-WORK-PRODUCT-BFF-CANCEL-EXACT2-ENVIRONMENT-NORMALIZED-SUCCESSOR-20260901",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "8441b881354d2521a7e0b04e4c3bfe05295852c3",
+    "baseTree": "f6a827cf10b1e2a7ccf76e3598f43762c449cefe",
+    "approvalPath": ".harness/approvals/PACKET-14-WORK-PRODUCT-BFF-CANCEL-EXACT2-ENVIRONMENT-NORMALIZED-SUCCESSOR-20260901.json",
+    "approvalCommitPaths": [
+      ".harness/approvals/PACKET-14-WORK-PRODUCT-BFF-CANCEL-EXACT2-ENVIRONMENT-NORMALIZED-SUCCESSOR-20260901.json",
+      "docs/product/tasks/2026-09-01-packet-14-work-product-bff-exact2-environment-normalized-successor.md",
+      "docs/superpowers/plans/2026-09-01-packet-14-work-product-bff-exact2-environment-normalized-successor.md"
+    ],
+    "productPaths": [
+      "frontend/src/app/api/report-artifacts/[id]/work-product/handler.ts",
+      "frontend/src/app/api/report-artifacts/[id]/work-product/route.test.ts"
+    ]
+  },
+  "nonGoals": [
+    "BACKEND_ARTIFACT_OR_DATABASE_CHANGE",
+    "EXACT30_OR_EXACT32_SCOPE_EXPANSION",
+    "LEGACY_APPROVAL_AUTHORITY_CANDIDATE_OR_VERIFICATION_INHERITANCE",
+    "OLD_EXACT2_MACHINE_VERIFICATION_RETRY",
+    "P14_COMPLETION_RELEASE_PILOT_OR_DEPLOYMENT_CLAIM",
+    "PRODUCTION_SIDE_EFFECT_OR_EXTERNAL_PUBLICATION",
+    "PRODUCT_AUTHORITY_HARNESS_OR_READINESS_CHANGE",
+    "SECOND_ARTIFACT_LEDGER_OR_API_NAMESPACE"
+  ],
+  "verification": [
+    {
+      "id": "00-live-remote-approval-before-matrix",
+      "tool": "python3",
+      "args": [
+        "-I",
+        "-c",
+        "import os,pwd,subprocess;E={'PATH':'/usr/bin:/bin','HOME':'/nonexistent','GIT_CONFIG_GLOBAL':'/dev/null','GIT_CONFIG_NOSYSTEM':'1','GIT_CONFIG_SYSTEM':'/dev/null','GIT_NO_REPLACE_OBJECTS':'1','GIT_TERMINAL_PROMPT':'0'};g=lambda a:subprocess.check_output(['/usr/bin/git','--no-replace-objects',*a],text=True,env=E).strip();assert g(['config','--local','--get','remote.origin.url'])=='git@gitee.com:msxn/chaotang-os.git';r=lambda a:subprocess.run(['/usr/bin/git',*a],text=True,capture_output=True,env=E);assert all((x:=r(['config','--local','--get-regexp',p])).returncode==1 and not x.stdout and not x.stderr for p in ('^(include[.]path|includeif[.].*[.]path)$','^core[.]sshcommand$','^url[.].*[.]insteadof$'));approval=g(['rev-parse','HEAD^']);R={**E,'HOME':pwd.getpwuid(os.getuid()).pw_dir,'GIT_SSH_COMMAND':'/usr/bin/ssh -F /dev/null'};remote=subprocess.check_output(['/usr/bin/git','--no-replace-objects','-C','/tmp','ls-remote','git@gitee.com:msxn/chaotang-os.git','refs/heads/ext-dev'],text=True,env=R).strip().split();assert remote==[approval,'refs/heads/ext-dev']"
+      ],
+      "cwd": ".",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "01-frontend-dependency-offline-provision",
+      "tool": "python3",
+      "args": [
+        "-I",
+        "-c",
+        "import os;n='/usr/bin/npm';e={'PATH':'/usr/bin:/bin','HOME':'/nonexistent','CI':'1','NODE_ENV':'test','LANG':'C.UTF-8','LC_ALL':'C.UTF-8','NO_COLOR':'1','NPM_CONFIG_USERCONFIG':'/nonexistent/p14-npm-userconfig','NPM_CONFIG_GLOBALCONFIG':'/nonexistent/p14-npm-globalconfig','NPM_CONFIG_SCRIPT_SHELL':'/bin/sh','NPM_CONFIG_CACHE':'/home/ubuntu/.npm','NPM_CONFIG_AUDIT':'false','NPM_CONFIG_FUND':'false','NPM_CONFIG_UPDATE_NOTIFIER':'false'};os.execve(n,[n,'ci','--offline','--ignore-scripts','--no-audit','--no-fund'],e)"
+      ],
+      "cwd": "frontend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "02-frontend-dependency-tree-before-matrix",
+      "tool": "node",
+      "args": [
+        "--input-type=module",
+        "--eval",
+        "import{execFileSync}from'node:child_process';import{createHash}from'node:crypto';import{existsSync,lstatSync,readdirSync,readFileSync,readlinkSync,realpathSync}from'node:fs';import path from'node:path';import{canonicalizeRfc8785}from'./scripts/product-authority.mjs';const E={PATH:'/usr/bin:/bin',HOME:'/nonexistent',NPM_CONFIG_USERCONFIG:'/nonexistent/p14-npm-userconfig',NPM_CONFIG_GLOBALCONFIG:'/nonexistent/p14-npm-globalconfig',NPM_CONFIG_SCRIPT_SHELL:'/bin/sh'},root=realpathSync('.'),base=path.join(root,'frontend/node_modules'),s=lstatSync(base);if(process.version!=='v22.23.1'||execFileSync('/usr/bin/npm',['--version'],{encoding:'utf8',env:E}).trim()!=='10.9.8')throw Error('RUNTIME_DRIFT');if(existsSync('.npmrc')||existsSync('frontend/.npmrc')||!s.isDirectory()||s.isSymbolicLink()||realpathSync(base)!==base)throw Error('DEPENDENCY_ROOT_INVALID');if(createHash('sha256').update(readFileSync('frontend/package-lock.json')).digest('hex')!=='a08cf31a5089fc246380a8ac77f365299e31880995a04722affbdf413e74fb0b')throw Error('LOCK_DRIFT');const records=[];function w(d,r=''){for(const n of readdirSync(d).sort()){const p=path.join(d,n),q=r?r+'/'+n:n,z=lstatSync(p),m=(z.mode&511).toString(8).padStart(4,'0');if(z.isSymbolicLink()){const t=readlinkSync(p),x=realpathSync(p);if(x!==base&&!x.startsWith(base+path.sep))throw Error('SYMLINK_ESCAPE:'+q);records.push({path:q,type:'symlink',mode:m,target:t})}else if(z.isDirectory()){records.push({path:q,type:'directory',mode:m});w(p,q)}else if(z.isFile()){const b=readFileSync(p);records.push({path:q,type:'file',mode:m,bytes:b.length,rawSha256:'sha256:'+createHash('sha256').update(b).digest('hex')})}else throw Error('UNSUPPORTED_ENTRY:'+q)}}w(base);if(records.length!==22457||createHash('sha256').update(canonicalizeRfc8785(records)).digest('hex')!=='5622646be4a6238728aa4a45553a46b41f63ca4bebc71cc05ada902aa4386fd8')throw Error('DEPENDENCY_TREE_DRIFT')"
+      ],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "03-exact2-identity-and-donor-freeze",
+      "tool": "node",
+      "args": [
+        "--input-type=module",
+        "--eval",
+        "import{execFileSync}from'node:child_process';import{createHash}from'node:crypto';import{canonicalizeRfc8785}from'./scripts/product-authority.mjs';const x=[['frontend/src/app/api/report-artifacts/[id]/work-product/handler.ts',2020,'6f157d070e01d5caac2cc9738f3787c7cac529f57355714d918100c586c14988','471e34f994a4b06e9e602a79095f36deac72956a'],['frontend/src/app/api/report-artifacts/[id]/work-product/route.test.ts',2442,'bab4f5d6cfec93c03fab9e4e2c5ffda0ded3e6725e83180438c6cfe14ad78b2e','f8a0b8cb388de74776f8705326c0f2c4a0a2bbd6']],e={PATH:'/usr/bin:/bin',HOME:'/nonexistent',GIT_CONFIG_GLOBAL:'/dev/null',GIT_CONFIG_SYSTEM:'/dev/null',GIT_CONFIG_NOSYSTEM:'1',GIT_ATTR_NOSYSTEM:'1',GIT_NO_REPLACE_OBJECTS:'1',GIT_TERMINAL_PROMPT:'0'},g=(a,o={})=>execFileSync('/usr/bin/git',['--no-replace-objects',...a],{env:e,maxBuffer:16777216,...o}),q=g(['rev-list','--parents','-n','1','HEAD'],{encoding:'utf8'}).trim().split(/\\s+/u);if(q.length!==2)throw Error('PARENT_COUNT');const r=g(['diff-tree','--no-commit-id','--name-status','-r',q[1],'HEAD'],{encoding:'utf8'}).trim().split('\\n').filter(Boolean).map(v=>v.split('\\t'));if(JSON.stringify(r.map(v=>v.at(-1)))!==JSON.stringify(x.map(v=>v[0]))||r.some(v=>v[0]!=='M'))throw Error('EXACT2_SCOPE');const b=[];for(const[p,n,h,o]of x){const t=g(['ls-tree','HEAD','--',p],{encoding:'utf8'}).toString().trim().split(/\\s+/u),z=g(['show','HEAD:'+p]);if(t[0]!=='100644'||t[2]!==o||z.length!==n||createHash('sha256').update(z).digest('hex')!==h)throw Error('IDENTITY:'+p);b.push({path:p,mode:'100644',bytes:n,rawSha256:'sha256:'+h})}if(createHash('sha256').update(canonicalizeRfc8785(b)).digest('hex')!=='7d6eb6471c2d7a4c2be9a988f4b529a9ab7b5fbfa83c974419728868d925d5fa')throw Error('BUNDLE');const d=g(['-c','core.attributesFile=/dev/null','diff','--no-ext-diff','--no-textconv','--full-index','--binary','HEAD^','HEAD']);if(createHash('sha256').update(d).digest('hex')!=='c40b12b29529b110f86b070b686e40eee7d554bab440c67928f1b77c96c3a539')throw Error('DIFF')"
+      ],
+      "cwd": ".",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "04-work-product-route-focused",
+      "tool": "node",
+      "args": ["--test", "route.test.ts"],
+      "cwd": "frontend/src/app/api/report-artifacts/[id]/work-product",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "05-frontend-tests",
+      "tool": "python3",
+      "args": ["-I", "-c", "import os;n='/usr/bin/npm';e={'PATH':'/usr/bin:/bin','HOME':'/nonexistent','CI':'1','NODE_ENV':'test','LANG':'C.UTF-8','LC_ALL':'C.UTF-8','NO_COLOR':'1','NPM_CONFIG_USERCONFIG':'/nonexistent/p14-npm-userconfig','NPM_CONFIG_GLOBALCONFIG':'/nonexistent/p14-npm-globalconfig','NPM_CONFIG_SCRIPT_SHELL':'/bin/sh','NPM_CONFIG_AUDIT':'false','NPM_CONFIG_FUND':'false','NPM_CONFIG_UPDATE_NOTIFIER':'false'};os.execve(n,[n,'test'],e)"],
+      "cwd": "frontend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "06-frontend-lint",
+      "tool": "python3",
+      "args": ["-I", "-c", "import os;n='/usr/bin/npm';e={'PATH':'/usr/bin:/bin','HOME':'/nonexistent','CI':'1','NODE_ENV':'test','LANG':'C.UTF-8','LC_ALL':'C.UTF-8','NO_COLOR':'1','NPM_CONFIG_USERCONFIG':'/nonexistent/p14-npm-userconfig','NPM_CONFIG_GLOBALCONFIG':'/nonexistent/p14-npm-globalconfig','NPM_CONFIG_SCRIPT_SHELL':'/bin/sh','NPM_CONFIG_AUDIT':'false','NPM_CONFIG_FUND':'false','NPM_CONFIG_UPDATE_NOTIFIER':'false'};os.execve(n,[n,'run','lint'],e)"],
+      "cwd": "frontend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "07-frontend-typecheck",
+      "tool": "python3",
+      "args": ["-I", "-c", "import os;n='/usr/bin/npm';e={'PATH':'/usr/bin:/bin','HOME':'/nonexistent','CI':'1','NODE_ENV':'test','LANG':'C.UTF-8','LC_ALL':'C.UTF-8','NO_COLOR':'1','NPM_CONFIG_USERCONFIG':'/nonexistent/p14-npm-userconfig','NPM_CONFIG_GLOBALCONFIG':'/nonexistent/p14-npm-globalconfig','NPM_CONFIG_SCRIPT_SHELL':'/bin/sh','NPM_CONFIG_AUDIT':'false','NPM_CONFIG_FUND':'false','NPM_CONFIG_UPDATE_NOTIFIER':'false'};os.execve(n,[n,'run','typecheck'],e)"],
+      "cwd": "frontend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "08-frontend-production-build",
+      "tool": "python3",
+      "args": ["-I", "-c", "import os;n='/usr/bin/npm';e={'PATH':'/usr/bin:/bin','HOME':'/nonexistent','CI':'1','NODE_ENV':'production','LANG':'C.UTF-8','LC_ALL':'C.UTF-8','NO_COLOR':'1','NPM_CONFIG_USERCONFIG':'/nonexistent/p14-npm-userconfig','NPM_CONFIG_GLOBALCONFIG':'/nonexistent/p14-npm-globalconfig','NPM_CONFIG_SCRIPT_SHELL':'/bin/sh','NPM_CONFIG_AUDIT':'false','NPM_CONFIG_FUND':'false','NPM_CONFIG_UPDATE_NOTIFIER':'false'};os.execve(n,[n,'run','build'],e)"],
+      "cwd": "frontend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "09-root-harness",
+      "tool": "node",
+      "args": ["scripts/check_harness.mjs"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "10-root-harness-self-test",
+      "tool": "node",
+      "args": ["scripts/check_harness.mjs", "--self-test"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "11-root-harness-doctor",
+      "tool": "node",
+      "args": ["scripts/harness-doctor.mjs", "--check"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "12-root-harness-doctor-regression",
+      "tool": "node",
+      "args": ["--test", "scripts/harness-doctor.test.mjs"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "13-root-hook-self-test",
+      "tool": "node",
+      "args": [".agents/hooks/check-harness.mjs", "--self-test"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "14-product-authority-regression",
+      "tool": "python3",
+      "args": [
+        "-I",
+        "-c",
+        "import os;n='/usr/bin/node';t='/tmp';e={'PATH':'/usr/bin:/bin','TMPDIR':t,'TEMP':t,'TMP':t,'CI':'1','NODE_ENV':'test','LANG':'C.UTF-8','LC_ALL':'C.UTF-8','NO_COLOR':'1'};os.execve(n,[n,'--test','scripts/product-authority.test.mjs'],e)"
+      ],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "15-v2-convergence",
+      "tool": "node",
+      "args": ["scripts/ext-full-value-convergence.mjs", "--check"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "16-v2-convergence-regression",
+      "tool": "node",
+      "args": ["--test", "scripts/ext-full-value-convergence.test.mjs"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "17-git-diff-check",
+      "tool": "node",
+      "args": [
+        "--input-type=module",
+        "--eval",
+        "import{execFileSync}from'node:child_process';execFileSync('/usr/bin/git',['--no-replace-objects','diff','--check','HEAD^','HEAD'],{stdio:'inherit',env:{PATH:'/usr/bin:/bin',GIT_CONFIG_NOSYSTEM:'1',GIT_NO_REPLACE_OBJECTS:'1',GIT_TERMINAL_PROMPT:'0'}})"
+      ],
+      "cwd": ".",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "18-frontend-dependency-tree-after-matrix",
+      "tool": "node",
+      "args": [
+        "--input-type=module",
+        "--eval",
+        "import{execFileSync}from'node:child_process';import{createHash}from'node:crypto';import{existsSync,lstatSync,readdirSync,readFileSync,readlinkSync,realpathSync}from'node:fs';import path from'node:path';import{canonicalizeRfc8785}from'./scripts/product-authority.mjs';const E={PATH:'/usr/bin:/bin',HOME:'/nonexistent',NPM_CONFIG_USERCONFIG:'/nonexistent/p14-npm-userconfig',NPM_CONFIG_GLOBALCONFIG:'/nonexistent/p14-npm-globalconfig',NPM_CONFIG_SCRIPT_SHELL:'/bin/sh'},root=realpathSync('.'),base=path.join(root,'frontend/node_modules'),s=lstatSync(base);if(process.version!=='v22.23.1'||execFileSync('/usr/bin/npm',['--version'],{encoding:'utf8',env:E}).trim()!=='10.9.8')throw Error('RUNTIME_DRIFT');if(existsSync('.npmrc')||existsSync('frontend/.npmrc')||!s.isDirectory()||s.isSymbolicLink()||realpathSync(base)!==base)throw Error('DEPENDENCY_ROOT_INVALID');if(createHash('sha256').update(readFileSync('frontend/package-lock.json')).digest('hex')!=='a08cf31a5089fc246380a8ac77f365299e31880995a04722affbdf413e74fb0b')throw Error('LOCK_DRIFT');const records=[];function w(d,r=''){for(const n of readdirSync(d).sort()){const p=path.join(d,n),q=r?r+'/'+n:n,z=lstatSync(p),m=(z.mode&511).toString(8).padStart(4,'0');if(z.isSymbolicLink()){const t=readlinkSync(p),x=realpathSync(p);if(x!==base&&!x.startsWith(base+path.sep))throw Error('SYMLINK_ESCAPE:'+q);records.push({path:q,type:'symlink',mode:m,target:t})}else if(z.isDirectory()){records.push({path:q,type:'directory',mode:m});w(p,q)}else if(z.isFile()){const b=readFileSync(p);records.push({path:q,type:'file',mode:m,bytes:b.length,rawSha256:'sha256:'+createHash('sha256').update(b).digest('hex')})}else throw Error('UNSUPPORTED_ENTRY:'+q)}}w(base);if(records.length!==22457||createHash('sha256').update(canonicalizeRfc8785(records)).digest('hex')!=='5622646be4a6238728aa4a45553a46b41f63ca4bebc71cc05ada902aa4386fd8')throw Error('DEPENDENCY_TREE_DRIFT')"
+      ],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "19-live-remote-approval-after-matrix",
+      "tool": "python3",
+      "args": [
+        "-I",
+        "-c",
+        "import os,pwd,subprocess;E={'PATH':'/usr/bin:/bin','HOME':'/nonexistent','GIT_CONFIG_GLOBAL':'/dev/null','GIT_CONFIG_NOSYSTEM':'1','GIT_CONFIG_SYSTEM':'/dev/null','GIT_NO_REPLACE_OBJECTS':'1','GIT_TERMINAL_PROMPT':'0'};g=lambda a:subprocess.check_output(['/usr/bin/git','--no-replace-objects',*a],text=True,env=E).strip();assert g(['config','--local','--get','remote.origin.url'])=='git@gitee.com:msxn/chaotang-os.git';r=lambda a:subprocess.run(['/usr/bin/git',*a],text=True,capture_output=True,env=E);assert all((x:=r(['config','--local','--get-regexp',p])).returncode==1 and not x.stdout and not x.stderr for p in ('^(include[.]path|includeif[.].*[.]path)$','^core[.]sshcommand$','^url[.].*[.]insteadof$'));approval=g(['rev-parse','HEAD^']);R={**E,'HOME':pwd.getpwuid(os.getuid()).pw_dir,'GIT_SSH_COMMAND':'/usr/bin/ssh -F /dev/null'};remote=subprocess.check_output(['/usr/bin/git','--no-replace-objects','-C','/tmp','ls-remote','git@gitee.com:msxn/chaotang-os.git','refs/heads/ext-dev'],text=True,env=R).strip().split();assert remote==[approval,'refs/heads/ext-dev']"
+      ],
+      "cwd": ".",
+      "timeoutMs": 30000
+    }
+  ],
+  "state": "APPROVED_FOR_ONE_CHILD"
+}
