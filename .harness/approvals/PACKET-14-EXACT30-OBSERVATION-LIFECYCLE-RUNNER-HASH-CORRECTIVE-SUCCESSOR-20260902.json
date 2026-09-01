@@ -1,0 +1,416 @@
+{
+  "schemaVersion": "product-authority.m0.approval.v1",
+  "authorityId": "product-authority.m0.v1",
+  "taskId": "PACKET-14-EXACT30-OBSERVATION-LIFECYCLE-RUNNER-HASH-CORRECTIVE-SUCCESSOR-20260902",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "76470ca5fe89135493d8b1a54509623800316c85",
+    "baseTree": "87d16b7c5e9ea998bd8e121dfe4e987e855626b3",
+    "approvalPath": ".harness/approvals/PACKET-14-EXACT30-OBSERVATION-LIFECYCLE-RUNNER-HASH-CORRECTIVE-SUCCESSOR-20260902.json",
+    "approvalCommitPaths": [
+      ".harness/approvals/PACKET-14-EXACT30-OBSERVATION-LIFECYCLE-RUNNER-HASH-CORRECTIVE-SUCCESSOR-20260902.json",
+      "docs/product/tasks/2026-09-02-packet-14-exact30-observation-lifecycle-runner-hash-corrective-successor.md",
+      "docs/superpowers/plans/2026-09-02-packet-14-exact30-observation-lifecycle-runner-hash-corrective-successor.md"
+    ],
+    "productPaths": [
+      "backend/app/accounting_reports/storage.py",
+      "backend/app/api/report_artifacts.py",
+      "backend/app/main.py",
+      "backend/app/operations/runtime_data_registry.py",
+      "backend/app/operations/sqlite_backup.py",
+      "backend/app/readiness.py",
+      "backend/tests/test_accounting_confirmation_api.py",
+      "backend/tests/test_accounting_report_storage.py",
+      "backend/tests/test_accounting_work_product_storage.py",
+      "backend/tests/test_decree_async_integration.py",
+      "backend/tests/test_readiness.py",
+      "backend/tests/test_report_artifacts_api.py",
+      "backend/tests/test_six_ministry_accounting_evidence_adapter.py",
+      "backend/tests/test_sqlite_backup.py",
+      "deploy/release-manifest.schema.json",
+      "frontend/src/app/api/report-artifacts/[id]/confirmation/handler.ts",
+      "frontend/src/app/api/report-artifacts/[id]/confirmation/route.test.ts",
+      "frontend/src/app/api/report-artifacts/[id]/handler.ts",
+      "frontend/src/app/api/report-artifacts/[id]/route.test.ts",
+      "frontend/src/features/study-visual/StudyArtifactConfirmation.test.ts",
+      "frontend/src/features/study-visual/StudyArtifactLinks.test.ts",
+      "frontend/src/features/study-visual/StudyArtifactLinks.ts",
+      "frontend/src/lib/backendClient.test.ts",
+      "frontend/src/lib/backendClient.ts",
+      "scripts/build_offline_release.mjs",
+      "scripts/build_offline_release.test.mjs",
+      "scripts/run_rc1_release_acceptance.mjs",
+      "scripts/run_rc1_release_acceptance.test.mjs",
+      "scripts/verify_offline_release.mjs",
+      "scripts/verify_offline_release.test.mjs"
+    ]
+  },
+  "nonGoals": [
+    "EXACT30_SCOPE_EXPANSION_OR_OBSERVATION_CHANGE_OUTSIDE_EXISTING_CDP_EDGE_PATHS",
+    "FALSE_BEHAVIORAL_RED_OR_MISSING_EXPORT_AS_DEFECT_PROOF",
+    "GATE_A_MACHINE_VERIFY_CANDIDATE_OR_PUSH",
+    "GATE_B_SUPERVISOR_RELEASE_PILOT_OR_DEPLOYMENT",
+    "MUTABLE_MAIN_REPOSITORY_CONFIG_FOR_MACHINE_AUTHORITY_OR_CANDIDATE_VERIFICATION",
+    "OLD_GATE_A_AUTHORITY_RETRY_RECOVERY_REANCHOR_OR_INHERITANCE",
+    "PREDECESSOR_AUTHORITY_RETRY_CONSUMPTION_INHERITANCE_OR_REANCHOR",
+    "SECOND_RUNTIME_LOCK_AUTHORITY_OR_DEPENDENCY_FACT_SOURCE",
+    "TEST_SELECTOR_ASSERTION_OR_GATE_RELAXATION",
+    "UNDECLARED_PYTHONPATH_USER_SITE_SYSTEM_INSTALL_OR_NETWORK_DEPENDENCY"
+  ],
+  "verification": [
+    {
+      "id": "00-live-remote-approval-before-matrix",
+      "tool": "python3",
+      "args": [
+        "-I",
+        "-c",
+        "import subprocess;E={'PATH':'/usr/bin:/bin','HOME':'/nonexistent','GIT_CONFIG_GLOBAL':'/dev/null','GIT_CONFIG_NOSYSTEM':'1','GIT_CONFIG_SYSTEM':'/dev/null','GIT_NO_REPLACE_OBJECTS':'1','GIT_TERMINAL_PROMPT':'0'};g=lambda a:subprocess.check_output(['/usr/bin/git','--no-replace-objects',*a],text=True,env=E).strip();assert g(['config','--local','--get','remote.origin.url'])=='git@gitee.com:msxn/chaotang-os.git';assert g(['config','--local','--get','core.sshCommand'])=='/usr/bin/ssh -F /dev/null';keys={x.lower() for x in g(['config','--local','--name-only','--list']).splitlines()};required={'core.repositoryformatversion','core.filemode','core.bare','core.logallrefupdates','core.sshcommand','remote.origin.url','remote.origin.fetch'};assert keys==required;r=lambda p:subprocess.run(['/usr/bin/git','config','--local','--get-regexp',p],text=True,capture_output=True,env=E);assert all((x:=r(p)).returncode==1 and not x.stdout and not x.stderr for p in ('^(include[.]path|includeif[.].*[.]path)$','^ssh[.]variant$','^credential[.]helper$','^http[.]','^remote[.]origin[.](uploadpack|proxy)$','^protocol[.]ext[.]allow$','^url[.].*[.]insteadof$'));approval=g(['rev-parse','HEAD^']);remote=g(['ls-remote','--heads','origin','refs/heads/ext-dev']).split();assert remote==[approval,'refs/heads/ext-dev']"
+      ],
+      "cwd": ".",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "01-exact30-committed-scope-and-bundle",
+      "tool": "node",
+      "args": [
+        "--input-type=module",
+        "--eval",
+        "import{execFileSync}from'node:child_process';import{createHash}from'node:crypto';import{canonicalizeRfc8785}from'./scripts/product-authority.mjs';const E={PATH:'/usr/bin:/bin',HOME:'/nonexistent',GIT_CONFIG_GLOBAL:'/dev/null',GIT_CONFIG_SYSTEM:'/dev/null',GIT_CONFIG_NOSYSTEM:'1',GIT_ATTR_NOSYSTEM:'1',GIT_NO_REPLACE_OBJECTS:'1',GIT_TERMINAL_PROMPT:'0'},g=(a,o={})=>execFileSync('/usr/bin/git',['--no-replace-objects',...a],{env:E,maxBuffer:268435456,...o}),A=\".harness/approvals/PACKET-14-EXACT30-OBSERVATION-LIFECYCLE-RUNNER-HASH-CORRECTIVE-SUCCESSOR-20260902.json\",q=g(['rev-list','--parents','-n','1','HEAD'],{encoding:'utf8'}).trim().split(/\\s+/u);if(q.length!==2)throw Error('CANDIDATE_PARENT_COUNT');const M=JSON.parse(g(['show',q[1]+':'+A],{encoding:'utf8'})),P=M.request.productPaths,ap=g(['rev-list','--parents','-n','1',q[1]],{encoding:'utf8'}).trim().split(/\\s+/u);if(ap.length!==2||ap[1]!==M.request.baseCommit)throw Error('APPROVAL_LINEAGE');const d=g(['diff-tree','--no-commit-id','--name-status','-r',q[1],'HEAD'],{encoding:'utf8'}).trim().split('\\n').filter(Boolean).map(x=>x.split('\\t'));if(JSON.stringify(d.map(x=>x.at(-1)))!==JSON.stringify(P)||d.some(x=>x[0]!=='M'))throw Error('EXACT30_SCOPE');if(g(['status','--porcelain=v1','--untracked-files=all'],{encoding:'utf8'}).trim())throw Error('WORKTREE_NOT_CLEAN');const R=[];for(const p of P){const t=g(['ls-tree','HEAD','--',p],{encoding:'utf8'}).trim().split(/\\s+/u),b=g(['show','HEAD:'+p]);if(t[0]!=='100644'||t[1]!=='blob')throw Error('MODE:'+p);R.push({path:p,mode:'100644',bytes:b.length,rawSha256:'sha256:'+createHash('sha256').update(b).digest('hex')})}const H=x=>'sha256:'+createHash('sha256').update(x).digest('hex');if(H(Buffer.from(canonicalizeRfc8785(R.sort((a,b)=>a.path.localeCompare(b.path)))))!=='sha256:65e96c569f6d7a1f707ff96f5cf574b33b28cb722e871f7033a5118f17044a7b')throw Error('CANDIDATE_BUNDLE');const fd=g(['diff','--binary','--full-index','--no-ext-diff','--no-renames',q[1],'HEAD','--',...P]);if(H(fd)!=='sha256:4a8c431670e6e80ec61fc432782fa5164c7b354e4d6475813f89255f9e0ed77e')throw Error('CANDIDATE_DIFF')"
+      ],
+      "cwd": ".",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "02-donor-descriptor-bundles-diffs-and-proof-gap",
+      "tool": "node",
+      "args": [
+        "--input-type=module",
+        "--eval",
+        "import{execFileSync}from'node:child_process';import{createHash}from'node:crypto';import{closeSync,constants,fstatSync,lstatSync,openSync,readFileSync,realpathSync}from'node:fs';import path from'node:path';import{canonicalizeRfc8785}from'./scripts/product-authority.mjs';const E={PATH:'/usr/bin:/bin',HOME:'/nonexistent',GIT_CONFIG_GLOBAL:'/dev/null',GIT_CONFIG_SYSTEM:'/dev/null',GIT_CONFIG_NOSYSTEM:'1',GIT_ATTR_NOSYSTEM:'1',GIT_NO_REPLACE_OBJECTS:'1',GIT_TERMINAL_PROMPT:'0'},g=(a,o={})=>execFileSync('/usr/bin/git',['--no-replace-objects',...a],{env:E,maxBuffer:268435456,...o}),A=\".harness/approvals/PACKET-14-EXACT30-OBSERVATION-LIFECYCLE-RUNNER-HASH-CORRECTIVE-SUCCESSOR-20260902.json\",M=JSON.parse(g(['show','HEAD^:'+A],{encoding:'utf8'})),P=M.request.productPaths,O=realpathSync('/home/ubuntu/Projects/chaotang-os/.worktrees/p14-exact30-gate-a-lifecycle-truth-corrective-successor-candidate-20260901'),D=realpathSync('/home/ubuntu/Projects/chaotang-os/.worktrees/p14-exact30-observation-red-contract-successor-candidate-20260902'),C=new Set(['scripts/run_rc1_release_acceptance.mjs','scripts/run_rc1_release_acceptance.test.mjs']),rd=(r,x)=>{const p=path.join(r,x),l=lstatSync(p);if(realpathSync(p)!==p||!l.isFile()||l.isSymbolicLink())throw Error('PATH:'+x);const f=openSync(p,constants.O_RDONLY|constants.O_NOFOLLOW);try{const a=fstatSync(f),b=readFileSync(f),z=fstatSync(f);if(!a.isFile()||(a.mode&511)!==420||l.dev!==a.dev||l.ino!==a.ino||l.size!==a.size||a.dev!==z.dev||a.ino!==z.ino||a.size!==z.size)throw Error('DESCRIPTOR:'+x);return b}finally{closeSync(f)}},snap=r=>{const q=new Map,R=[];for(const x of P){const b=rd(r,x);q.set(x,b);R.push({path:x,mode:'100644',bytes:b.length,rawSha256:'sha256:'+createHash('sha256').update(b).digest('hex')})}return{q,c:canonicalizeRfc8785(R.sort((a,b)=>a.path.localeCompare(b.path)))}};if(g(['-C',O,'rev-parse','HEAD'],{encoding:'utf8'}).trim()!=='c6bcaf524fbd6dd5984337b429e279d1791158c8'||g(['-C',O,'rev-parse','HEAD^{tree}'],{encoding:'utf8'}).trim()!=='37a9e25c184b873c87bb65422482e70a32e31071'||g(['-C',D,'rev-parse','HEAD'],{encoding:'utf8'}).trim()!=='76470ca5fe89135493d8b1a54509623800316c85'||g(['-C',D,'rev-parse','HEAD^{tree}'],{encoding:'utf8'}).trim()!=='87d16b7c5e9ea998bd8e121dfe4e987e855626b3')throw Error('DONOR_HEAD_TREE');for(const r of[O,D]){const s=g(['-C',r,'status','--porcelain=v1','--untracked-files=all'],{encoding:'utf8'}).trimEnd().split('\\n').filter(Boolean);if(s.length!==30||s.some((x,i)=>x!==' M '+P[i]))throw Error('DONOR_SCOPE')}const o=snap(O),d=snap(D);for(const x of P)if(C.has(x)?o.q.get(x).equals(d.q.get(x)):!o.q.get(x).equals(d.q.get(x)))throw Error('SPLIT:'+x);const H=x=>'sha256:'+createHash('sha256').update(x).digest('hex');if(H(o.c)!=='sha256:27c544f37e9549d3a99f66ace498bccd8c3a8d5e2d94ce028773fe48b4be4882'||H(d.c)!=='sha256:7f0102eb69bf89847c7e5556f16c8a17c1e98add1131ca6be774c256d8705682')throw Error('DONOR_BUNDLE');const od=g(['-C',O,'diff','--binary','--full-index','--no-ext-diff','--no-renames','HEAD','--',...P]),dd=g(['-C',D,'diff','--binary','--full-index','--no-ext-diff','--no-renames','HEAD','--',...P]);if(H(od)!=='sha256:6af72651a1da268e32f3c29af6642afcd496f6792eae4bb8817e787fb9da2e18'||H(dd)!=='sha256:6fa08fd9c632e6c162c4fa30cba15eb6c027c9651b5b486a22eaaac4d3dd47ab'||snap(O).c!==o.c||snap(D).c!==d.c)throw Error('DONOR_DIFF_OR_DRIFT');const s=o.q.get('scripts/run_rc1_release_acceptance.mjs').toString('utf8'),N=['createCancellableObservation','runObservedTrigger','createPrepushEdge','PrepushCdpClient','createPrepushPage','observedBrowserAction'];for(const n of N)if(new RegExp('\\\\bexport\\\\s+(?:async\\\\s+)?(?:function|class|const|let|var)\\\\s+'+n+'\\\\b|\\\\bexport\\\\s*\\\\{[^}]*\\\\b'+n+'\\\\b','u').test(s))throw Error('DONOR_INTERFACE_UNEXPECTED:'+n);process.stdout.write('PROOF_GAP_NOT_IMPLEMENTATION_DEFECT\\n')"
+      ],
+      "cwd": ".",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "03-donor-replay-identity-b",
+      "tool": "node",
+      "args": [
+        "--input-type=module",
+        "--eval",
+        "import{execFileSync}from'node:child_process';import{createHash}from'node:crypto';const E={PATH:'/usr/bin:/bin',HOME:'/nonexistent',GIT_CONFIG_GLOBAL:'/dev/null',GIT_CONFIG_SYSTEM:'/dev/null',GIT_CONFIG_NOSYSTEM:'1',GIT_ATTR_NOSYSTEM:'1',GIT_NO_REPLACE_OBJECTS:'1',GIT_TERMINAL_PROMPT:'0'},g=(a,o={})=>execFileSync('/usr/bin/git',['--no-replace-objects',...a],{env:E,maxBuffer:268435456,...o});const D=[[\"backend/tests/test_decree_async_integration.py\",20117,\"741b4562e3254297879654a157a94887da8d7f72f1444cd84c14ebc69b41fc2d\",\"c8e7bf608229e70c50a49a1077d2c7f8a73a5cd1\"],[\"backend/tests/test_six_ministry_accounting_evidence_adapter.py\",22372,\"a39c1d63c87ae486d8e52249c04cdabdabe17f5e6b836a81fff257b63b1aa941\",\"2d24d02465173d98973232c8a8eca2d4b408a77b\"],[\"frontend/src/app/api/report-artifacts/[id]/confirmation/handler.ts\",6679,\"99ddf14ffb16bd312e8b1a98369bdf0a0157f01b6daf7861dc348fddfbc5660c\",\"9e7b44cf5ff7b89452e7bceb838309e75f132f92\"],[\"frontend/src/app/api/report-artifacts/[id]/confirmation/route.test.ts\",9297,\"35799b5b844c6141896f93358c56cbf0d4105a210987f4bce4fb9e2ec1899d39\",\"6b89a3ca48646aa90a08ec39e4ad2a52e4efcdc6\"],[\"frontend/src/app/api/report-artifacts/[id]/handler.ts\",5063,\"cd618db13aa7983507eeb0efb1ee4365c9e8f403e6fc5dcf4cf67b17c4c7884b\",\"56721e6b61b5908d3168bbd5c5d4f2106da3e322\"]];for(const[p,n,h,o]of D){const t=g(['ls-tree','HEAD','--',p],{encoding:'utf8'}).trim().split(/\\s+/u),b=g(['show','HEAD:'+p]);if(t[0]!=='100644'||t[2]!==o||b.length!==n||createHash('sha256').update(b).digest('hex')!==h)throw Error('REPLAY_IDENTITY:'+p)}"
+      ],
+      "cwd": ".",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "04-donor-replay-identity-c",
+      "tool": "node",
+      "args": [
+        "--input-type=module",
+        "--eval",
+        "import{execFileSync}from'node:child_process';import{createHash}from'node:crypto';const E={PATH:'/usr/bin:/bin',HOME:'/nonexistent',GIT_CONFIG_GLOBAL:'/dev/null',GIT_CONFIG_SYSTEM:'/dev/null',GIT_CONFIG_NOSYSTEM:'1',GIT_ATTR_NOSYSTEM:'1',GIT_NO_REPLACE_OBJECTS:'1',GIT_TERMINAL_PROMPT:'0'},g=(a,o={})=>execFileSync('/usr/bin/git',['--no-replace-objects',...a],{env:E,maxBuffer:268435456,...o});const D=[[\"frontend/src/app/api/report-artifacts/[id]/route.test.ts\",6911,\"61ab60a4989c94ace10da4f1e1589c8c2d6e37ce1959843c452ed690c7fc014e\",\"573228a3fe4f5abd001116fa80ab7a5797be27df\"],[\"frontend/src/features/study-visual/StudyArtifactConfirmation.test.ts\",10400,\"031ce484c47310728cead4703533af57a485e20f497a379c22da18b79a7c6167\",\"21f4262077a3d535429b47e8b78c924d34e71861\"],[\"frontend/src/features/study-visual/StudyArtifactLinks.test.ts\",9712,\"dd241e7b9afd81b4e974c52602ff98da7928bec14283760b86774d0e7e3402aa\",\"549a61d5e54177492d0e2e2d428cd0627e78fbd4\"],[\"frontend/src/features/study-visual/StudyArtifactLinks.ts\",11394,\"8f72161599561a06e4af05c650782e4f7626ca0b634819d5c96880cf644df348\",\"d085fb7299c624d8824de7a8d69db47ff599643d\"],[\"frontend/src/lib/backendClient.test.ts\",85979,\"0e36aa536045144b0e875e97e173215e9beadb75a80ee83ab1a479e07643eb79\",\"15e004788db88815492606ea07c38ba9e6f79605\"],[\"frontend/src/lib/backendClient.ts\",134641,\"ef52bb67cf217694059fc1c3f167bbfdb987c3e11a5d7f55bfbbd32efc9b8e0c\",\"cd1c17d99794241bdbb5c2ccf8e6ba04c3c7da89\"]];for(const[p,n,h,o]of D){const t=g(['ls-tree','HEAD','--',p],{encoding:'utf8'}).trim().split(/\\s+/u),b=g(['show','HEAD:'+p]);if(t[0]!=='100644'||t[2]!==o||b.length!==n||createHash('sha256').update(b).digest('hex')!==h)throw Error('REPLAY_IDENTITY:'+p)}"
+      ],
+      "cwd": ".",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "05-semantic-donor-input-identity",
+      "tool": "node",
+      "args": [
+        "--input-type=module",
+        "--eval",
+        "import{createHash}from'node:crypto';import{closeSync,constants,fstatSync,lstatSync,openSync,readFileSync,realpathSync}from'node:fs';import path from'node:path';const R=realpathSync('/home/ubuntu/Projects/chaotang-os/.worktrees/p14-exact30-authority-current-20260824'),D=[[\"backend/app/operations/sqlite_backup.py\",183834,\"a260f4136beded6d7299f5924e475ef43264f162010b42f8f2cacf59151c9bdf\",\"abfc9d321d02c159b129962e45a9082dd3f9dc0d\"],[\"backend/tests/test_readiness.py\",13797,\"a80707490e04a10505588ce3faa94934f9ea0375f4c48394f68942a6f10f3b37\",\"f3b29161fc11905c6434aa2d46624a9ec0359e5f\"],[\"backend/tests/test_sqlite_backup.py\",67414,\"79c32b7f6dbc88b046ddd5e56d30b0a76706aa74c5cfa7fee597275207cda11d\",\"2079d7e502b82c4e25179528cedccd4c4aac2be3\"],[\"deploy/release-manifest.schema.json\",9637,\"7249734cf2a74a89ddce41c6572fe87f7ba71ffcf162ce14bf010bf8cc659bc0\",\"0a2d2f667cefe69c87722427d7aa3098dd06b573\"],[\"scripts/build_offline_release.mjs\",48038,\"c9816dae611ec6c4ca350b61e3dbcfe2c9234c60d6e4f833d756fdefc1770528\",\"b684479fdcc0a91c101dcf12fe011b447f278a36\"],[\"scripts/build_offline_release.test.mjs\",28542,\"fbc88d4ad769fce84421458f48bdd92f9bb048a3d46ae0d7859ef434d31ae3a2\",\"48b71a93530bce4658ba0daabd0223055beb2d11\"],[\"scripts/run_rc1_release_acceptance.mjs\",420967,\"3cfafbce139a5d788d67822c2867fc11eb1af41a5f595cbba00de2e9e0cd016c\",\"223579f6ac4cfb7e6759df216af0588204bc868e\"],[\"scripts/run_rc1_release_acceptance.test.mjs\",138139,\"ecda1e95c97eeb022e392523839e7afbc0b1444868f88cec071b99a90f965a4b\",\"85f42470dc6abf0a96fb81fa006297e8624a5299\"],[\"scripts/verify_offline_release.mjs\",53393,\"743f15d0e06dd42b4137acb7b5c19758eee2bb8a5c968b63fff84d8a9e3575bc\",\"1806f32f69cc12bee9bc45b1a1596e39d9e3507d\"],[\"scripts/verify_offline_release.test.mjs\",26953,\"6d77911a7f51398843dfd97cc03c01aaccf148052877317ef25b6b44ffc88278\",\"a876163cb5fe998a0d7952ad0c14be33608b5c5a\"]];for(const[p,n,h,o]of D){const f=path.join(R,p),rp=realpathSync(f),l=lstatSync(f);if(rp!==f||!rp.startsWith(R+path.sep)||!l.isFile()||l.isSymbolicLink()||(l.mode&511)!==420)throw Error('SEMANTIC_DONOR_PATH_MODE:'+p);const fd=openSync(f,constants.O_RDONLY|constants.O_NOFOLLOW);try{const a=fstatSync(fd),b=readFileSync(fd),z=fstatSync(fd),q=Buffer.concat([Buffer.from('blob '+b.length),Buffer.from([0]),b]);if(!a.isFile()||(a.mode&511)!==420||a.dev!==z.dev||a.ino!==z.ino||a.size!==z.size||b.length!==n||createHash('sha256').update(b).digest('hex')!==h||createHash('sha1').update(q).digest('hex')!==o)throw Error('SEMANTIC_DONOR_DRIFT:'+p)}finally{closeSync(fd)}}"
+      ],
+      "cwd": ".",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "06-test-contract-non-relaxation",
+      "tool": "node",
+      "args": [
+        "--input-type=module",
+        "--eval",
+        "import{execFileSync}from'node:child_process';import{createHash}from'node:crypto';import{closeSync,constants,fstatSync,openSync,readFileSync}from'node:fs';const E={PATH:'/usr/bin:/bin',HOME:'/nonexistent',GIT_CONFIG_GLOBAL:'/dev/null',GIT_CONFIG_SYSTEM:'/dev/null',GIT_CONFIG_NOSYSTEM:'1',GIT_ATTR_NOSYSTEM:'1',GIT_NO_REPLACE_OBJECTS:'1',GIT_TERMINAL_PROMPT:'0'},g=(a,o={})=>execFileSync('/usr/bin/git',['--no-replace-objects',...a],{env:E,maxBuffer:268435456,...o}),R=\"/home/ubuntu/Projects/chaotang-os/.worktrees/p14-exact30-gate-a-lifecycle-truth-corrective-successor-candidate-20260901/\",J='scripts/run_rc1_release_acceptance.test.mjs',W=[\"cancels generic observedBrowserAction expectation when trigger fails\",\"cancels edge uiResume expectation when navigation fails\",\"cancels edge lookup expectation when evaluation returns clickedLookup false\",\"cancels edge confirm expectation when evaluation returns clickedConfirm false\",\"cancels CDP load observation when Page.navigate rejects\",\"cancels CDP load observation when Page.navigate returns errorText\",\"keeps observation cancellation idempotent and settles exactly once\",\"keeps event-wins race leak-free\",\"keeps trigger-wins race leak-free\",\"keeps stale edge cancellation from affecting a successor observation\",\"keeps stale CDP callback from affecting a successor observation\",\"preserves observation timeout error semantics\",\"produces no unhandled rejection after one event loop turn\",\"keeps successful edge and CDP observation behavior unchanged\"],T=['observedBrowserAction','uiResume','clickedLookup','clickedConfirm','Page.navigate','errorText','cancel','event','trigger','successor','successor','timeout','unhandledRejection','success'],show=(r,x)=>g(['show',r+':'+x]),c=show('HEAD',J),fd=openSync(R+J,constants.O_RDONLY|constants.O_NOFOLLOW),a=fstatSync(fd),d=readFileSync(fd),z=fstatSync(fd);closeSync(fd);if(!a.isFile()||(a.mode&511)!==420||a.dev!==z.dev||a.ino!==z.ino||a.size!==z.size||d.length!==146308||createHash('sha256').update(d).digest('hex')!=='4ec4fa271f8249a96d5c19bb1b5ae9e14071ddc7b3b380117499d6544e121ee4'||createHash('sha1').update(Buffer.concat([Buffer.from('blob '+d.length),Buffer.from([0]),d])).digest('hex')!=='3da63fe3ff300c2b4301a9e0e0d3d21dcccbbd04')throw Error('DONOR_TEST_DESCRIPTOR_DRIFT');if(c.length<=d.length||!c.subarray(0,d.length).equals(d))throw Error('DONOR_TEST_NOT_EXACT_PREFIX');const s=c.subarray(d.length).toString('utf8'),F=['3fe34c4a778a46af','4ec4fa271f8249a9','f1807dc8f51a245d','3da63fe3ff300c2b','/home/ubuntu/','createHash','readFileSync','process.env','refs/replace','git archive','child_process','execFileSync','spawnSync','assert.fail('];if(s.length<5000||F.some(x=>s.includes(x)))throw Error('SYNTHETIC_OR_THIN_SUFFIX');for(let k=0;k<W.length;k++){const a=s.indexOf(W[k]);if(a<0||a!==s.lastIndexOf(W[k]))throw Error('TITLE_REQUIRED:'+W[k]);let z=s.length;for(const q of W){const p=s.indexOf(q,a+W[k].length);if(p>=0&&p<z)z=p}const b=s.slice(a,z),body=b.slice(b.indexOf('=>')+2);if(b.length<240||!body.includes('assert.')||!body.includes('assertIdle')||!body.includes(T[k]))throw Error('TEST_NOT_SUBSTANTIVE:'+W[k])}if((c.toString().match(/(?:[.]skip\\(|[.]todo\\()/gu)||[]).length>(d.toString().match(/(?:[.]skip\\(|[.]todo\\()/gu)||[]).length)throw Error('TEST_RELAXED')"
+      ],
+      "cwd": ".",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "07-runner-hash-donor-contract-probe",
+      "tool": "python3",
+      "args": [
+        "-I",
+        "-c",
+        "import ast,hashlib,io,os,pathlib,stat,subprocess,tarfile,tempfile;D=pathlib.Path(\"/home/ubuntu/Projects/chaotang-os/.worktrees/p14-exact30-observation-red-contract-successor-candidate-20260902\");rel=pathlib.Path('backend/app/operations/sqlite_backup.py');testrel=pathlib.Path('backend/tests/test_sqlite_backup.py');E={'PATH':'/usr/bin:/bin','HOME':'/nonexistent','TMPDIR':'/tmp','TEMP':'/tmp','TMP':'/tmp','CI':'1','PYTHONDONTWRITEBYTECODE':'1','PYTHONNOUSERSITE':'1','LANG':'C.UTF-8','LC_ALL':'C.UTF-8','NO_COLOR':'1','GIT_CONFIG_GLOBAL':'/dev/null','GIT_CONFIG_SYSTEM':'/dev/null','GIT_CONFIG_NOSYSTEM':'1','GIT_ATTR_NOSYSTEM':'1','GIT_NO_REPLACE_OBJECTS':'1','GIT_TERMINAL_PROMPT':'0'};git=lambda a:subprocess.check_output(['/usr/bin/git','--no-replace-objects',*a],env=E);assert not git(['status','--porcelain=v1','--untracked-files=all']);p=D/rel;l=os.lstat(p);fd=os.open(p,os.O_RDONLY|os.O_NOFOLLOW);\ntry:a=os.fstat(fd);b=os.read(fd,a.st_size+1);z=os.fstat(fd)\nfinally:os.close(fd)\nassert stat.S_ISREG(l.st_mode) and stat.S_IMODE(a.st_mode)==0o644 and (l.st_dev,l.st_ino,l.st_size)==(a.st_dev,a.st_ino,a.st_size)==(z.st_dev,z.st_ino,z.st_size) and len(b)==194632 and hashlib.sha256(b).hexdigest()=='c946285657751b6a0124c2edba97ab22af750151643ad040cd4ede76b8e974a4' and hashlib.sha1(b'blob '+str(len(b)).encode()+b'\\0'+b).hexdigest()=='8b72a57d4397790c1f616fb9c236857b2e1a2166';code=\"import hashlib,pathlib,sys;b=pathlib.Path(sys.argv[1]);sys.path.insert(0,str(b));from app.operations import sqlite_backup as s;r=b.parent/'scripts/run_rc1_release_acceptance.mjs';a=s._TRUSTED_RUNNER_SHA256;h='sha256:'+hashlib.sha256(r.read_bytes()).hexdigest();print(a+' '+h);sys.exit(0 if a==h else 3)\";run=lambda b:subprocess.run(['/usr/bin/python3','-I','-B','-c',code,str(b)],text=True,capture_output=True,env=E);\nwith tempfile.TemporaryDirectory(prefix='p14-red-',dir='/tmp') as t:\n data=git(['archive','--format=tar','HEAD']);tf=tarfile.open(fileobj=io.BytesIO(data),mode='r:');ms=tf.getmembers();assert all((m.isfile() or m.isdir()) and not pathlib.PurePosixPath(m.name).is_absolute() and '..' not in pathlib.PurePosixPath(m.name).parts for m in ms);tf.extractall(t,members=ms,filter='data');tf.close();t=pathlib.Path(t);target=t/rel;ts=t/testrel;assert target.read_bytes()==git(['show','HEAD:'+rel.as_posix()]) and ts.read_bytes()==git(['show','HEAD:'+testrel.as_posix()]);src=ts.read_text();tree=ast.parse(src);fs=[n for n in tree.body if isinstance(n,(ast.FunctionDef,ast.AsyncFunctionDef)) and n.name=='test_cli_rejects_a_prebuilt_cold_writer_session'];assert len(fs)==1 and len(fs[0].body)>=2;expected=ast.parse(\"runner = BACKEND_ROOT.parent / 'scripts/run_rc1_release_acceptance.mjs'\\nassert sqlite_backup._TRUSTED_RUNNER_SHA256 == 'sha256:' + hashlib.sha256(runner.read_bytes()).hexdigest()\").body;assert ast.dump(fs[0].body[0],include_attributes=False)==ast.dump(expected[0],include_attributes=False) and ast.dump(fs[0].body[1],include_attributes=False)==ast.dump(expected[1],include_attributes=False) and hashlib.sha256(target.read_bytes()).hexdigest()=='92b4bc94215214f823fb866269d98662e6a735ad6d1cc1d149bccf0e84246078';green=run(t/'backend');assert green.returncode==0 and green.stdout.strip()=='sha256:81082771483df0fd16f7b0e3eb91c823a648c5a163f69a3aaa267007a5738a51 sha256:81082771483df0fd16f7b0e3eb91c823a648c5a163f69a3aaa267007a5738a51' and not any(t.rglob('__pycache__'));target.write_bytes(b);target.chmod(0o644);red=run(t/'backend');assert red.returncode==3 and red.stdout.strip()=='sha256:3fe34c4a778a46af7834e28e5cf8ae15df63a3ef65c870b8048972bda2d6fc21 sha256:81082771483df0fd16f7b0e3eb91c823a648c5a163f69a3aaa267007a5738a51' and not any(t.rglob('__pycache__'))\nassert not git(['status','--porcelain=v1','--untracked-files=all'])"
+      ],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "08-head-archive-direct-runner-behavior",
+      "tool": "python3",
+      "args": [
+        "-I",
+        "-c",
+        "import io,os,pathlib,re,subprocess,sys,tarfile,tempfile;root=pathlib.Path.cwd();E={'PATH':'/usr/bin:/bin','HOME':'/nonexistent','TMPDIR':'/tmp','TEMP':'/tmp','TMP':'/tmp','CI':'1','NODE_ENV':'test','LANG':'C.UTF-8','LC_ALL':'C.UTF-8','NO_COLOR':'1','GIT_CONFIG_GLOBAL':'/dev/null','GIT_CONFIG_SYSTEM':'/dev/null','GIT_CONFIG_NOSYSTEM':'1','GIT_ATTR_NOSYSTEM':'1','GIT_NO_REPLACE_OBJECTS':'1','GIT_TERMINAL_PROMPT':'0'};git=lambda a:subprocess.check_output(['/usr/bin/git','--no-replace-objects',*a],env=E);assert not git(['status','--porcelain=v1','--untracked-files=all']);titles=['rejects cross-owner tenant membership and session splice','rejects missing or extra identity rows without writes','rejects stale identity schemaVersion','allows only one concurrent acceptance marker writer','keeps database and artifacts unchanged on identity binding failures','cancels generic observedBrowserAction expectation when trigger fails','cancels edge uiResume expectation when navigation fails','cancels edge lookup expectation when evaluation returns clickedLookup false','cancels edge confirm expectation when evaluation returns clickedConfirm false','cancels CDP load observation when Page.navigate rejects','cancels CDP load observation when Page.navigate returns errorText','keeps observation cancellation idempotent and settles exactly once','keeps event-wins race leak-free','keeps trigger-wins race leak-free','keeps stale edge cancellation from affecting a successor observation','keeps stale CDP callback from affecting a successor observation','preserves observation timeout error semantics','produces no unhandled rejection after one event loop turn','keeps successful edge and CDP observation behavior unchanged'];pat='|'.join(re.escape(x) for x in titles);run=lambda cwd,a:subprocess.run(['/usr/bin/node','--test-reporter=tap',*a],cwd=cwd,text=True,capture_output=True,env=E)\nwith tempfile.TemporaryDirectory(prefix='p14-head-',dir='/tmp') as t:\n data=git(['archive','--format=tar','HEAD']);tf=tarfile.open(fileobj=io.BytesIO(data),mode='r:');ms=tf.getmembers();assert all((m.isfile() or m.isdir()) and not pathlib.PurePosixPath(m.name).is_absolute() and '..' not in pathlib.PurePosixPath(m.name).parts for m in ms);tf.extractall(t,members=ms,filter='data');tf.close();impl='scripts/run_rc1_release_acceptance.mjs';j='scripts/run_rc1_release_acceptance.test.mjs';assert pathlib.Path(t,impl).read_bytes()==git(['show','HEAD:'+impl]) and pathlib.Path(t,j).read_bytes()==git(['show','HEAD:'+j]);g=run(t,['--test-name-pattern',pat,j]);sys.stdout.write(g.stdout);sys.stderr.write(g.stderr);assert g.returncode==0 and all(re.search(r'^ok [0-9]+ - '+re.escape(x)+r'$',g.stdout,re.M) for x in titles) and re.search(r'^# pass 19$',g.stdout,re.M) and re.search(r'^# fail 0$',g.stdout,re.M);f=run(t,[j]);sys.stdout.write(f.stdout);sys.stderr.write(f.stderr);assert f.returncode==0 and re.search(r'^# tests 70$',f.stdout,re.M) and re.search(r'^# pass 70$',f.stdout,re.M) and re.search(r'^# fail 0$',f.stdout,re.M) and re.search(r'^# cancelled 0$',f.stdout,re.M) and re.search(r'^# skipped 0$',f.stdout,re.M) and re.search(r'^# todo 0$',f.stdout,re.M)\nassert not git(['status','--porcelain=v1','--untracked-files=all'])"
+      ],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "09-runtime-registry-and-production-consumer-identity",
+      "tool": "python3",
+      "args": [
+        "-I",
+        "-c",
+        "import hashlib,json,os,pathlib,runpy,stat;root=pathlib.Path.cwd().resolve();R=pathlib.Path('/home/ubuntu/Projects/chaotang-os/.worktrees/p14-exact30-authority-current-20260824').resolve(strict=True);D=(('backend/app/operations/runtime_data_registry.py',11047,'ff59fe4d40504643c46d59b10c29a9c497e9800baa82e2a60c392cfd0a1f510a','d4784a8872eebb2c80072626f7d8ad5043cbe90a'),('backend/tests/test_accounting_confirmation_api.py',18823,'ead4cadab1e8e280e43156916666b33f89a4abdb6994e4b005a3d54df9acfbbf','abd659cfa066c345abe6bc9edc8d534e98c9dd9f'),('backend/tests/test_report_artifacts_api.py',13823,'ad230ec558a0b0442b28ee693b783f01d5fa3fef1e90697e1af4194635b5eb05','e9e8402f292a9cfb01fb73e900f52acbb62a1ccf'));\nfor p,n,h,o in D:\n source=R/p;l=os.lstat(source);donor=source.resolve(strict=True);assert stat.S_ISREG(l.st_mode) and not stat.S_ISLNK(l.st_mode) and (donor==R or R in donor.parents);fd=os.open(source,os.O_RDONLY|os.O_NOFOLLOW);a=os.fstat(fd);b=os.read(fd,a.st_size+1);z=os.fstat(fd);os.close(fd);assert stat.S_IMODE(l.st_mode)==stat.S_IMODE(a.st_mode)==0o644 and (l.st_dev,l.st_ino,l.st_size)==(a.st_dev,a.st_ino,a.st_size)==(z.st_dev,z.st_ino,z.st_size)==(a.st_dev,a.st_ino,n) and hashlib.sha256(b).hexdigest()==h and hashlib.sha1(b'blob '+str(len(b)).encode()+b'\\0'+b).hexdigest()==o\nd=runpy.run_path(str(root/'backend/app/operations/runtime_data_registry.py'))['RUNTIME_DATA_REGISTRY_DIGEST'];stale={'sha256:014a4d2e5467b70cb2e12b7ab2954771040dc0f6c9f170ae20cf5759d9dcaf52','sha256:bbad23ae280d824c0f07004cd65549f6be9dd89a4e4c66f41d678426b9696d28','sha256:dd93bfe77cfd5160e40d93a0c2efcdcb0c5aec73f97d3bee2ea019b80703d387'};assert d not in stale;schema=json.loads((root/'deploy/release-manifest.schema.json').read_text());assert schema['properties']['runtimeRegistryDigest']['const']==d;paths=('scripts/build_offline_release.mjs','scripts/verify_offline_release.mjs','scripts/run_rc1_release_acceptance.mjs');assert all((s:=(root/p).read_text()).count(d)==1 and not any(x in s for x in stale) for p in paths)"
+      ],
+      "cwd": ".",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "10-backend-focused-and-ruff-coverage-contract",
+      "tool": "python3",
+      "args": [
+        "-I",
+        "-c",
+        "import ast,pathlib;root=pathlib.Path.cwd().resolve();repo=root.parent;runner=root/'app/operations/runtime_lock.py';source=runner.read_text(encoding='utf-8');tree=ast.parse(source);focused={'backend/tests/test_accounting_confirmation_api.py','backend/tests/test_accounting_report_storage.py','backend/tests/test_accounting_work_product_storage.py','backend/tests/test_decree_async_integration.py','backend/tests/test_readiness.py','backend/tests/test_report_artifacts_api.py','backend/tests/test_six_ministry_accounting_evidence_adapter.py','backend/tests/test_sqlite_backup.py'};tests={p.relative_to(repo).as_posix() for p in (root/'tests').glob('test_*.py')};assert focused<=tests;assert len(tests)==139;assert all(any(path in set(sorted(tests)[i::3]) for i in range(3)) for path in focused);assert 'test_venv / \"bin/ruff\"' in source and 'snapshot_backend / \"app\"' in source and 'snapshot_backend / \"tests\"' in source;assert sum(isinstance(n,ast.FunctionDef) and n.name=='_partition_candidate_tests' for n in ast.walk(tree))==1"
+      ],
+      "cwd": "backend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "11-backend-isolated-candidate-shard-0",
+      "tool": "python3",
+      "args": [
+        "-I",
+        "-c",
+        "import os;p='/usr/bin/python3';e={'PATH':'/usr/bin:/bin','TMPDIR':'/tmp','TEMP':'/tmp','TMP':'/tmp','CI':'1','PYTHONDONTWRITEBYTECODE':'1','PYTHONNOUSERSITE':'1','PIP_CONFIG_FILE':'/dev/null','PIP_NO_INDEX':'1','LANG':'C.UTF-8','LC_ALL':'C.UTF-8','NO_COLOR':'1'};a=[p,'-I','app/operations/runtime_lock.py','verify-candidate','--lock','requirements-runtime.lock','--wheelhouse','/var/tmp/chaotang-m0-wheelhouse','--pyproject','pyproject.toml','--source-root','.','--shard-count','3','--shard-index','0','--deadline-seconds','240'];os.execve(p,a,e)"
+      ],
+      "cwd": "backend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "12-backend-isolated-candidate-shard-1",
+      "tool": "python3",
+      "args": [
+        "-I",
+        "-c",
+        "import os;p='/usr/bin/python3';e={'PATH':'/usr/bin:/bin','TMPDIR':'/tmp','TEMP':'/tmp','TMP':'/tmp','CI':'1','PYTHONDONTWRITEBYTECODE':'1','PYTHONNOUSERSITE':'1','PIP_CONFIG_FILE':'/dev/null','PIP_NO_INDEX':'1','LANG':'C.UTF-8','LC_ALL':'C.UTF-8','NO_COLOR':'1'};a=[p,'-I','app/operations/runtime_lock.py','verify-candidate','--lock','requirements-runtime.lock','--wheelhouse','/var/tmp/chaotang-m0-wheelhouse','--pyproject','pyproject.toml','--source-root','.','--shard-count','3','--shard-index','1','--deadline-seconds','240'];os.execve(p,a,e)"
+      ],
+      "cwd": "backend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "13-backend-isolated-candidate-shard-2",
+      "tool": "python3",
+      "args": [
+        "-I",
+        "-c",
+        "import os;p='/usr/bin/python3';e={'PATH':'/usr/bin:/bin','TMPDIR':'/tmp','TEMP':'/tmp','TMP':'/tmp','CI':'1','PYTHONDONTWRITEBYTECODE':'1','PYTHONNOUSERSITE':'1','PIP_CONFIG_FILE':'/dev/null','PIP_NO_INDEX':'1','LANG':'C.UTF-8','LC_ALL':'C.UTF-8','NO_COLOR':'1'};a=[p,'-I','app/operations/runtime_lock.py','verify-candidate','--lock','requirements-runtime.lock','--wheelhouse','/var/tmp/chaotang-m0-wheelhouse','--pyproject','pyproject.toml','--source-root','.','--shard-count','3','--shard-index','2','--deadline-seconds','240'];os.execve(p,a,e)"
+      ],
+      "cwd": "backend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "19-posix-temp-contract-preflight",
+      "tool": "python3",
+      "args": [
+        "-I",
+        "-c",
+        "import os,subprocess,tempfile,stat,pathlib;os.environ.update(TMPDIR='/tmp',TEMP='/tmp',TMP='/tmp');tempfile.tempdir=None;assert tempfile.gettempdir()=='/tmp';assert subprocess.check_output(['/usr/bin/findmnt','-n','-o','FSTYPE','--target','/tmp'],text=True).strip()=='ext4';assert subprocess.check_output(['/usr/bin/node','-e',\"const os=require('node:os');process.stdout.write(os.tmpdir())\"],text=True,env={**os.environ,'TMPDIR':'/tmp','TEMP':'/tmp','TMP':'/tmp'}).strip()=='/tmp';fd,p=tempfile.mkstemp(dir='/tmp');os.close(fd);q=pathlib.Path(p);q.write_bytes(b'abcdef');assert q.read_bytes()==b'abcdef';q.open('r+b').truncate(3);assert q.read_bytes()==b'abc';os.chmod(q,0o600);assert stat.S_IMODE(q.stat().st_mode)==0o600;q.unlink();assert not q.exists()"
+      ],
+      "cwd": ".",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "20-frontend-dependency-offline-provision",
+      "tool": "python3",
+      "args": [
+        "-I",
+        "-c",
+        "import os,pathlib,shutil,subprocess,tempfile;source_path=pathlib.Path('/home/ubuntu/.npm/_cacache');assert source_path.is_dir() and not source_path.is_symlink();source=source_path.resolve(strict=True);assert source==source_path;cache=pathlib.Path(tempfile.mkdtemp(prefix='p14-npm-cache-',dir='/tmp'));target=cache/'_cacache';n='/usr/bin/npm';\ntry:\n shutil.copytree(source,target,symlinks=True);assert not any((pathlib.Path(r)/x).is_symlink() for r,d,f in os.walk(cache) for x in d+f);e={'PATH':'/usr/bin:/bin','HOME':'/nonexistent','TMPDIR':'/tmp','TEMP':'/tmp','TMP':'/tmp','CI':'1','NODE_ENV':'test','LANG':'C.UTF-8','LC_ALL':'C.UTF-8','NO_COLOR':'1','NPM_CONFIG_USERCONFIG':'/nonexistent/p14-npm-userconfig','NPM_CONFIG_GLOBALCONFIG':'/nonexistent/p14-npm-globalconfig','NPM_CONFIG_SCRIPT_SHELL':'/bin/sh','NPM_CONFIG_CACHE':str(cache),'NPM_CONFIG_AUDIT':'false','NPM_CONFIG_FUND':'false','NPM_CONFIG_UPDATE_NOTIFIER':'false'};subprocess.run([n,'ci','--offline','--ignore-scripts','--no-audit','--no-fund'],env=e,check=True)\nfinally:\n shutil.rmtree(cache)"
+      ],
+      "cwd": "frontend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "21-frontend-dependency-tree-before-matrix",
+      "tool": "node",
+      "args": [
+        "--input-type=module",
+        "--eval",
+        "import{execFileSync}from'node:child_process';import{createHash}from'node:crypto';import{existsSync,lstatSync,readdirSync,readFileSync,readlinkSync,realpathSync}from'node:fs';import path from'node:path';import{canonicalizeRfc8785}from'./scripts/product-authority.mjs';const E={PATH:'/usr/bin:/bin',HOME:'/nonexistent',NPM_CONFIG_USERCONFIG:'/nonexistent/p14-npm-userconfig',NPM_CONFIG_GLOBALCONFIG:'/nonexistent/p14-npm-globalconfig',NPM_CONFIG_SCRIPT_SHELL:'/bin/sh'},root=realpathSync('.'),base=path.join(root,'frontend/node_modules'),s=lstatSync(base);if(process.version!=='v22.23.1'||execFileSync('/usr/bin/npm',['--version'],{encoding:'utf8',env:E}).trim()!=='10.9.8')throw Error('RUNTIME_DRIFT');if(existsSync('.npmrc')||existsSync('frontend/.npmrc')||!s.isDirectory()||s.isSymbolicLink()||realpathSync(base)!==base)throw Error('DEPENDENCY_ROOT_INVALID');if(createHash('sha256').update(readFileSync('frontend/package-lock.json')).digest('hex')!=='a08cf31a5089fc246380a8ac77f365299e31880995a04722affbdf413e74fb0b')throw Error('LOCK_DRIFT');const records=[];function w(d,r=''){for(const n of readdirSync(d).sort()){const p=path.join(d,n),q=r?r+'/'+n:n,z=lstatSync(p),m=(z.mode&511).toString(8).padStart(4,'0');if(z.isSymbolicLink()){const t=readlinkSync(p),x=realpathSync(p);if(x!==base&&!x.startsWith(base+path.sep))throw Error('SYMLINK_ESCAPE:'+q);records.push({path:q,type:'symlink',mode:m,target:t})}else if(z.isDirectory()){records.push({path:q,type:'directory',mode:m});w(p,q)}else if(z.isFile()){const b=readFileSync(p);records.push({path:q,type:'file',mode:m,bytes:b.length,rawSha256:'sha256:'+createHash('sha256').update(b).digest('hex')})}else throw Error('UNSUPPORTED_ENTRY:'+q)}}w(base);if(records.length!==22457||createHash('sha256').update(canonicalizeRfc8785(records)).digest('hex')!=='5622646be4a6238728aa4a45553a46b41f63ca4bebc71cc05ada902aa4386fd8')throw Error('DEPENDENCY_TREE_DRIFT')"
+      ],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "22-frontend-tests",
+      "tool": "python3",
+      "args": [
+        "-I",
+        "-c",
+        "import os;n='/usr/bin/npm';e={'PATH':'/usr/bin:/bin','HOME':'/nonexistent','TMPDIR':'/tmp','TEMP':'/tmp','TMP':'/tmp','CI':'1','NODE_ENV':'test','LANG':'C.UTF-8','LC_ALL':'C.UTF-8','NO_COLOR':'1','NPM_CONFIG_USERCONFIG':'/nonexistent/p14-npm-userconfig','NPM_CONFIG_GLOBALCONFIG':'/nonexistent/p14-npm-globalconfig','NPM_CONFIG_SCRIPT_SHELL':'/bin/sh','NPM_CONFIG_AUDIT':'false','NPM_CONFIG_FUND':'false','NPM_CONFIG_UPDATE_NOTIFIER':'false'};os.execve(n,[n,'test'],e)"
+      ],
+      "cwd": "frontend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "23-frontend-lint",
+      "tool": "python3",
+      "args": [
+        "-I",
+        "-c",
+        "import os;n='/usr/bin/npm';e={'PATH':'/usr/bin:/bin','HOME':'/nonexistent','TMPDIR':'/tmp','TEMP':'/tmp','TMP':'/tmp','CI':'1','NODE_ENV':'test','LANG':'C.UTF-8','LC_ALL':'C.UTF-8','NO_COLOR':'1','NPM_CONFIG_USERCONFIG':'/nonexistent/p14-npm-userconfig','NPM_CONFIG_GLOBALCONFIG':'/nonexistent/p14-npm-globalconfig','NPM_CONFIG_SCRIPT_SHELL':'/bin/sh','NPM_CONFIG_AUDIT':'false','NPM_CONFIG_FUND':'false','NPM_CONFIG_UPDATE_NOTIFIER':'false'};os.execve(n,[n,'run','lint'],e)"
+      ],
+      "cwd": "frontend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "24-frontend-typecheck",
+      "tool": "python3",
+      "args": [
+        "-I",
+        "-c",
+        "import os;n='/usr/bin/npm';e={'PATH':'/usr/bin:/bin','HOME':'/nonexistent','TMPDIR':'/tmp','TEMP':'/tmp','TMP':'/tmp','CI':'1','NODE_ENV':'test','LANG':'C.UTF-8','LC_ALL':'C.UTF-8','NO_COLOR':'1','NPM_CONFIG_USERCONFIG':'/nonexistent/p14-npm-userconfig','NPM_CONFIG_GLOBALCONFIG':'/nonexistent/p14-npm-globalconfig','NPM_CONFIG_SCRIPT_SHELL':'/bin/sh','NPM_CONFIG_AUDIT':'false','NPM_CONFIG_FUND':'false','NPM_CONFIG_UPDATE_NOTIFIER':'false'};os.execve(n,[n,'run','typecheck'],e)"
+      ],
+      "cwd": "frontend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "25-frontend-production-build",
+      "tool": "python3",
+      "args": [
+        "-I",
+        "-c",
+        "import os;n='/usr/bin/npm';e={'PATH':'/usr/bin:/bin','HOME':'/nonexistent','TMPDIR':'/tmp','TEMP':'/tmp','TMP':'/tmp','CI':'1','NODE_ENV':'production','LANG':'C.UTF-8','LC_ALL':'C.UTF-8','NO_COLOR':'1','NPM_CONFIG_USERCONFIG':'/nonexistent/p14-npm-userconfig','NPM_CONFIG_GLOBALCONFIG':'/nonexistent/p14-npm-globalconfig','NPM_CONFIG_SCRIPT_SHELL':'/bin/sh','NPM_CONFIG_AUDIT':'false','NPM_CONFIG_FUND':'false','NPM_CONFIG_UPDATE_NOTIFIER':'false'};os.execve(n,[n,'run','build'],e)"
+      ],
+      "cwd": "frontend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "26-frontend-dependency-tree-after-matrix",
+      "tool": "node",
+      "args": [
+        "--input-type=module",
+        "--eval",
+        "import{execFileSync}from'node:child_process';import{createHash}from'node:crypto';import{existsSync,lstatSync,readdirSync,readFileSync,readlinkSync,realpathSync}from'node:fs';import path from'node:path';import{canonicalizeRfc8785}from'./scripts/product-authority.mjs';const E={PATH:'/usr/bin:/bin',HOME:'/nonexistent',NPM_CONFIG_USERCONFIG:'/nonexistent/p14-npm-userconfig',NPM_CONFIG_GLOBALCONFIG:'/nonexistent/p14-npm-globalconfig',NPM_CONFIG_SCRIPT_SHELL:'/bin/sh'},root=realpathSync('.'),base=path.join(root,'frontend/node_modules'),s=lstatSync(base);if(process.version!=='v22.23.1'||execFileSync('/usr/bin/npm',['--version'],{encoding:'utf8',env:E}).trim()!=='10.9.8')throw Error('RUNTIME_DRIFT');if(existsSync('.npmrc')||existsSync('frontend/.npmrc')||!s.isDirectory()||s.isSymbolicLink()||realpathSync(base)!==base)throw Error('DEPENDENCY_ROOT_INVALID');if(createHash('sha256').update(readFileSync('frontend/package-lock.json')).digest('hex')!=='a08cf31a5089fc246380a8ac77f365299e31880995a04722affbdf413e74fb0b')throw Error('LOCK_DRIFT');const records=[];function w(d,r=''){for(const n of readdirSync(d).sort()){const p=path.join(d,n),q=r?r+'/'+n:n,z=lstatSync(p),m=(z.mode&511).toString(8).padStart(4,'0');if(z.isSymbolicLink()){const t=readlinkSync(p),x=realpathSync(p);if(x!==base&&!x.startsWith(base+path.sep))throw Error('SYMLINK_ESCAPE:'+q);records.push({path:q,type:'symlink',mode:m,target:t})}else if(z.isDirectory()){records.push({path:q,type:'directory',mode:m});w(p,q)}else if(z.isFile()){const b=readFileSync(p);records.push({path:q,type:'file',mode:m,bytes:b.length,rawSha256:'sha256:'+createHash('sha256').update(b).digest('hex')})}else throw Error('UNSUPPORTED_ENTRY:'+q)}}w(base);if(records.length!==22457||createHash('sha256').update(canonicalizeRfc8785(records)).digest('hex')!=='5622646be4a6238728aa4a45553a46b41f63ca4bebc71cc05ada902aa4386fd8')throw Error('DEPENDENCY_TREE_DRIFT')"
+      ],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "30-release-regressions",
+      "tool": "python3",
+      "args": [
+        "-I",
+        "-c",
+        "import os;node='/usr/bin/node';tests=('scripts/release-evidence.test.mjs','scripts/build_offline_release.test.mjs','scripts/check_deployment.test.mjs','scripts/run_rc1_release_acceptance.test.mjs','scripts/verify_offline_release.test.mjs');env={'PATH':'/usr/bin:/bin','HOME':'/nonexistent','TMPDIR':'/tmp','TEMP':'/tmp','TMP':'/tmp','CI':'1','NODE_ENV':'test','LANG':'C.UTF-8','LC_ALL':'C.UTF-8','NO_COLOR':'1'};os.execve(node,[node,'--test',*tests],env)"
+      ],
+      "cwd": ".",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "40-root-harness-and-hook-self-test",
+      "tool": "python3",
+      "args": [
+        "-I",
+        "-c",
+        "import subprocess;env={'PATH':'/usr/bin:/bin','HOME':'/nonexistent','TMPDIR':'/tmp','TEMP':'/tmp','TMP':'/tmp','CI':'1','NODE_ENV':'test','LANG':'C.UTF-8','LC_ALL':'C.UTF-8','NO_COLOR':'1'};commands=(('/usr/bin/node','scripts/check_harness.mjs'),('/usr/bin/node','scripts/check_harness.mjs','--self-test'),('/usr/bin/node','.agents/hooks/check-harness.mjs','--self-test'));[subprocess.run(c,check=True,env=env) for c in commands]"
+      ],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "42-root-harness-doctor",
+      "tool": "python3",
+      "args": [
+        "-I",
+        "-c",
+        "import os;n='/usr/bin/node';e={'PATH':'/usr/bin:/bin','HOME':'/nonexistent','TMPDIR':'/tmp','TEMP':'/tmp','TMP':'/tmp','CI':'1','NODE_ENV':'test','LANG':'C.UTF-8','LC_ALL':'C.UTF-8','NO_COLOR':'1'};os.execve(n,[n,'scripts/harness-doctor.mjs','--check'],e)"
+      ],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "43-root-harness-doctor-regression",
+      "tool": "python3",
+      "args": [
+        "-I",
+        "-c",
+        "import os;n='/usr/bin/node';e={'PATH':'/usr/bin:/bin','HOME':'/nonexistent','TMPDIR':'/tmp','TEMP':'/tmp','TMP':'/tmp','CI':'1','NODE_ENV':'test','LANG':'C.UTF-8','LC_ALL':'C.UTF-8','NO_COLOR':'1'};os.execve(n,[n,'--test','scripts/harness-doctor.test.mjs'],e)"
+      ],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "45-product-authority-regression",
+      "tool": "python3",
+      "args": [
+        "-I",
+        "-c",
+        "import os;n='/usr/bin/node';t='/tmp';e={'PATH':'/usr/bin:/bin','TMPDIR':t,'TEMP':t,'TMP':t,'CI':'1','NODE_ENV':'test','LANG':'C.UTF-8','LC_ALL':'C.UTF-8','NO_COLOR':'1'};os.execve(n,[n,'--test','scripts/product-authority.test.mjs'],e)"
+      ],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "50-v2-convergence",
+      "tool": "node",
+      "args": [
+        "scripts/ext-full-value-convergence.mjs",
+        "--check"
+      ],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "51-v2-convergence-regression",
+      "tool": "node",
+      "args": [
+        "--test",
+        "scripts/ext-full-value-convergence.test.mjs"
+      ],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "90-git-diff-check",
+      "tool": "node",
+      "args": [
+        "--input-type=module",
+        "--eval",
+        "import{execFileSync}from'node:child_process';execFileSync('/usr/bin/git',['--no-replace-objects','diff','--check','HEAD^','HEAD'],{stdio:'inherit',env:{PATH:'/usr/bin:/bin',GIT_CONFIG_NOSYSTEM:'1',GIT_NO_REPLACE_OBJECTS:'1',GIT_TERMINAL_PROMPT:'0'}})"
+      ],
+      "cwd": ".",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "98-live-remote-approval-after-matrix",
+      "tool": "python3",
+      "args": [
+        "-I",
+        "-c",
+        "import subprocess;E={'PATH':'/usr/bin:/bin','HOME':'/nonexistent','GIT_CONFIG_GLOBAL':'/dev/null','GIT_CONFIG_NOSYSTEM':'1','GIT_CONFIG_SYSTEM':'/dev/null','GIT_NO_REPLACE_OBJECTS':'1','GIT_TERMINAL_PROMPT':'0'};g=lambda a:subprocess.check_output(['/usr/bin/git','--no-replace-objects',*a],text=True,env=E).strip();assert g(['config','--local','--get','remote.origin.url'])=='git@gitee.com:msxn/chaotang-os.git';assert g(['config','--local','--get','core.sshCommand'])=='/usr/bin/ssh -F /dev/null';keys={x.lower() for x in g(['config','--local','--name-only','--list']).splitlines()};required={'core.repositoryformatversion','core.filemode','core.bare','core.logallrefupdates','core.sshcommand','remote.origin.url','remote.origin.fetch'};assert keys==required;r=lambda p:subprocess.run(['/usr/bin/git','config','--local','--get-regexp',p],text=True,capture_output=True,env=E);assert all((x:=r(p)).returncode==1 and not x.stdout and not x.stderr for p in ('^(include[.]path|includeif[.].*[.]path)$','^ssh[.]variant$','^credential[.]helper$','^http[.]','^remote[.]origin[.](uploadpack|proxy)$','^protocol[.]ext[.]allow$','^url[.].*[.]insteadof$'));approval=g(['rev-parse','HEAD^']);remote=g(['ls-remote','--heads','origin','refs/heads/ext-dev']).split();assert remote==[approval,'refs/heads/ext-dev']"
+      ],
+      "cwd": ".",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "99-candidate-acceptance-blocked-until-gate-b",
+      "tool": "node",
+      "args": [
+        "--input-type=module",
+        "--eval",
+        "process.stderr.write('P14_GATE_A_EXACT30_HASH_CORRECTED_BYTES_ONLY_GATE_B_REQUIRED\\n');process.exit(86)"
+      ],
+      "cwd": ".",
+      "timeoutMs": 1000
+    }
+  ],
+  "state": "APPROVED_FOR_ONE_CHILD"
+}
