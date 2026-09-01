@@ -1,0 +1,160 @@
+{
+  "schemaVersion": "governance-repair.packet.v1",
+  "taskId": "PACKET-14-EXACT30-READINESS-COMPATIBILITY-PREREQUISITE-SUCCESSOR-20260901",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "c6bcaf524fbd6dd5984337b429e279d1791158c8",
+    "baseTree": "37a9e25c184b873c87bb65422482e70a32e31071",
+    "approvalCommitPaths": [
+      "docs/product/tasks/2026-09-01-packet-14-exact30-readiness-compatibility-prerequisite-successor.md",
+      "docs/product/tasks/2026-09-01-packet-14-exact30-readiness-compatibility-prerequisite-successor.packet.json",
+      "docs/superpowers/plans/2026-09-01-packet-14-exact30-readiness-compatibility-prerequisite-successor.md"
+    ],
+    "candidatePaths": [
+      "backend/tests/test_six_ministry_readiness_report.py",
+      "scripts/check_harness.mjs"
+    ]
+  },
+  "predecessorProductAuthority": {
+    "taskId": "PACKET-14-EXACT30-TRUSTED-ARTIFACT-DELIVERY-GATE-A-LIFECYCLE-TRUTH-CORRECTIVE-SUCCESSOR-20260901",
+    "approvalCommit": "c6bcaf524fbd6dd5984337b429e279d1791158c8",
+    "approvalTree": "37a9e25c184b873c87bb65422482e70a32e31071",
+    "approvalCanonicalDigest": "sha256:3b6e59e62dd6f1c140342e89ee497bfdcb2f5fd7d1ba731814c7029640266798",
+    "machineDecision": "GO / APPROVED_FOR_ONE_CHILD",
+    "consumedByCandidateCommit": false,
+    "disposition": "ABANDONED_AFTER_PRE_CHILD_READINESS_COMPATIBILITY_REVIEW / NO_RETRY / NO_INHERITANCE / REISSUE_REQUIRED"
+  },
+  "exact30ByteDonor": {
+    "worktree": "/home/ubuntu/Projects/chaotang-os/.worktrees/p14-exact30-gate-a-lifecycle-truth-corrective-successor-candidate-20260901",
+    "baseCommit": "c6bcaf524fbd6dd5984337b429e279d1791158c8",
+    "baseTree": "37a9e25c184b873c87bb65422482e70a32e31071",
+    "disposition": "BYTE_DONOR_ONLY / NO_CANDIDATE_IDENTITY / NO_VERIFICATION_INHERITANCE",
+    "pathCount": 30,
+    "structure": "30 MODIFY / ALL 100644",
+    "bundleDigest": "sha256:27c544f37e9549d3a99f66ace498bccd8c3a8d5e2d94ce028773fe48b4be4882",
+    "combinedFullIndexDiffSha256": "sha256:6af72651a1da268e32f3c29af6642afcd496f6792eae4bb8817e787fb9da2e18",
+    "requiredForwardCorrection": "CDP_EDGE_OBSERVATION_PROMISE_CLEANUP_P1"
+  },
+  "validatorByteDonor": {
+    "worktree": "/home/ubuntu/Projects/chaotang-os/.worktrees/p14-exact30-readiness-compatibility-prerequisite-byte-donor-20260901",
+    "baseCommit": "c6bcaf524fbd6dd5984337b429e279d1791158c8",
+    "baseTree": "37a9e25c184b873c87bb65422482e70a32e31071",
+    "disposition": "BYTE_DONOR_ONLY / NO_CANDIDATE_IDENTITY / NO_VERIFICATION_INHERITANCE",
+    "bundleDigest": "sha256:fd7dc8d7afdec2c99df166cd2cdcb231a0ea72b9bcc65b090845880fd7a5be2c",
+    "combinedFullIndexDiffSha256": "sha256:58b17810b439e5c5f06be297024d96b7974ed6f912c8e75b4d466680186bad3e",
+    "verificationSummaryDigestAlgorithm": "sha256-rfc8785-canonical-utf8-of-verificationSummaryRecords-v1",
+    "verificationSummaryDigest": "sha256:e2f13ef2d48413fcca7a4d34eb4b9f4b4824494c537b47c0dabcacc3b5da6781",
+    "verificationSummaryRecords": [
+      {"id":"RED_TENTH_PAIR","result":"1 failed"},
+      {"id":"READINESS","result":"16 passed"},
+      {"id":"RUFF","result":"PASS"},
+      {"id":"BACKEND_FULL","result":"4549 passed, 4 skipped, 3 warnings"},
+      {"id":"HARNESS","result":"146 PASS"},
+      {"id":"HARNESS_SELF_TEST","result":"175 PASS"},
+      {"id":"DOCTOR","result":"PASS / STRUCTURE_VALID_NON_AUTHORIZING"},
+      {"id":"DOCTOR_TESTS","result":"10/10"},
+      {"id":"HOOK_SELF_TEST","result":"3 PASS"},
+      {"id":"PRODUCT_AUTHORITY_REGRESSION","result":"12/12"},
+      {"id":"V2_CHECK","result":"PASS / nonAuthorizing"},
+      {"id":"V2_TESTS","result":"20 passed / 1 skipped"},
+      {"id":"DIFF_CHECK","result":"PASS"}
+    ],
+    "files": [
+      {
+        "path": "backend/tests/test_six_ministry_readiness_report.py",
+        "mode": "100644",
+        "bytes": 18556,
+        "rawSha256": "sha256:0af78ed4cbe16aa943f522d7b0464ecb24723a30a53ed8e9d6a7bdac4ba79553",
+        "gitBlob": "8a8e3457b5ff2b7af8cd13067bc6de977a116332"
+      },
+      {
+        "path": "scripts/check_harness.mjs",
+        "mode": "100644",
+        "bytes": 160819,
+        "rawSha256": "sha256:171011af5839c30893de59aac8e2f70f841e949aff9ef214e69b6142892280be",
+        "gitBlob": "7384b957bdb538c504d13a6a36d20edb40bcbd02"
+      }
+    ]
+  },
+  "compatibilityPolicy": {
+    "mode": "EXACT_ORDERED_PAIR_APPEND_ONLY",
+    "existingPairCount": 9,
+    "requiredPostAppendPairCount": 10,
+    "requiredPairSetDelta": "+1/-0",
+    "fingerprintAlgorithm": "sha256-path-null-content-null-v1",
+    "existingAllowedPairs": [
+      ["sha256:013bfb8272e936be85c2d470033787c3b7f105ad6eae2dfe680373df023b5e69", "sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"],
+      ["sha256:c95630be3d79f2641ff6e483f4096b0763b9e5071544f1e0ead0d7e24eb1cba5", "sha256:268cab13e516d0f716f600819f2bddc8242269312d392eca4ed1be2de05ce051"],
+      ["sha256:d330b7f177f5bbb761eb359ffffca6f12250e5bbe90d13d0414d0fdefb78e98a", "sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"],
+      ["sha256:da31e8098bf76c72ff8d00b073d86e3442b0811223ef3e3bab770af31e89c28e", "sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"],
+      ["sha256:a6d109de75e877620a89241a4dcabcc716e1a5a1a18a024c9a3cb73e578de80c", "sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"],
+      ["sha256:cc42339eaa423d71307ef96ff713ec095a89ba2cc4d4f6630ee1b40dec94d34d", "sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"],
+      ["sha256:eb0d8d214c2dc51ca4eb37ce5a13423e424fd6fdd3b6b8c3dac6a5f5757bd2df", "sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"],
+      ["sha256:82885fc13cec86318e4436fccfd80c78d7880e4aa25cdb530d0f4d18c9c73fe3", "sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"],
+      ["sha256:598dd8e735ce98b2d8a5307c3fa8b866d8fe72521c92b0c6ea4ba360d7bc9f79", "sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"]
+    ],
+    "runtimeContentFileCount": 65,
+    "runtimeFingerprint": "sha256:32ecf613778ddc625567b08ec4526efbf22c0cd29a8c94fc3b9bacbe4e0dd05e",
+    "successorFingerprint": "sha256:9d10d2bed258e632c909719f05df50c6b33530d9f40be2458a38dd063fcde3c5",
+    "approvedTenthPair": [
+      "sha256:32ecf613778ddc625567b08ec4526efbf22c0cd29a8c94fc3b9bacbe4e0dd05e",
+      "sha256:9d10d2bed258e632c909719f05df50c6b33530d9f40be2458a38dd063fcde3c5"
+    ],
+    "historicalFileCount": 69,
+    "historicalReviewStatus": "approved-with-notes",
+    "historicalReviewedFingerprint": "sha256:a6c2de2ca7f15069a6d997ce2cccb9498ddd4dd1269d539c192993e85a265190",
+    "excludedPaths": [
+      "backend/app/accounting_reports/storage.py",
+      "backend/tests/test_six_ministry_accounting_evidence_adapter.py",
+      "backend/tests/test_six_ministry_readiness_report.py",
+      "scripts/check_harness.mjs"
+    ],
+    "successorContentPaths": [
+      "backend/app/accounting_reports/storage.py",
+      "backend/tests/test_six_ministry_accounting_evidence_adapter.py"
+    ],
+    "separateAllowlistsAllowed": false,
+    "cartesianProductAllowed": false,
+    "unapprovedEleventhPairAllowed": false,
+    "unapprovedFifthExclusionAllowed": false,
+    "singleSidedFingerprintAllowed": false,
+    "validatorPolicyDivergenceAllowed": false
+  },
+  "verificationContract": {
+    "enforcement": "DECLARATIVE_OWNER_CONTROLLED / NOT_PRODUCT_AUTHORITY_EXECUTED",
+    "allowedTools": ["node", "python3"],
+    "notes": "The repository has no governance-repair.packet.v1 machine runner; the unique ext-dev controller executes and records this closed matrix without representing it as product authority."
+  },
+  "verification": [
+    {"id":"01-candidate-approval-lineage-and-paths","tool":"python3","args":["-I","-c","import subprocess;E={'PATH':'/usr/bin:/bin','GIT_CONFIG_NOSYSTEM':'1','GIT_NO_REPLACE_OBJECTS':'1','GIT_TERMINAL_PROMPT':'0'};g=lambda a:subprocess.check_output(['/usr/bin/git','--no-replace-objects',*a],text=True,env=E).strip();q=g(['rev-list','--parents','-n','1','HEAD']).split();assert len(q)==2;p=q[1];a=g(['rev-list','--parents','-n','1',p]).split();assert len(a)==2 and a[1]=='c6bcaf524fbd6dd5984337b429e279d1791158c8';approval=['docs/product/tasks/2026-09-01-packet-14-exact30-readiness-compatibility-prerequisite-successor.md','docs/product/tasks/2026-09-01-packet-14-exact30-readiness-compatibility-prerequisite-successor.packet.json','docs/superpowers/plans/2026-09-01-packet-14-exact30-readiness-compatibility-prerequisite-successor.md'];candidate=['backend/tests/test_six_ministry_readiness_report.py','scripts/check_harness.mjs'];rows=[x.split('\\t') for x in g(['diff-tree','--no-commit-id','--name-status','-r',p,'HEAD']).splitlines()];assert [(x[0],x[-1]) for x in rows]==[('M',x) for x in candidate];arows=[x.split('\\t') for x in g(['diff-tree','--no-commit-id','--name-status','-r','c6bcaf524fbd6dd5984337b429e279d1791158c8',p]).splitlines()];assert [(x[0],x[-1]) for x in arows]==[('A',x) for x in approval];assert all(g(['ls-tree','HEAD','--',x]).split()[0]=='100644' for x in candidate+approval);assert not g(['status','--porcelain=v1','--untracked-files=all'])"],"cwd":".","timeoutMs":30000},
+    {"id":"02-live-remote-parent-and-repository-identity","tool":"python3","args":["-I","-c","import subprocess;E={'PATH':'/usr/bin:/bin','HOME':'/nonexistent','GIT_CONFIG_GLOBAL':'/dev/null','GIT_CONFIG_NOSYSTEM':'1','GIT_NO_REPLACE_OBJECTS':'1','GIT_TERMINAL_PROMPT':'0'};g=lambda a:subprocess.check_output(['/usr/bin/git','--no-replace-objects',*a],text=True,env=E).strip();assert g(['config','--local','--get','remote.origin.url'])=='git@gitee.com:msxn/chaotang-os.git';r=lambda a:subprocess.run(['/usr/bin/git',*a],text=True,capture_output=True,env=E);inc=r(['config','--local','--get-regexp','^(include[.]path|includeif[.].*[.]path)$']);assert inc.returncode==1 and not inc.stdout and not inc.stderr;danger=r(['config','--local','--includes','--get-regexp','^(core[.]sshcommand|ssh[.]variant|remote[.]origin[.]uploadpack|protocol[.]ext[.]allow)$']);assert danger.returncode==1 and not danger.stdout and not danger.stderr;u=r(['config','--local','--includes','--get-regexp','^url[.].*[.]insteadof$']);assert u.returncode==1 and not u.stdout and not u.stderr;assert g(['rev-parse','--is-shallow-repository'])=='false';parent=g(['rev-parse','HEAD^']);RE={**E,'GIT_SSH_COMMAND':'/usr/bin/ssh -F /dev/null'};remote=subprocess.check_output(['/usr/bin/git','ls-remote','git@gitee.com:msxn/chaotang-os.git','refs/heads/ext-dev'],text=True,env=RE).split();assert remote==[parent,'refs/heads/ext-dev']"],"cwd":".","timeoutMs":30000},
+    {"id":"03-ordered-pair-and-protected-contract","tool":"python3","args":["-I","-c","import ast,json,re,subprocess;from pathlib import Path;pp='backend/tests/test_six_ministry_readiness_report.py';np='scripts/check_harness.mjs';P=Path(pp).read_text();N=Path(np).read_text();gp=lambda p:subprocess.check_output(['/usr/bin/git','--no-replace-objects','show','HEAD^:'+p],text=True);PP=gp(pp);NP=gp(np);val=lambda s,n:ast.literal_eval(next(x.value for x in ast.parse(s).body if isinstance(x,ast.Assign) and any(isinstance(t,ast.Name) and t.id==n for t in x.targets)));old=tuple(val(PP,'_CONTENT_FINGERPRINT_PAIRS'));new=tuple(val(P,'_CONTENT_FINGERPRINT_PAIRS'));pair=('sha256:32ecf613778ddc625567b08ec4526efbf22c0cd29a8c94fc3b9bacbe4e0dd05e','sha256:9d10d2bed258e632c909719f05df50c6b33530d9f40be2458a38dd063fcde3c5');assert len(old)==9 and new==old+(pair,) and len(set(new))==10;node=lambda s:tuple(map(tuple,json.loads(re.search('^const SIX_MINISTRY_CONTENT_FINGERPRINT_PAIRS = (.+);$',s,re.M).group(1))));assert node(NP)==old and node(N)==new;protected=['_CURRENT_CONTENT_EXCLUSIONS','_SUCCESSOR_CONTENT_PATHS','_HISTORICAL_REVIEWED_FINGERPRINT','_HISTORICAL_REVIEW_STATUS','_HISTORICAL_FILE_COUNT','_CURRENT_FILE_COUNT'];assert all(val(P,x)==val(PP,x) for x in protected);assert val(P,'_HISTORICAL_FILE_COUNT')==69 and val(P,'_CURRENT_FILE_COUNT')==65 and len(val(P,'_CURRENT_CONTENT_EXCLUSIONS'))==4 and len(val(P,'_SUCCESSOR_CONTENT_PATHS'))==2;seg=lambda s,a,b:s[s.index(a):s.index(b,s.index(a))];assert seg(N,'function sixMinistryContentFingerprintPairAllowed','function sixMinistryRuntimeContentFiles')==seg(NP,'function sixMinistryContentFingerprintPairAllowed','function sixMinistryRuntimeContentFiles')"],"cwd":".","timeoutMs":30000},
+    {"id":"04-exact2-byte-identity-freeze","tool":"python3","args":["-I","-c","import hashlib,json,subprocess;from pathlib import Path;rows=[{'path':'backend/tests/test_six_ministry_readiness_report.py','mode':'100644','bytes':18556,'rawSha256':'sha256:0af78ed4cbe16aa943f522d7b0464ecb24723a30a53ed8e9d6a7bdac4ba79553','gitBlob':'8a8e3457b5ff2b7af8cd13067bc6de977a116332'},{'path':'scripts/check_harness.mjs','mode':'100644','bytes':160819,'rawSha256':'sha256:171011af5839c30893de59aac8e2f70f841e949aff9ef214e69b6142892280be','gitBlob':'7384b957bdb538c504d13a6a36d20edb40bcbd02'}];g=lambda a:subprocess.check_output(['/usr/bin/git','--no-replace-objects','-c','core.attributesFile=/dev/null',*a]);changed=g(['diff-tree','--no-commit-id','--name-only','-r','HEAD^','HEAD']).decode().splitlines();assert changed==[x['path'] for x in rows];bundle=[];assert all(len((b:=Path(x['path']).read_bytes()))==x['bytes'] and 'sha256:'+hashlib.sha256(b).hexdigest()==x['rawSha256'] and g(['hash-object',x['path']]).decode().strip()==x['gitBlob'] and not bundle.append({k:x[k] for k in ('path','mode','bytes','rawSha256')}) for x in rows);assert 'sha256:'+hashlib.sha256(json.dumps(bundle,ensure_ascii=False,separators=(',',':'),sort_keys=True).encode()).hexdigest()=='sha256:fd7dc8d7afdec2c99df166cd2cdcb231a0ea72b9bcc65b090845880fd7a5be2c';patch=g(['diff','--no-ext-diff','--no-textconv','--full-index','--binary','HEAD^','HEAD']);assert 'sha256:'+hashlib.sha256(patch).hexdigest()=='sha256:58b17810b439e5c5f06be297024d96b7974ed6f912c8e75b4d466680186bad3e'"],"cwd":".","timeoutMs":30000},
+    {"id":"05-committed-tree-byte-and-patch-freeze","tool":"python3","args":["-I","-c","import hashlib,subprocess;from pathlib import Path;E={'PATH':'/usr/bin:/bin','HOME':'/nonexistent','GIT_CONFIG_GLOBAL':'/dev/null','GIT_CONFIG_NOSYSTEM':'1','GIT_ATTR_NOSYSTEM':'1','GIT_NO_REPLACE_OBJECTS':'1','GIT_TERMINAL_PROMPT':'0'};gb=lambda a:subprocess.check_output(['/usr/bin/git','--no-replace-objects','-c','core.attributesFile=/dev/null',*a],env=E);gt=lambda a:gb(a).decode().strip();rows=[('backend/tests/test_six_ministry_readiness_report.py','100644',18556,'sha256:0af78ed4cbe16aa943f522d7b0464ecb24723a30a53ed8e9d6a7bdac4ba79553','8a8e3457b5ff2b7af8cd13067bc6de977a116332'),('scripts/check_harness.mjs','100644',160819,'sha256:171011af5839c30893de59aac8e2f70f841e949aff9ef214e69b6142892280be','7384b957bdb538c504d13a6a36d20edb40bcbd02')];assert all(len((b:=gb(['cat-file','blob','HEAD:'+p])))==n and 'sha256:'+hashlib.sha256(b).hexdigest()==raw and gt(['rev-parse','HEAD:'+p])==blob and gt(['ls-tree','HEAD','--',p]).split()[0]==mode and Path(p).read_bytes()==b for p,mode,n,raw,blob in rows);patch=gb(['diff','--no-ext-diff','--no-textconv','--full-index','--binary','HEAD^','HEAD']);assert 'sha256:'+hashlib.sha256(patch).hexdigest()=='sha256:58b17810b439e5c5f06be297024d96b7974ed6f912c8e75b4d466680186bad3e'"],"cwd":".","timeoutMs":30000},
+    {"id":"06-readiness-focused","tool":"python3","args":["-m","pytest","-q","tests/test_six_ministry_readiness_report.py"],"cwd":"backend","timeoutMs":180000},
+    {"id":"07-backend-full-posix-temp","tool":"python3","args":["-I","-c","import os,subprocess,sys;E=os.environ.copy();E.update({'TMPDIR':'/tmp','TEMP':'/tmp','TMP':'/tmp'});raise SystemExit(subprocess.call([sys.executable,'-m','pytest','-q'],cwd='backend',env=E))"],"cwd":".","timeoutMs":300000},
+    {"id":"08-exact2-ruff","tool":"python3","args":["-m","ruff","check","backend/tests/test_six_ministry_readiness_report.py"],"cwd":".","timeoutMs":180000},
+    {"id":"09-root-harness","tool":"node","args":["scripts/check_harness.mjs"],"cwd":".","timeoutMs":180000},
+    {"id":"10-root-harness-self-test","tool":"node","args":["scripts/check_harness.mjs","--self-test"],"cwd":".","timeoutMs":180000},
+    {"id":"11-root-harness-doctor","tool":"node","args":["scripts/harness-doctor.mjs","--check"],"cwd":".","timeoutMs":180000},
+    {"id":"12-harness-doctor-tests","tool":"node","args":["--test","scripts/harness-doctor.test.mjs"],"cwd":".","timeoutMs":180000},
+    {"id":"13-hook-self-test","tool":"node","args":[".agents/hooks/check-harness.mjs","--self-test"],"cwd":".","timeoutMs":180000},
+    {"id":"14-product-authority-regression-posix-temp","tool":"python3","args":["-I","-c","import os,subprocess;E=os.environ.copy();E['TMPDIR']='/tmp';raise SystemExit(subprocess.call(['/usr/bin/node','--test','scripts/product-authority.test.mjs'],env=E))"],"cwd":".","timeoutMs":180000},
+    {"id":"15-v2-convergence","tool":"node","args":["scripts/ext-full-value-convergence.mjs","--check"],"cwd":".","timeoutMs":180000},
+    {"id":"16-v2-convergence-tests","tool":"node","args":["--test","scripts/ext-full-value-convergence.test.mjs"],"cwd":".","timeoutMs":180000},
+    {"id":"17-git-diff-check","tool":"python3","args":["-I","-c","import subprocess;raise SystemExit(subprocess.call(['/usr/bin/git','--no-replace-objects','diff','--check','HEAD^','HEAD']))"],"cwd":".","timeoutMs":30000}
+  ],
+  "policy": {
+    "forwardOnly": true,
+    "forcePushAllowed": false,
+    "fetchOrPullAllowed": false,
+    "reviewersReadOnly": true,
+    "failureMode": "FAIL_CLOSED_STOP"
+  },
+  "state": "DRAFT",
+  "ownerConfirmationState": "READY_FOR_OWNER_CONFIRMATION",
+  "authorizationState": "NON_AUTHORIZING"
+}
