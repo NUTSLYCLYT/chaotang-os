@@ -1,0 +1,123 @@
+{
+  "schemaVersion": "product-authority.m0.approval.v1",
+  "authorityId": "product-authority.m0.v1",
+  "taskId": "HONGLUSI-EXTERNAL-CAPABILITY-GATEWAY-UI-V1-READINESS-SUCCESSOR-20260901",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "fb5d3f4af426f6140ef905ff015721692396d084",
+    "baseTree": "82718add3837287871b9905188e4428767094885",
+    "approvalPath": ".harness/approvals/HONGLUSI-EXTERNAL-CAPABILITY-GATEWAY-UI-V1-READINESS-SUCCESSOR-20260901.json",
+    "approvalCommitPaths": [
+      ".harness/approvals/HONGLUSI-EXTERNAL-CAPABILITY-GATEWAY-UI-V1-READINESS-SUCCESSOR-20260901.json",
+      "docs/product/tasks/2026-09-01-honglusi-external-capability-gateway-ui-v1-readiness-successor.md",
+      "docs/superpowers/plans/2026-09-01-honglusi-external-capability-gateway-ui-v1-readiness-successor.md"
+    ],
+    "productPaths": [
+      "frontend/src/app/court-entry-pages.test.ts",
+      "frontend/src/app/honglusi/page.tsx",
+      "frontend/src/components/chaotang/ChaotangHeader.test.ts",
+      "frontend/src/components/chaotang/ChaotangHeader.tsx",
+      "frontend/src/features/court-visuals/types.ts",
+      "frontend/src/features/honglusi-visual/HonglusiScene.module.css",
+      "frontend/src/features/honglusi-visual/HonglusiScene.test.ts",
+      "frontend/src/features/honglusi-visual/HonglusiScene.tsx",
+      "frontend/src/features/honglusi-visual/honglusiRegistry.test.ts",
+      "frontend/src/features/honglusi-visual/honglusiRegistry.ts",
+      "frontend/src/lib/requireUser.ts"
+    ]
+  },
+  "nonGoals": [
+    "ARBITRARY_EXTERNAL_URL_OR_PROVIDER_CONFIGURATION",
+    "AUTHORITY_HARNESS_CI_ADR_OR_RELEASE_CHANGE",
+    "BACKEND_API_DATABASE_SCHEMA_OR_FACT_SOURCE_CHANGE",
+    "CREDENTIAL_SECRET_TOKEN_OR_SESSION_EXPOSURE",
+    "EXTERNAL_ACCOUNT_BINDING_OR_CAPABILITY_INSTALLATION",
+    "EXTERNAL_NETWORK_MODEL_MCP_OR_BROWSER_EXECUTION",
+    "EXTERNAL_WRITE_PAYMENT_BILLING_OR_SETTLEMENT",
+    "GLOBAL_DESIGN_SYSTEM_REWRITE",
+    "PRODUCTION_ACTIVATION_DEPLOYMENT_OR_TRAFFIC_CHANGE",
+    "UNRELATED_FRONTEND_REFACTOR"
+  ],
+  "verification": [
+    {
+      "id": "v01-honglusi-focused-tests",
+      "tool": "node",
+      "args": [
+        "--test",
+        "src/app/court-entry-pages.test.ts",
+        "src/components/chaotang/ChaotangHeader.test.ts",
+        "src/features/honglusi-visual/HonglusiScene.test.ts",
+        "src/features/honglusi-visual/honglusiRegistry.test.ts"
+      ],
+      "cwd": "frontend",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v02-frontend-full-tests",
+      "tool": "npm",
+      "args": ["test"],
+      "cwd": "frontend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "v03-frontend-lint",
+      "tool": "npm",
+      "args": ["run", "lint"],
+      "cwd": "frontend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "v04-frontend-typecheck",
+      "tool": "npm",
+      "args": ["run", "typecheck"],
+      "cwd": "frontend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "v05-frontend-build",
+      "tool": "npm",
+      "args": ["run", "build"],
+      "cwd": "frontend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "v06-product-authority-regression",
+      "tool": "node",
+      "args": ["--test", "scripts/product-authority.test.mjs"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v07-root-harness",
+      "tool": "node",
+      "args": ["scripts/check_harness.mjs"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v08-root-harness-doctor",
+      "tool": "node",
+      "args": ["scripts/harness-doctor.mjs", "--check"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v09-v2-convergence",
+      "tool": "node",
+      "args": ["scripts/ext-full-value-convergence.mjs", "--check"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v10-v2-convergence-regression",
+      "tool": "node",
+      "args": ["--test", "scripts/ext-full-value-convergence.test.mjs"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    }
+  ],
+  "state": "APPROVED_FOR_ONE_CHILD"
+}
