@@ -1,0 +1,271 @@
+{
+  "schemaVersion": "governance-repair.packet.v1",
+  "taskId": "PACKET-14-EXACT30-USERNS-STICKY-READINESS-COMPATIBILITY-PREREQUISITE-SUCCESSOR-20260902",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "13b9751a35815f873cdc986b8ee7e012089408ee",
+    "baseTree": "5820fdfd917402e5f6bdcca01c1c4f459193644e",
+    "approvalCommitPaths": [
+      "docs/product/tasks/2026-09-02-packet-14-exact30-userns-sticky-readiness-compatibility-prerequisite-successor.md",
+      "docs/product/tasks/2026-09-02-packet-14-exact30-userns-sticky-readiness-compatibility-prerequisite-successor.packet.json",
+      "docs/superpowers/plans/2026-09-02-packet-14-exact30-userns-sticky-readiness-compatibility-prerequisite-successor.md"
+    ],
+    "candidatePaths": [
+      "backend/tests/test_six_ministry_readiness_report.py",
+      "scripts/check_harness.mjs"
+    ]
+  },
+  "predecessorProductAuthority": {
+    "taskId": "PACKET-14-EXACT30-OBSERVATION-LIFECYCLE-RUNNER-HASH-CORRECTIVE-SUCCESSOR-20260902",
+    "approvalCommit": "13b9751a35815f873cdc986b8ee7e012089408ee",
+    "approvalTree": "5820fdfd917402e5f6bdcca01c1c4f459193644e",
+    "approvalCanonicalDigest": "sha256:f0118d2eb96e447e02cbefe4a094fbfef0f5fc50280c6bbad611e2092764b7df",
+    "machineDecision": "GO / APPROVED_FOR_ONE_CHILD",
+    "localCandidateCommit": "3e89495f4e5b5d547e8b07ccb66b94a013417165",
+    "localCandidateTree": "e97e6cb611cbce7eac6c7676d034958eca2c74e1",
+    "candidatePushed": false,
+    "candidateVerified": false,
+    "disposition": "STOP / GATE11_VERIFICATION_FAILURE / BYTE_DONOR_ONLY / NO_RETRY / NO_INHERITANCE / REISSUE_REQUIRED"
+  },
+  "gate11RootCause": {
+    "status": "USER_NAMESPACE_STICKY_OWNER_CONTRACT_MISMATCH",
+    "evidence": "Bubblewrap maps the read-only root directory to overflow uid 65534 while its private mode-1777 tmpfs /tmp is owned by the verifier euid 1000. ArtifactStorage trusted-ancestor checks accepted only the mapped root owner and therefore rejected a safe verifier-owned sticky /tmp.",
+    "baselineResult": "71 failed, 1374 passed, 1 skipped, 50 errors",
+    "minimalCorrection": "Accept a sticky ancestor or child only when its owner is either the namespace root owner or the current effective uid; preserve sticky-bit, symlink, containment and all other fail-closed checks.",
+    "correctedResult": "2 failed, 4605 passed, 4 skipped, 3 warnings",
+    "remainingFailures": [
+      "backend/tests/test_six_ministry_readiness_report.py::test_readiness_evidence_is_bound_to_current_implementation",
+      "backend/tests/test_six_ministry_readiness_report.py::test_successor_content_rejects_third_state_drift"
+    ]
+  },
+  "finalShadowExact30": {
+    "worktree": "/home/ubuntu/Projects/chaotang-os/.worktrees/p14-exact30-userns-sticky-final-shadow-20260902",
+    "worktreeHead": "3e89495f4e5b5d547e8b07ccb66b94a013417165",
+    "worktreeHeadTree": "e97e6cb611cbce7eac6c7676d034958eca2c74e1",
+    "uncommittedCorrectionPaths": [
+      "backend/app/accounting_reports/storage.py",
+      "backend/tests/test_accounting_work_product_storage.py"
+    ],
+    "baseCommit": "13b9751a35815f873cdc986b8ee7e012089408ee",
+    "baseTree": "5820fdfd917402e5f6bdcca01c1c4f459193644e",
+    "diagnosticCommit": "24fb30482f744445e2eb9c4e682393fbc18e1b51",
+    "diagnosticTree": "23f5e209848a07c16af11de3ce9160ddf9db7788",
+    "disposition": "SHADOW_BYTE_EVIDENCE_ONLY / NOT_A_CANDIDATE / DO_NOT_PUSH",
+    "pathCount": 30,
+    "structure": "30 MODIFY / ALL 100644",
+    "bundleDigest": "sha256:2d72b2e0747ff55e77061440fd7940ea843d12bfb7bfe8f2a3a6aff6fc32bae8",
+    "combinedFullIndexDiffSha256": "sha256:7b43ef3e1a095abc6b2c28c2c606d494ff9c28813776972980edeca8652fc78d",
+    "correctedStorage": {
+      "path": "backend/app/accounting_reports/storage.py",
+      "mode": "100644",
+      "bytes": 120717,
+      "rawSha256": "sha256:4aa17b5e1ba2ab20e1ed141f6b3a37c30cb2fce61d9d2598933f72b4fcdd5eff",
+      "gitBlob": "19015453321a838569a4a78294bc7c8f6e3ad065"
+    },
+    "directedSecurityRegression": {
+      "path": "backend/tests/test_accounting_work_product_storage.py",
+      "mode": "100644",
+      "bytes": 58813,
+      "rawSha256": "sha256:62f91a93261aeda4b4d770c2ee5d9c6e5b42d7db72111971b3601fc3dd7d09b3",
+      "gitBlob": "e7579a3076f9c004c6b1bddcee58815737e73793",
+      "red": "1 failed: ArtifactStorage._trusted_sticky_directory absent",
+      "green": "2 passed: directed owner contract plus existing symlink rejection",
+      "coverage": [
+        "verifier-euid-owned mode-1777 directory accepted",
+        "namespace-root-owned mode-1777 directory accepted",
+        "verifier-euid-owned mode-0777 directory rejected",
+        "foreign-owned mode-1777 directory rejected",
+        "non-directory mode-1777 object rejected",
+        "symlinked root remains rejected"
+      ]
+    },
+    "correctedSqliteBackup": {
+      "path": "backend/app/operations/sqlite_backup.py",
+      "mode": "100644",
+      "bytes": 194632,
+      "rawSha256": "sha256:92b4bc94215214f823fb866269d98662e6a735ad6d1cc1d149bccf0e84246078",
+      "gitBlob": "cd63139dd58aad8af94c2fa8ed6d90e3b6d76dba"
+    }
+  },
+  "validatorByteDonor": {
+    "worktree": "/home/ubuntu/Projects/chaotang-os/.worktrees/p14-exact30-userns-sticky-readiness-byte-donor-20260902",
+    "baseCommit": "13b9751a35815f873cdc986b8ee7e012089408ee",
+    "baseTree": "5820fdfd917402e5f6bdcca01c1c4f459193644e",
+    "disposition": "BYTE_DONOR_ONLY / NO_CANDIDATE_IDENTITY / NO_VERIFICATION_INHERITANCE",
+    "bundleDigest": "sha256:b4c022f2750ecd016e6c5d1358b109d8ee83ebdfcc84821502d978c61714c87c",
+    "combinedFullIndexDiffSha256": "sha256:32cf8415288f54f2f35c063717b85bc29175c4c49447658f7659ec2c1b080ba0",
+    "files": [
+      {
+        "path": "backend/tests/test_six_ministry_readiness_report.py",
+        "mode": "100644",
+        "bytes": 20014,
+        "rawSha256": "sha256:f9163cbdc26f0ace1114857d7ef0ef623b15a3c9af491401139933793689c98b",
+        "gitBlob": "bf068cff969b2d57f7a5190fb977d0cc47647c67"
+      },
+      {
+        "path": "scripts/check_harness.mjs",
+        "mode": "100644",
+        "bytes": 161376,
+        "rawSha256": "sha256:a24dd8f8cfdd77d801060cfab5b2e6b4beafdd5c0742a9f8e8b1a771bc02edb3",
+        "gitBlob": "5c9abed1e1616f62b331bbca367b2e5a3552cd1f"
+      }
+    ]
+  },
+  "compatibilityPolicy": {
+    "mode": "EXACT_ORDERED_PAIR_APPEND_ONLY",
+    "existingPairCount": 10,
+    "requiredPostAppendPairCount": 11,
+    "requiredPairSetDelta": "+1/-0",
+    "fingerprintAlgorithm": "sha256-path-null-content-null-v1",
+    "runtimeContentFileCount": 65,
+    "runtimeFingerprint": "sha256:32ecf613778ddc625567b08ec4526efbf22c0cd29a8c94fc3b9bacbe4e0dd05e",
+    "successorFingerprint": "sha256:1922b611550d73daa6226d9dd8abf8d9f9691a0501f9f1fd0ea83e8c772829d2",
+    "approvedEleventhPair": [
+      "sha256:32ecf613778ddc625567b08ec4526efbf22c0cd29a8c94fc3b9bacbe4e0dd05e",
+      "sha256:1922b611550d73daa6226d9dd8abf8d9f9691a0501f9f1fd0ea83e8c772829d2"
+    ],
+    "historicalFileCount": 69,
+    "historicalReviewStatus": "approved-with-notes",
+    "historicalReviewedFingerprint": "sha256:a6c2de2ca7f15069a6d997ce2cccb9498ddd4dd1269d539c192993e85a265190",
+    "excludedPaths": [
+      "backend/app/accounting_reports/storage.py",
+      "backend/tests/test_six_ministry_accounting_evidence_adapter.py",
+      "backend/tests/test_six_ministry_readiness_report.py",
+      "scripts/check_harness.mjs"
+    ],
+    "successorContentPaths": [
+      "backend/app/accounting_reports/storage.py",
+      "backend/tests/test_six_ministry_accounting_evidence_adapter.py"
+    ],
+    "separateAllowlistsAllowed": false,
+    "cartesianProductAllowed": false,
+    "unapprovedTwelfthPairAllowed": false,
+    "unapprovedFifthExclusionAllowed": false,
+    "singleSidedFingerprintAllowed": false,
+    "validatorPolicyDivergenceAllowed": false
+  },
+  "verificationContract": {
+    "enforcement": "DECLARATIVE_OWNER_CONTROLLED / NOT_PRODUCT_AUTHORITY_EXECUTED",
+    "notes": "The repository has no governance-repair.packet.v1 machine runner. The unique ext-dev controller executes and records the closed matrix without representing it as product-authority verification.",
+    "requiredEnvironment": {
+      "P14_READINESS_APPROVAL_COMMIT": "Set by the unique controller to the independently reviewed and ordinary-fast-forwarded three-file governance commit before any candidate gate executes."
+    },
+    "pythonUserSiteSnapshot": {
+      "path": "/home/ubuntu/.local/lib/python3.12/site-packages",
+      "fileCount": 15302,
+      "digestAlgorithm": "sha256-path-null-content-null-v1",
+      "digest": "sha256:f66e4960cdae78f5f88a6a4c0c279cf83bc572b2ebfe73cae4422d05e2896267",
+      "executionBoundary": "The trusted outer /usr/bin/python3 -I verifier builds a sealed memfd Git bundle for the exact candidate plus the pinned external-capability lineage and a sealed memfd archive of the 15302-file user-site. A first private no-network bubblewrap extracts and verifies both snapshots; every untrusted Python or Node command then executes in a nested no-network bubblewrap with those verified snapshots re-bound read-only and a fresh private mode-1777 /tmp. The hashed copy is the executed copy."
+    },
+    "requiredChecks": [
+      "live remote and direct single-parent lineage",
+      "exact two M/100644 candidate paths",
+      "old10 plus new11 ordered pair delta +1/-0",
+      "single-sided, cross-pair, unknown, tampered, twelfth-pair, fifth-exclusion and Python/Node divergence fail closed",
+      "readiness focused, backend full with process-local POSIX temp and exact2 Ruff",
+      "Harness, self-test, Doctor, hook, authority regression, V2 and diff check",
+      "independent Governance, Python and Security reviews"
+    ],
+    "immutableExecutionSnapshot": {
+      "repository": "sealed memfd Git bundle created from private temporary refs pinned directly to the exact candidate OID and 939186f0331d9784bc8c4ceee393aeb197230ed0; bundle list-heads and fetched refs are rechecked as an exact two-head set",
+      "dependencies": "sealed memfd archive of /home/ubuntu/.local/lib/python3.12/site-packages, 15302 files, sha256:f66e4960cdae78f5f88a6a4c0c279cf83bc572b2ebfe73cae4422d05e2896267",
+      "extraction": "private outer bubblewrap tmpfs; reject absolute paths, dot-dot, symlinks and non-regular/non-directory tar members",
+      "execution": "nested bubblewrap read-only repository and user-site binds, no network, env -i, private mode-1777 /tmp",
+      "candidateReverification": "lineage, clean tree, exact A/M paths, modes, raw/blob, bundle and full-index diff are rechecked immediately before sealing",
+      "prototypeResult": "17 readiness passed; backend-full 4550 passed, 4 skipped, 3 warnings; Ruff/Harness 146/Harness self-test 175/Doctor 10/hook 3/product-authority 12/V2 20 passed 1 skipped; all PASS"
+    }
+  },
+  "verification": [
+    {
+      "id": "01-candidate-lineage-paths-and-clean-tree",
+      "tool": "/usr/bin/python3",
+      "args": [
+        "-I",
+        "-c",
+        "import os,re,subprocess;E={'PATH':'/usr/bin:/bin','HOME':'/nonexistent','GIT_CONFIG_GLOBAL':'/dev/null','GIT_CONFIG_NOSYSTEM':'1','GIT_ATTR_NOSYSTEM':'1','GIT_NO_REPLACE_OBJECTS':'1','GIT_TERMINAL_PROMPT':'0'};g=lambda a:subprocess.check_output(['/usr/bin/git','--no-replace-objects','-c','core.attributesFile=/dev/null',*a],text=True,env=E).strip();q=g(['rev-list','--parents','-n','1','HEAD']).split();assert len(q)==2;approval=q[1];expected=os.environ.get('P14_READINESS_APPROVAL_COMMIT','');assert re.fullmatch(r'[0-9a-f]{40}',expected) and approval==expected;aq=g(['rev-list','--parents','-n','1',approval]).split();assert aq==[approval,'13b9751a35815f873cdc986b8ee7e012089408ee'];ap=['docs/product/tasks/2026-09-02-packet-14-exact30-userns-sticky-readiness-compatibility-prerequisite-successor.md','docs/product/tasks/2026-09-02-packet-14-exact30-userns-sticky-readiness-compatibility-prerequisite-successor.packet.json','docs/superpowers/plans/2026-09-02-packet-14-exact30-userns-sticky-readiness-compatibility-prerequisite-successor.md'];cp=['backend/tests/test_six_ministry_readiness_report.py','scripts/check_harness.mjs'];ar=[x.split('\\t') for x in g(['diff-tree','--no-commit-id','--name-status','-r',aq[1],approval]).splitlines()];cr=[x.split('\\t') for x in g(['diff-tree','--no-commit-id','--name-status','-r',approval,'HEAD']).splitlines()];assert [(x[0],x[-1]) for x in ar]==[('A',x) for x in ap];assert [(x[0],x[-1]) for x in cr]==[('M',x) for x in cp];assert all(g(['ls-tree','HEAD','--',x]).split()[0]=='100644' for x in ap+cp);assert not g(['status','--porcelain=v1','--untracked-files=all'])"
+      ],
+      "cwd": ".",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "02-live-remote-equals-approval-parent",
+      "tool": "/usr/bin/python3",
+      "args": [
+        "-I",
+        "-c",
+        "import re,subprocess;E={'PATH':'/usr/bin:/bin','HOME':'/nonexistent','GIT_CONFIG_GLOBAL':'/dev/null','GIT_CONFIG_NOSYSTEM':'1','GIT_ATTR_NOSYSTEM':'1','GIT_NO_REPLACE_OBJECTS':'1','GIT_TERMINAL_PROMPT':'0'};g=lambda a:subprocess.check_output(['/usr/bin/git','--no-replace-objects',*a],text=True,env=E).strip();keys=g(['config','--local','--name-only','--list']).splitlines();allowed=re.compile(r'^(?:core[.](?:repositoryformatversion|filemode|bare|logallrefupdates)|remote[.]origin[.](?:url|fetch)|branch[.].+[.](?:remote|merge)|user[.](?:name|email))$');assert keys and all(allowed.fullmatch(k) for k in keys);assert g(['config','--local','--get','remote.origin.url'])=='git@gitee.com:msxn/chaotang-os.git';assert g(['config','--local','--get','remote.origin.fetch'])=='+refs/heads/*:refs/remotes/origin/*';assert g(['rev-parse','--is-shallow-repository'])=='false';parent=g(['rev-parse','HEAD^']);RE={**E,'GIT_SSH_COMMAND':'/usr/bin/ssh -F /dev/null'};remote=subprocess.check_output(['/usr/bin/git','ls-remote','git@gitee.com:msxn/chaotang-os.git','refs/heads/ext-dev'],text=True,env=RE).split();assert remote==[parent,'refs/heads/ext-dev']"
+      ],
+      "cwd": ".",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "03-ordered-pair-and-protected-contract",
+      "tool": "/usr/bin/python3",
+      "args": [
+        "-I",
+        "-c",
+        "import ast,json,re,subprocess;from pathlib import Path;E={'PATH':'/usr/bin:/bin','HOME':'/nonexistent','GIT_CONFIG_GLOBAL':'/dev/null','GIT_CONFIG_NOSYSTEM':'1','GIT_ATTR_NOSYSTEM':'1','GIT_NO_REPLACE_OBJECTS':'1','GIT_TERMINAL_PROMPT':'0'};pp='backend/tests/test_six_ministry_readiness_report.py';np='scripts/check_harness.mjs';P=Path(pp).read_text();N=Path(np).read_text();gp=lambda p:subprocess.check_output(['/usr/bin/git','--no-replace-objects','show','HEAD^:'+p],text=True,env=E);PP=gp(pp);NP=gp(np);val=lambda s,n:ast.literal_eval(next(x.value for x in ast.parse(s).body if isinstance(x,ast.Assign) and any(isinstance(t,ast.Name) and t.id==n for t in x.targets)));old=tuple(val(PP,'_CONTENT_FINGERPRINT_PAIRS'));new=tuple(val(P,'_CONTENT_FINGERPRINT_PAIRS'));pair=('sha256:32ecf613778ddc625567b08ec4526efbf22c0cd29a8c94fc3b9bacbe4e0dd05e','sha256:1922b611550d73daa6226d9dd8abf8d9f9691a0501f9f1fd0ea83e8c772829d2');assert len(old)==10 and new==old+(pair,) and len(set(new))==11;node=lambda s:tuple(map(tuple,json.loads(re.search('^const SIX_MINISTRY_CONTENT_FINGERPRINT_PAIRS = (.+);$',s,re.M).group(1))));assert node(NP)==old and node(N)==new;protected=['_CURRENT_CONTENT_EXCLUSIONS','_SUCCESSOR_CONTENT_PATHS','_HISTORICAL_REVIEWED_FINGERPRINT','_HISTORICAL_REVIEW_STATUS','_HISTORICAL_FILE_COUNT','_CURRENT_FILE_COUNT'];assert all(val(P,x)==val(PP,x) for x in protected);assert val(P,'_HISTORICAL_FILE_COUNT')==69 and val(P,'_CURRENT_FILE_COUNT')==65 and len(val(P,'_CURRENT_CONTENT_EXCLUSIONS'))==4 and len(val(P,'_SUCCESSOR_CONTENT_PATHS'))==2"
+      ],
+      "cwd": ".",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "04-exact2-byte-identity-freeze",
+      "tool": "/usr/bin/python3",
+      "args": [
+        "-I",
+        "-c",
+        "import hashlib,json,subprocess;from pathlib import Path;E={'PATH':'/usr/bin:/bin','HOME':'/nonexistent','GIT_CONFIG_GLOBAL':'/dev/null','GIT_CONFIG_NOSYSTEM':'1','GIT_ATTR_NOSYSTEM':'1','GIT_NO_REPLACE_OBJECTS':'1','GIT_TERMINAL_PROMPT':'0'};rows=[{'path':'backend/tests/test_six_ministry_readiness_report.py','mode':'100644','bytes':20014,'rawSha256':'sha256:f9163cbdc26f0ace1114857d7ef0ef623b15a3c9af491401139933793689c98b','gitBlob':'bf068cff969b2d57f7a5190fb977d0cc47647c67'},{'path':'scripts/check_harness.mjs','mode':'100644','bytes':161376,'rawSha256':'sha256:a24dd8f8cfdd77d801060cfab5b2e6b4beafdd5c0742a9f8e8b1a771bc02edb3','gitBlob':'5c9abed1e1616f62b331bbca367b2e5a3552cd1f'}];g=lambda a:subprocess.check_output(['/usr/bin/git','--no-replace-objects','-c','core.attributesFile=/dev/null',*a],env=E);bundle=[];assert all(len((b:=g(['cat-file','blob','HEAD:'+x['path']])))==x['bytes'] and Path(x['path']).read_bytes()==b and 'sha256:'+hashlib.sha256(b).hexdigest()==x['rawSha256'] and g(['rev-parse','HEAD:'+x['path']]).decode().strip()==x['gitBlob'] and not bundle.append({k:x[k] for k in ('path','mode','bytes','rawSha256')}) for x in rows);assert 'sha256:'+hashlib.sha256(json.dumps(bundle,ensure_ascii=False,separators=(',',':'),sort_keys=True).encode()).hexdigest()=='sha256:b4c022f2750ecd016e6c5d1358b109d8ee83ebdfcc84821502d978c61714c87c';patch=g(['diff','--no-ext-diff','--no-textconv','--full-index','--binary','HEAD^','HEAD']);assert 'sha256:'+hashlib.sha256(patch).hexdigest()=='sha256:32cf8415288f54f2f35c063717b85bc29175c4c49447658f7659ec2c1b080ba0'"
+      ],
+      "cwd": ".",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "05-immutable-snapshot-full-matrix",
+      "tool": "/usr/bin/python3",
+      "args": [
+        "-I",
+        "-c",
+        "import base64;exec(compile(base64.b64decode('aW1wb3J0IGZjbnRsCmltcG9ydCBoYXNobGliCmltcG9ydCBqc29uCmltcG9ydCBvcwpmcm9tIHBhdGhsaWIgaW1wb3J0IFBhdGgKaW1wb3J0IHJlCmltcG9ydCBzdGF0CmltcG9ydCBzdWJwcm9jZXNzCmltcG9ydCB0YXJmaWxlCmltcG9ydCB0ZW1wZmlsZQoKCkJBU0VfQ09NTUlUID0gIjEzYjk3NTFhMzU4MTVmODczY2RjOTg2YjhlZTdlMDEyMDg5NDA4ZWUiCkFQUFJPVkFMX1BBVEhTID0gWwogICAgImRvY3MvcHJvZHVjdC90YXNrcy8yMDI2LTA5LTAyLXBhY2tldC0xNC1leGFjdDMwLXVzZXJucy1zdGlja3ktcmVhZGluZXNzLWNvbXBhdGliaWxpdHktcHJlcmVxdWlzaXRlLXN1Y2Nlc3Nvci5tZCIsCiAgICAiZG9jcy9wcm9kdWN0L3Rhc2tzLzIwMjYtMDktMDItcGFja2V0LTE0LWV4YWN0MzAtdXNlcm5zLXN0aWNreS1yZWFkaW5lc3MtY29tcGF0aWJpbGl0eS1wcmVyZXF1aXNpdGUtc3VjY2Vzc29yLnBhY2tldC5qc29uIiwKICAgICJkb2NzL3N1cGVycG93ZXJzL3BsYW5zLzIwMjYtMDktMDItcGFja2V0LTE0LWV4YWN0MzAtdXNlcm5zLXN0aWNreS1yZWFkaW5lc3MtY29tcGF0aWJpbGl0eS1wcmVyZXF1aXNpdGUtc3VjY2Vzc29yLm1kIiwKXQpDQU5ESURBVEVfUk9XUyA9IFsKICAgIHsKICAgICAgICAicGF0aCI6ICJiYWNrZW5kL3Rlc3RzL3Rlc3Rfc2l4X21pbmlzdHJ5X3JlYWRpbmVzc19yZXBvcnQucHkiLAogICAgICAgICJtb2RlIjogIjEwMDY0NCIsCiAgICAgICAgImJ5dGVzIjogMjAwMTQsCiAgICAgICAgInJhd1NoYTI1NiI6ICJzaGEyNTY6ZjkxNjNjYmRjMjZmMGFjZTExMTQ4NTdkN2VmMGVmNjIzYjE1YTNjOWFmNDkxNDAxMTM5OTMzNzkzNjg5Yzk4YiIsCiAgICAgICAgImdpdEJsb2IiOiAiYmYwNjhjZmY5NjliMmQ1N2Y3YTUxOTBmYjk3N2QwY2M0NzY0N2M2NyIsCiAgICB9LAogICAgewogICAgICAgICJwYXRoIjogInNjcmlwdHMvY2hlY2tfaGFybmVzcy5tanMiLAogICAgICAgICJtb2RlIjogIjEwMDY0NCIsCiAgICAgICAgImJ5dGVzIjogMTYxMzc2LAogICAgICAgICJyYXdTaGEyNTYiOiAic2hhMjU2OmEyNGRkOGY4Y2ZkZDc3ZDgwMTA2MGNmYWI1YjJlNmI0YmVhZmRkNWMwNzQyYTlmOGU4YjFhNzcxYmMwMmVkYjMiLAogICAgICAgICJnaXRCbG9iIjogIjVjOWFiZWQxZTE2MTZmNjJiMzMxYmJjYTM2N2IyZTVhMzU1MmNkMWYiLAogICAgfSwKXQpDQU5ESURBVEVfQlVORExFID0gInNoYTI1NjpiNGMwMjJmMjc1MGVjZDAxNmU2YzVkMTM1OGIxMDlkOGVlODNlYmRmY2M4NDgyMTUwMmQ5NzhjNjE3MTRjODdjIgpDQU5ESURBVEVfRElGRiA9ICJzaGEyNTY6MzJjZjg0MTUyODhmNTRmMmYzNWMwNjM3MTdiODViYzI5MTc1YzRjNDk0NDc2NThmNzY1OWVjMmMxYjA4MGJhMCIKU0lURV9ST09UID0gUGF0aCgiL2hvbWUvdWJ1bnR1Ly5sb2NhbC9saWIvcHl0aG9uMy4xMi9zaXRlLXBhY2thZ2VzIikKU0lURV9DT1VOVCA9IDE1MzAyClNJVEVfRElHRVNUID0gInNoYTI1NjpmNjZlNDk2MGNkYWU3OGY1Zjg4YTZhNGMwYzI3OWNmODNiYzU3MmIyZWJmZTczY2FlNDQyMmQwNWUyODk2MjY3IgpQSU5ORURfRVhUX0NPTU1JVCA9ICI5MzkxODZmMDMzMWQ5Nzg0YmM4YzRjZWVlMzkzYWViMTk3MjMwZWQwIgoKR0lUX0VOViA9IHsKICAgICJQQVRIIjogIi91c3IvYmluOi9iaW4iLAogICAgIkhPTUUiOiAiL25vbmV4aXN0ZW50IiwKICAgICJHSVRfQ09ORklHX0dMT0JBTCI6ICIvZGV2L251bGwiLAogICAgIkdJVF9DT05GSUdfTk9TWVNURU0iOiAiMSIsCiAgICAiR0lUX0FUVFJfTk9TWVNURU0iOiAiMSIsCiAgICAiR0lUX05PX1JFUExBQ0VfT0JKRUNUUyI6ICIxIiwKICAgICJHSVRfVEVSTUlOQUxfUFJPTVBUIjogIjAiLAp9CgoKZGVmIGdpdCgqYXJnczogc3RyLCB0ZXh0OiBib29sID0gVHJ1ZSkgLT4gc3RyIHwgYnl0ZXM6CiAgICBvdXRwdXQgPSBzdWJwcm9jZXNzLmNoZWNrX291dHB1dCgKICAgICAgICBbIi91c3IvYmluL2dpdCIsICItLW5vLXJlcGxhY2Utb2JqZWN0cyIsICItYyIsICJjb3JlLmF0dHJpYnV0ZXNGaWxlPS9kZXYvbnVsbCIsICphcmdzXSwKICAgICAgICBlbnY9R0lUX0VOViwKICAgICAgICB0ZXh0PXRleHQsCiAgICApCiAgICByZXR1cm4gb3V0cHV0LnN0cmlwKCkgaWYgdGV4dCBlbHNlIG91dHB1dAoKCmRlZiB2ZXJpZnlfY2FuZGlkYXRlKCkgLT4gdHVwbGVbc3RyLCBzdHJdOgogICAgaGVhZCA9IHN0cihnaXQoInJldi1wYXJzZSIsICJIRUFEIikpCiAgICB0cmVlID0gc3RyKGdpdCgicmV2LXBhcnNlIiwgIkhFQURee3RyZWV9IikpCiAgICBhcHByb3ZhbCA9IHN0cihnaXQoInJldi1wYXJzZSIsICJIRUFEXiIpKQogICAgYXNzZXJ0IHN0cihnaXQoInJldi1saXN0IiwgIi0tcGFyZW50cyIsICItbiIsICIxIiwgaGVhZCkpLnNwbGl0KCkgPT0gW2hlYWQsIGFwcHJvdmFsXQogICAgZXhwZWN0ZWRfYXBwcm92YWwgPSBvcy5lbnZpcm9uLmdldCgiUDE0X1JFQURJTkVTU19BUFBST1ZBTF9DT01NSVQiLCAiIikKICAgIGFzc2VydCByZS5mdWxsbWF0Y2gociJbMC05YS1mXXs0MH0iLCBleHBlY3RlZF9hcHByb3ZhbCkKICAgIGFzc2VydCBhcHByb3ZhbCA9PSBleHBlY3RlZF9hcHByb3ZhbAogICAgYXNzZXJ0IHN0cihnaXQoInJldi1saXN0IiwgIi0tcGFyZW50cyIsICItbiIsICIxIiwgYXBwcm92YWwpKS5zcGxpdCgpID09IFthcHByb3ZhbCwgQkFTRV9DT01NSVRdCiAgICBhcHByb3ZhbF9jaGFuZ2VzID0gW2xpbmUuc3BsaXQoIlx0IikgZm9yIGxpbmUgaW4gc3RyKGdpdCgiZGlmZi10cmVlIiwgIi0tbm8tY29tbWl0LWlkIiwgIi0tbmFtZS1zdGF0dXMiLCAiLXIiLCBCQVNFX0NPTU1JVCwgYXBwcm92YWwpKS5zcGxpdGxpbmVzKCldCiAgICBjYW5kaWRhdGVfY2hhbmdlcyA9IFtsaW5lLnNwbGl0KCJcdCIpIGZvciBsaW5lIGluIHN0cihnaXQoImRpZmYtdHJlZSIsICItLW5vLWNvbW1pdC1pZCIsICItLW5hbWUtc3RhdHVzIiwgIi1yIiwgYXBwcm92YWwsIGhlYWQpKS5zcGxpdGxpbmVzKCldCiAgICBhc3NlcnQgWyhyb3dbMF0sIHJvd1stMV0pIGZvciByb3cgaW4gYXBwcm92YWxfY2hhbmdlc10gPT0gWygiQSIsIHBhdGgpIGZvciBwYXRoIGluIEFQUFJPVkFMX1BBVEhTXQogICAgYXNzZXJ0IFsocm93WzBdLCByb3dbLTFdKSBmb3Igcm93IGluIGNhbmRpZGF0ZV9jaGFuZ2VzXSA9PSBbKCJNIiwgcm93WyJwYXRoIl0pIGZvciByb3cgaW4gQ0FORElEQVRFX1JPV1NdCiAgICBhc3NlcnQgc3RyKGdpdCgic3RhdHVzIiwgIi0tcG9yY2VsYWluPXYxIiwgIi0tdW50cmFja2VkLWZpbGVzPWFsbCIpKSA9PSAiIgogICAgYnVuZGxlID0gW10KICAgIGZvciByb3cgaW4gQ0FORElEQVRFX1JPV1M6CiAgICAgICAgcGF0aCA9IHJvd1sicGF0aCJdCiAgICAgICAgZGF0YSA9IGdpdCgiY2F0LWZpbGUiLCAiYmxvYiIsIGYiSEVBRDp7cGF0aH0iLCB0ZXh0PUZhbHNlKQogICAgICAgIGFzc2VydCBpc2luc3RhbmNlKGRhdGEsIGJ5dGVzKQogICAgICAgIGFzc2VydCBQYXRoKHBhdGgpLnJlYWRfYnl0ZXMoKSA9PSBkYXRhCiAgICAgICAgYXNzZXJ0IGxlbihkYXRhKSA9PSByb3dbImJ5dGVzIl0KICAgICAgICBhc3NlcnQgInNoYTI1NjoiICsgaGFzaGxpYi5zaGEyNTYoZGF0YSkuaGV4ZGlnZXN0KCkgPT0gcm93WyJyYXdTaGEyNTYiXQogICAgICAgIGFzc2VydCBzdHIoZ2l0KCJyZXYtcGFyc2UiLCBmIkhFQUQ6e3BhdGh9IikpID09IHJvd1siZ2l0QmxvYiJdCiAgICAgICAgYXNzZXJ0IHN0cihnaXQoImxzLXRyZWUiLCAiSEVBRCIsICItLSIsIHBhdGgpKS5zcGxpdCgpWzBdID09IHJvd1sibW9kZSJdCiAgICAgICAgYnVuZGxlLmFwcGVuZCh7a2V5OiByb3dba2V5XSBmb3Iga2V5IGluICgicGF0aCIsICJtb2RlIiwgImJ5dGVzIiwgInJhd1NoYTI1NiIpfSkKICAgIGVuY29kZWQgPSBqc29uLmR1bXBzKGJ1bmRsZSwgZW5zdXJlX2FzY2lpPUZhbHNlLCBzZXBhcmF0b3JzPSgiLCIsICI6IiksIHNvcnRfa2V5cz1UcnVlKS5lbmNvZGUoKQogICAgYXNzZXJ0ICJzaGEyNTY6IiArIGhhc2hsaWIuc2hhMjU2KGVuY29kZWQpLmhleGRpZ2VzdCgpID09IENBTkRJREFURV9CVU5ETEUKICAgIHBhdGNoID0gZ2l0KCJkaWZmIiwgIi0tbm8tZXh0LWRpZmYiLCAiLS1uby10ZXh0Y29udiIsICItLWZ1bGwtaW5kZXgiLCAiLS1iaW5hcnkiLCBhcHByb3ZhbCwgaGVhZCwgdGV4dD1GYWxzZSkKICAgIGFzc2VydCBpc2luc3RhbmNlKHBhdGNoLCBieXRlcykKICAgIGFzc2VydCAic2hhMjU2OiIgKyBoYXNobGliLnNoYTI1NihwYXRjaCkuaGV4ZGlnZXN0KCkgPT0gQ0FORElEQVRFX0RJRkYKICAgIHJldHVybiBoZWFkLCB0cmVlCgoKZGVmIG5ld19tZW1mZChuYW1lOiBzdHIpIC0+IGludDoKICAgIHJldHVybiBvcy5tZW1mZF9jcmVhdGUobmFtZSwgb3MuTUZEX0FMTE9XX1NFQUxJTkcpCgoKZGVmIHNlYWwoZmQ6IGludCkgLT4gTm9uZToKICAgIG9zLmxzZWVrKGZkLCAwLCBvcy5TRUVLX1NFVCkKICAgIGZjbnRsLmZjbnRsKAogICAgICAgIGZkLAogICAgICAgIGZjbnRsLkZfQUREX1NFQUxTLAogICAgICAgIGZjbnRsLkZfU0VBTF9TRUFMIHwgZmNudGwuRl9TRUFMX1NIUklOSyB8IGZjbnRsLkZfU0VBTF9HUk9XIHwgZmNudGwuRl9TRUFMX1dSSVRFLAogICAgKQoKCmRlZiBidWlsZF9yZXBvX2J1bmRsZShoZWFkOiBzdHIpIC0+IGludDoKICAgIGFzc2VydCBzdHIoZ2l0KCJyZXYtcGFyc2UiLCAiSEVBRCIpKSA9PSBoZWFkCiAgICBmZCA9IG5ld19tZW1mZCgicDE0LXJlcG8tYnVuZGxlIikKICAgIGNvbW1vbl9vYmplY3RzID0gUGF0aChzdHIoZ2l0KCJyZXYtcGFyc2UiLCAiLS1wYXRoLWZvcm1hdD1hYnNvbHV0ZSIsICItLWdpdC1jb21tb24tZGlyIikpKSAvICJvYmplY3RzIgogICAgYXNzZXJ0IGNvbW1vbl9vYmplY3RzLmlzX2RpcigpIGFuZCBub3QgY29tbW9uX29iamVjdHMuaXNfc3ltbGluaygpCiAgICB3aXRoIHRlbXBmaWxlLlRlbXBvcmFyeURpcmVjdG9yeShwcmVmaXg9InAxNC1maXhlZC1idW5kbGUtIiwgZGlyPSIvdG1wIikgYXMgZGlyZWN0b3J5OgogICAgICAgIGJhcmUgPSBQYXRoKGRpcmVjdG9yeSkgLyAicmVwby5naXQiCiAgICAgICAgc3VicHJvY2Vzcy5ydW4oWyIvdXNyL2Jpbi9naXQiLCAiaW5pdCIsICItLWJhcmUiLCAiLXEiLCBzdHIoYmFyZSldLCBlbnY9R0lUX0VOViwgY2hlY2s9VHJ1ZSkKICAgICAgICBhbHRlcm5hdGVzID0gYmFyZSAvICJvYmplY3RzIiAvICJpbmZvIiAvICJhbHRlcm5hdGVzIgogICAgICAgIGFsdGVybmF0ZXMud3JpdGVfdGV4dChzdHIoY29tbW9uX29iamVjdHMucmVzb2x2ZSgpKSArICJcbiIsIGVuY29kaW5nPSJ1dGYtOCIpCiAgICAgICAgc3VicHJvY2Vzcy5ydW4oWyIvdXNyL2Jpbi9naXQiLCBmIi0tZ2l0LWRpcj17YmFyZX0iLCAidXBkYXRlLXJlZiIsICJyZWZzL2hlYWRzL2NhbmRpZGF0ZSIsIGhlYWRdLCBlbnY9R0lUX0VOViwgY2hlY2s9VHJ1ZSkKICAgICAgICBzdWJwcm9jZXNzLnJ1bihbIi91c3IvYmluL2dpdCIsIGYiLS1naXQtZGlyPXtiYXJlfSIsICJ1cGRhdGUtcmVmIiwgInJlZnMvaGVhZHMvcGlubmVkIiwgUElOTkVEX0VYVF9DT01NSVRdLCBlbnY9R0lUX0VOViwgY2hlY2s9VHJ1ZSkKICAgICAgICBzdWJwcm9jZXNzLnJ1bigKICAgICAgICAgICAgWyIvdXNyL2Jpbi9naXQiLCBmIi0tZ2l0LWRpcj17YmFyZX0iLCAiYnVuZGxlIiwgImNyZWF0ZSIsICItIiwgInJlZnMvaGVhZHMvY2FuZGlkYXRlIiwgInJlZnMvaGVhZHMvcGlubmVkIl0sCiAgICAgICAgICAgIGVudj1HSVRfRU5WLAogICAgICAgICAgICBzdGRvdXQ9ZmQsCiAgICAgICAgICAgIGNoZWNrPVRydWUsCiAgICAgICAgKQogICAgc2VhbChmZCkKICAgIHJldHVybiBmZAoKCmRlZiBidWlsZF9zaXRlX2FyY2hpdmUoKSAtPiBpbnQ6CiAgICBmZCA9IG5ld19tZW1mZCgicDE0LXNpdGUiKQogICAgd2l0aCBvcy5mZG9wZW4ob3MuZHVwKGZkKSwgIndiIikgYXMgcmF3LCB0YXJmaWxlLm9wZW4oZmlsZW9iaj1yYXcsIG1vZGU9InciKSBhcyBhcmNoaXZlOgogICAgICAgIGZpbGVzID0gc29ydGVkKFNJVEVfUk9PVC5yZ2xvYigiKiIpKQogICAgICAgIHJlZ3VsYXIgPSBbXQogICAgICAgIGZvciBwYXRoIGluIGZpbGVzOgogICAgICAgICAgICBpbmZvID0gcGF0aC5sc3RhdCgpCiAgICAgICAgICAgIGFzc2VydCBzdGF0LlNfSVNESVIoaW5mby5zdF9tb2RlKSBvciBzdGF0LlNfSVNSRUcoaW5mby5zdF9tb2RlKQogICAgICAgICAgICBpZiBzdGF0LlNfSVNSRUcoaW5mby5zdF9tb2RlKToKICAgICAgICAgICAgICAgIHJlZ3VsYXIuYXBwZW5kKHBhdGgpCiAgICAgICAgICAgICAgICBhcmNoaXZlLmFkZChwYXRoLCBhcmNuYW1lPXBhdGgucmVsYXRpdmVfdG8oU0lURV9ST09UKS5hc19wb3NpeCgpLCByZWN1cnNpdmU9RmFsc2UpCiAgICAgICAgYXNzZXJ0IGxlbihyZWd1bGFyKSA9PSBTSVRFX0NPVU5UCiAgICBzZWFsKGZkKQogICAgcmV0dXJuIGZkCgoKZGVmIHN0YWdlX3NvdXJjZShleHBlY3RlZF9oZWFkOiBzdHIsIGV4cGVjdGVkX3RyZWU6IHN0cikgLT4gc3RyOgogICAgcmV0dXJuIGYnJydpbXBvcnQgaGFzaGxpYgppbXBvcnQgb3MKZnJvbSBwYXRobGliIGltcG9ydCBQYXRoLCBQdXJlUG9zaXhQYXRoCmltcG9ydCBzdGF0CmltcG9ydCBzdWJwcm9jZXNzCmltcG9ydCB0YXJmaWxlCgpFWFBFQ1RFRF9UUkVFID0ge2V4cGVjdGVkX3RyZWUhcn0KRVhQRUNURURfSEVBRCA9IHtleHBlY3RlZF9oZWFkIXJ9ClBJTk5FRF9FWFRfQ09NTUlUID0ge1BJTk5FRF9FWFRfQ09NTUlUIXJ9ClNJVEVfQ09VTlQgPSB7U0lURV9DT1VOVH0KU0lURV9ESUdFU1QgPSB7U0lURV9ESUdFU1Qhcn0KQ0FORElEQVRFX1JPV1MgPSB7Q0FORElEQVRFX1JPV1Mhcn0KCmRlZiBleHRyYWN0KHNvdXJjZSwgZGVzdGluYXRpb24pOgogICAgZGVzdGluYXRpb24ubWtkaXIocGFyZW50cz1UcnVlLCBleGlzdF9vaz1GYWxzZSkKICAgIHdpdGggdGFyZmlsZS5vcGVuKHNvdXJjZSwgbW9kZT0icjoiKSBhcyBhcmNoaXZlOgogICAgICAgIG1lbWJlcnMgPSBhcmNoaXZlLmdldG1lbWJlcnMoKQogICAgICAgIGZvciBtZW1iZXIgaW4gbWVtYmVyczoKICAgICAgICAgICAgcGF0aCA9IFB1cmVQb3NpeFBhdGgobWVtYmVyLm5hbWUpCiAgICAgICAgICAgIGFzc2VydCBub3QgcGF0aC5pc19hYnNvbHV0ZSgpIGFuZCAiLi4iIG5vdCBpbiBwYXRoLnBhcnRzCiAgICAgICAgICAgIGFzc2VydCBtZW1iZXIuaXNkaXIoKSBvciBtZW1iZXIuaXNyZWcoKQogICAgICAgIGFyY2hpdmUuZXh0cmFjdGFsbChkZXN0aW5hdGlvbiwgbWVtYmVycz1tZW1iZXJzLCBmaWx0ZXI9ImRhdGEiKQoKcm9vdCA9IFBhdGgoIi90bXAvc2VhbGVkIikKcmVwbyA9IHJvb3QgLyAicmVwbyIKc2l0ZSA9IHJvb3QgLyAic2l0ZSIKZXh0cmFjdChyb290IC8gInNpdGUudGFyIiwgc2l0ZSkKCmRpZ2VzdCA9IGhhc2hsaWIuc2hhMjU2KCkKc2l0ZV9maWxlcyA9IHNvcnRlZChwYXRoIGZvciBwYXRoIGluIHNpdGUucmdsb2IoIioiKSBpZiBwYXRoLmlzX2ZpbGUoKSkKYXNzZXJ0IGFsbChub3QgcGF0aC5pc19zeW1saW5rKCkgZm9yIHBhdGggaW4gc2l0ZS5yZ2xvYigiKiIpKQpmb3IgcGF0aCBpbiBzaXRlX2ZpbGVzOgogICAgZGlnZXN0LnVwZGF0ZShwYXRoLnJlbGF0aXZlX3RvKHNpdGUpLmFzX3Bvc2l4KCkuZW5jb2RlKCkpCiAgICBkaWdlc3QudXBkYXRlKGIiXFwwIikKICAgIGRpZ2VzdC51cGRhdGUocGF0aC5yZWFkX2J5dGVzKCkpCiAgICBkaWdlc3QudXBkYXRlKGIiXFwwIikKYXNzZXJ0IGxlbihzaXRlX2ZpbGVzKSA9PSBTSVRFX0NPVU5UCmFzc2VydCAic2hhMjU2OiIgKyBkaWdlc3QuaGV4ZGlnZXN0KCkgPT0gU0lURV9ESUdFU1QKCmdpdF9lbnYgPSB7ewogICAgIlBBVEgiOiAiL3Vzci9iaW46L2JpbiIsCiAgICAiSE9NRSI6ICIvbm9uZXhpc3RlbnQiLAogICAgIkdJVF9DT05GSUdfR0xPQkFMIjogIi9kZXYvbnVsbCIsCiAgICAiR0lUX0NPTkZJR19OT1NZU1RFTSI6ICIxIiwKICAgICJHSVRfQVRUUl9OT1NZU1RFTSI6ICIxIiwKICAgICJHSVRfTk9fUkVQTEFDRV9PQkpFQ1RTIjogIjEiLAogICAgIkdJVF9URVJNSU5BTF9QUk9NUFQiOiAiMCIsCn19CmhlYWRzID0ge3t9fQpmb3IgbGluZSBpbiBzdWJwcm9jZXNzLmNoZWNrX291dHB1dChbIi91c3IvYmluL2dpdCIsICJidW5kbGUiLCAibGlzdC1oZWFkcyIsIHN0cihyb290IC8gInJlcG8uYnVuZGxlIildLCBlbnY9Z2l0X2VudiwgdGV4dD1UcnVlKS5zcGxpdGxpbmVzKCk6CiAgICBvaWQsIHJlZiA9IGxpbmUuc3BsaXQoKQogICAgaGVhZHNbcmVmXSA9IG9pZAphc3NlcnQgaGVhZHMgPT0ge3sicmVmcy9oZWFkcy9jYW5kaWRhdGUiOiBFWFBFQ1RFRF9IRUFELCAicmVmcy9oZWFkcy9waW5uZWQiOiBQSU5ORURfRVhUX0NPTU1JVH19CnN1YnByb2Nlc3MucnVuKFsiL3Vzci9iaW4vZ2l0IiwgImNsb25lIiwgIi1xIiwgIi1iIiwgImNhbmRpZGF0ZSIsIHN0cihyb290IC8gInJlcG8uYnVuZGxlIiksIHN0cihyZXBvKV0sIGVudj1naXRfZW52LCBjaGVjaz1UcnVlKQpzdWJwcm9jZXNzLnJ1bihbIi91c3IvYmluL2dpdCIsICJmZXRjaCIsICItcSIsIHN0cihyb290IC8gInJlcG8uYnVuZGxlIiksICJyZWZzL2hlYWRzL3Bpbm5lZDpyZWZzL3AxNC9waW5uZWQtZXh0Il0sIGN3ZD1yZXBvLCBlbnY9Z2l0X2VudiwgY2hlY2s9VHJ1ZSkKc3VicHJvY2Vzcy5ydW4oWyIvdXNyL2Jpbi9naXQiLCAiY2hlY2tvdXQiLCAiLXEiLCAiLS1kZXRhY2giLCBFWFBFQ1RFRF9IRUFEXSwgY3dkPXJlcG8sIGVudj1naXRfZW52LCBjaGVjaz1UcnVlKQpzdWJwcm9jZXNzLnJ1bihbIi91c3IvYmluL2dpdCIsICJyZW1vdGUiLCAic2V0LXVybCIsICJvcmlnaW4iLCAiZ2l0QGdpdGVlLmNvbTptc3huL2NoYW90YW5nLW9zLmdpdCJdLCBjd2Q9cmVwbywgZW52PWdpdF9lbnYsIGNoZWNrPVRydWUpCnN1YnByb2Nlc3MucnVuKFsiL3Vzci9iaW4vZ2l0IiwgImNvbmZpZyIsICJyZW1vdGUub3JpZ2luLmZldGNoIiwgIityZWZzL2hlYWRzLyo6cmVmcy9yZW1vdGVzL29yaWdpbi8qIl0sIGN3ZD1yZXBvLCBlbnY9Z2l0X2VudiwgY2hlY2s9VHJ1ZSkKc3VicHJvY2Vzcy5ydW4oWyIvdXNyL2Jpbi9naXQiLCAidXBkYXRlLXJlZiIsICJyZWZzL3JlbW90ZXMvb3JpZ2luL2V4dC1kZXYiLCBFWFBFQ1RFRF9IRUFEXSwgY3dkPXJlcG8sIGVudj1naXRfZW52LCBjaGVjaz1UcnVlKQphc3NlcnQgc3VicHJvY2Vzcy5jaGVja19vdXRwdXQoWyIvdXNyL2Jpbi9naXQiLCAicmV2LXBhcnNlIiwgIkhFQUQiXSwgY3dkPXJlcG8sIGVudj1naXRfZW52LCB0ZXh0PVRydWUpLnN0cmlwKCkgPT0gRVhQRUNURURfSEVBRAphc3NlcnQgc3VicHJvY2Vzcy5jaGVja19vdXRwdXQoWyIvdXNyL2Jpbi9naXQiLCAicmV2LXBhcnNlIiwgIkhFQURee3t0cmVlfX0iXSwgY3dkPXJlcG8sIGVudj1naXRfZW52LCB0ZXh0PVRydWUpLnN0cmlwKCkgPT0gRVhQRUNURURfVFJFRQphc3NlcnQgc3VicHJvY2Vzcy5jaGVja19vdXRwdXQoWyIvdXNyL2Jpbi9naXQiLCAicmV2LXBhcnNlIiwgIi0tdmVyaWZ5IiwgUElOTkVEX0VYVF9DT01NSVQgKyAiXnt7Y29tbWl0fX0iXSwgY3dkPXJlcG8sIGVudj1naXRfZW52LCB0ZXh0PVRydWUpLnN0cmlwKCkgPT0gUElOTkVEX0VYVF9DT01NSVQKYXNzZXJ0IHN1YnByb2Nlc3MuY2hlY2tfb3V0cHV0KFsiL3Vzci9iaW4vZ2l0IiwgInJldi1wYXJzZSIsICJyZWZzL3AxNC9waW5uZWQtZXh0Il0sIGN3ZD1yZXBvLCBlbnY9Z2l0X2VudiwgdGV4dD1UcnVlKS5zdHJpcCgpID09IFBJTk5FRF9FWFRfQ09NTUlUCmZvciByb3cgaW4gQ0FORElEQVRFX1JPV1M6CiAgICBkYXRhID0gKHJlcG8gLyByb3dbInBhdGgiXSkucmVhZF9ieXRlcygpCiAgICBhc3NlcnQgbGVuKGRhdGEpID09IHJvd1siYnl0ZXMiXQogICAgYXNzZXJ0ICJzaGEyNTY6IiArIGhhc2hsaWIuc2hhMjU2KGRhdGEpLmhleGRpZ2VzdCgpID09IHJvd1sicmF3U2hhMjU2Il0KYXNzZXJ0IHN1YnByb2Nlc3MuY2hlY2tfb3V0cHV0KFsiL3Vzci9iaW4vZ2l0IiwgInN0YXR1cyIsICItLXBvcmNlbGFpbj12MSIsICItLXVudHJhY2tlZC1maWxlcz1hbGwiXSwgY3dkPXJlcG8sIGVudj1naXRfZW52LCB0ZXh0PVRydWUpLnN0cmlwKCkgPT0gIiIKCmNvbW1vbiA9IFsKICAgICIvdXNyL2Jpbi9id3JhcCIsICItLWRpZS13aXRoLXBhcmVudCIsICItLXVuc2hhcmUtdXNlciIsICItLXVuc2hhcmUtcGlkIiwgIi0tdW5zaGFyZS1uZXQiLAogICAgIi0tcm8tYmluZCIsICIvIiwgIi8iLCAiLS1yby1iaW5kIiwgc3RyKHJlcG8pLCAiL21udCIsCiAgICAiLS1yby1iaW5kIiwgc3RyKHNpdGUpLCAiL2hvbWUvdWJ1bnR1Ly5sb2NhbC9saWIvcHl0aG9uMy4xMi9zaXRlLXBhY2thZ2VzIiwKICAgICItLWRldiIsICIvZGV2IiwgIi0tcHJvYyIsICIvcHJvYyIsICItLXBlcm1zIiwgIjE3NzciLCAiLS10bXBmcyIsICIvdG1wIiwKXQpiYXNlX2VudiA9IFsKICAgICIvdXNyL2Jpbi9lbnYiLCAiLWkiLCAiUEFUSD0vdXNyL2JpbjovYmluIiwgIkhPTUU9L25vbmV4aXN0ZW50IiwKICAgICJHSVRfQ09ORklHX0dMT0JBTD0vZGV2L251bGwiLCAiR0lUX0NPTkZJR19OT1NZU1RFTT0xIiwgIkdJVF9BVFRSX05PU1lTVEVNPTEiLAogICAgIkdJVF9OT19SRVBMQUNFX09CSkVDVFM9MSIsICJHSVRfVEVSTUlOQUxfUFJPTVBUPTAiLAogICAgIlRNUERJUj0vdG1wIiwgIlRFTVA9L3RtcCIsICJUTVA9L3RtcCIsCl0KCmRlZiBydW4oY3dkLCBjb21tYW5kLCBleHRyYV9lbnY9KCkpOgogICAgc3VicHJvY2Vzcy5ydW4oWypjb21tb24sICItLWNoZGlyIiwgY3dkLCAqYmFzZV9lbnYsICpleHRyYV9lbnYsICpjb21tYW5kXSwgY2hlY2s9VHJ1ZSkKCnB5dGhvbl9lbnYgPSAoCiAgICAiUFlUSE9OUEFUSD0vaG9tZS91YnVudHUvLmxvY2FsL2xpYi9weXRob24zLjEyL3NpdGUtcGFja2FnZXM6L3Vzci9sb2NhbC9saWIvcHl0aG9uMy4xMi9kaXN0LXBhY2thZ2VzOi91c3IvbGliL3B5dGhvbjMvZGlzdC1wYWNrYWdlcyIsCiAgICAiUFlUSE9OVVNFUkJBU0U9L2hvbWUvdWJ1bnR1Ly5sb2NhbCIsCiAgICAiUFlUSE9OSEFTSFNFRUQ9MCIsICJQWVRIT05ET05UV1JJVEVCWVRFQ09ERT0xIiwKKQpydW4oIi9tbnQvYmFja2VuZCIsIFsiL3Vzci9iaW4vcHl0aG9uMyIsICItUyIsICItbSIsICJweXRlc3QiLCAiLXEiLCAiLXAiLCAibm86Y2FjaGVwcm92aWRlciIsICJ0ZXN0cy90ZXN0X3NpeF9taW5pc3RyeV9yZWFkaW5lc3NfcmVwb3J0LnB5Il0sIHB5dGhvbl9lbnYpCnJ1bigiL21udC9iYWNrZW5kIiwgWyIvdXNyL2Jpbi9weXRob24zIiwgIi1TIiwgIi1tIiwgInB5dGVzdCIsICItcSIsICItcCIsICJubzpjYWNoZXByb3ZpZGVyIl0sIHB5dGhvbl9lbnYpCnJ1bigiL21udCIsIFsiL3Vzci9iaW4vcHl0aG9uMyIsICItUyIsICItbSIsICJydWZmIiwgImNoZWNrIiwgIi0tbm8tY2FjaGUiLCAiYmFja2VuZC90ZXN0cy90ZXN0X3NpeF9taW5pc3RyeV9yZWFkaW5lc3NfcmVwb3J0LnB5Il0sIHB5dGhvbl9lbnYpCnJ1bigiL21udCIsIFsiL3Vzci9iaW4vbm9kZSIsICJzY3JpcHRzL2NoZWNrX2hhcm5lc3MubWpzIl0pCnJ1bigiL21udCIsIFsiL3Vzci9iaW4vbm9kZSIsICJzY3JpcHRzL2NoZWNrX2hhcm5lc3MubWpzIiwgIi0tc2VsZi10ZXN0Il0pCnJ1bigiL21udCIsIFsiL3Vzci9iaW4vbm9kZSIsICJzY3JpcHRzL2hhcm5lc3MtZG9jdG9yLm1qcyIsICItLWNoZWNrIl0pCnJ1bigiL21udCIsIFsiL3Vzci9iaW4vbm9kZSIsICItLXRlc3QiLCAic2NyaXB0cy9oYXJuZXNzLWRvY3Rvci50ZXN0Lm1qcyJdKQpydW4oIi9tbnQiLCBbIi91c3IvYmluL25vZGUiLCAiLmFnZW50cy9ob29rcy9jaGVjay1oYXJuZXNzLm1qcyIsICItLXNlbGYtdGVzdCJdKQpydW4oIi9tbnQiLCBbIi91c3IvYmluL25vZGUiLCAiLS10ZXN0IiwgInNjcmlwdHMvcHJvZHVjdC1hdXRob3JpdHkudGVzdC5tanMiXSkKcnVuKCIvbW50IiwgWyIvdXNyL2Jpbi9ub2RlIiwgInNjcmlwdHMvZXh0LWZ1bGwtdmFsdWUtY29udmVyZ2VuY2UubWpzIiwgIi0tY2hlY2siXSkKcnVuKCIvbW50IiwgWyIvdXNyL2Jpbi9ub2RlIiwgIi0tdGVzdCIsICJzY3JpcHRzL2V4dC1mdWxsLXZhbHVlLWNvbnZlcmdlbmNlLnRlc3QubWpzIl0pCicnJwoKCmRlZiBtYWluKCkgLT4gaW50OgogICAgaGVhZCwgdHJlZSA9IHZlcmlmeV9jYW5kaWRhdGUoKQogICAgcmVwb19mZCA9IGJ1aWxkX3JlcG9fYnVuZGxlKGhlYWQpCiAgICBzaXRlX2ZkID0gYnVpbGRfc2l0ZV9hcmNoaXZlKCkKICAgIHNvdXJjZSA9IHN0YWdlX3NvdXJjZShoZWFkLCB0cmVlKQogICAgY29tbWFuZCA9IFsKICAgICAgICAiL3Vzci9iaW4vYndyYXAiLAogICAgICAgICItLWRpZS13aXRoLXBhcmVudCIsCiAgICAgICAgIi0tdW5zaGFyZS11c2VyIiwKICAgICAgICAiLS11bnNoYXJlLXBpZCIsCiAgICAgICAgIi0tdW5zaGFyZS1uZXQiLAogICAgICAgICItLXJvLWJpbmQiLAogICAgICAgICIvIiwKICAgICAgICAiLyIsCiAgICAgICAgIi0tZGV2IiwKICAgICAgICAiL2RldiIsCiAgICAgICAgIi0tcHJvYyIsCiAgICAgICAgIi9wcm9jIiwKICAgICAgICAiLS1wZXJtcyIsCiAgICAgICAgIjE3NzciLAogICAgICAgICItLXRtcGZzIiwKICAgICAgICAiL3RtcCIsCiAgICAgICAgIi0tZGlyIiwKICAgICAgICAiL3RtcC9zZWFsZWQiLAogICAgICAgICItLWZpbGUiLAogICAgICAgIHN0cihyZXBvX2ZkKSwKICAgICAgICAiL3RtcC9zZWFsZWQvcmVwby5idW5kbGUiLAogICAgICAgICItLWZpbGUiLAogICAgICAgIHN0cihzaXRlX2ZkKSwKICAgICAgICAiL3RtcC9zZWFsZWQvc2l0ZS50YXIiLAogICAgICAgICIvdXNyL2Jpbi9weXRob24zIiwKICAgICAgICAiLUkiLAogICAgICAgICItYyIsCiAgICAgICAgc291cmNlLAogICAgXQogICAgcmV0dXJuIHN1YnByb2Nlc3MuY2FsbChjb21tYW5kLCBwYXNzX2Zkcz0ocmVwb19mZCwgc2l0ZV9mZCkpCgoKcmFpc2UgU3lzdGVtRXhpdChtYWluKCkpCg=='),'<p14-immutable-snapshot-matrix>','exec'))"
+      ],
+      "cwd": ".",
+      "timeoutMs": 600000
+    },
+    {
+      "id": "06-git-diff-check",
+      "tool": "/usr/bin/python3",
+      "args": [
+        "-I",
+        "-c",
+        "import subprocess;E={'PATH':'/usr/bin:/bin','HOME':'/nonexistent','GIT_CONFIG_GLOBAL':'/dev/null','GIT_CONFIG_NOSYSTEM':'1','GIT_ATTR_NOSYSTEM':'1','GIT_NO_REPLACE_OBJECTS':'1','GIT_TERMINAL_PROMPT':'0'};raise SystemExit(subprocess.call(['/usr/bin/git','--no-replace-objects','-c','core.attributesFile=/dev/null','diff','--check','HEAD^','HEAD'],env=E))"
+      ],
+      "cwd": ".",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "07-durable-shadow-bundle-diff-and-fingerprints",
+      "tool": "/usr/bin/python3",
+      "args": [
+        "-I",
+        "-c",
+        "import hashlib,json,subprocess;from pathlib import Path;root=Path('/home/ubuntu/Projects/chaotang-os/.worktrees/p14-exact30-userns-sticky-final-shadow-20260902');base='13b9751a35815f873cdc986b8ee7e012089408ee';E={'PATH':'/usr/bin:/bin','HOME':'/nonexistent','GIT_CONFIG_GLOBAL':'/dev/null','GIT_CONFIG_NOSYSTEM':'1','GIT_ATTR_NOSYSTEM':'1','GIT_NO_REPLACE_OBJECTS':'1','GIT_TERMINAL_PROMPT':'0'};g=lambda a:subprocess.check_output(['/usr/bin/git','--no-replace-objects','-c','core.attributesFile=/dev/null','-C',str(root),*a],env=E);assert g(['rev-parse','HEAD']).decode().strip()=='3e89495f4e5b5d547e8b07ccb66b94a013417165';assert g(['status','--porcelain=v1','--untracked-files=all']).decode().splitlines()==[' M backend/app/accounting_reports/storage.py',' M backend/tests/test_accounting_work_product_storage.py'];paths=g(['diff','--name-only',base]).decode().splitlines();assert len(paths)==30;rows=[];assert all(not rows.append({'path':p,'mode':g(['ls-files','-s','--',p]).decode().split()[0],'bytes':len((b:=(root/p).read_bytes())),'rawSha256':'sha256:'+hashlib.sha256(b).hexdigest()}) for p in sorted(paths));assert all(x['mode']=='100644' for x in rows);assert 'sha256:'+hashlib.sha256(json.dumps(rows,ensure_ascii=False,separators=(',',':'),sort_keys=True).encode()).hexdigest()=='sha256:2d72b2e0747ff55e77061440fd7940ea843d12bfb7bfe8f2a3a6aff6fc32bae8';patch=g(['diff','--no-ext-diff','--no-textconv','--full-index','--binary',base]);assert 'sha256:'+hashlib.sha256(patch).hexdigest()=='sha256:7b43ef3e1a095abc6b2c28c2c606d494ff9c28813776972980edeca8652fc78d';report=json.loads((root/'docs/migrations/2026-08-14-six-ministry-runtime-readiness.json').read_text());files=report['implementationEvidence']['files'];exc={'backend/app/accounting_reports/storage.py','backend/tests/test_six_ministry_accounting_evidence_adapter.py','backend/tests/test_six_ministry_readiness_report.py','scripts/check_harness.mjs'};succ=['backend/app/accounting_reports/storage.py','backend/tests/test_six_ministry_accounting_evidence_adapter.py'];fp=lambda ps:'sha256:'+hashlib.sha256(b''.join(p.encode()+b'\\0'+(root/p).read_bytes()+b'\\0' for p in ps)).hexdigest();assert len(files)==69 and len([p for p in files if p not in exc])==65;assert fp([p for p in files if p not in exc])=='sha256:32ecf613778ddc625567b08ec4526efbf22c0cd29a8c94fc3b9bacbe4e0dd05e';assert fp(succ)=='sha256:1922b611550d73daa6226d9dd8abf8d9f9691a0501f9f1fd0ea83e8c772829d2'"
+      ],
+      "cwd": ".",
+      "timeoutMs": 30000
+    }
+  ],
+  "policy": {
+    "forwardOnly": true,
+    "forcePushAllowed": false,
+    "fetchOrPullAllowed": false,
+    "reviewersReadOnly": true,
+    "deploymentAllowed": false,
+    "failureMode": "FAIL_CLOSED_STOP"
+  },
+  "state": "DRAFT",
+  "ownerConfirmationState": "READY_FOR_OWNER_CONFIRMATION",
+  "authorizationState": "NON_AUTHORIZING"
+}
