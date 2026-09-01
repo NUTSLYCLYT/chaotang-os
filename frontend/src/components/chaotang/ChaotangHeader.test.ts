@@ -13,10 +13,10 @@ test("ChaotangHeader provides semantic navigation without client-side side effec
   assert.match(source, /aria-current=\{active \? "page" : undefined\}/);
   assert.match(source, /import \{ LogoutButton \} from "\.\/LogoutButton"/);
   assert.match(source, /<LogoutButton className=\{styles\.logoutButton\} \/>/);
-  for (const href of ["/dadian", "/study", "/junjichu", "/liubu", "/zhuanshu", "/shiguan"]) {
+  for (const href of ["/dadian", "/study", "/junjichu", "/liubu", "/zhuanshu", "/honglusi", "/shiguan"]) {
     assert.match(source, new RegExp(`href: "${href}"`));
   }
-  for (const label of ["大殿", "上书房", "军机处", "六部", "专署", "史馆"]) {
+  for (const label of ["大殿", "上书房", "军机处", "六部", "专署", "鸿胪寺", "史馆"]) {
     assert.match(source, new RegExp(label));
   }
   assert.match(source, /item\.label\.length >= 3 \? styles\.navWide : undefined/);

@@ -10,6 +10,7 @@ type ProtectedPath =
   | "/shiguan"
   | "/dadian"
   | "/junjichu"
+  | "/honglusi"
   | "/command-center"
   | "/liubu"
   | `/liubu/${string}`

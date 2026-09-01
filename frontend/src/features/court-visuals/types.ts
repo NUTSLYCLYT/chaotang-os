@@ -14,7 +14,7 @@ export interface ImmersiveCourtShellProps {
   showVeil?: boolean;
   fullBleedContent?: boolean;
   hideScrollbar?: boolean;
-  scene: "study" | "dadian" | "junjichu" | "liubu" | "shiguan";
+  scene: "study" | "dadian" | "junjichu" | "liubu" | "honglusi" | "shiguan";
 }
 
 export function createCourtExplanationId(instanceId: string): string {

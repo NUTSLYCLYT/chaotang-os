@@ -5,7 +5,7 @@ import styles from "./ChaotangHeader.module.css";
 
 type VisualNavItem = {
   label: string;
-  href: "/dadian" | "/study" | "/junjichu" | "/liubu" | "/zhuanshu" | "/shiguan";
+  href: "/dadian" | "/study" | "/junjichu" | "/liubu" | "/zhuanshu" | "/honglusi" | "/shiguan";
 };
 
 const VISUAL_NAV_ITEMS: readonly VisualNavItem[] = [
@@ -14,6 +14,7 @@ const VISUAL_NAV_ITEMS: readonly VisualNavItem[] = [
   { label: "军机处", href: "/junjichu" },
   { label: "六部", href: "/liubu" },
   { label: "专署", href: "/zhuanshu" },
+  { label: "鸿胪寺", href: "/honglusi" },
   { label: "史馆", href: "/shiguan" },
 ] as const;
 

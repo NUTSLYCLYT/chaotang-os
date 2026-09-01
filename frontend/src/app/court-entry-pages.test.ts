@@ -4,6 +4,7 @@ import test from "node:test";
 
 const pages = [
   ["dadian/page.tsx", "/dadian", undefined, /DadianOverviewClient/, /DadianOverviewClient/],
+  ["honglusi/page.tsx", "/honglusi", "鸿胪寺", /HonglusiScene/, /HonglusiScene/],
   ["junjichu/page.tsx", "/junjichu", undefined, /JunjichuClient/, /JunjichuClient/],
   ["command-center/page.tsx", "/command-center", "指挥中心", /CourtPlaceholderPage/, /CourtShell/],
   ["liubu/page.tsx", "/liubu", undefined, /MinistryOverviewClient/, /MinistryOverviewClient/],
@@ -46,6 +47,14 @@ test("Dadian delegates its immersive shell to DadianScene and rejects the old pl
   assert.match(page, /DadianOverviewClient/);
   assert.doesNotMatch(page, /CourtShell|CourtPlaceholderPage|variant="dadian"/);
   assert.match(scene, /ImmersiveCourtShell/);
+});
+
+test("Honglusi delegates its protected entry to the external capability gateway", async () => {
+  const page = await readFile(new URL("./honglusi/page.tsx", import.meta.url), "utf8");
+
+  assert.match(page, /await requireUser\("\/honglusi"\)/);
+  assert.match(page, /<HonglusiScene\s*\/>/);
+  assert.doesNotMatch(page, /CourtPlaceholderPage|fetch\(|"use client"/);
 });
 
 test("junjichu and liubu routes delegate to their read-only controllers", async () => {
