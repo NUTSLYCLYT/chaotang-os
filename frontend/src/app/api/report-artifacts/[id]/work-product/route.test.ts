@@ -21,8 +21,10 @@ test("work-product GET rejects missing session before backend call", async () =>
 
 test("work-product GET forwards only opaque artifact id and server session", async () => {
   let observed: unknown;
+  let observedSignal: AbortSignal | undefined;
   const handler = createGetHandler(async (id, options) => {
-    observed = { id, options };
+    observed = { id, sessionId: options.sessionId };
+    observedSignal = options.signal;
     return {
       ok: true as const,
       data: {
@@ -31,12 +33,25 @@ test("work-product GET forwards only opaque artifact id and server session", asy
       } as never,
     };
   });
-  const response = await handler(request(), context("report 甲+v1"));
+  const inbound = request();
+  const response = await handler(inbound, context("report 甲+v1"));
   assert.equal(response.status, 200);
   assert.deepEqual(observed, {
     id: "report 甲+v1",
-    options: { sessionId: "opaque-session" },
+    sessionId: "opaque-session",
   });
+  assert.equal(observedSignal, inbound.signal);
+});
+
+test("work-product GET rejects artifact IDs longer than 256 UTF-8 bytes", async () => {
+  let calls = 0;
+  const handler = createGetHandler(async () => {
+    calls += 1;
+    throw new Error("must not call");
+  });
+  const response = await handler(request(), context("界".repeat(86)));
+  assert.equal(response.status, 400);
+  assert.equal(calls, 0);
 });
 
 for (const [kind, status] of [
@@ -49,6 +64,7 @@ for (const [kind, status] of [
     const handler = createGetHandler(async () => ({ ok: false as const, kind }));
     const response = await handler(request(), context("artifact-1"));
     assert.equal(response.status, status);
+    assert.equal(response.headers.get("cache-control"), "private, no-store");
     assert.doesNotMatch(
       await response.text(),
       /opaque-session|owner|private-backend/,

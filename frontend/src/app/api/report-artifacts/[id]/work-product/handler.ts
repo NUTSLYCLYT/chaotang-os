@@ -7,8 +7,10 @@ import { readSessionId } from "../../../../../lib/session.ts";
 type Context = { params: Promise<{ id: string }> };
 type FetchWorkProduct = (
   id: string,
-  options: { sessionId: string },
+  options: { sessionId: string; signal: AbortSignal },
 ) => Promise<ReportWorkProductResult>;
+const MAX_ID_BYTES = 256;
+const encoder = new TextEncoder();
 
 function errorResponse(reason: string, status: number): Response {
   const message = status === 401
@@ -18,7 +20,10 @@ function errorResponse(reason: string, status: number): Response {
       : status === 400
         ? "invalid artifact id"
         : "report work product temporarily unavailable";
-  return Response.json({ status: "error", reason, message }, { status });
+  return Response.json(
+    { status: "error", reason, message },
+    { status, headers: { "cache-control": "private, no-store" } },
+  );
 }
 
 export function createGetHandler(
@@ -29,10 +34,12 @@ export function createGetHandler(
     const sessionId = readSession(request);
     if (!sessionId) return errorResponse("unauthenticated", 401);
     const { id } = await context.params;
-    if (!id || id !== id.trim()) return errorResponse("validation", 400);
+    if (!id || id !== id.trim() || encoder.encode(id).length > MAX_ID_BYTES) {
+      return errorResponse("validation", 400);
+    }
     let result: ReportWorkProductResult;
     try {
-      result = await fetchWorkProduct(id, { sessionId });
+      result = await fetchWorkProduct(id, { sessionId, signal: request.signal });
     } catch {
       return errorResponse("unavailable", 503);
     }
