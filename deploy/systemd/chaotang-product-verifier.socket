@@ -1,0 +1,20 @@
+[Unit]
+Description=Chaotang Product Authority credential-separated verifier socket
+Documentation=file:/opt/chaotang-product-verifier/test_chaotang_product_verifier_broker.py
+
+[Socket]
+ListenStream=/run/chaotang-product-verifier/verifier.sock
+Accept=yes
+SocketUser=root
+SocketGroup=chaotang-verifier-controller
+SocketMode=0660
+DirectoryMode=0755
+Backlog=1
+MaxConnections=1
+RemoveOnStop=yes
+FlushPending=yes
+TriggerLimitIntervalSec=60s
+TriggerLimitBurst=4
+
+[Install]
+WantedBy=sockets.target
