@@ -1098,6 +1098,84 @@ def _prctl_no_new_privs() -> None:
     if libc.prctl(38, 1, 0, 0, 0) != 0:
         error = ctypes.get_errno()
         raise OSError(error, os.strerror(error))
+    observed = libc.prctl(39, 0, 0, 0, 0)  # PR_GET_NO_NEW_PRIVS
+    if observed != 1:
+        _fail("STARTUP_NO_NEW_PRIVS_INVALID")
+
+
+SUPERVISOR_CAPABILITY_MASK = 0xEB
+STARTUP_ROLE_FLAGS = {
+    "--serve-stdio": "serve-stdio",
+    "--ingest-run": "ingest-run",
+    "--ingest-git-stage": "ingest-git-stage",
+    "--worker-launch": "worker-launch",
+    "--snapshot-stage": "snapshot-stage",
+    "--cleanup-stage": "cleanup-stage",
+}
+PRIVILEGED_STARTUP_ROLES = frozenset({"serve-stdio", "snapshot-stage", "cleanup-stage"})
+CLEARED_STARTUP_ROLES = frozenset({"ingest-run", "ingest-git-stage", "worker-launch"})
+
+
+def classify_startup_role(argv: Sequence[str]) -> str:
+    if any(not isinstance(argument, str) for argument in argv):
+        _fail("STARTUP_ROLE_INVALID")
+    selected = [
+        role for flag, role in STARTUP_ROLE_FLAGS.items()
+        for argument in argv if argument == flag
+    ]
+    if len(selected) != 1:
+        _fail("STARTUP_ROLE_INVALID")
+    return selected[0]
+
+
+def verify_startup_security_status(
+    text: str, *, role: str,
+) -> dict[str, int]:
+    """Fail closed unless process startup matches one approved capability state."""
+
+    if role not in PRIVILEGED_STARTUP_ROLES | CLEARED_STARTUP_ROLES:
+        _fail("STARTUP_ROLE_INVALID")
+    values = _parse_proc_status(text)
+    if values.get("NoNewPrivs") != "1":
+        _fail("STARTUP_NO_NEW_PRIVS_INVALID")
+    try:
+        threads = int(values.get("Threads", "-1"))
+        capabilities = {
+            key: int(values.get(key, "-1"), 16)
+            for key in ("CapInh", "CapPrm", "CapEff", "CapBnd", "CapAmb")
+        }
+    except ValueError as exc:
+        raise ContractError("STARTUP_CAPABILITY_CONTRACT_INVALID") from exc
+    if threads != 1:
+        _fail("STARTUP_THREAD_CONTRACT_INVALID")
+    if capabilities["CapInh"] != 0 or capabilities["CapAmb"] != 0:
+        _fail("STARTUP_CAPABILITY_CONTRACT_INVALID")
+    triplet = (
+        capabilities["CapPrm"], capabilities["CapEff"], capabilities["CapBnd"],
+    )
+    expected = (
+        (SUPERVISOR_CAPABILITY_MASK,) * 3
+        if role in PRIVILEGED_STARTUP_ROLES else
+        (0, 0, 0)
+    )
+    if triplet != expected:
+        _fail("STARTUP_CAPABILITY_CONTRACT_INVALID")
+    if (
+        values.get("Uid", "").split() != ["0"] * 4 or
+        values.get("Gid", "").split() != ["0"] * 4
+    ):
+        _fail("STARTUP_IDENTITY_CONTRACT_INVALID")
+    return {"Threads": threads, **capabilities}
+
+
+def _secure_process_startup(argv: Sequence[str]) -> tuple[tuple[str, ...], dict[str, int]]:
+    """Lock privilege escalation and attest the role before parsing any input."""
+
+    _prctl_no_new_privs()
+    frozen_argv = tuple(argv)
+    role = classify_startup_role(frozen_argv)
+    status = _read_proc_status(os.getpid())
+    return frozen_argv, verify_startup_security_status(status, role=role)
 
 
 CLONE_DENIED_MASK = (
@@ -3540,7 +3618,7 @@ def serve_stdio() -> int:
 
 
 def parse_cli(argv: Sequence[str]) -> argparse.Namespace:
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(allow_abbrev=False)
     parser.add_argument("--serve-stdio", action="store_true")
     parser.add_argument("--ingest-run", action="store_true")
     parser.add_argument("--ingest-git-stage", action="store_true")
@@ -3567,7 +3645,8 @@ def parse_cli(argv: Sequence[str]) -> argparse.Namespace:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    args = parse_cli(sys.argv[1:] if argv is None else argv)
+    frozen_argv, _startup_facts = _secure_process_startup(sys.argv[1:] if argv is None else argv)
+    args = parse_cli(frozen_argv)
     selected = sum((
         args.serve_stdio, args.ingest_run, args.ingest_git_stage,
         args.worker_launch, args.snapshot_stage, args.cleanup_stage,

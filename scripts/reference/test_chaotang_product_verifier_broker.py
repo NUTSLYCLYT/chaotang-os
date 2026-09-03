@@ -21,6 +21,7 @@ import inspect
 import io
 import json
 import os
+import re
 import select
 import shutil
 import signal
@@ -142,6 +143,19 @@ def valid_header(pack: bytes = b"PACK") -> dict:
     return header
 
 
+def installed_script_launcher(script: str) -> str:
+    source = script.encode("utf-8", "strict")
+    if len(source) > 65_536:
+        raise ValueError("PAYLOAD_TOO_LARGE")
+    payload = base64.b64encode(source).decode("ascii")
+    return (
+        f"import base64;b=b'{payload}';d=base64.b64decode(b,validate=True);"
+        "base64.b64encode(d)==b or (_ for _ in ()).throw(ValueError('NON_CANONICAL_BASE64'));"
+        "len(d)<=65536 or (_ for _ in ()).throw(ValueError('PAYLOAD_TOO_LARGE'));"
+        "exec(compile(d.decode('utf-8','strict'),'<ctpv-installed-acceptance>','exec'))"
+    )
+
+
 def installed_request(manifest: dict, script: str, *, timeout_ms: int = 10_000) -> tuple[dict, bytes]:
     """Build one exact three-commit request bound to the installed manifest."""
 
@@ -161,7 +175,7 @@ def installed_request(manifest: dict, script: str, *, timeout_ms: int = 10_000) 
         "installationManifestDigest": manifest["digest"],
         "gateId": "installed-acceptance",
         "tool": "/runtime/bin/python3",
-        "args": ["-I", "-B", "-c", script],
+        "args": ["-I", "-B", "-c", installed_script_launcher(script)],
         "timeoutMs": timeout_ms,
     })
     header["argsDigest"] = broker.domain_digest(
@@ -170,6 +184,231 @@ def installed_request(manifest: dict, script: str, *, timeout_ms: int = 10_000) 
     header["requestDigest"] = broker.request_digest(header)
     broker.validate_request(header, pack)
     return header, pack
+
+
+DIAGNOSTIC_GIT_ENVIRONMENT = {
+    "HOME": "/nonexistent",
+    "PATH": "/usr/bin:/bin",
+    "LANG": "C",
+    "LC_ALL": "C",
+    "GIT_CONFIG_NOSYSTEM": "1",
+    "GIT_CONFIG_GLOBAL": "/dev/null",
+    "GIT_CONFIG_SYSTEM": "/dev/null",
+    "GIT_TERMINAL_PROMPT": "0",
+    "GIT_NO_REPLACE_OBJECTS": "1",
+    "GIT_OPTIONAL_LOCKS": "0",
+}
+DIAGNOSTIC_REMOTE_URL = "git@gitee.com:msxn/chaotang-os.git"
+DIAGNOSTIC_SSH = "/usr/bin/ssh"
+DIAGNOSTIC_SSH_IDENTITY = "/home/ubuntu/.ssh/gitee_lyt_id_rsa"
+DIAGNOSTIC_GIT_SHA256 = "sha256:2a8c18fbf43da9f692d75474c72bea9dfd796c260b0f3dfe456376abc3bbd668"
+DIAGNOSTIC_SSH_SHA256 = "sha256:3b0701113d8982d71c8cc74e5a1949f03c6f71da804cf4f3507315afbf07042c"
+DIAGNOSTIC_IDENTITY_SHA256 = "sha256:40014f9834f8653b2302a627583124eb31087f9b1a9264034f987b7022aae7e9"
+DIAGNOSTIC_GITEE_HOST_KEY = (
+    b"gitee.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEKxHSJ7084RmkJ4YdEi5tngynE8aZe2uEoVVsB/OvYN\n"
+)
+
+
+def _diagnostic_git(
+    repo_root: Path, args: list[str], *, input_bytes: bytes | None = None,
+    environment: dict[str, str] | None = None,
+) -> bytes:
+    result = subprocess.run(
+        [
+            "/usr/bin/git", "--no-replace-objects", "-c", "core.pager=cat",
+            "-c", "core.fsmonitor=false", "-c", "diff.external=",
+            "-c", "diff.trustExitCode=false", *args,
+        ],
+        cwd=repo_root, input=input_bytes, capture_output=True, check=False,
+        timeout=30, shell=False,
+        env=DIAGNOSTIC_GIT_ENVIRONMENT if environment is None else environment,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"DIAGNOSTIC_GIT_FAILED:{args[0]}:{result.returncode}")
+    return result.stdout
+
+
+def _diagnostic_assert_file(path: str, raw_sha256: str, mode: int, *, identity: bool = False) -> None:
+    info = os.lstat(path)
+    if (
+        not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode) or
+        stat.S_IMODE(info.st_mode) != mode or
+        (identity and (info.st_nlink != 1 or info.st_uid != os.getuid())) or
+        broker.sha256_digest(Path(path).read_bytes()) != raw_sha256
+    ):
+        raise RuntimeError(f"DIAGNOSTIC_RUNTIME_IDENTITY_INVALID:{path}")
+
+
+def _diagnostic_remote_head() -> str:
+    _diagnostic_assert_file("/usr/bin/git", DIAGNOSTIC_GIT_SHA256, 0o755)
+    _diagnostic_assert_file(DIAGNOSTIC_SSH, DIAGNOSTIC_SSH_SHA256, 0o755)
+    _diagnostic_assert_file(
+        DIAGNOSTIC_SSH_IDENTITY, DIAGNOSTIC_IDENTITY_SHA256, 0o600, identity=True,
+    )
+    known_hosts_path = f"/tmp/ctpv-diagnostic-known-host-{os.getpid()}"
+    fd = os.open(
+        known_hosts_path,
+        os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC,
+        0o600,
+    )
+    try:
+        offset = 0
+        while offset < len(DIAGNOSTIC_GITEE_HOST_KEY):
+            written = os.write(fd, DIAGNOSTIC_GITEE_HOST_KEY[offset:])
+            if written <= 0:
+                raise RuntimeError("DIAGNOSTIC_KNOWN_HOST_WRITE_FAILED")
+            offset += written
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+    environment = {
+        **DIAGNOSTIC_GIT_ENVIRONMENT,
+        "GIT_SSH_VARIANT": "ssh",
+        "GIT_SSH_COMMAND": (
+            f"{DIAGNOSTIC_SSH} -F /dev/null -i {DIAGNOSTIC_SSH_IDENTITY} "
+            f"-o IdentitiesOnly=yes -o UserKnownHostsFile={known_hosts_path} "
+            "-o StrictHostKeyChecking=yes -o ConnectTimeout=10 "
+            "-o HostKeyAlias=gitee.com -o HostName=180.76.198.225"
+        ),
+    }
+    try:
+        fields = _diagnostic_git(
+            Path("/"), ["ls-remote", DIAGNOSTIC_REMOTE_URL, "refs/heads/ext-dev"],
+            environment=environment,
+        ).decode("ascii", "strict").split()
+    finally:
+        os.unlink(known_hosts_path)
+    if len(fields) != 2 or fields[1] != "refs/heads/ext-dev":
+        raise RuntimeError("DIAGNOSTIC_REMOTE_HEAD_INVALID")
+    return fields[0]
+
+
+def _diagnostic_commit(repo_root: Path, oid: str) -> dict:
+    if not re.fullmatch(r"[0-9a-f]{40}", oid):
+        raise RuntimeError("DIAGNOSTIC_COMMIT_OID_INVALID")
+    body = _diagnostic_git(repo_root, ["cat-file", "commit", oid])
+    computed = hashlib.sha1(b"commit " + str(len(body)).encode("ascii") + b"\0" + body).hexdigest()
+    if computed != oid:
+        raise RuntimeError("DIAGNOSTIC_COMMIT_HASH_INVALID")
+    header = body.split(b"\n\n", 1)[0].decode("utf-8", "strict").splitlines()
+    trees = [line[5:] for line in header if line.startswith("tree ")]
+    parents = [line[7:] for line in header if line.startswith("parent ")]
+    if len(trees) != 1 or len(parents) != 1:
+        raise RuntimeError("DIAGNOSTIC_NOT_DIRECT_SINGLE_PARENT")
+    return {"commit": oid, "tree": trees[0], "parent": parents[0]}
+
+
+def _diagnostic_changes(repo_root: Path, left: str, right: str) -> list[dict]:
+    raw = _diagnostic_git(
+        repo_root,
+        ["diff-tree", "--no-commit-id", "--name-status", "--no-renames", "-r", left, right],
+    ).decode("utf-8", "strict").strip()
+    if not raw:
+        return []
+    records = []
+    for line in raw.splitlines():
+        fields = line.split("\t")
+        if len(fields) != 2 or fields[0] not in {"A", "M"}:
+            raise RuntimeError("DIAGNOSTIC_CHANGE_RECORD_INVALID")
+        records.append({"status": fields[0], "path": fields[1]})
+    return records
+
+
+def _diagnostic_tree_record(repo_root: Path, commit: str, candidate_path: str) -> dict:
+    line = _diagnostic_git(
+        repo_root, ["ls-tree", commit, "--", candidate_path],
+    ).decode("utf-8", "strict").strip()
+    match = re.fullmatch(r"100644 blob ([0-9a-f]{40})\t(.+)", line)
+    if match is None or match.group(2) != candidate_path:
+        raise RuntimeError(f"DIAGNOSTIC_MODE_OR_TYPE_INVALID:{candidate_path}")
+    payload = _diagnostic_git(repo_root, ["show", f"{commit}:{candidate_path}"])
+    computed_blob = hashlib.sha1(
+        b"blob " + str(len(payload)).encode("ascii") + b"\0" + payload
+    ).hexdigest()
+    if computed_blob != match.group(1):
+        raise RuntimeError(f"DIAGNOSTIC_BLOB_INVALID:{candidate_path}")
+    return {
+        "path": candidate_path, "mode": "100644", "bytes": len(payload),
+        "rawSha256": broker.sha256_digest(payload), "gitBlobOid": computed_blob,
+    }
+
+
+def verify_repository_candidate_diagnostic(repo_root: str, expected_task_id: str) -> dict:
+    root = Path(repo_root).resolve(strict=True)
+    if Path(_diagnostic_git(root, ["rev-parse", "--show-toplevel"]).decode().strip()).resolve() != root:
+        raise RuntimeError("DIAGNOSTIC_REPOSITORY_IDENTITY_INVALID")
+    git_dir_text = _diagnostic_git(root, ["rev-parse", "--git-dir"]).decode("utf-8", "strict").strip()
+    git_dir = (root / git_dir_text).resolve() if not os.path.isabs(git_dir_text) else Path(git_dir_text).resolve()
+    index_path = git_dir / "index"
+    index_before = os.stat(index_path, follow_symlinks=False)
+    if _diagnostic_git(root, ["status", "--porcelain=v1", "-uall"]).strip():
+        raise RuntimeError("DIAGNOSTIC_WORKTREE_NOT_CLEAN")
+    head = _diagnostic_git(root, ["rev-parse", "HEAD"]).decode("ascii").strip()
+    candidate = _diagnostic_commit(root, head)
+    approval = _diagnostic_commit(root, candidate["parent"])
+    approval_changes = _diagnostic_changes(root, approval["parent"], approval["commit"])
+    packet_paths = [record["path"] for record in approval_changes if record["path"].endswith(".packet.json")]
+    if len(packet_paths) != 1:
+        raise RuntimeError("DIAGNOSTIC_PACKET_PATH_INVALID")
+    packet_bytes = _diagnostic_git(root, ["show", f"{approval['commit']}:{packet_paths[0]}"])
+    packet = broker.parse_json_strict(packet_bytes)
+    if (
+        not isinstance(packet, dict) or packet.get("taskId") != expected_task_id or
+        not isinstance(packet.get("request"), dict) or
+        packet["request"].get("baseCommit") != approval["parent"]
+    ):
+        raise RuntimeError("DIAGNOSTIC_PACKET_IDENTITY_INVALID")
+    approval_expected = sorted(
+        ({"status": "A", "path": path} for path in packet["request"]["approvalCommitPaths"]),
+        key=lambda record: record["path"],
+    )
+    candidate_expected = sorted(
+        ({"status": "M", "path": path} for path in packet["request"]["candidatePaths"]),
+        key=lambda record: record["path"],
+    )
+    if sorted(approval_changes, key=lambda record: record["path"]) != approval_expected:
+        raise RuntimeError("DIAGNOSTIC_APPROVAL_PATH_SET_INVALID")
+    for approval_path in packet["request"]["approvalCommitPaths"]:
+        _diagnostic_tree_record(root, approval["commit"], approval_path)
+    candidate_changes = _diagnostic_changes(root, candidate["parent"], candidate["commit"])
+    if sorted(candidate_changes, key=lambda record: record["path"]) != candidate_expected:
+        raise RuntimeError("DIAGNOSTIC_CANDIDATE_PATH_SET_INVALID")
+    remote_head = _diagnostic_remote_head()
+    if remote_head != approval["commit"]:
+        raise RuntimeError("DIAGNOSTIC_REMOTE_HEAD_INVALID")
+    records = [
+        _diagnostic_tree_record(root, candidate["commit"], path)
+        for path in sorted(packet["request"]["candidatePaths"])
+    ]
+    diff_bytes = _diagnostic_git(
+        root,
+        [
+            "diff", "--no-ext-diff", "--no-textconv", "--full-index", "--binary",
+            approval["commit"], candidate["commit"], "--", *packet["request"]["candidatePaths"],
+        ],
+    )
+    index_after = os.stat(index_path, follow_symlinks=False)
+    if (
+        index_before.st_dev, index_before.st_ino, index_before.st_mode, index_before.st_size,
+        index_before.st_mtime_ns, index_before.st_ctime_ns,
+    ) != (
+        index_after.st_dev, index_after.st_ino, index_after.st_mode, index_after.st_size,
+        index_after.st_mtime_ns, index_after.st_ctime_ns,
+    ):
+        raise RuntimeError("DIAGNOSTIC_INDEX_CHANGED")
+    return {
+        "schemaVersion": "chaotang-exact3-candidate-diagnostic.v1",
+        "taskId": expected_task_id,
+        "baseCommit": approval["parent"],
+        "approvalCommit": approval["commit"],
+        "candidateCommit": candidate["commit"],
+        "candidateTree": candidate["tree"],
+        "records": records,
+        "candidateBundleDigest": broker.sha256_digest(broker.canonicalize(records)),
+        "fullIndexDiffSha256": broker.sha256_digest(diff_bytes),
+        "liveRemoteHead": remote_head,
+        "decision": "DIAGNOSTIC_ONLY",
+    }
 
 
 def _start_identity_exchange(
@@ -390,7 +629,7 @@ def _assert_effective_service_unit(event: dict) -> dict[str, str]:
         "DropInPaths": "", "InvocationID": event["serviceInstance"],
         "ControlGroup": event["cgroupPath"], "User": "root", "Group": "root",
         "RootDirectory": "/var/lib/chaotang-product-verifier/privileged-runtime/rootfs",
-        "StandardInput": "socket", "StandardOutput": "socket", "NoNewPrivileges": "yes",
+        "StandardInput": "socket", "StandardOutput": "socket", "NoNewPrivileges": "no",
         "KillMode": "control-group", "PrivateDevices": "yes", "ProtectHome": "yes",
         "ProtectSystem": "strict", "ProtectControlGroups": "yes", "ProtectProc": "invisible",
     }
@@ -1521,7 +1760,7 @@ class SystemdUnitContractTests(unittest.TestCase):
         required = [
             "RootDirectory=/var/lib/chaotang-product-verifier/privileged-runtime/rootfs",
             "ExecStart=/runtime/bin/python3 -I -B /opt/chaotang-product-verifier/chaotang-product-verifier-broker.py --serve-stdio",
-            "StandardInput=socket", "StandardOutput=socket", "User=root", "Group=root", "NoNewPrivileges=yes",
+            "StandardInput=socket", "StandardOutput=socket", "User=root", "Group=root", "NoNewPrivileges=no",
             "CapabilityBoundingSet=CAP_CHOWN CAP_DAC_OVERRIDE CAP_FOWNER CAP_KILL CAP_SETGID CAP_SETUID",
             "AmbientCapabilities=", "KillMode=control-group", "MemoryMax=10G", "MemorySwapMax=0", "TasksMax=1024",
             "CPUQuota=800%", "LimitNOFILE=4096", "LimitFSIZE=10G", "RuntimeMaxSec=800", "TimeoutStopSec=15",
@@ -1535,6 +1774,231 @@ class SystemdUnitContractTests(unittest.TestCase):
         self.assertNotIn("CAP_SYS_ADMIN", text)
         self.assertNotIn("EnvironmentFile=", text)
         self.assertGreaterEqual(800, 30 + 30 + 30 + 630 + 30 + 30 + 5 + 15)
+
+
+class InstalledAcceptanceEncodingAndStartupContractTests(unittest.TestCase):
+    @staticmethod
+    def _manifest() -> dict:
+        return {
+            "digest": "sha256:" + "7" * 64,
+            "gateProfiles": [{
+                "profileId": "python-gate-v1",
+                "profileDigest": "sha256:" + "6" * 64,
+            }],
+        }
+
+    @staticmethod
+    def _startup_status(
+        *, cap_prm: str = "00000000000000eb", cap_eff: str = "00000000000000eb",
+        cap_bnd: str = "00000000000000eb", threads: str = "1", no_new_privs: str = "1",
+        uid: str = "0", gid: str = "0",
+    ) -> str:
+        return "\n".join([
+            "Name:\tpython3", "Pid:\t1234", "Tgid:\t1234", f"Threads:\t{threads}",
+            f"Uid:\t{uid}\t{uid}\t{uid}\t{uid}", f"Gid:\t{gid}\t{gid}\t{gid}\t{gid}", "Groups:\t",
+            "CapInh:\t0000000000000000", f"CapPrm:\t{cap_prm}", f"CapEff:\t{cap_eff}",
+            f"CapBnd:\t{cap_bnd}", "CapAmb:\t0000000000000000", f"NoNewPrivs:\t{no_new_privs}",
+        ])
+
+    def test_service_entry_sets_and_verifies_no_new_privs_before_cli_or_input(self):
+        source = inspect.getsource(broker.main)
+        self.assertLess(source.index("_secure_process_startup"), source.index("parse_cli"))
+        startup = inspect.getsource(broker._secure_process_startup)
+        self.assertLess(startup.index("_prctl_no_new_privs"), startup.index("_read_proc_status"))
+        self.assertNotIn("sys.stdin", startup)
+        self.assertNotIn("recv", startup)
+        no_new_privs = inspect.getsource(broker._prctl_no_new_privs)
+        self.assertLess(no_new_privs.index("prctl(38"), no_new_privs.index("prctl(39"))
+
+    def test_supervisor_startup_requires_the_exact_existing_bounding_capabilities(self):
+        facts = broker.verify_startup_security_status(
+            self._startup_status(), role="serve-stdio",
+        )
+        self.assertEqual(facts["CapBnd"], 0xEB)
+        self.assertEqual(facts["Threads"], 1)
+        with self.assertRaisesRegex(broker.ContractError, "STARTUP_CAPABILITY_CONTRACT_INVALID"):
+            broker.verify_startup_security_status(
+                self._startup_status(cap_prm="000000000000006b", cap_eff="000000000000006b"),
+                role="serve-stdio",
+            )
+
+    def test_each_startup_role_accepts_only_its_exact_capability_state(self):
+        cleared = "0000000000000000"
+        privileged_roles = ("serve-stdio", "snapshot-stage", "cleanup-stage")
+        cleared_roles = ("ingest-run", "ingest-git-stage", "worker-launch")
+        for role in privileged_roles:
+            with self.subTest(role=role):
+                broker.verify_startup_security_status(self._startup_status(), role=role)
+                with self.assertRaisesRegex(broker.ContractError, "STARTUP_CAPABILITY_CONTRACT_INVALID"):
+                    broker.verify_startup_security_status(
+                        self._startup_status(cap_prm=cleared, cap_eff=cleared, cap_bnd=cleared),
+                        role=role,
+                    )
+        for role in cleared_roles:
+            with self.subTest(role=role):
+                facts = broker.verify_startup_security_status(
+                    self._startup_status(cap_prm=cleared, cap_eff=cleared, cap_bnd=cleared),
+                    role=role,
+                )
+                self.assertEqual((facts["CapPrm"], facts["CapEff"], facts["CapBnd"]), (0, 0, 0))
+                with self.assertRaisesRegex(broker.ContractError, "STARTUP_CAPABILITY_CONTRACT_INVALID"):
+                    broker.verify_startup_security_status(self._startup_status(), role=role)
+        with self.assertRaisesRegex(broker.ContractError, "STARTUP_IDENTITY_CONTRACT_INVALID"):
+            broker.verify_startup_security_status(self._startup_status(uid="2002"), role="snapshot-stage")
+        with self.assertRaisesRegex(broker.ContractError, "STARTUP_CAPABILITY_CONTRACT_INVALID"):
+            broker.verify_startup_security_status(
+                self._startup_status(cap_prm=cleared, cap_eff=cleared),
+                role="ingest-run",
+            )
+        with self.assertRaisesRegex(broker.ContractError, "STARTUP_THREAD_CONTRACT_INVALID"):
+            broker.verify_startup_security_status(
+                self._startup_status(threads="2"), role="serve-stdio",
+            )
+        with self.assertRaisesRegex(broker.ContractError, "STARTUP_NO_NEW_PRIVS_INVALID"):
+            broker.verify_startup_security_status(
+                self._startup_status(no_new_privs="0"), role="serve-stdio",
+            )
+
+    def test_startup_role_is_unique_exact_and_argparse_has_no_abbreviations(self):
+        self.assertEqual(broker.classify_startup_role(["--serve-stdio"]), "serve-stdio")
+        for argv in ([], ["--serve-s"], ["--serve-stdio", "--cleanup-stage"]):
+            with self.subTest(argv=argv), self.assertRaisesRegex(
+                broker.ContractError, "STARTUP_ROLE_INVALID",
+            ):
+                broker.classify_startup_role(argv)
+        with mock.patch("sys.stderr", new=io.StringIO()), self.assertRaises(SystemExit):
+            broker.parse_cli(["--serve-s"])
+
+    def test_installed_request_encodes_multiline_script_as_canonical_single_line_base64(self):
+        source = "print('first')\nprint('second')\n"
+        header, pack = installed_request(self._manifest(), source)
+        launcher = header["args"][-1]
+        self.assertNotIn("\n", launcher)
+        self.assertFalse(any(ord(character) < 32 or ord(character) == 127 for character in launcher))
+        broker.validate_request(header, pack)
+        result = subprocess.run(
+            [sys.executable, "-I", "-B", "-c", launcher],
+            check=False, capture_output=True, text=True, timeout=5,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, "first\nsecond\n")
+
+    def test_launcher_rejects_noncanonical_base64_and_source_over_limit(self):
+        launcher = installed_script_launcher("#")
+        self.assertIn("Iw==", launcher)
+        noncanonical = launcher.replace("Iw==", "Ix==", 1)
+        result = subprocess.run(
+            [sys.executable, "-I", "-B", "-c", noncanonical],
+            check=False, capture_output=True, text=True, timeout=5,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("NON_CANONICAL_BASE64", result.stderr)
+        with self.assertRaisesRegex(ValueError, "PAYLOAD_TOO_LARGE"):
+            installed_script_launcher("x" * 65_537)
+
+    def test_installed_request_rejects_payload_tampering_at_each_digest_layer(self):
+        header, pack = installed_request(self._manifest(), "#")
+
+        no_digest_update = json.loads(json.dumps(header))
+        no_digest_update["args"][-1] = no_digest_update["args"][-1].replace("Iw==", "JA==", 1)
+        with self.assertRaisesRegex(broker.ContractError, "REQUEST_ARGUMENT_DIGEST_INVALID"):
+            broker.validate_request(no_digest_update, pack)
+
+        only_args_digest = json.loads(json.dumps(no_digest_update))
+        only_args_digest["argsDigest"] = broker.domain_digest(
+            b"chaotang-product-verifier-args-v1\0", only_args_digest["args"],
+        )
+        with self.assertRaisesRegex(broker.ContractError, "REQUEST_DIGEST_MISMATCH"):
+            broker.validate_request(only_args_digest, pack)
+
+        both_digests_noncanonical = json.loads(json.dumps(header))
+        both_digests_noncanonical["args"][-1] = both_digests_noncanonical["args"][-1].replace(
+            "Iw==", "Ix==", 1,
+        )
+        both_digests_noncanonical["argsDigest"] = broker.domain_digest(
+            b"chaotang-product-verifier-args-v1\0", both_digests_noncanonical["args"],
+        )
+        both_digests_noncanonical["requestDigest"] = broker.request_digest(
+            both_digests_noncanonical,
+        )
+        broker.validate_request(both_digests_noncanonical, pack)
+        result = subprocess.run(
+            [sys.executable, "-I", "-B", "-c", both_digests_noncanonical["args"][-1]],
+            check=False, capture_output=True, text=True, timeout=5,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("NON_CANONICAL_BASE64", result.stderr)
+
+    def test_raw_multiline_and_nul_args_remain_rejected_by_closed_json(self):
+        for raw in ("print('x')\nprint('y')", "print('x')\0"):
+            with self.subTest(raw=repr(raw)), self.assertRaisesRegex(
+                broker.ContractError, "JSON_CONTROL_CHARACTER",
+            ):
+                header = valid_header()
+                header["args"] = ["-I", "-B", "-c", raw]
+                header["argsDigest"] = broker.domain_digest(
+                    b"chaotang-product-verifier-args-v1\0", header["args"],
+                )
+                header["requestDigest"] = broker.request_digest(header)
+                broker.validate_request(header, b"PACK")
+
+    def test_candidate_diagnostic_git_uses_a_closed_nonwriting_environment(self):
+        completed = subprocess.CompletedProcess([], 0, stdout=b"", stderr=b"")
+        with mock.patch("subprocess.run", return_value=completed) as run:
+            _diagnostic_git(Path("/"), ["status", "--porcelain=v1", "-uall"])
+        call = run.call_args
+        self.assertEqual(call.kwargs["cwd"], Path("/"))
+        self.assertFalse(call.kwargs.get("shell", False))
+        self.assertEqual(call.kwargs["env"], DIAGNOSTIC_GIT_ENVIRONMENT)
+        self.assertEqual(call.kwargs["env"]["GIT_OPTIONAL_LOCKS"], "0")
+        for forbidden in (
+            "SSH_AUTH_SOCK", "GIT_DIR", "GIT_WORK_TREE", "GIT_SSH", "GIT_SSH_COMMAND",
+            "GIT_CONFIG_COUNT", "GIT_OBJECT_DIRECTORY", "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+        ):
+            self.assertNotIn(forbidden, call.kwargs["env"])
+
+    def test_candidate_diagnostic_cli_is_closed_and_cannot_claim_pass(self):
+        class CapturedStdout:
+            def __init__(self):
+                self.buffer = io.BytesIO()
+
+        evidence = {
+            "schemaVersion": "chaotang-exact3-candidate-diagnostic.v1",
+            "decision": "DIAGNOSTIC_ONLY",
+        }
+        invalid = (
+            ["--verify-repository-candid", "--repo-root", ".", "--task-id", "task"],
+            ["--verify-repository-candidate", "--repo-root", ".", "--task-id", "task", "--socket", "ignored"],
+            ["--verify-repository-candidate", "--repo-root", ".", "--task-id", "task", "--manifest", "ignored"],
+            ["--verify-repository-candidate", "--verify-repository-candidate", "--repo-root", ".", "--task-id", "task"],
+            ["--verify-repository-candidate", "--repo-root", ".", "--repo-root", ".", "--task-id", "task"],
+        )
+        for argv in invalid:
+            with (
+                self.subTest(argv=argv),
+                mock.patch.object(sys, "argv", [str(THIS_FILE), *argv]),
+                mock.patch.object(sys, "stdout", CapturedStdout()),
+                mock.patch.object(
+                    sys.modules[__name__], "verify_repository_candidate_diagnostic",
+                    return_value=evidence,
+                ),
+            ):
+                self.assertEqual(main(), 64)
+        stdout = CapturedStdout()
+        with (
+            mock.patch.object(sys, "argv", [
+                str(THIS_FILE), "--verify-repository-candidate", "--repo-root", ".",
+                "--task-id", "task",
+            ]),
+            mock.patch.object(sys, "stdout", stdout),
+            mock.patch.object(
+                sys.modules[__name__], "verify_repository_candidate_diagnostic",
+                return_value=evidence,
+            ),
+        ):
+            self.assertEqual(main(), 0)
+        observed = broker.parse_json_strict(stdout.buffer.getvalue().strip())
+        self.assertEqual(observed["decision"], "DIAGNOSTIC_ONLY")
 
 
 @unittest.skip("installed acceptance requires separately authorized installation")
@@ -1736,11 +2200,38 @@ time.sleep(30)
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(add_help=False)
+    raw_argv = sys.argv[1:]
+    parser = argparse.ArgumentParser(add_help=False, allow_abbrev=False)
     parser.add_argument("--installed-acceptance", action="store_true")
+    parser.add_argument("--verify-repository-candidate", action="store_true")
     parser.add_argument("--socket")
     parser.add_argument("--manifest", default="/run/chaotang-installation/config/installation.json")
+    parser.add_argument("--repo-root")
+    parser.add_argument("--task-id")
     known, remaining = parser.parse_known_args()
+    diagnostic_prefix_seen = any(
+        argument.startswith("--verify-repository") for argument in raw_argv
+    )
+    if diagnostic_prefix_seen and not known.verify_repository_candidate:
+        return 64
+    if known.installed_acceptance and known.verify_repository_candidate:
+        return 64
+    if known.verify_repository_candidate:
+        required = ("--verify-repository-candidate", "--repo-root", "--task-id")
+        forbidden = ("--installed-acceptance", "--socket", "--manifest")
+        if (
+            remaining or None in (known.repo_root, known.task_id) or
+            any(raw_argv.count(option) != 1 for option in required) or
+            any(option in raw_argv for option in forbidden) or
+            any(
+                argument.startswith(option + "=")
+                for option in (*required, *forbidden) for argument in raw_argv
+            )
+        ):
+            return 64
+        evidence = verify_repository_candidate_diagnostic(known.repo_root, known.task_id)
+        sys.stdout.buffer.write(broker.canonicalize(evidence) + b"\n")
+        return 0
     if known.installed_acceptance:
         InstalledAcceptance.__unittest_skip__ = False
         InstalledAcceptance.__unittest_skip_why__ = ""
