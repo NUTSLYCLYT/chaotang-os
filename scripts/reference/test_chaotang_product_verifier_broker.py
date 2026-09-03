@@ -560,7 +560,12 @@ def _systemctl_show(unit: str, properties: tuple[str, ...]) -> dict[str, str]:
         result = subprocess.run(
             [f"/proc/self/fd/{systemctl_fd}", "show", "--no-pager", "--property=" + ",".join(properties), unit],
             check=False, capture_output=True, text=True, timeout=15,
-            env={"HOME": "/nonexistent", "PATH": "/usr/bin:/bin", "LC_ALL": "C"},
+            env={
+                "HOME": "/nonexistent",
+                "PATH": "/usr/bin:/bin",
+                "LC_ALL": "C",
+                "SYSTEMD_IGNORE_CHROOT": "1",
+            },
             pass_fds=(systemctl_fd,),
         )
     finally:
@@ -1418,9 +1423,11 @@ class CredentialAndSandboxTests(unittest.TestCase):
 
     def test_private_launcher_contract_is_kernel_bound_and_worker_inherits_network(self):
         launcher = broker.private_launcher_contract()
-        self.assertEqual(launcher["namespaceTypes"], [broker.CLONE_NEWUSER, broker.CLONE_NEWNET])
+        self.assertEqual(launcher["namespaceTypes"], [broker.CLONE_NEWNET])
         self.assertEqual(launcher["namespaceFilesystemMagic"], broker.NSFS_MAGIC)
         self.assertEqual(launcher["ownerIoctl"], broker.NS_GET_USERNS)
+        self.assertFalse(launcher["privateUserNamespaceRequired"])
+        self.assertTrue(launcher["ownerMatchesHostUserNamespace"])
         self.assertTrue(launcher["privateLoopbackRequired"])
         command = broker.build_worker_bwrap_command(
             header=valid_header(), candidate_root="/snapshot/candidate",
@@ -1440,6 +1447,61 @@ class CredentialAndSandboxTests(unittest.TestCase):
         self.assertIn('metadata["acceptanceStage"]', child_source)
         self.assertIn("LAUNCHER_SOURCE_IDENTITY_MISMATCH", child_source)
         self.assertIn('f"/proc/self/fd/', worker_source)
+
+    def test_launcher_namespace_attestation_accepts_private_netns_owned_by_host_userns(self):
+        identities = {10: (100, 1), 11: (200, 2), 12: (100, 1)}
+        types = {10: broker.CLONE_NEWUSER, 11: broker.CLONE_NEWNET}
+        with (
+            mock.patch.object(broker, "_fstatfs_magic", return_value=broker.NSFS_MAGIC),
+            mock.patch.object(broker, "_namespace_type", side_effect=lambda fd: types[fd]),
+            mock.patch.object(broker, "_namespace_identity", side_effect=lambda fd: identities[fd]),
+            mock.patch.object(broker.fcntl, "ioctl", return_value=12),
+            mock.patch.object(broker.os, "close"),
+        ):
+            broker._verify_launcher_namespaces(10, 11, host_user=(100, 1), host_net=(999, 9))
+        with (
+            mock.patch.object(broker, "_fstatfs_magic", return_value=broker.NSFS_MAGIC),
+            mock.patch.object(broker, "_namespace_type", side_effect=lambda fd: types[fd]),
+            mock.patch.object(broker, "_namespace_identity", side_effect=lambda fd: identities[fd]),
+            mock.patch.object(broker.fcntl, "ioctl", return_value=12),
+            mock.patch.object(broker.os, "close"),
+            self.assertRaisesRegex(broker.ContractError, "LAUNCHER_NAMESPACE_NOT_PRIVATE"),
+        ):
+            broker._verify_launcher_namespaces(10, 11, host_user=(100, 1), host_net=(200, 2))
+        with (
+            mock.patch.object(broker, "_fstatfs_magic", return_value=broker.NSFS_MAGIC),
+            mock.patch.object(broker, "_namespace_type", side_effect=lambda fd: types[fd]),
+            mock.patch.object(broker, "_namespace_identity", side_effect=lambda fd: identities[fd]),
+            mock.patch.object(broker.fcntl, "ioctl", return_value=12),
+            mock.patch.object(broker.os, "close"),
+            self.assertRaisesRegex(broker.ContractError, "LAUNCHER_NAMESPACE_OWNER_INVALID"),
+        ):
+            broker._verify_launcher_namespaces(10, 11, host_user=(101, 1), host_net=(999, 9))
+
+    def test_supervisor_reduces_setup_capabilities_before_reading_request_bytes(self):
+        source = inspect.getsource(broker.serve_stdio)
+        setup = source.index("start_prefilter_ingest_helper")
+        reduce_caps = source.index("_reduce_process_capabilities_to(SUPERVISOR_POST_SETUP_CAPABILITY_MASK)")
+        seccomp = source.index("install_role_seccomp")
+        prelude = source.index("receive_request_prelude")
+        decode = source.index("decode_request_frame")
+        self.assertLess(setup, reduce_caps)
+        self.assertLess(reduce_caps, prelude)
+        self.assertLess(prelude, seccomp)
+        self.assertLess(seccomp, decode)
+        self.assertLess(prelude, decode)
+        self.assertEqual(broker.SUPERVISOR_POST_SETUP_CAPABILITY_MASK, broker.LEGACY_HELPER_CAPABILITY_MASK)
+
+    def test_private_network_launcher_does_not_reintroduce_user_namespace_mapping(self):
+        source = inspect.getsource(broker._enter_private_user_network)
+        self.assertNotIn("CLONE_NEWUSER", source)
+        self.assertNotIn("uid_map", source)
+        self.assertNotIn("gid_map", source)
+        self.assertIn("CLONE_NEWNET", source)
+
+    def test_private_launcher_child_enters_private_network_once(self):
+        source = inspect.getsource(broker._private_launcher_child)
+        self.assertEqual(source.count("_enter_private_user_network(uid, gid)"), 1)
 
     def test_launcher_result_wait_remains_deadline_and_pidfd_bound(self):
         parent, child = socket.socketpair(socket.AF_UNIX, socket.SOCK_SEQPACKET | socket.SOCK_CLOEXEC)
@@ -1761,7 +1823,7 @@ class SystemdUnitContractTests(unittest.TestCase):
             "RootDirectory=/var/lib/chaotang-product-verifier/privileged-runtime/rootfs",
             "ExecStart=/runtime/bin/python3 -I -B /opt/chaotang-product-verifier/chaotang-product-verifier-broker.py --serve-stdio",
             "StandardInput=socket", "StandardOutput=socket", "User=root", "Group=root", "NoNewPrivileges=no",
-            "CapabilityBoundingSet=CAP_CHOWN CAP_DAC_OVERRIDE CAP_FOWNER CAP_KILL CAP_SETGID CAP_SETUID",
+            "CapabilityBoundingSet=CAP_CHOWN CAP_DAC_OVERRIDE CAP_FOWNER CAP_KILL CAP_SETGID CAP_SETUID CAP_SETPCAP CAP_NET_ADMIN CAP_SYS_ADMIN",
             "AmbientCapabilities=", "KillMode=control-group", "MemoryMax=10G", "MemorySwapMax=0", "TasksMax=1024",
             "CPUQuota=800%", "LimitNOFILE=4096", "LimitFSIZE=10G", "RuntimeMaxSec=800", "TimeoutStopSec=15",
             "UMask=0077", "PrivateDevices=yes", "ProtectHome=yes", "ProtectSystem=strict", "ProtectControlGroups=yes",
@@ -1771,7 +1833,6 @@ class SystemdUnitContractTests(unittest.TestCase):
         ]
         for line in required:
             self.assertIn(line, text)
-        self.assertNotIn("CAP_SYS_ADMIN", text)
         self.assertNotIn("EnvironmentFile=", text)
         self.assertGreaterEqual(800, 30 + 30 + 30 + 630 + 30 + 30 + 5 + 15)
 
@@ -1810,28 +1871,49 @@ class InstalledAcceptanceEncodingAndStartupContractTests(unittest.TestCase):
         no_new_privs = inspect.getsource(broker._prctl_no_new_privs)
         self.assertLess(no_new_privs.index("prctl(38"), no_new_privs.index("prctl(39"))
 
-    def test_supervisor_startup_requires_the_exact_existing_bounding_capabilities(self):
+    def test_supervisor_startup_requires_the_exact_setup_bounding_capabilities(self):
         facts = broker.verify_startup_security_status(
-            self._startup_status(), role="serve-stdio",
+            self._startup_status(
+                cap_prm="00000000002011eb", cap_eff="00000000002011eb", cap_bnd="00000000002011eb",
+            ),
+            role="serve-stdio",
         )
-        self.assertEqual(facts["CapBnd"], 0xEB)
+        self.assertEqual(facts["CapBnd"], 0x2011EB)
         self.assertEqual(facts["Threads"], 1)
         with self.assertRaisesRegex(broker.ContractError, "STARTUP_CAPABILITY_CONTRACT_INVALID"):
             broker.verify_startup_security_status(
-                self._startup_status(cap_prm="000000000000006b", cap_eff="000000000000006b"),
+                self._startup_status(cap_prm="00000000000000eb", cap_eff="00000000000000eb"),
                 role="serve-stdio",
             )
 
     def test_each_startup_role_accepts_only_its_exact_capability_state(self):
         cleared = "0000000000000000"
-        privileged_roles = ("serve-stdio", "snapshot-stage", "cleanup-stage")
+        supervisor = "00000000002011eb"
+        legacy = "00000000000000eb"
+        supervisor_roles = ("serve-stdio",)
+        legacy_roles = ("snapshot-stage", "cleanup-stage")
         cleared_roles = ("ingest-run", "ingest-git-stage", "worker-launch")
-        for role in privileged_roles:
+        for role in supervisor_roles:
             with self.subTest(role=role):
-                broker.verify_startup_security_status(self._startup_status(), role=role)
+                broker.verify_startup_security_status(
+                    self._startup_status(cap_prm=supervisor, cap_eff=supervisor, cap_bnd=supervisor),
+                    role=role,
+                )
                 with self.assertRaisesRegex(broker.ContractError, "STARTUP_CAPABILITY_CONTRACT_INVALID"):
                     broker.verify_startup_security_status(
                         self._startup_status(cap_prm=cleared, cap_eff=cleared, cap_bnd=cleared),
+                        role=role,
+                    )
+        for role in legacy_roles:
+            with self.subTest(role=role):
+                facts = broker.verify_startup_security_status(
+                    self._startup_status(cap_prm=legacy, cap_eff=legacy, cap_bnd=legacy),
+                    role=role,
+                )
+                self.assertEqual((facts["CapPrm"], facts["CapEff"], facts["CapBnd"]), (0xEB, 0xEB, 0xEB))
+                with self.assertRaisesRegex(broker.ContractError, "STARTUP_CAPABILITY_CONTRACT_INVALID"):
+                    broker.verify_startup_security_status(
+                        self._startup_status(cap_prm=supervisor, cap_eff=supervisor, cap_bnd=supervisor),
                         role=role,
                     )
         for role in cleared_roles:
@@ -1844,7 +1926,10 @@ class InstalledAcceptanceEncodingAndStartupContractTests(unittest.TestCase):
                 with self.assertRaisesRegex(broker.ContractError, "STARTUP_CAPABILITY_CONTRACT_INVALID"):
                     broker.verify_startup_security_status(self._startup_status(), role=role)
         with self.assertRaisesRegex(broker.ContractError, "STARTUP_IDENTITY_CONTRACT_INVALID"):
-            broker.verify_startup_security_status(self._startup_status(uid="2002"), role="snapshot-stage")
+            broker.verify_startup_security_status(
+                self._startup_status(cap_prm=legacy, cap_eff=legacy, cap_bnd=legacy, uid="2002"),
+                role="snapshot-stage",
+            )
         with self.assertRaisesRegex(broker.ContractError, "STARTUP_CAPABILITY_CONTRACT_INVALID"):
             broker.verify_startup_security_status(
                 self._startup_status(cap_prm=cleared, cap_eff=cleared),
@@ -1852,12 +1937,28 @@ class InstalledAcceptanceEncodingAndStartupContractTests(unittest.TestCase):
             )
         with self.assertRaisesRegex(broker.ContractError, "STARTUP_THREAD_CONTRACT_INVALID"):
             broker.verify_startup_security_status(
-                self._startup_status(threads="2"), role="serve-stdio",
+                self._startup_status(cap_prm=supervisor, cap_eff=supervisor, cap_bnd=supervisor, threads="2"),
+                role="serve-stdio",
             )
         with self.assertRaisesRegex(broker.ContractError, "STARTUP_NO_NEW_PRIVS_INVALID"):
             broker.verify_startup_security_status(
-                self._startup_status(no_new_privs="0"), role="serve-stdio",
+                self._startup_status(cap_prm=supervisor, cap_eff=supervisor, cap_bnd=supervisor, no_new_privs="0"),
+                role="serve-stdio",
             )
+
+    def test_supervised_request_helpers_reduce_new_setup_capabilities_before_exec(self):
+        snapshot = inspect.getsource(broker.run_supervised_snapshot_stage)
+        cleanup = inspect.getsource(broker.run_supervised_cleanup_stage)
+        self.assertIn("_reduce_process_capabilities_to(LEGACY_HELPER_CAPABILITY_MASK)", snapshot)
+        self.assertIn("_reduce_process_capabilities_to(LEGACY_HELPER_CAPABILITY_MASK)", cleanup)
+        self.assertLess(
+            snapshot.index("_reduce_process_capabilities_to(LEGACY_HELPER_CAPABILITY_MASK)"),
+            snapshot.index("os.execve"),
+        )
+        self.assertLess(
+            cleanup.index("_reduce_process_capabilities_to(LEGACY_HELPER_CAPABILITY_MASK)"),
+            cleanup.index("os.execve"),
+        )
 
     def test_startup_role_is_unique_exact_and_argparse_has_no_abbreviations(self):
         self.assertEqual(broker.classify_startup_role(["--serve-stdio"]), "serve-stdio")

@@ -37,7 +37,7 @@ InaccessiblePaths=-/home
 InaccessiblePaths=-/mnt
 InaccessiblePaths=-/media
 
-CapabilityBoundingSet=CAP_CHOWN CAP_DAC_OVERRIDE CAP_FOWNER CAP_KILL CAP_SETGID CAP_SETUID
+CapabilityBoundingSet=CAP_CHOWN CAP_DAC_OVERRIDE CAP_FOWNER CAP_KILL CAP_SETGID CAP_SETUID CAP_SETPCAP CAP_NET_ADMIN CAP_SYS_ADMIN
 AmbientCapabilities=
 NoNewPrivileges=no
 PrivateDevices=yes

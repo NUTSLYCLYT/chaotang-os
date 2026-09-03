@@ -1103,7 +1103,9 @@ def _prctl_no_new_privs() -> None:
         _fail("STARTUP_NO_NEW_PRIVS_INVALID")
 
 
-SUPERVISOR_CAPABILITY_MASK = 0xEB
+SUPERVISOR_CAPABILITY_MASK = 0x2011EB
+LEGACY_HELPER_CAPABILITY_MASK = 0xEB
+SUPERVISOR_POST_SETUP_CAPABILITY_MASK = LEGACY_HELPER_CAPABILITY_MASK
 STARTUP_ROLE_FLAGS = {
     "--serve-stdio": "serve-stdio",
     "--ingest-run": "ingest-run",
@@ -1112,7 +1114,8 @@ STARTUP_ROLE_FLAGS = {
     "--snapshot-stage": "snapshot-stage",
     "--cleanup-stage": "cleanup-stage",
 }
-PRIVILEGED_STARTUP_ROLES = frozenset({"serve-stdio", "snapshot-stage", "cleanup-stage"})
+SUPERVISOR_STARTUP_ROLES = frozenset({"serve-stdio"})
+LEGACY_PRIVILEGED_STARTUP_ROLES = frozenset({"snapshot-stage", "cleanup-stage"})
 CLEARED_STARTUP_ROLES = frozenset({"ingest-run", "ingest-git-stage", "worker-launch"})
 
 
@@ -1133,7 +1136,7 @@ def verify_startup_security_status(
 ) -> dict[str, int]:
     """Fail closed unless process startup matches one approved capability state."""
 
-    if role not in PRIVILEGED_STARTUP_ROLES | CLEARED_STARTUP_ROLES:
+    if role not in SUPERVISOR_STARTUP_ROLES | LEGACY_PRIVILEGED_STARTUP_ROLES | CLEARED_STARTUP_ROLES:
         _fail("STARTUP_ROLE_INVALID")
     values = _parse_proc_status(text)
     if values.get("NoNewPrivs") != "1":
@@ -1155,7 +1158,9 @@ def verify_startup_security_status(
     )
     expected = (
         (SUPERVISOR_CAPABILITY_MASK,) * 3
-        if role in PRIVILEGED_STARTUP_ROLES else
+        if role in SUPERVISOR_STARTUP_ROLES else
+        (LEGACY_HELPER_CAPABILITY_MASK,) * 3
+        if role in LEGACY_PRIVILEGED_STARTUP_ROLES else
         (0, 0, 0)
     )
     if triplet != expected:
@@ -1194,9 +1199,11 @@ CLONE_DENIED_MASK = (
 
 def private_launcher_contract() -> dict:
     return {
-        "namespaceTypes": [CLONE_NEWUSER, CLONE_NEWNET],
+        "namespaceTypes": [CLONE_NEWNET],
         "namespaceFilesystemMagic": NSFS_MAGIC,
         "ownerIoctl": NS_GET_USERNS,
+        "privateUserNamespaceRequired": False,
+        "ownerMatchesHostUserNamespace": True,
         "privateLoopbackRequired": True,
     }
 
@@ -2072,27 +2079,20 @@ def assert_service_cgroup_quiescent() -> None:
 
 
 def _drop_credentials(uid: int, gid: int) -> None:
-    os.setgroups([])
-    os.setresgid(gid, gid, gid)
-    os.setresuid(uid, uid, uid)
     _prctl_no_new_privs()
-    # A non-root real host credential cannot drop an inherited service bounding
-    # set without CAP_SETPCAP.  Enter a one-ID bootstrap user namespace, map the
-    # already-dropped host UID/GID to namespace root, remove every bounding bit,
-    # then clear all namespace capability sets.  The parent still observes the
-    # dedicated real host UID/GID, empty groups and a zero CapBnd before exec.
+    # Drop the host-visible identity directly.  The service supervisor has
+    # CAP_SETPCAP only long enough to discard every bounding bit; a user
+    # namespace cannot safely satisfy the parent-observed host UID/GID contract
+    # on systems that reject non-self uid_map entries.
     libc = ctypes.CDLL(None, use_errno=True)
-    if libc.unshare(ctypes.c_int(CLONE_NEWUSER)) != 0:
-        error = ctypes.get_errno()
-        raise OSError(error, os.strerror(error))
-    Path("/proc/self/setgroups").write_text("deny", encoding="ascii")
-    Path("/proc/self/uid_map").write_text(f"0 {uid} 1\n", encoding="ascii")
-    Path("/proc/self/gid_map").write_text(f"0 {gid} 1\n", encoding="ascii")
     for capability in range(64):
         if libc.prctl(24, capability, 0, 0, 0) != 0:  # PR_CAPBSET_DROP
             error = ctypes.get_errno()
             if error != errno.EINVAL:
                 raise OSError(error, os.strerror(error))
+    os.setgroups([])
+    os.setresgid(gid, gid, gid)
+    os.setresuid(uid, uid, uid)
     class _CapHeader(ctypes.Structure):
         _fields_ = [("version", ctypes.c_uint32), ("pid", ctypes.c_int)]
     class _CapData(ctypes.Structure):
@@ -2117,19 +2117,10 @@ def _set_private_loopback_up() -> None:
 
 
 def _enter_private_user_network(uid: int, gid: int) -> None:
-    """Drop the host identity, enter a one-ID userns and then a fresh netns."""
+    """Enter a fresh netns, bring loopback up, then drop every credential."""
 
-    os.setgroups([])
-    os.setresgid(gid, gid, gid)
-    os.setresuid(uid, uid, uid)
     _prctl_no_new_privs()
     libc = ctypes.CDLL(None, use_errno=True)
-    if libc.unshare(ctypes.c_int(CLONE_NEWUSER)) != 0:
-        error = ctypes.get_errno()
-        raise OSError(error, os.strerror(error))
-    Path("/proc/self/setgroups").write_text("deny", encoding="ascii")
-    Path("/proc/self/uid_map").write_text(f"0 {uid} 1\n", encoding="ascii")
-    Path("/proc/self/gid_map").write_text(f"0 {gid} 1\n", encoding="ascii")
     if libc.unshare(ctypes.c_int(CLONE_NEWNET)) != 0:
         error = ctypes.get_errno()
         raise OSError(error, os.strerror(error))
@@ -2139,12 +2130,43 @@ def _enter_private_user_network(uid: int, gid: int) -> None:
             error = ctypes.get_errno()
             if error != errno.EINVAL:
                 raise OSError(error, os.strerror(error))
+    os.setgroups([])
+    os.setresgid(gid, gid, gid)
+    os.setresuid(uid, uid, uid)
     class _CapHeader(ctypes.Structure):
         _fields_ = [("version", ctypes.c_uint32), ("pid", ctypes.c_int)]
     class _CapData(ctypes.Structure):
         _fields_ = [("effective", ctypes.c_uint32), ("permitted", ctypes.c_uint32), ("inheritable", ctypes.c_uint32)]
     header = _CapHeader(0x20080522, 0)
     data = (_CapData * 2)()
+    if libc.capset(ctypes.byref(header), ctypes.byref(data)) != 0:
+        error = ctypes.get_errno()
+        raise OSError(error, os.strerror(error))
+
+
+def _reduce_process_capabilities_to(mask: int) -> None:
+    """Reduce startup helper capabilities before executing request-derived stages."""
+
+    if mask < 0 or mask >= (1 << 64):
+        _fail("STARTUP_CAPABILITY_CONTRACT_INVALID")
+    libc = ctypes.CDLL(None, use_errno=True)
+    for capability in range(64):
+        if mask & (1 << capability):
+            continue
+        if libc.prctl(24, capability, 0, 0, 0) != 0:  # PR_CAPBSET_DROP
+            error = ctypes.get_errno()
+            if error != errno.EINVAL:
+                raise OSError(error, os.strerror(error))
+    class _CapHeader(ctypes.Structure):
+        _fields_ = [("version", ctypes.c_uint32), ("pid", ctypes.c_int)]
+    class _CapData(ctypes.Structure):
+        _fields_ = [("effective", ctypes.c_uint32), ("permitted", ctypes.c_uint32), ("inheritable", ctypes.c_uint32)]
+    header = _CapHeader(0x20080522, 0)
+    data = (_CapData * 2)()
+    data[0].effective = mask & 0xFFFFFFFF
+    data[0].permitted = mask & 0xFFFFFFFF
+    data[1].effective = (mask >> 32) & 0xFFFFFFFF
+    data[1].permitted = (mask >> 32) & 0xFFFFFFFF
     if libc.capset(ctypes.byref(header), ctypes.byref(data)) != 0:
         error = ctypes.get_errno()
         raise OSError(error, os.strerror(error))
@@ -2320,14 +2342,16 @@ def _verify_launcher_namespaces(
         _fail("LAUNCHER_NAMESPACE_TYPE_INVALID")
     user_identity = _namespace_identity(user_fd)
     net_identity = _namespace_identity(net_fd)
-    if user_identity == host_user or net_identity == host_net:
+    if user_identity != host_user:
+        _fail("LAUNCHER_NAMESPACE_OWNER_INVALID")
+    if net_identity == host_net:
         _fail("LAUNCHER_NAMESPACE_NOT_PRIVATE")
     try:
         owner_fd = int(fcntl.ioctl(net_fd, NS_GET_USERNS, 0))
     except OSError as exc:
         raise ContractError("LAUNCHER_NAMESPACE_OWNER_INVALID") from exc
     try:
-        if _namespace_identity(owner_fd) != user_identity:
+        if _namespace_identity(owner_fd) != host_user:
             _fail("LAUNCHER_NAMESPACE_OWNER_INVALID")
     finally:
         os.close(owner_fd)
@@ -3383,6 +3407,7 @@ def run_supervised_snapshot_stage(
             ]
             acceptance_args, acceptance_environment = _acceptance_child_cli()
             command.extend(acceptance_args)
+            _reduce_process_capabilities_to(LEGACY_HELPER_CAPABILITY_MASK)
             os.execve(command[0], command, acceptance_environment)
         except BaseException as exc:
             os.write(2, (f"SNAPSHOT_STAGE_EXEC_FAILED:{type(exc).__name__}:{exc}\n").encode("utf-8", "replace"))
@@ -3427,6 +3452,7 @@ def run_supervised_cleanup_stage(
             ]
             acceptance_args, acceptance_environment = _acceptance_child_cli()
             command.extend(acceptance_args)
+            _reduce_process_capabilities_to(LEGACY_HELPER_CAPABILITY_MASK)
             os.execve(command[0], command, {
                 "RUNTIME_DIRECTORY": os.environ.get("RUNTIME_DIRECTORY", ""),
                 **acceptance_environment,
@@ -3468,7 +3494,6 @@ def serve_stdio() -> int:
             raise ContractError("PEER_CREDENTIAL_REJECTED")
         # Prove the private worker namespace before consuming any request byte.
         launcher = start_private_network_launcher(identities["workerUid"], identities["workerGid"])
-        initial_magic = receive_request_prelude(manifest, deadline=setup_deadline)
         runtime_directory = os.environ.get("RUNTIME_DIRECTORY", "")
         runtime_info = os.lstat(runtime_directory) if runtime_directory else None
         if (
@@ -3490,7 +3515,9 @@ def serve_stdio() -> int:
         ingest_helper = start_prefilter_ingest_helper(
             identities["ingestUid"], identities["ingestGid"], object_root,
         )
+        _reduce_process_capabilities_to(SUPERVISOR_POST_SETUP_CAPABILITY_MASK)
         assert_no_inet_socket_fds()
+        initial_magic = receive_request_prelude(manifest, deadline=setup_deadline)
         install_role_seccomp(
             "supervisor", protected_message_fds=(launcher["control"].fileno(),),
         )
