@@ -1,0 +1,121 @@
+{
+  "schemaVersion": "product-authority.m0.approval.v1",
+  "authorityId": "product-authority.m0.v1",
+  "taskId": "CAPABILITY-REGISTRY-V1-EXACT1-READONLY-PROJECTION-20260903",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "ea96fc35270472a652cde7d792f6734fd9793665",
+    "baseTree": "013053734718334f42383da0afe06a63868699db",
+    "approvalPath": ".harness/approvals/CAPABILITY-REGISTRY-V1-EXACT1-READONLY-PROJECTION-20260903.json",
+    "approvalCommitPaths": [
+      ".harness/approvals/CAPABILITY-REGISTRY-V1-EXACT1-READONLY-PROJECTION-20260903.json"
+    ],
+    "productPaths": [
+      "backend/app/api/capabilities.py",
+      "backend/app/capabilities/__init__.py",
+      "backend/app/capabilities/contracts.py",
+      "backend/app/capabilities/projection.py",
+      "backend/app/main.py",
+      "backend/tests/test_capabilities_api.py",
+      "backend/tests/test_capability_registry_projection.py",
+      "frontend/src/app/api/capabilities/[id]/route.ts",
+      "frontend/src/app/api/capabilities/route.ts",
+      "frontend/src/app/capabilities/page.tsx",
+      "frontend/src/features/capabilities/CapabilityRegistry.module.css",
+      "frontend/src/features/capabilities/CapabilityRegistryClient.tsx",
+      "frontend/src/features/capabilities/capabilityRegistryViewModel.test.ts",
+      "frontend/src/features/capabilities/capabilityRegistryViewModel.ts",
+      "frontend/src/lib/backendClient.capabilities.test.ts",
+      "frontend/src/lib/backendClient.ts"
+    ]
+  },
+  "nonGoals": [
+    "NO_AUTO_INSTALL_EXTERNAL_CAPABILITIES",
+    "NO_CREDENTIAL_OR_EXTERNAL_ACCOUNT_ACCESS",
+    "NO_DADIAN_FREEZE_BOUNDARY_CHANGE",
+    "NO_DEPLOYMENT_OR_RELEASE",
+    "NO_EXTERNAL_PUBLICATION_SENDING_QUOTING_OR_TRADING",
+    "NO_HARNESS_AUTHORITY_CI_OR_ADR_CHANGE",
+    "NO_PRODUCT_CODE_IN_APPROVAL_COMMIT",
+    "NO_SECOND_AGENT_SYSTEM_OR_TASK_LEDGER",
+    "NO_UNBOUNDED_BROWSER_OR_NETWORK_ACTION"
+  ],
+  "verification": [
+    {
+      "id": "backend-capabilities-pytest",
+      "tool": "python3",
+      "args": [
+        "-m",
+        "pytest",
+        "tests/test_capability_registry_projection.py",
+        "tests/test_capabilities_api.py"
+      ],
+      "cwd": "backend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "frontend-build",
+      "tool": "npm",
+      "args": [
+        "run",
+        "build"
+      ],
+      "cwd": "frontend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "frontend-capabilities-node-test",
+      "tool": "node",
+      "args": [
+        "--test",
+        "src/features/capabilities/capabilityRegistryViewModel.test.ts",
+        "src/lib/backendClient.capabilities.test.ts"
+      ],
+      "cwd": "frontend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "frontend-lint",
+      "tool": "npm",
+      "args": [
+        "run",
+        "lint"
+      ],
+      "cwd": "frontend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "frontend-typecheck",
+      "tool": "npm",
+      "args": [
+        "run",
+        "typecheck"
+      ],
+      "cwd": "frontend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "root-check-harness",
+      "tool": "node",
+      "args": [
+        "scripts/check_harness.mjs"
+      ],
+      "cwd": ".",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "root-harness-doctor",
+      "tool": "node",
+      "args": [
+        "scripts/harness-doctor.mjs",
+        "--check"
+      ],
+      "cwd": ".",
+      "timeoutMs": 300000
+    }
+  ],
+  "state": "APPROVED_FOR_ONE_CHILD"
+}
