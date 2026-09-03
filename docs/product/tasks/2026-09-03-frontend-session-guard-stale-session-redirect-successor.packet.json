@@ -1,0 +1,75 @@
+{
+  "schemaVersion": "governance-repair.packet.v1",
+  "taskId": "FRONTEND-SESSION-GUARD-STALE-SESSION-REDIRECT-SUCCESSOR-20260903",
+  "state": "DRAFT",
+  "authorizationState": "NON_AUTHORIZING",
+  "reviewState": "READY_FOR_OWNER_CONFIRMATION",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "4b1f33ca122ab6b79fe0c828345cbd6b720f1dbc",
+    "baseTree": "13451d12b600b76a3123b89cdad224492f9fde83",
+    "approvalCommitPaths": [
+      "docs/product/tasks/2026-09-03-frontend-session-guard-stale-session-redirect-successor.md",
+      "docs/product/tasks/2026-09-03-frontend-session-guard-stale-session-redirect-successor.packet.json",
+      "docs/superpowers/plans/2026-09-03-frontend-session-guard-stale-session-redirect-successor.md"
+    ],
+    "candidatePaths": [
+      "frontend/src/lib/requireUser.test.ts",
+      "frontend/src/lib/requireUser.ts"
+    ]
+  },
+  "problemStatement": {
+    "browserObservation": "A stale or unverifiable courtos_session cookie can cause protected pages such as /honglusi to render a Next.js Runtime Error instead of returning to /login.",
+    "securityDisposition": "Fail closed by denying protected page access and redirecting to login; do not treat auth-service uncertainty as authenticated.",
+    "preGovernanceEvidenceOnly": true
+  },
+  "candidateContract": {
+    "pathCount": 2,
+    "structure": "2 MODIFY / ALL 100644",
+    "frontendOnly": true,
+    "newBffRoutesAllowed": false,
+    "backendChangesAllowed": false,
+    "authorityChangesAllowed": false,
+    "productionDeploymentAllowed": false
+  },
+  "verificationMatrix": {
+    "focused": [
+      "cd frontend && TMPDIR=/tmp TEMP=/tmp TMP=/tmp node --test src/lib/requireUser.test.ts"
+    ],
+    "frontend": [
+      "cd frontend && TMPDIR=/tmp TEMP=/tmp TMP=/tmp npm test",
+      "cd frontend && npm run typecheck",
+      "cd frontend && npm run lint",
+      "cd frontend && npm run build"
+    ],
+    "root": [
+      "node scripts/check_harness.mjs",
+      "node scripts/check_harness.mjs --self-test",
+      "node scripts/harness-doctor.mjs --check",
+      "node --test scripts/harness-doctor.test.mjs",
+      "TMPDIR=/tmp node --test scripts/product-authority.test.mjs",
+      "node scripts/ext-full-value-convergence.mjs --check",
+      "node --test scripts/ext-full-value-convergence.test.mjs",
+      "git diff --check"
+    ],
+    "browser": [
+      "open http://127.0.0.1:3002/honglusi with a stale session cookie and verify /login?next=%2Fhonglusi without Runtime Error"
+    ],
+    "independentReviews": [
+      "Frontend Governance Review",
+      "Security Review"
+    ]
+  },
+  "stopConditions": [
+    "origin/ext-dev differs from the expected parent before any commit or push",
+    "a third candidate path appears",
+    "any backend, Harness, authority, systemd, P01, P10 or P14 path changes",
+    "protected page content is exposed when auth validation is uncertain",
+    "login redirect drops or mutates the protected next path",
+    "frontend unit/typecheck/lint/build, root Harness, V2 convergence or browser verification fails",
+    "independent review returns any P0, P1 or P2"
+  ]
+}
