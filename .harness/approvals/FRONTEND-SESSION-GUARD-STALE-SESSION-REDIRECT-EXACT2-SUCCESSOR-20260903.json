@@ -1,0 +1,92 @@
+{
+  "schemaVersion": "product-authority.m0.approval.v1",
+  "authorityId": "product-authority.m0.v1",
+  "taskId": "FRONTEND-SESSION-GUARD-STALE-SESSION-REDIRECT-EXACT2-SUCCESSOR-20260903",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "b084bc9e6f5f4f3987b969515d3bd9586de93047",
+    "baseTree": "b40a6ec77957fa0c69316cd8dc04cf20c2a7ee56",
+    "approvalPath": ".harness/approvals/FRONTEND-SESSION-GUARD-STALE-SESSION-REDIRECT-EXACT2-SUCCESSOR-20260903.json",
+    "approvalCommitPaths": [
+      ".harness/approvals/FRONTEND-SESSION-GUARD-STALE-SESSION-REDIRECT-EXACT2-SUCCESSOR-20260903.json",
+      "docs/product/tasks/2026-09-03-frontend-session-guard-stale-session-redirect-exact2-successor.md",
+      "docs/superpowers/plans/2026-09-03-frontend-session-guard-stale-session-redirect-exact2-successor.md"
+    ],
+    "productPaths": [
+      "frontend/src/lib/requireUser.test.ts",
+      "frontend/src/lib/requireUser.ts"
+    ]
+  },
+  "nonGoals": [
+    "AUTHORITY_OR_HARNESS_CHANGE",
+    "BACKEND_AUTH_OR_SESSION_STORE_CHANGE",
+    "FRONTEND_BFF_OR_ROUTE_CREATION",
+    "P01_P10_P14_OR_SYSTEMD_CHANGE",
+    "PRODUCTION_DEPLOYMENT"
+  ],
+  "verification": [
+    {
+      "id": "frontend_build",
+      "tool": "npm",
+      "args": [
+        "run",
+        "build"
+      ],
+      "cwd": "frontend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "frontend_lint",
+      "tool": "npm",
+      "args": [
+        "run",
+        "lint"
+      ],
+      "cwd": "frontend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "frontend_require_user",
+      "tool": "node",
+      "args": [
+        "--test",
+        "src/lib/requireUser.test.ts"
+      ],
+      "cwd": "frontend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "frontend_typecheck",
+      "tool": "npm",
+      "args": [
+        "run",
+        "typecheck"
+      ],
+      "cwd": "frontend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "root_harness",
+      "tool": "node",
+      "args": [
+        "scripts/check_harness.mjs"
+      ],
+      "cwd": ".",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "root_v2_check",
+      "tool": "node",
+      "args": [
+        "scripts/ext-full-value-convergence.mjs",
+        "--check"
+      ],
+      "cwd": ".",
+      "timeoutMs": 300000
+    }
+  ],
+  "state": "APPROVED_FOR_ONE_CHILD"
+}
