@@ -25,6 +25,17 @@ test("requireUser redirects a backend-rejected session to the safe login next UR
   );
 });
 
+test("requireUser redirects stale sessions when the auth service cannot validate them", async () => {
+  await assert.rejects(
+    () => requireUser("/honglusi", {
+      getSessionId: async () => "stale-session",
+      getCurrentUser: async () => ({ ok: false, kind: "network" }),
+      redirect: (location) => { throw new Error(location); },
+    }),
+    /\/login\?next=%2Fhonglusi/,
+  );
+});
+
 test("requireUser returns only the public user after server-side validation", async () => {
   const user = await requireUser("/study", {
     getSessionId: async () => "opaque-session",

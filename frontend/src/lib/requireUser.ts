@@ -45,8 +45,7 @@ export async function requireUser(
 
   const result = await dependencies.getCurrentUser(sessionId);
   if (!result.ok) {
-    if (result.kind === "unauthenticated") dependencies.redirect(`/login?next=${encodeURIComponent(nextPath)}`);
-    throw new Error("Unable to validate the current session.");
+    dependencies.redirect(`/login?next=${encodeURIComponent(nextPath)}`);
   }
   return result.user;
 }
