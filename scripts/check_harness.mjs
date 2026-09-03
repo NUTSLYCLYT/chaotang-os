@@ -23,12 +23,28 @@ const ROOT_OBSERVATION_KERNEL_REQUIRED_FILES = [
   "docs/product/tasks/2026-08-16-ext-root-observation-kernel-g1.md",
   "docs/superpowers/plans/2026-08-16-ext-root-observation-kernel-g1.md",
 ];
+const SCENE_PACK_V1_AUTHORITY_FILES = [
+  ".harness/changes/feat-scene-pack-v1-amendment-20260903/amendment.md",
+  ".harness/changes/feat-scene-pack-v1-amendment-20260903/ci_result/ci_summary.md",
+  ".harness/changes/feat-scene-pack-v1-amendment-20260903/owner_approval/exact-h-approval.md",
+  ".harness/changes/feat-scene-pack-v1-amendment-20260903/request_analysis/spec.md",
+  ".harness/changes/feat-scene-pack-v1-amendment-20260903/request_analysis/tasks.md",
+  ".harness/changes/feat-scene-pack-v1-amendment-20260903/summary.md",
+  ".harness/changes/feat-scene-pack-v1-next-amendment-20260903/amendment-draft.md",
+  ".harness/changes/feat-scene-pack-v1-next-amendment-20260903/request_analysis/spec.md",
+  ".harness/changes/feat-scene-pack-v1-next-amendment-20260903/request_analysis/tasks.md",
+  ".harness/changes/feat-scene-pack-v1-next-amendment-20260903/summary.md",
+  ".harness/contracts/execution-authority-scene-pack-v1.schema.json",
+  ".harness/manifest/execution-authority.scene-pack-v1.json",
+  ".harness/wiki/execution-authority-scene-pack-v1.md",
+];
 const ROOT_OBSERVATION_KERNEL_HARNESS_FILES = [
   ".harness/agents/project-owner.md",
   ".harness/contracts/project-harness.schema.json",
   ".harness/contracts/product-approval.schema.json",
   ".harness/manifest/project-harness.json",
   ".harness/rules/project-boundaries.md",
+  ...SCENE_PACK_V1_AUTHORITY_FILES,
 ];
 const M0_PRODUCT_AUTHORITY_REQUIRED_FILES = [
   ".harness/contracts/product-approval.schema.json",
@@ -59,6 +75,7 @@ const REQUIRED_FILES = [
   "docs/tooling-compatibility.md",
   ...ROOT_OBSERVATION_KERNEL_REQUIRED_FILES,
   ...M0_PRODUCT_AUTHORITY_REQUIRED_FILES,
+  ...SCENE_PACK_V1_AUTHORITY_FILES,
   "docs/decisions/0001-agentic-engineering-baseline.md",
   "docs/decisions/0002-dual-tool-harness-sharing.md",
   "docs/decisions/0003-codex-product-claude-delivery-handoff.md",

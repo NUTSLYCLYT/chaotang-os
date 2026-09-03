@@ -35,5 +35,20 @@
     "decision": "STOP",
     "canExecuteProductWork": false
   },
+  "scenePackExecutionAuthority": {
+    "status": "APPROVED_FOR_SCENE_PACK_V1",
+    "manifest": ".harness/manifest/execution-authority.scene-pack-v1.json",
+    "schema": ".harness/contracts/execution-authority-scene-pack-v1.schema.json",
+    "resolver": "scripts/lib/execution-authority-scene-pack-v1.mjs",
+    "command": "scripts/execution-authority-scene-pack-v1.mjs",
+    "test": "scripts/execution-authority-scene-pack-v1.nodetest.mjs",
+    "documentation": ".harness/wiki/execution-authority-scene-pack-v1.md",
+    "verification": [
+      "node --test scripts/execution-authority-scene-pack-v1.nodetest.mjs",
+      "node scripts/execution-authority-scene-pack-v1.mjs --check",
+      "node scripts/execution-authority-scene-pack-v1.mjs --authorize --work-package SCENE-PACK-V1",
+      "node scripts/harness-doctor.mjs"
+    ]
+  },
   "governanceGrantState": "EXTERNAL_NOT_CONSUMED"
 }

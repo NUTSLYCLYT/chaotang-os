@@ -121,6 +121,9 @@ export function JunjichuScene({
         <header className={styles.hero}>
           <p className={styles.eyebrow}>GRAND COUNCIL · CASE LEDGER</p>
           <h1>军机处</h1>
+          <a className={styles.sceneBoardLink} href="/junjichu/scene-board">
+            查看 Scene Pack 任务看板
+          </a>
         </header>
 
         {error ? (

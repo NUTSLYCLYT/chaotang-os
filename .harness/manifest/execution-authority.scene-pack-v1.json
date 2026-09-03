@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "execution-authority.scene-pack-v1",
+  "authorityId": "scene-pack-v1-execution-authority-20260903",
+  "amendment": {
+    "id": "SCENE-PACK-V1-FIRST-REAL-SCENES-20260903",
+    "path": ".harness/changes/feat-scene-pack-v1-amendment-20260903/amendment.md",
+    "approvedSourceDigest": "14f84c54c2f2429bc581dcc99b8534dd29a75a9dc13defbc9d842426e437dad0"
+  },
+  "effectiveBase": {
+    "ref": "origin/ext-dev",
+    "sha": "8282247208f3d79a8158aa7dc3138a49b1b919fb"
+  },
+  "approvalEvidence": {
+    "ownerApprovalPath": ".harness/changes/feat-scene-pack-v1-amendment-20260903/owner_approval/exact-h-approval.md",
+    "ownerApprovalSha256": "e066160486d07602bd364e3529964673c7b48ebd481b154220b3f24be084a9ae",
+    "approver": "lyt",
+    "approvedScope": ["SCENE-PACK-V1"]
+  },
+  "activeWorkPackage": "SCENE-PACK-V1",
+  "policy": {
+    "allowProductRuntimeChanges": true,
+    "allowPush": false,
+    "allowMerge": false,
+    "allowDeploy": false,
+    "allowExternalActions": false,
+    "allowedData": "demo_or_user_provided_non_external_execution_only"
+  }
+}

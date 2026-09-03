@@ -1,0 +1,413 @@
+.strategyPanel {
+  position: absolute;
+  right: 22px;
+  bottom: 24px;
+  left: 374px;
+  z-index: 18;
+  box-sizing: border-box;
+  padding: 14px;
+  border: 1px solid rgba(240, 198, 106, 0.32);
+  border-radius: 18px;
+  background:
+    linear-gradient(120deg, rgba(17, 18, 24, 0.88), rgba(36, 25, 15, 0.78)),
+    radial-gradient(circle at 12% 0, rgba(240, 198, 106, 0.18), transparent 48%);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.44);
+  pointer-events: auto;
+  backdrop-filter: blur(18px);
+}
+
+.strategyHeader,
+.cardTopline,
+.cardActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.strategyHeader {
+  margin-bottom: 10px;
+}
+
+.strategyHeader p,
+.strategyHeader h2,
+.entryCard h3,
+.entryCard p,
+.entryCard small {
+  margin: 0;
+}
+
+.strategyHeader p {
+  color: #d6ad55;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+}
+
+.strategyHeader h2 {
+  margin-top: 2px;
+  color: #fff1c2;
+  font-family: "STKaiti", "KaiTi", "Noto Serif SC", serif;
+  font-size: 1.26rem;
+  letter-spacing: 0.12em;
+}
+
+.strategyHeader > span {
+  padding: 5px 8px;
+  border: 1px solid rgba(240, 198, 106, 0.28);
+  border-radius: 999px;
+  color: #d8c08a;
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+}
+
+.strategyHeader > span[data-source="DEMO"] {
+  color: #d7b366;
+}
+
+.sceneRail {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(180px, 1fr));
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: thin;
+}
+
+.entryCard {
+  min-width: 180px;
+  min-height: 178px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 12px;
+  border: 1px solid rgba(240, 198, 106, 0.24);
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, rgba(247, 236, 209, 0.08), rgba(247, 236, 209, 0.035)),
+    rgba(10, 13, 20, 0.64);
+}
+
+.entryCard[data-risk="green"] {
+  box-shadow: inset 0 0 0 1px rgba(56, 217, 154, 0.12);
+}
+
+.entryCard[data-risk="amber"] {
+  box-shadow: inset 0 0 0 1px rgba(216, 183, 106, 0.16);
+}
+
+.entryCard[data-risk="red"] {
+  box-shadow: inset 0 0 0 1px rgba(228, 126, 91, 0.18);
+}
+
+.cardTopline span,
+.cardTopline i,
+.entryCard small {
+  color: #ad9e83;
+  font-size: 0.62rem;
+  line-height: 1.45;
+}
+
+.cardTopline i {
+  font-style: normal;
+}
+
+.entryCard[data-risk="green"] .cardTopline i {
+  color: #38d99a;
+}
+
+.entryCard[data-risk="amber"] .cardTopline i {
+  color: #d8b76a;
+}
+
+.entryCard[data-risk="red"] .cardTopline i {
+  color: #e47e5b;
+}
+
+.entryCard h3 {
+  color: #f8e9bd;
+  font-size: 1rem;
+  letter-spacing: 0.08em;
+}
+
+.entryCard p {
+  flex: 1;
+  color: #d6c4a2;
+  font-size: 0.78rem;
+  line-height: 1.58;
+}
+
+.entryCard small {
+  min-height: 34px;
+}
+
+.cardActions button,
+.sceneButton {
+  min-height: 34px;
+  padding: 7px 10px;
+  border: 1px solid rgba(240, 198, 106, 0.52);
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(240, 198, 106, 0.18), rgba(240, 198, 106, 0.08));
+  color: #fff1c2;
+  font: inherit;
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+
+.secondaryAction {
+  border-color: rgba(255, 255, 255, 0.18) !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: #d9c8a6 !important;
+}
+
+.workspace {
+  min-height: 100vh;
+  padding: 28px clamp(16px, 3vw, 42px) 92px;
+  color: #f7ecd1;
+  background:
+    radial-gradient(circle at 12% 8%, rgba(240, 198, 106, 0.16), transparent 34%),
+    linear-gradient(135deg, #111118 0%, #22170f 48%, #080b12 100%);
+}
+
+.workspaceHeader {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+  max-width: 1440px;
+  margin: 0 auto 18px;
+}
+
+.workspaceHeader p,
+.workspaceHeader h1 {
+  margin: 0;
+}
+
+.workspaceHeader p {
+  color: #d6ad55;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+}
+
+.workspaceHeader h1 {
+  margin-top: 4px;
+  font-family: "STKaiti", "KaiTi", "Noto Serif SC", serif;
+  font-size: clamp(2rem, 4vw, 3.4rem);
+  letter-spacing: 0.12em;
+}
+
+.workspaceGrid {
+  display: grid;
+  grid-template-columns: minmax(320px, 0.9fr) minmax(360px, 1.1fr) minmax(320px, 0.9fr);
+  gap: 14px;
+  max-width: 1440px;
+  margin: 0 auto;
+}
+
+.panel {
+  border: 1px solid rgba(240, 198, 106, 0.28);
+  border-radius: 18px;
+  background: rgba(12, 13, 18, 0.76);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.32);
+  padding: 16px;
+}
+
+.panel h2 {
+  margin: 0 0 8px;
+  color: #fff1c2;
+  font-size: 1.04rem;
+}
+
+.panel p,
+.panel li,
+.field span,
+.field textarea,
+.field input {
+  color: #dbc9a6;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+  font-size: 0.78rem;
+}
+
+.field input,
+.field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 11px;
+  border: 1px solid rgba(240, 198, 106, 0.24);
+  border-radius: 10px;
+  background: rgba(3, 6, 12, 0.56);
+  font: inherit;
+}
+
+.field textarea {
+  min-height: 84px;
+  resize: vertical;
+}
+
+.materialBox {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px dashed rgba(240, 198, 106, 0.28);
+  border-radius: 12px;
+  color: #b9aa8e;
+  font-size: 0.76rem;
+  line-height: 1.6;
+}
+
+.resultCard {
+  display: grid;
+  gap: 12px;
+}
+
+.verdict {
+  padding: 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.verdict strong,
+.score strong {
+  display: block;
+  color: #fff1c2;
+}
+
+.riskBadge {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 8px;
+  padding: 5px 8px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+}
+
+.riskBadge[data-risk="low"] { background: rgba(56, 217, 154, 0.14); color: #56e1aa; }
+.riskBadge[data-risk="medium"] { background: rgba(216, 183, 106, 0.14); color: #e2c575; }
+.riskBadge[data-risk="high"] { background: rgba(228, 126, 91, 0.16); color: #f0a17f; }
+
+.list {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+
+.list li {
+  margin-top: 6px;
+  line-height: 1.55;
+}
+
+.evidence {
+  margin-top: 8px;
+  padding: 10px;
+  border-left: 3px solid rgba(240, 198, 106, 0.42);
+  background: rgba(255, 255, 255, 0.045);
+  color: #d8c08a;
+  font-size: 0.76rem;
+  line-height: 1.55;
+}
+
+.fixedBar {
+  position: fixed;
+  right: clamp(14px, 3vw, 36px);
+  bottom: 18px;
+  left: clamp(14px, 3vw, 36px);
+  z-index: 30;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid rgba(240, 198, 106, 0.28);
+  border-radius: 16px;
+  background: rgba(8, 9, 12, 0.84);
+  backdrop-filter: blur(16px);
+}
+
+.boardGrid {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.72fr) minmax(420px, 1fr);
+  gap: 14px;
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+.missionCard {
+  width: 100%;
+  display: grid;
+  gap: 7px;
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px solid rgba(240, 198, 106, 0.24);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #f7ecd1;
+  text-align: left;
+  cursor: pointer;
+}
+
+.missionCard[data-risk="low"] { border-color: rgba(56, 217, 154, 0.36); }
+.missionCard[data-risk="medium"] { border-color: rgba(216, 183, 106, 0.4); }
+.missionCard[data-risk="high"] { border-color: rgba(228, 126, 91, 0.44); }
+
+.missionCard span,
+.missionCard small {
+  color: #b9aa8e;
+  font-size: 0.72rem;
+}
+
+.filterBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.filterBar button {
+  padding: 7px 10px;
+  border: 1px solid rgba(240, 198, 106, 0.24);
+  border-radius: 999px;
+  background: transparent;
+  color: #d8c08a;
+  cursor: pointer;
+}
+
+.filterBar button[data-active="true"] {
+  background: rgba(240, 198, 106, 0.15);
+  color: #fff1c2;
+}
+
+@media (max-width: 1180px) {
+  .strategyPanel {
+    left: 20px;
+  }
+  .sceneRail {
+    grid-template-columns: repeat(5, minmax(210px, 1fr));
+  }
+  .workspaceGrid,
+  .boardGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 767px) {
+  .strategyPanel {
+    position: relative;
+    right: auto;
+    bottom: auto;
+    left: auto;
+    margin-top: 14px;
+  }
+  .sceneRail {
+    display: flex;
+  }
+  .entryCard {
+    flex: 0 0 78vw;
+  }
+  .workspaceHeader {
+    display: block;
+  }
+}

@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chaotang.local/contracts/execution-authority.scene-pack-v1.schema.json",
+  "title": "Chaotang OS Scene Pack V1 scoped execution authority",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "authorityId",
+    "amendment",
+    "effectiveBase",
+    "approvalEvidence",
+    "activeWorkPackage",
+    "policy"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "execution-authority.scene-pack-v1" },
+    "authorityId": { "const": "scene-pack-v1-execution-authority-20260903" },
+    "amendment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "path", "approvedSourceDigest"],
+      "properties": {
+        "id": { "const": "SCENE-PACK-V1-FIRST-REAL-SCENES-20260903" },
+        "path": {
+          "const": ".harness/changes/feat-scene-pack-v1-amendment-20260903/amendment.md"
+        },
+        "approvedSourceDigest": { "$ref": "#/$defs/hex64" }
+      }
+    },
+    "effectiveBase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ref", "sha"],
+      "properties": {
+        "ref": { "const": "origin/ext-dev" },
+        "sha": { "const": "8282247208f3d79a8158aa7dc3138a49b1b919fb" }
+      }
+    },
+    "approvalEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ownerApprovalPath", "ownerApprovalSha256", "approver", "approvedScope"],
+      "properties": {
+        "ownerApprovalPath": {
+          "const": ".harness/changes/feat-scene-pack-v1-amendment-20260903/owner_approval/exact-h-approval.md"
+        },
+        "ownerApprovalSha256": { "$ref": "#/$defs/hex64" },
+        "approver": { "const": "lyt" },
+        "approvedScope": {
+          "type": "array",
+          "prefixItems": [{ "const": "SCENE-PACK-V1" }],
+          "minItems": 1,
+          "maxItems": 1
+        }
+      }
+    },
+    "activeWorkPackage": {
+      "oneOf": [{ "const": null }, { "const": "SCENE-PACK-V1" }]
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "allowProductRuntimeChanges",
+        "allowPush",
+        "allowMerge",
+        "allowDeploy",
+        "allowExternalActions",
+        "allowedData"
+      ],
+      "properties": {
+        "allowProductRuntimeChanges": { "const": true },
+        "allowPush": { "const": false },
+        "allowMerge": { "const": false },
+        "allowDeploy": { "const": false },
+        "allowExternalActions": { "const": false },
+        "allowedData": { "const": "demo_or_user_provided_non_external_execution_only" }
+      }
+    }
+  },
+  "$defs": {
+    "hex64": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+  }
+}

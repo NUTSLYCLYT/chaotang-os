@@ -16,6 +16,7 @@ from app.api import decrees as decrees_api
 from app.api import report_artifacts as report_artifacts_api
 from app.junjichu_cases import storage as junjichu_storage
 from app.langgraph_runtime import deepseek_env
+from app.scene_packs import storage as scene_pack_storage
 from app.shiguan import db as shiguan_db
 
 
@@ -68,6 +69,11 @@ def isolate_writable_runtime_defaults(tmp_path, monkeypatch):
         junjichu_storage,
         "_DEFAULT_DB_PATH",
         isolated_root / "junjichu_cases.sqlite3",
+    )
+    monkeypatch.setattr(
+        scene_pack_storage,
+        "_DEFAULT_DB_PATH",
+        isolated_root / "scene_packs.sqlite3",
     )
     monkeypatch.setattr(accounting_storage, "DEFAULT_DB_PATH", artifact_db)
     monkeypatch.setattr(accounting_storage, "DEFAULT_ARTIFACT_DIR", artifact_dir)

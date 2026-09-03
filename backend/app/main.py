@@ -33,6 +33,7 @@ from app.api.junjichu_cases import router as junjichu_cases_router
 from app.api.qintianjian import register_qintianjian_exception_handlers
 from app.api.qintianjian import router as qintianjian_router
 from app.api.report_artifacts import router as report_artifacts_router
+from app.api.scene_packs import router as scene_packs_router
 from app.api.shiguan import register_shiguan_exception_handlers
 from app.api.shiguan import router as shiguan_router
 from app.decree_jobs import DecreeJobWorker
@@ -133,3 +134,5 @@ register_qintianjian_exception_handlers(app)
 
 app.include_router(auth_router)
 register_auth_exception_handlers(app)
+
+app.include_router(scene_packs_router)

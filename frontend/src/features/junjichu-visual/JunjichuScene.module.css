@@ -10,6 +10,17 @@
 .hero h1 { margin: 2px 0; font: 700 clamp(32px, 5vw, 56px)/1.1 serif; letter-spacing: .18em; }
 .hero p { margin: 4px 0; color: #d7c5a2; }
 .eyebrow { color: #d5ad5d !important; font: 700 11px/1.4 sans-serif; letter-spacing: .24em; }
+.sceneBoardLink {
+  display: inline-flex;
+  margin-top: 8px;
+  padding: 7px 12px;
+  border: 1px solid rgba(213, 173, 93, .38);
+  border-radius: 999px;
+  color: #f7ecd1;
+  font-size: 12px;
+  text-decoration: none;
+  background: rgba(213, 173, 93, .12);
+}
 
 .stateCard {
   max-width: 720px;

@@ -10,6 +10,8 @@ type ProtectedPath =
   | "/shiguan"
   | "/dadian"
   | "/junjichu"
+  | "/junjichu/scene-board"
+  | `/scene-pack/${string}`
   | "/honglusi"
   | "/command-center"
   | "/liubu"

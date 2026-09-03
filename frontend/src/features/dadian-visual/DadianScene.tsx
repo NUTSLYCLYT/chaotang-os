@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import type { DadianOverview } from "../../lib/backendClient";
 import { CourtCapabilityButton } from "../court-visuals/CourtCapabilityButton";
 import { ImmersiveCourtShell } from "../court-visuals/ImmersiveCourtShell";
+import { SceneStrategyPanel } from "../scene-packs/SceneStrategyPanel";
 import { createDadianViewModel } from "./dadianViewModel";
 import styles from "./DadianScene.module.css";
 
@@ -170,6 +171,7 @@ export function DadianScene({
                 ))}
               </div>
             </div>
+            <SceneStrategyPanel />
           </section>
         ) : null}
       </div>

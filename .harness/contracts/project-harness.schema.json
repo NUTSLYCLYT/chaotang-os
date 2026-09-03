@@ -12,6 +12,7 @@
     "backend",
     "observedAuthority",
     "productAuthority",
+    "scenePackExecutionAuthority",
     "governanceGrantState"
   ],
   "properties": {
@@ -81,6 +82,35 @@
         "approvalSchema": { "const": ".harness/contracts/product-approval.schema.json" },
         "decision": { "const": "STOP" },
         "canExecuteProductWork": { "const": false }
+      }
+    },
+    "scenePackExecutionAuthority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "manifest",
+        "schema",
+        "resolver",
+        "command",
+        "test",
+        "documentation",
+        "verification"
+      ],
+      "properties": {
+        "status": { "const": "APPROVED_FOR_SCENE_PACK_V1" },
+        "manifest": { "const": ".harness/manifest/execution-authority.scene-pack-v1.json" },
+        "schema": { "const": ".harness/contracts/execution-authority-scene-pack-v1.schema.json" },
+        "resolver": { "const": "scripts/lib/execution-authority-scene-pack-v1.mjs" },
+        "command": { "const": "scripts/execution-authority-scene-pack-v1.mjs" },
+        "test": { "const": "scripts/execution-authority-scene-pack-v1.nodetest.mjs" },
+        "documentation": { "const": ".harness/wiki/execution-authority-scene-pack-v1.md" },
+        "verification": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "items": { "type": "string" }
+        }
       }
     },
     "governanceGrantState": { "const": "EXTERNAL_NOT_CONSUMED" }

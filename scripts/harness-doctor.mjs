@@ -11,8 +11,23 @@ const RESULT_SCHEMA = "ext-project-harness.result.v1";
 const MANIFEST_RELATIVE_PATH = ".harness/manifest/project-harness.json";
 const SCHEMA_RELATIVE_PATH = ".harness/contracts/project-harness.schema.json";
 const AUTHORITY_RELATIVE_PATH = "scripts/execution_authority_ext.mjs";
-const EXPECTED_SCHEMA_DIGEST = "sha256:ee6d32ba167c77af125b07027439389e46fbafa21148331a1ecc6360b183f81d";
+const EXPECTED_SCHEMA_DIGEST = "sha256:718e0ea8c264d5c5599c3c830cef64504006d21ccfda54f3c65f036dae896354";
 const PRODUCT_AUTHORITY_RELATIVE_PATH = "scripts/product-authority.mjs";
+const SCENE_PACK_AUTHORITY_REGISTRATION = Object.freeze({
+  status: "APPROVED_FOR_SCENE_PACK_V1",
+  manifest: ".harness/manifest/execution-authority.scene-pack-v1.json",
+  schema: ".harness/contracts/execution-authority-scene-pack-v1.schema.json",
+  resolver: "scripts/lib/execution-authority-scene-pack-v1.mjs",
+  command: "scripts/execution-authority-scene-pack-v1.mjs",
+  test: "scripts/execution-authority-scene-pack-v1.nodetest.mjs",
+  documentation: ".harness/wiki/execution-authority-scene-pack-v1.md",
+  verification: Object.freeze([
+    "node --test scripts/execution-authority-scene-pack-v1.nodetest.mjs",
+    "node scripts/execution-authority-scene-pack-v1.mjs --check",
+    "node scripts/execution-authority-scene-pack-v1.mjs --authorize --work-package SCENE-PACK-V1",
+    "node scripts/harness-doctor.mjs",
+  ]),
+});
 
 export const EXPECTED_MANIFEST = Object.freeze({
   schemaVersion: "ext-project-harness.v1",
@@ -51,6 +66,7 @@ export const EXPECTED_MANIFEST = Object.freeze({
     decision: "STOP",
     canExecuteProductWork: false,
   }),
+  scenePackExecutionAuthority: SCENE_PACK_AUTHORITY_REGISTRATION,
   governanceGrantState: "EXTERNAL_NOT_CONSUMED",
 });
 
@@ -91,6 +107,7 @@ export function validateProjectHarnessManifest(manifest) {
     "backend",
     "observedAuthority",
     "productAuthority",
+    "scenePackExecutionAuthority",
     "governanceGrantState",
   ];
   const layerFields = ["status", "entrypoint", "harnessRoot", "manifest", "doctor"];
@@ -102,6 +119,16 @@ export function validateProjectHarnessManifest(manifest) {
     "approvalSchema",
     "decision",
     "canExecuteProductWork",
+  ];
+  const sceneAuthorityFields = [
+    "status",
+    "manifest",
+    "schema",
+    "resolver",
+    "command",
+    "test",
+    "documentation",
+    "verification",
   ];
 
   if (!hasExactFields(manifest, topFields)) add(errors, "MANIFEST_FIELDS_INVALID");
@@ -125,6 +152,11 @@ export function validateProjectHarnessManifest(manifest) {
     || !sameScalarFields(manifest?.productAuthority, EXPECTED_MANIFEST.productAuthority)) {
     add(errors, "PRODUCT_AUTHORITY_PROJECTION_INVALID");
   }
+  if (!hasExactFields(manifest?.scenePackExecutionAuthority, sceneAuthorityFields)
+    || JSON.stringify(manifest?.scenePackExecutionAuthority)
+      !== JSON.stringify(EXPECTED_MANIFEST.scenePackExecutionAuthority)) {
+    add(errors, "SCENE_PACK_AUTHORITY_PROJECTION_INVALID");
+  }
   if (manifest?.governanceGrantState !== "EXTERNAL_NOT_CONSUMED") add(errors, "GOVERNANCE_GRANT_STATE_INVALID");
 
   const repositoryPaths = ["root", "frontend", "backend"].flatMap((layer) => {
@@ -132,6 +164,14 @@ export function validateProjectHarnessManifest(manifest) {
     return [value?.entrypoint, value?.harnessRoot, value?.manifest, value?.doctor].filter((entry) => entry !== null && entry !== undefined);
   });
   repositoryPaths.push(manifest?.productAuthority?.consumer, manifest?.productAuthority?.approvalSchema);
+  repositoryPaths.push(
+    manifest?.scenePackExecutionAuthority?.manifest,
+    manifest?.scenePackExecutionAuthority?.schema,
+    manifest?.scenePackExecutionAuthority?.resolver,
+    manifest?.scenePackExecutionAuthority?.command,
+    manifest?.scenePackExecutionAuthority?.test,
+    manifest?.scenePackExecutionAuthority?.documentation,
+  );
   if (repositoryPaths.some((entry) => !isSafeRepositoryPath(entry))) add(errors, "MANIFEST_PATH_INVALID");
   const normalized = repositoryPaths.map((entry) => entry.toLowerCase());
   if (new Set(normalized).size !== normalized.length) add(errors, "MANIFEST_PATHS_NOT_UNIQUE");
@@ -177,6 +217,12 @@ export function validateProjectHarnessDisk(rootDir, manifest) {
     manifest.backend.entrypoint,
     manifest.productAuthority.consumer,
     manifest.productAuthority.approvalSchema,
+    manifest.scenePackExecutionAuthority.manifest,
+    manifest.scenePackExecutionAuthority.schema,
+    manifest.scenePackExecutionAuthority.resolver,
+    manifest.scenePackExecutionAuthority.command,
+    manifest.scenePackExecutionAuthority.test,
+    manifest.scenePackExecutionAuthority.documentation,
   ];
   if (exactFiles.some((entry) => pathKind(rootDir, entry) !== "file")) add(errors, "REQUIRED_FILE_DRIFT");
   if (pathKind(rootDir, manifest.root.harnessRoot) !== "directory") add(errors, "ROOT_HARNESS_DRIFT");
@@ -240,6 +286,13 @@ export function validateProjectHarnessSchema(schema) {
     [["properties", "productAuthority", "properties", "approvalSchema", "const"], ".harness/contracts/product-approval.schema.json"],
     [["properties", "productAuthority", "properties", "decision", "const"], "STOP"],
     [["properties", "productAuthority", "properties", "canExecuteProductWork", "const"], false],
+    [["properties", "scenePackExecutionAuthority", "properties", "status", "const"], "APPROVED_FOR_SCENE_PACK_V1"],
+    [["properties", "scenePackExecutionAuthority", "properties", "manifest", "const"], ".harness/manifest/execution-authority.scene-pack-v1.json"],
+    [["properties", "scenePackExecutionAuthority", "properties", "schema", "const"], ".harness/contracts/execution-authority-scene-pack-v1.schema.json"],
+    [["properties", "scenePackExecutionAuthority", "properties", "resolver", "const"], "scripts/lib/execution-authority-scene-pack-v1.mjs"],
+    [["properties", "scenePackExecutionAuthority", "properties", "command", "const"], "scripts/execution-authority-scene-pack-v1.mjs"],
+    [["properties", "scenePackExecutionAuthority", "properties", "test", "const"], "scripts/execution-authority-scene-pack-v1.nodetest.mjs"],
+    [["properties", "scenePackExecutionAuthority", "properties", "documentation", "const"], ".harness/wiki/execution-authority-scene-pack-v1.md"],
     [["properties", "governanceGrantState", "const"], "EXTERNAL_NOT_CONSUMED"],
   ];
   const valueAt = (keys) => keys.reduce((value, key) => value?.[key], schema);
