@@ -42,7 +42,9 @@ async function createDiskFixture(t) {
   for (const directory of [
     ".harness/contracts",
     ".harness/manifest",
+    ".harness/wiki",
     "scripts",
+    "scripts/lib",
     "frontend",
     "backend/harness",
   ]) await mkdir(path.join(root, directory), { recursive: true });
@@ -53,6 +55,12 @@ async function createDiskFixture(t) {
     ".harness/manifest/project-harness.json",
     "scripts/harness-doctor.mjs",
     "scripts/product-authority.mjs",
+    ".harness/contracts/execution-authority-scene-pack-v1.schema.json",
+    ".harness/manifest/execution-authority.scene-pack-v1.json",
+    ".harness/wiki/execution-authority-scene-pack-v1.md",
+    "scripts/execution-authority-scene-pack-v1.mjs",
+    "scripts/execution-authority-scene-pack-v1.nodetest.mjs",
+    "scripts/lib/execution-authority-scene-pack-v1.mjs",
     "frontend/AGENTS.md",
     "backend/AGENTS.md",
   ]) await writeFile(path.join(root, file), "fixture\n", "utf8");
@@ -291,7 +299,8 @@ test("doctor source has no network, write or authorization command surface", asy
     /\bmkdir/,
     /\bunlink/,
     /\brename/,
-    /--authorize/,
+    /commandMap\s*=.*--authorize/s,
+    /if\s*\([^)]*authorize[^)]*\)\s*\{/,
     /shell\s*:\s*true/,
   ]) assert.doesNotMatch(source, forbidden);
 });

@@ -38,6 +38,13 @@ const SCENE_PACK_V1_AUTHORITY_FILES = [
   ".harness/manifest/execution-authority.scene-pack-v1.json",
   ".harness/wiki/execution-authority-scene-pack-v1.md",
 ];
+const AGENTIC_ORG_PROJECT_ORGANIZATION_DRAFT_FILES = [
+  ".harness/changes/feat-agentic-org-os-v1-project-organization-20260903/amendment-draft.md",
+  ".harness/changes/feat-agentic-org-os-v1-project-organization-20260903/owner_approval/draft-creation-authorization.md",
+  ".harness/changes/feat-agentic-org-os-v1-project-organization-20260903/request_analysis/spec.md",
+  ".harness/changes/feat-agentic-org-os-v1-project-organization-20260903/request_analysis/tasks.md",
+  ".harness/changes/feat-agentic-org-os-v1-project-organization-20260903/summary.md",
+];
 const ROOT_OBSERVATION_KERNEL_HARNESS_FILES = [
   ".harness/agents/project-owner.md",
   ".harness/contracts/project-harness.schema.json",
@@ -45,6 +52,7 @@ const ROOT_OBSERVATION_KERNEL_HARNESS_FILES = [
   ".harness/manifest/project-harness.json",
   ".harness/rules/project-boundaries.md",
   ...SCENE_PACK_V1_AUTHORITY_FILES,
+  ...AGENTIC_ORG_PROJECT_ORGANIZATION_DRAFT_FILES,
 ];
 const M0_PRODUCT_AUTHORITY_REQUIRED_FILES = [
   ".harness/contracts/product-approval.schema.json",
