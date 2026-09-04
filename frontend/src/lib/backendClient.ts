@@ -2382,6 +2382,348 @@ export function getJinyiweiSummary(options:JinyiweiReadOptions):Promise<Jinyiwei
 export function listJinyiweiInvestigations(options:ListJinyiweiOptions):Promise<JinyiweiReadResult<JinyiweiPage>>{const q=new URLSearchParams();if(options.status)q.set("status",options.status);q.set("limit",String(options.limit??20));q.set("offset",String(options.offset??0));return fetchJinyiwei(`/api/v1/jinyiwei/investigations?${q}`,parsePage,options);}
 export function getJinyiweiInvestigation(id:string,options:JinyiweiReadOptions):Promise<JinyiweiReadResult<JinyiweiDetail>>{return fetchJinyiwei(`/api/v1/jinyiwei/investigations/${encodeURIComponent(id)}`,parseDetail,options);}
 
+
+// ---- CapabilityRegistry readonly projection -----------------------------
+
+export type CapabilityKind = "skill" | "agent" | "swarm" | "workflow" | "mcp" | "plugin" | "api" | "template" | "imprint";
+export type CapabilitySource = "internal" | "honglusi" | "user_contribution" | "shiguan" | "external";
+export type CapabilityLevel = "low" | "medium" | "high";
+export type CapabilityStatus = "draft" | "trial" | "approved" | "retired";
+
+export interface CapabilityCard {
+  id: string;
+  name: string;
+  type: CapabilityKind;
+  source: CapabilitySource;
+  bestUseCase: string;
+  inputNeeded: string[];
+  outputProduced: string[];
+  riskLevel: CapabilityLevel;
+  costLevel: CapabilityLevel;
+  reusePotential: CapabilityLevel;
+  recommendedHome: string;
+  status: CapabilityStatus;
+  evidenceSources: string[];
+  active: boolean;
+  sampleCount: number;
+  authorityScore: number | null;
+  zeroPermissionWhenInactive: boolean;
+}
+
+export interface AgentPersonaCard {
+  agentId: string;
+  displayName: string;
+  role: string;
+  voice: string;
+  humorLevel: number;
+  decisionStyle: string;
+  forbiddenBehavior: string[];
+  defaultOpening: string;
+  evolutionGoal: string;
+  costEfficiencyGoal: string;
+}
+
+export interface ExternalCapabilityReview {
+  provider: string;
+  permissionNeeded: string[];
+  dataExposure: string[];
+  allowedActions: string[];
+  forbiddenActions: string[];
+  requiresXingbuReview: boolean;
+  defaultGrantDuration: string;
+  auditRequired: boolean;
+}
+
+export interface CapabilityPromotionCase {
+  capabilityId: string;
+  currentHome: string;
+  recommendedAction: string;
+  rationale: string;
+  requiredEvidence: string[];
+  reviewerDepartment: string;
+}
+
+export interface CapabilityRegistryItem {
+  card: CapabilityCard;
+  persona: AgentPersonaCard | null;
+  externalReview: ExternalCapabilityReview | null;
+  promotionCase: CapabilityPromotionCase;
+}
+
+export interface CapabilityRegistrySummary {
+  total: number;
+  byType: Record<string, number>;
+  byHome: Record<string, number>;
+  byStatus: Record<string, number>;
+  externalReviewRequired: number;
+  smallSampleWithoutAuthorityScore: number;
+}
+
+export interface CapabilityRegistryProjection {
+  schemaVersion: "capability-registry.v1";
+  owner: string;
+  canonicalWriter: string;
+  readonlySources: string[];
+  items: CapabilityRegistryItem[];
+  agentPersonas: AgentPersonaCard[];
+  summary: CapabilityRegistrySummary;
+}
+
+export type CapabilityReadResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; kind: "unauthenticated" | "validation" | "not_found" | "storage" | "network" | "unknown"; error: string };
+
+export interface CapabilityReadOptions {
+  sessionId: string;
+  baseUrl?: string;
+  timeoutMs?: number;
+  fetchImpl?: typeof fetch;
+  scheduleTimeout?: (callback: () => void, delayMs: number) => unknown;
+  cancelTimeout?: (handle: unknown) => void;
+}
+
+export interface CapabilityListOptions extends CapabilityReadOptions {
+  type?: CapabilityKind;
+  home?: string;
+  source?: CapabilitySource;
+  status?: CapabilityStatus;
+  risk?: CapabilityLevel;
+}
+
+const CAPABILITY_TIMEOUT_MS = 10000;
+const CAPABILITY_TYPES = new Set<CapabilityKind>(["skill", "agent", "swarm", "workflow", "mcp", "plugin", "api", "template", "imprint"]);
+const CAPABILITY_SOURCES = new Set<CapabilitySource>(["internal", "honglusi", "user_contribution", "shiguan", "external"]);
+const CAPABILITY_LEVELS = new Set<CapabilityLevel>(["low", "medium", "high"]);
+const CAPABILITY_STATUSES = new Set<CapabilityStatus>(["draft", "trial", "approved", "retired"]);
+const CAPABILITY_ERROR = "能力总账只读服务暂时不可用，请稍后重试。";
+
+function parseCountMap(value: unknown): Record<string, number> | null {
+  const record = asRecord(value);
+  if (record === null) return null;
+  const result: Record<string, number> = {};
+  for (const [key, item] of Object.entries(record)) {
+    if (!textValue(key) || !nonNegativeInteger(item)) return null;
+    result[key] = item;
+  }
+  return result;
+}
+
+function parseCapabilityStringArray(value: unknown): string[] | null {
+  return uniqueTextArray(value);
+}
+
+function parseCapabilityCard(value: unknown): CapabilityCard | null {
+  const r = asRecord(value);
+  if (!r || !hasExactKeys(r, ["id", "name", "type", "source", "best_use_case", "input_needed", "output_produced", "risk_level", "cost_level", "reuse_potential", "recommended_home", "status", "evidence_sources", "active", "sample_count", "authority_score", "zero_permission_when_inactive"])) return null;
+  const inputNeeded = parseCapabilityStringArray(r.input_needed);
+  const outputProduced = parseCapabilityStringArray(r.output_produced);
+  const evidenceSources = parseCapabilityStringArray(r.evidence_sources);
+  if (!textValue(r.id) || !textValue(r.name) || !CAPABILITY_TYPES.has(r.type as CapabilityKind) ||
+      !CAPABILITY_SOURCES.has(r.source as CapabilitySource) || !textValue(r.best_use_case) ||
+      inputNeeded === null || outputProduced === null || !CAPABILITY_LEVELS.has(r.risk_level as CapabilityLevel) ||
+      !CAPABILITY_LEVELS.has(r.cost_level as CapabilityLevel) || !CAPABILITY_LEVELS.has(r.reuse_potential as CapabilityLevel) ||
+      !textValue(r.recommended_home) || !CAPABILITY_STATUSES.has(r.status as CapabilityStatus) ||
+      evidenceSources === null || evidenceSources.length === 0 || typeof r.active !== "boolean" ||
+      !nonNegativeInteger(r.sample_count) || !(r.authority_score === null || (typeof r.authority_score === "number" && Number.isFinite(r.authority_score) && r.authority_score >= 0 && r.authority_score <= 1)) ||
+      typeof r.zero_permission_when_inactive !== "boolean") return null;
+  return {
+    id: r.id, name: r.name, type: r.type as CapabilityKind, source: r.source as CapabilitySource,
+    bestUseCase: r.best_use_case, inputNeeded, outputProduced,
+    riskLevel: r.risk_level as CapabilityLevel, costLevel: r.cost_level as CapabilityLevel,
+    reusePotential: r.reuse_potential as CapabilityLevel, recommendedHome: r.recommended_home,
+    status: r.status as CapabilityStatus, evidenceSources, active: r.active,
+    sampleCount: r.sample_count, authorityScore: r.authority_score as number | null,
+    zeroPermissionWhenInactive: r.zero_permission_when_inactive,
+  };
+}
+
+function parseAgentPersonaCard(value: unknown): AgentPersonaCard | null {
+  const r = asRecord(value);
+  if (!r || !hasExactKeys(r, ["agent_id", "display_name", "role", "voice", "humor_level", "decision_style", "forbidden_behavior", "default_opening", "evolution_goal", "cost_efficiency_goal"])) return null;
+  const forbiddenBehavior = parseCapabilityStringArray(r.forbidden_behavior);
+  if (!textValue(r.agent_id) || !textValue(r.display_name) || !textValue(r.role) || !textValue(r.voice) ||
+      !Number.isInteger(r.humor_level) || (r.humor_level as number) < 0 || (r.humor_level as number) > 3 ||
+      !textValue(r.decision_style) || forbiddenBehavior === null || !textValue(r.default_opening) ||
+      !textValue(r.evolution_goal) || !textValue(r.cost_efficiency_goal)) return null;
+  return {
+    agentId: r.agent_id,
+    displayName: r.display_name,
+    role: r.role,
+    voice: r.voice,
+    humorLevel: r.humor_level as number,
+    decisionStyle: r.decision_style,
+    forbiddenBehavior,
+    defaultOpening: r.default_opening,
+    evolutionGoal: r.evolution_goal,
+    costEfficiencyGoal: r.cost_efficiency_goal,
+  };
+}
+
+function parseExternalCapabilityReview(value: unknown): ExternalCapabilityReview | null {
+  const r = asRecord(value);
+  if (!r || !hasExactKeys(r, ["provider", "permission_needed", "data_exposure", "allowed_actions", "forbidden_actions", "requires_xingbu_review", "default_grant_duration", "audit_required"])) return null;
+  const permissionNeeded = parseCapabilityStringArray(r.permission_needed);
+  const dataExposure = parseCapabilityStringArray(r.data_exposure);
+  const allowedActions = parseCapabilityStringArray(r.allowed_actions);
+  const forbiddenActions = parseCapabilityStringArray(r.forbidden_actions);
+  if (!textValue(r.provider) || permissionNeeded === null || dataExposure === null || allowedActions === null ||
+      forbiddenActions === null || typeof r.requires_xingbu_review !== "boolean" ||
+      !textValue(r.default_grant_duration) || typeof r.audit_required !== "boolean") return null;
+  return {
+    provider: r.provider,
+    permissionNeeded,
+    dataExposure,
+    allowedActions,
+    forbiddenActions,
+    requiresXingbuReview: r.requires_xingbu_review,
+    defaultGrantDuration: r.default_grant_duration,
+    auditRequired: r.audit_required,
+  };
+}
+
+function parseCapabilityPromotionCase(value: unknown): CapabilityPromotionCase | null {
+  const r = asRecord(value);
+  if (!r || !hasExactKeys(r, ["capability_id", "current_home", "recommended_action", "rationale", "required_evidence", "reviewer_department"])) return null;
+  const requiredEvidence = parseCapabilityStringArray(r.required_evidence);
+  if (!textValue(r.capability_id) || !textValue(r.current_home) || !textValue(r.recommended_action) ||
+      !textValue(r.rationale) || requiredEvidence === null || !textValue(r.reviewer_department)) return null;
+  return {
+    capabilityId: r.capability_id,
+    currentHome: r.current_home,
+    recommendedAction: r.recommended_action,
+    rationale: r.rationale,
+    requiredEvidence,
+    reviewerDepartment: r.reviewer_department,
+  };
+}
+
+function parseCapabilityItem(value: unknown): CapabilityRegistryItem | null {
+  const r = asRecord(value);
+  if (!r || !hasExactKeys(r, ["card", "persona", "external_review", "promotion_case"])) return null;
+  const card = parseCapabilityCard(r.card);
+  const persona = r.persona === null ? null : parseAgentPersonaCard(r.persona);
+  const externalReview = r.external_review === null ? null : parseExternalCapabilityReview(r.external_review);
+  const promotionCase = parseCapabilityPromotionCase(r.promotion_case);
+  if (card === null || (r.persona !== null && persona === null) ||
+      (r.external_review !== null && externalReview === null) || promotionCase === null) return null;
+  return { card, persona, externalReview, promotionCase };
+}
+
+function parseCapabilitySummary(value: unknown): CapabilityRegistrySummary | null {
+  const r = asRecord(value);
+  if (!r || !hasExactKeys(r, ["total", "by_type", "by_home", "by_status", "external_review_required", "small_sample_without_authority_score"])) return null;
+  const byType = parseCountMap(r.by_type);
+  const byHome = parseCountMap(r.by_home);
+  const byStatus = parseCountMap(r.by_status);
+  if (!nonNegativeInteger(r.total) || byType === null || byHome === null || byStatus === null ||
+      !nonNegativeInteger(r.external_review_required) || !nonNegativeInteger(r.small_sample_without_authority_score)) return null;
+  return {
+    total: r.total,
+    byType,
+    byHome,
+    byStatus,
+    externalReviewRequired: r.external_review_required,
+    smallSampleWithoutAuthorityScore: r.small_sample_without_authority_score,
+  };
+}
+
+function parseCapabilityRegistryProjection(value: unknown): CapabilityRegistryProjection | null {
+  const r = asRecord(value);
+  if (!r || !hasExactKeys(r, ["schema_version", "owner", "canonical_writer", "readonly_sources", "items", "agent_personas", "summary"])) return null;
+  const readonlySources = parseCapabilityStringArray(r.readonly_sources);
+  const items = Array.isArray(r.items) ? r.items.map(parseCapabilityItem) : null;
+  const agentPersonas = Array.isArray(r.agent_personas) ? r.agent_personas.map(parseAgentPersonaCard) : null;
+  const summary = parseCapabilitySummary(r.summary);
+  if (r.schema_version !== "capability-registry.v1" || !textValue(r.owner) || !textValue(r.canonical_writer) ||
+      readonlySources === null || items === null || items.some((item) => item === null) ||
+      agentPersonas === null || agentPersonas.some((item) => item === null) || summary === null ||
+      summary.total !== items.length) return null;
+  return {
+    schemaVersion: "capability-registry.v1",
+    owner: r.owner,
+    canonicalWriter: r.canonical_writer,
+    readonlySources,
+    items: items as CapabilityRegistryItem[],
+    agentPersonas: agentPersonas as AgentPersonaCard[],
+    summary,
+  };
+}
+
+function parseCapabilityEnvelope(value: unknown): CapabilityRegistryProjection | null {
+  const r = asRecord(value);
+  if (!r || !hasExactKeys(r, ["status", "registry"]) || r.status !== "ok") return null;
+  return parseCapabilityRegistryProjection(r.registry);
+}
+
+function parseCapabilityDetailEnvelope(value: unknown): CapabilityRegistryItem | null {
+  const r = asRecord(value);
+  if (!r || !hasExactKeys(r, ["status", "capability"]) || r.status !== "ok") return null;
+  return parseCapabilityItem(r.capability);
+}
+
+function capabilityErrorKind(status: number): "unauthenticated" | "validation" | "not_found" | "storage" | "unknown" {
+  if (status === 401) return "unauthenticated";
+  if (status === 400 || status === 422) return "validation";
+  if (status === 404) return "not_found";
+  if (status === 503) return "storage";
+  return "unknown";
+}
+
+async function requestCapability<T>(
+  path: string,
+  parser: (value: unknown) => T | null,
+  options: CapabilityReadOptions,
+): Promise<CapabilityReadResult<T>> {
+  if (!options.sessionId || options.sessionId.trim().length === 0) {
+    return { ok: false, kind: "unauthenticated", error: CAPABILITY_ERROR };
+  }
+  const controller = new AbortController();
+  const schedule = options.scheduleTimeout ?? ((callback, delay) => setTimeout(callback, delay));
+  const cancel = options.cancelTimeout ?? ((handle) => clearTimeout(handle as ReturnType<typeof setTimeout>));
+  const timer = schedule(() => controller.abort(), options.timeoutMs ?? CAPABILITY_TIMEOUT_MS);
+  try {
+    const response = await (options.fetchImpl ?? fetch)(
+      `${(options.baseUrl ?? getBackendBaseUrl()).replace(/\/+$/, "")}${path}`,
+      {
+        method: "GET",
+        headers: { authorization: `Bearer ${options.sessionId}` },
+        signal: controller.signal,
+        cache: "no-store",
+      },
+    );
+    if (!response.ok) {
+      return { ok: false, kind: capabilityErrorKind(response.status), error: CAPABILITY_ERROR };
+    }
+    let body: unknown;
+    try {
+      body = await response.json();
+    } catch {
+      return { ok: false, kind: "unknown", error: CAPABILITY_ERROR };
+    }
+    const data = parser(body);
+    return data === null ? { ok: false, kind: "unknown", error: CAPABILITY_ERROR } : { ok: true, data };
+  } catch {
+    return { ok: false, kind: "network", error: CAPABILITY_ERROR };
+  } finally {
+    cancel(timer);
+  }
+}
+
+export function listCapabilities(options: CapabilityListOptions): Promise<CapabilityReadResult<CapabilityRegistryProjection>> {
+  const query = new URLSearchParams();
+  if (options.type) query.set("type", options.type);
+  if (options.home) query.set("home", options.home);
+  if (options.source) query.set("source", options.source);
+  if (options.status) query.set("status", options.status);
+  if (options.risk) query.set("risk", options.risk);
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  return requestCapability(`/api/v1/capabilities${suffix}`, parseCapabilityEnvelope, options);
+}
+
+export function getCapability(id: string, options: CapabilityReadOptions): Promise<CapabilityReadResult<CapabilityRegistryItem>> {
+  return requestCapability(`/api/v1/capabilities/${encodeURIComponent(id)}`, parseCapabilityDetailEnvelope, options);
+}
+
 // ---- Qintianjian advisory contracts -------------------------------------
 
 import {

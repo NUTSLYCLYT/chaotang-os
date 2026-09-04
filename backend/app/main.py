@@ -17,6 +17,7 @@ from fastapi.responses import JSONResponse
 
 from app.api.auth import register_auth_exception_handlers
 from app.api.auth import router as auth_router
+from app.api.capabilities import router as capabilities_router
 from app.api.chancellor_consult import register_chancellor_consult_exception_handlers
 from app.api.chancellor_consult import router as chancellor_consult_router
 from app.api.chancellor_drafts import register_chancellor_draft_exception_handlers
@@ -126,6 +127,8 @@ app.include_router(jinyiwei_router)
 register_jinyiwei_exception_handlers(app)
 
 app.include_router(junjichu_cases_router)
+
+app.include_router(capabilities_router)
 
 app.include_router(report_artifacts_router)
 
