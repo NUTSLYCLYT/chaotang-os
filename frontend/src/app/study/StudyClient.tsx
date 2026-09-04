@@ -153,7 +153,19 @@ interface ChancellorDraftRequestRunnerOptions {
   setPending(pending: boolean): void;
   setError(error: string | null): void;
   setDraft(draft: ChancellorDraftResult): void;
+  clearStaleOwnerPending?(): void;
   scheduleRedirect(path: string): void;
+}
+
+export function clearOwnerDraftPending(
+  envelope: OwnerScopedChancellorDraftComposerState,
+  ownerId: string,
+): OwnerScopedChancellorDraftComposerState {
+  if (envelope.ownerId !== ownerId || !envelope.value.draftPending) return envelope;
+  return {
+    ...envelope,
+    value: { ...envelope.value, draftPending: false },
+  };
 }
 
 export async function runChancellorDraftRequest({
@@ -166,12 +178,16 @@ export async function runChancellorDraftRequest({
   setPending,
   setError,
   setDraft,
+  clearStaleOwnerPending,
   scheduleRedirect,
 }: ChancellorDraftRequestRunnerOptions): Promise<boolean> {
   const normalizedSource = sourceText.trim();
   const result = await request(normalizedSource);
+  if (isCurrentOwner?.() === false) {
+    clearStaleOwnerPending?.();
+    return false;
+  }
   if (
-    isCurrentOwner?.() === false ||
     requestId !== getLatestRequestId() ||
     getCurrentSourceText().trim() !== normalizedSource
   ) {
@@ -323,9 +339,9 @@ export function StudyClient({ userId }: { userId: string }) {
       storage: window.sessionStorage,
       userId,
       isCurrent: () => currentOwner && activeOwnerRef.current === userId,
-      onProgress: (phase, jobId) => {
+      onProgress: (phase, jobId, jobProgress) => {
         if (currentOwner && activeOwnerRef.current === userId) {
-          setOwnerScopedUiState({ ownerId: userId, value: { phase, jobId } });
+          setOwnerScopedUiState({ ownerId: userId, value: { phase, jobId, jobProgress } });
         }
       },
     }).then((state) => {
@@ -379,9 +395,9 @@ export function StudyClient({ userId }: { userId: string }) {
             storage: window.sessionStorage,
             userId: submittingOwner,
             isCurrent: () => activeOwnerRef.current === submittingOwner,
-            onProgress: (phase, jobId) => {
+            onProgress: (phase, jobId, jobProgress) => {
               if (activeOwnerRef.current === submittingOwner) {
-                setUiState({ phase, jobId });
+                setUiState({ phase, jobId, jobProgress });
               }
             },
         }),
@@ -389,18 +405,21 @@ export function StudyClient({ userId }: { userId: string }) {
     });
   }
 
-  async function handleDraft() {
-    if (!decreeText.trim() || draftPending) return;
+  async function handleDraft(sourceText: string) {
+    const normalizedSource = sourceText.trim();
+    if (!normalizedSource || draftPending) return;
     const draftingOwner = userId;
     const requestId = draftRequestIdRef.current + 1;
     draftRequestIdRef.current = requestId;
-    const sourceText = decreeText;
+    decreeTextRef.current = normalizedSource;
+    setDecreeText(normalizedSource);
     setUiState(IDLE_UI_STATE);
     setDraftPending(true);
     setDraftError(null);
+    setDraftResult(null);
     await runChancellorDraftRequest({
       requestId,
-      sourceText,
+      sourceText: normalizedSource,
       getLatestRequestId: () => draftRequestIdRef.current,
       getCurrentSourceText: () => decreeTextRef.current,
       isCurrentOwner: () => activeOwnerRef.current === draftingOwner,
@@ -412,7 +431,75 @@ export function StudyClient({ userId }: { userId: string }) {
       setPending: setDraftPending,
       setError: setDraftError,
       setDraft: setDraftResult,
+      clearStaleOwnerPending: () => {
+        setOwnerScopedDraftComposer((current) =>
+          clearOwnerDraftPending(current, draftingOwner));
+      },
       scheduleRedirect: scheduleStudyLoginRedirect,
+    });
+  }
+
+  async function handleRetryProgress() {
+    const recoveringOwner = userId;
+    const active = loadActiveJob(window.sessionStorage, userId);
+    const fallbackSourceText = decreeText.trim() ||
+      draftResult?.decree_text?.trim() || "";
+    async function redraftOrExplain() {
+      if (!fallbackSourceText) {
+        setUiState({
+          phase: "error",
+          message: "当前浏览器没有可用于重新拟旨的目标。请先输入目标，再重新拟旨。",
+          ...(uiState.phase === "error" && uiState.lastVerifiedProgress
+            ? { lastVerifiedProgress: uiState.lastVerifiedProgress }
+            : {}),
+          progressFreshness: uiState.phase === "error"
+            ? uiState.progressFreshness ?? "current"
+            : "current",
+          recoveryMode: "redraft",
+        });
+        return;
+      }
+      await handleDraft(fallbackSourceText);
+    }
+    if (active === null) {
+      await redraftOrExplain();
+      return;
+    }
+    if (uiState.phase !== "error" || uiState.recoveryMode !== "resume") {
+      await redraftOrExplain();
+      return;
+    }
+    const resumeKey = `${encodeURIComponent(userId)}:${active.jobId}`;
+    resumedJobRef.current = resumeKey;
+    const lastVerifiedProgress = uiState.phase === "error" &&
+      uiState.lastVerifiedProgress?.jobId === active.jobId
+      ? uiState.lastVerifiedProgress
+      : undefined;
+    setUiState({
+      phase: "queued",
+      jobId: active.jobId,
+      ...(lastVerifiedProgress ? { jobProgress: lastVerifiedProgress } : {}),
+    });
+    const state = await resumeStudySubmission(active.jobId, {
+      initialProgress: lastVerifiedProgress,
+      fetchImpl: window.fetch.bind(window),
+      scheduleRedirect: scheduleStudyLoginRedirect,
+      storage: window.sessionStorage,
+      userId: recoveringOwner,
+      isCurrent: () => activeOwnerRef.current === recoveringOwner,
+      onProgress: (phase, jobId, jobProgress) => {
+        if (activeOwnerRef.current === recoveringOwner) {
+          setUiState({ phase, jobId, jobProgress });
+        }
+      },
+    });
+    if (activeOwnerRef.current !== recoveringOwner) return;
+    commitStudyDecreeUiState({
+      state,
+      setUiState,
+      clearDraft: () => setDraftResult(null),
+      invalidateRecentReplies: () =>
+        commitRecentReplies(invalidateStudyRecentReplies),
     });
   }
 
@@ -447,6 +534,26 @@ export function StudyClient({ userId }: { userId: string }) {
     return result.clearDraft;
   }
 
+  const recoverySourceText = decreeText.trim() ||
+    draftResult?.decree_text?.trim() || "";
+  let activeRecoveryJob: ReturnType<typeof loadActiveJob> = null;
+  if (typeof window !== "undefined") {
+    try {
+      activeRecoveryJob = loadActiveJob(window.sessionStorage, userId);
+    } catch {
+      // Session storage may be unavailable in privacy-restricted browsers.
+    }
+  }
+  const canResumeProgress = uiState.phase === "error" &&
+    uiState.progressFreshness === "stale" &&
+    uiState.recoveryMode === "resume" &&
+    activeRecoveryJob !== null;
+  const canRetryProgress = canResumeProgress || recoverySourceText.length > 0;
+  const retryProgressLabel = canResumeProgress ? "恢复办理" : "重新拟旨";
+  const retryProgressHint = canRetryProgress
+    ? null
+    : "请先输入目标，再重新拟旨。";
+
   return (
     <DevStudyWorkspace
       decreeText={decreeText}
@@ -464,7 +571,11 @@ export function StudyClient({ userId }: { userId: string }) {
       draftResult={draftResult}
       draftPending={draftPending}
       draftError={draftError}
-      onDraft={() => void handleDraft()}
+      onDraft={(sourceText) => void handleDraft(sourceText)}
+      onRetryProgress={() => void handleRetryProgress()}
+      canRetryProgress={canRetryProgress}
+      retryProgressLabel={retryProgressLabel}
+      retryProgressHint={retryProgressHint}
       onSubmit={() => void handleSubmitDecree()}
       recentReplies={recentReplies}
       onOpenRecentReplies={handleOpenRecentReplies}

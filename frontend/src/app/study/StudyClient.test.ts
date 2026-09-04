@@ -45,8 +45,24 @@ type DraftRequestRunner = (options: {
   setPending(pending: boolean): void;
   setError(error: string | null): void;
   setDraft(draft: { status: "DRAFT_READY"; decree_text: string }): void;
+  clearStaleOwnerPending?(): void;
   scheduleRedirect(path: string): void;
 }) => Promise<boolean>;
+
+interface DraftComposerEnvelope {
+  ownerId: string;
+  value: {
+    decreeText: string;
+    draftResult: null;
+    draftPending: boolean;
+    draftError: string | null;
+  };
+}
+
+type ClearOwnerDraftPending = (
+  envelope: DraftComposerEnvelope,
+  ownerId: string,
+) => DraftComposerEnvelope;
 
 async function loadExecutableRecentRepliesLoader(): Promise<RecentRepliesLoader> {
   const source = await readFile(new URL("./StudyClient.tsx", import.meta.url), "utf8");
@@ -130,6 +146,31 @@ async function loadExecutableDraftRequestRunner(): Promise<DraftRequestRunner> {
   return compiledModule.exports.runChancellorDraftRequest as DraftRequestRunner;
 }
 
+async function loadExecutableDraftRecoveryTools(): Promise<{
+  runDraftRequest: DraftRequestRunner;
+  clearOwnerDraftPending: ClearOwnerDraftPending;
+}> {
+  const source = await readFile(new URL("./StudyClient.tsx", import.meta.url), "utf8");
+  const compiled = ts.transpileModule(source, {
+    compilerOptions: {
+      jsx: ts.JsxEmit.ReactJSX,
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2017,
+    },
+  }).outputText;
+  const compiledModule = { exports: {} as Record<string, unknown> };
+
+  Function("require", "module", "exports", compiled)(
+    () => ({}),
+    compiledModule,
+    compiledModule.exports,
+  );
+  return {
+    runDraftRequest: compiledModule.exports.runChancellorDraftRequest as DraftRequestRunner,
+    clearOwnerDraftPending: compiledModule.exports.clearOwnerDraftPending as ClearOwnerDraftPending,
+  };
+}
+
 test("StudyClient delegates presentation while preserving the real decree state contract", async () => {
   const source = await readFile(new URL("./StudyClient.tsx", import.meta.url), "utf8");
 
@@ -156,10 +197,13 @@ test("StudyClient resumes one owner-scoped async job and invalidates stale owner
   assert.match(source, /const resumeKey = `\$\{encodeURIComponent\(userId\)\}:\$\{active\.jobId\}`/);
   assert.match(source, /resumedJobRef\.current = null/);
   assert.match(source, /isCurrent: \(\) => currentOwner && activeOwnerRef\.current === userId/);
+  assert.match(source, /onProgress: \(phase, jobId, jobProgress\) =>/);
+  assert.match(source, /value: \{ phase, jobId, jobProgress \}/);
   assert.match(source, /const submittingOwner = userId/);
   assert.match(source, /activeOwnerRef\.current !== submittingOwner/);
   assert.match(source, /userId: submittingOwner/);
   assert.match(source, /isCurrent: \(\) => activeOwnerRef\.current === submittingOwner/);
+  assert.match(source, /setUiState\(\{ phase, jobId, jobProgress \}\)/);
   assert.match(source, /useState<OwnerScopedDecreeUiState>/);
   assert.match(source, /resolveOwnerScopedDecreeUiState\(ownerScopedUiState, userId\)/);
   assert.match(source, /setOwnerScopedUiState\(\{ ownerId: userId, value: state \}\)/);
@@ -350,6 +394,100 @@ test("StudyClient gates issuing on the confirmed decree text, not the source inp
     /const canIssue = canSubmit && canIssueChancellorDraft\(draftResult\)/,
   );
   assert.match(source, /decreeText: draftResult\?\.decree_text \?\? ""/);
+});
+
+test("first decree passes explicit source text into the real Chancellor draft request", async () => {
+  const source = await readFile(new URL("./StudyClient.tsx", import.meta.url), "utf8");
+  const draftHandler = source.slice(
+    source.indexOf("async function handleDraft"),
+    source.indexOf("async function handleRetryProgress"),
+  );
+
+  assert.match(draftHandler, /async function handleDraft\(sourceText: string\)/);
+  assert.match(draftHandler, /const normalizedSource = sourceText\.trim\(\)/);
+  assert.match(draftHandler, /decreeTextRef\.current = normalizedSource/);
+  assert.match(draftHandler, /setDecreeText\(normalizedSource\)/);
+  assert.match(draftHandler, /request: \(text\) => requestChancellorDraft\(/);
+  assert.doesNotMatch(draftHandler, /setTimeout/);
+  assert.match(source, /onDraft=\{\(sourceText\) => void handleDraft\(sourceText\)\}/);
+});
+
+test("progress recovery resumes the owner-scoped active job before falling back to redraft", async () => {
+  const source = await readFile(new URL("./StudyClient.tsx", import.meta.url), "utf8");
+  const recovery = source.slice(
+    source.indexOf("async function handleRetryProgress"),
+    source.indexOf("async function handleOpenRecentReplies"),
+  );
+
+  assert.match(recovery, /loadActiveJob\(window\.sessionStorage, userId\)/);
+  assert.match(recovery, /if \(active === null\)/);
+  assert.match(recovery, /const fallbackSourceText = decreeText\.trim\(\) \|\|\s*draftResult\?\.decree_text\?\.trim\(\) \|\| ""/);
+  assert.match(recovery, /if \(!fallbackSourceText\)/);
+  assert.match(recovery, /请先输入目标/);
+  assert.match(recovery, /await handleDraft\(fallbackSourceText\)/);
+  assert.match(recovery, /resumeStudySubmission\(active\.jobId/);
+  assert.match(recovery, /initialProgress: lastVerifiedProgress/);
+  assert.match(recovery, /isCurrent: \(\) => activeOwnerRef\.current === recoveringOwner/);
+  assert.doesNotMatch(recovery, /saveActiveJob|sessionStorage\.setItem/);
+  assert.match(source, /onRetryProgress=\{\(\) => void handleRetryProgress\(\)\}/);
+  assert.match(source, /retryProgressLabel=/);
+  assert.match(source, /canRetryProgress=/);
+});
+
+test("recovery action is named from stale status plus an owner-scoped active job", async () => {
+  const source = await readFile(new URL("./StudyClient.tsx", import.meta.url), "utf8");
+  const recoveryPresentation = source.slice(
+    source.indexOf("const recoverySourceText"),
+    source.indexOf("  return (", source.indexOf("const recoverySourceText")),
+  );
+
+  assert.match(recoveryPresentation, /loadActiveJob\(window\.sessionStorage, userId\)/);
+  assert.match(recoveryPresentation, /uiState\.progressFreshness === "stale"/);
+  assert.match(recoveryPresentation, /uiState\.recoveryMode === "resume"/);
+  assert.match(recoveryPresentation, /activeRecoveryJob !== null/);
+  assert.match(recoveryPresentation, /canResumeProgress \? "恢复办理" : "重新拟旨"/);
+  assert.match(recoveryPresentation, /canRetryProgress = canResumeProgress \|\| recoverySourceText\.length > 0/);
+});
+
+test("owner A stale draft response clears only A pending so A can retry after A to B to A", async () => {
+  const { runDraftRequest, clearOwnerDraftPending } = await loadExecutableDraftRecoveryTools();
+  let envelope: DraftComposerEnvelope = {
+    ownerId: "owner-a",
+    value: {
+      decreeText: "A 的目标",
+      draftResult: null,
+      draftPending: true,
+      draftError: null,
+    },
+  };
+
+  await runDraftRequest({
+    requestId: 1,
+    sourceText: "A 的目标",
+    getLatestRequestId: () => 1,
+    getCurrentSourceText: () => "A 的目标",
+    isCurrentOwner: () => false,
+    request: async () => ({
+      ok: true,
+      draft: { status: "DRAFT_READY", decree_text: "A 的旧拟旨" },
+    }),
+    setPending: () => assert.fail("stale owner must not write through the current owner setter"),
+    setError: () => assert.fail("stale owner must not expose an error to B"),
+    setDraft: () => assert.fail("stale owner must not expose A draft to B"),
+    clearStaleOwnerPending: () => {
+      envelope = clearOwnerDraftPending(envelope, "owner-a");
+    },
+    scheduleRedirect: () => assert.fail("stale owner must not redirect"),
+  });
+
+  assert.equal(envelope.ownerId, "owner-a");
+  assert.equal(envelope.value.draftPending, false);
+
+  const ownerBEnvelope: DraftComposerEnvelope = {
+    ownerId: "owner-b",
+    value: { ...envelope.value, decreeText: "B 的目标", draftPending: true },
+  };
+  assert.equal(clearOwnerDraftPending(ownerBEnvelope, "owner-a"), ownerBEnvelope);
 });
 
 test("editing the source while a draft request is pending ignores the stale response", async () => {

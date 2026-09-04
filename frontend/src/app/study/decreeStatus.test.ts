@@ -24,6 +24,8 @@ test("async failures are mapped by truthful stable category", () => {
     {
       phase: "error",
       message: "会计司未能识别现有数据格式，已尝试替代读取策略。",
+      progressFreshness: "current",
+      recoveryMode: "redraft",
     },
   );
   const artifactFailure = mapDecreeJobFailure({
@@ -44,7 +46,12 @@ test("legacy unknown async failure keeps the generic fallback", () => {
       errorCategory: "private-category",
       errorCode: "C:/private/raw-mcp-body",
     }),
-    { phase: "error", message: "发生未知错误，请稍后重试。" },
+    {
+      phase: "error",
+      message: "发生未知错误，请稍后重试。",
+      progressFreshness: "current",
+      recoveryMode: "redraft",
+    },
   );
 });
 
@@ -85,6 +92,27 @@ test("getDecreeFormAvailability：提交处理中输入与提交均禁用", () =
       canSubmit: false,
     });
   }
+});
+
+test("queued/running 状态可原样携带后端已验证的公开进度，未知字段不补造", () => {
+  const progress = {
+    jobId: "a".repeat(32),
+    state: "RUNNING" as const,
+    stage: "ARCHIVING",
+    attemptCount: 2,
+    providerRequestCount: 7,
+    createdAt: "2026-08-26T01:00:00Z",
+    updatedAt: "2026-08-26T01:03:00Z",
+  };
+  const state: DecreeUiState = {
+    phase: "running",
+    jobId: progress.jobId,
+    jobProgress: progress,
+  };
+
+  assert.deepEqual(state.jobProgress, progress);
+  assert.equal("percent" in progress, false);
+  assert.equal("eta" in progress, false);
 });
 
 test("owner-scoped decree state hides A reply synchronously during A to B to A switching", () => {
@@ -339,6 +367,8 @@ test("mapSubmitDecreeResultToUiState：timeout 映射为明确的下旨处理超
   assert.deepEqual(state, {
     phase: "error",
     message: "下旨处理超时，请稍后重试。",
+    progressFreshness: "current",
+    recoveryMode: "redraft",
   });
 });
 
@@ -354,6 +384,11 @@ for (const kind of ERROR_KINDS) {
     if (state.phase === "error") {
       assert.equal(typeof state.message, "string");
       assert.ok(state.message.length > 0);
+      assert.equal(
+        state.progressFreshness,
+        kind === "network" || kind === "unknown" ? "stale" : "current",
+      );
+      assert.equal(state.recoveryMode, "redraft");
       // 固定友好文案：不应等于原始错误描述（保证不泄露内部实现细节）。
       assert.notEqual(state.message, "任意后端原始错误描述，不应被直接透传到 UI");
     }

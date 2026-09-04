@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type KeyboardEvent,
+} from "react";
 
 import type { DecreeUiState } from "../../app/study/decreeStatus";
 import {
@@ -29,47 +35,12 @@ import {
   dailyMemorialPhaseLabel,
   type DailyMemorialUiState,
 } from "../../app/study/dailyMemorialDraft";
+import {
+  SOURCE_MODE_LABELS,
+  projectStudyTaskCockpit,
+} from "./studyTaskCockpit";
 
 const ONBOARDED_KEY = "courtos.onboarded";
-const RULER_STYLE_KEY = "courtos.ruler.style";
-const FIRST_DECREE =
-  "制定 2027 年旗舰产品发布战略 · 财务预算 · 竞品扫描 · 营销节奏 · 全球合规 · 上市时机";
-
-type RulerStyle = "strict" | "benevolent" | "diligent";
-
-const RULER_STYLES: Array<{
-  id: RulerStyle;
-  glyph: string;
-  label: string;
-  sub: string;
-  bullets: string[];
-  tone: string;
-}> = [
-  {
-    id: "strict",
-    glyph: "◇",
-    label: "严政陛下",
-    sub: "STRICT SOVEREIGN",
-    bullets: ["丞相说话直切要害", "风险必驳 · 不求人情", "急事必先 · 慢事必砍"],
-    tone: "臣丞相为您备“直言进谏”模式。",
-  },
-  {
-    id: "benevolent",
-    glyph: "♔",
-    label: "仁政陛下",
-    sub: "BENEVOLENT SOVEREIGN",
-    bullets: ["丞相说话温和缜密", "利害权衡 · 照顾全局", "慢事留周旋 · 急事速裁"],
-    tone: "臣丞相为您备“圆融议政”模式。",
-  },
-  {
-    id: "diligent",
-    glyph: "♨",
-    label: "勤政陛下",
-    sub: "DILIGENT SOVEREIGN",
-    bullets: ["丞相每日主动呈报", "多线并发 · 不等陛下", "执行回写 · 全链透明"],
-    tone: "臣丞相为您备“日日勤问”模式。",
-  },
-];
 
 export interface DevStudyWorkspaceProps {
   decreeText: string;
@@ -80,7 +51,11 @@ export interface DevStudyWorkspaceProps {
   draftResult: ChancellorDraftResult | null;
   draftPending: boolean;
   draftError: string | null;
-  onDraft(): void;
+  onDraft(sourceText: string): void;
+  onRetryProgress(): void;
+  canRetryProgress: boolean;
+  retryProgressLabel: string;
+  retryProgressHint: string | null;
   onSubmit(): void;
   recentReplies: StudyRecentRepliesState;
   onOpenRecentReplies(): void;
@@ -97,113 +72,152 @@ export interface DevStudyWorkspaceProps {
   onRetryDailyMemorial(): void;
 }
 
-function FirstCourtRitual({
+function FirstDecreeWelcome({
   onClose,
-  onUseDraft,
+  onStartDraft,
 }: {
   onClose(): void;
-  onUseDraft(value: string): void;
+  onStartDraft(value: string): void;
 }) {
-  const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [rulerStyle, setRulerStyle] = useState<RulerStyle | null>(null);
-  const [draft, setDraft] = useState(FIRST_DECREE);
+  const [target, setTarget] = useState("");
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const actionRef = useRef<HTMLButtonElement>(null);
 
-  function finish() {
+  useEffect(() => {
+    textareaRef.current?.focus();
+  }, []);
+
+  function trapFocus(event: KeyboardEvent<HTMLDivElement>) {
+    if (event.key !== "Tab") return;
+    const focusable = [textareaRef.current, actionRef.current].filter(
+      (control): control is HTMLTextAreaElement | HTMLButtonElement =>
+        control !== null && !control.disabled,
+    );
+    const first = focusable[0];
+    const last = focusable.at(-1);
+    if (!first || !last) return;
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
+
+  function startDraft() {
+    const normalizedTarget = target.trim();
+    if (!normalizedTarget) return;
     try {
       window.localStorage.setItem(ONBOARDED_KEY, "1");
-      if (rulerStyle) window.localStorage.setItem(RULER_STYLE_KEY, rulerStyle);
     } catch {
-      // Storage is optional; the ritual remains usable in privacy-restricted browsers.
+      // Storage is optional; first decree remains usable in privacy-restricted browsers.
     }
+    onStartDraft(normalizedTarget);
     onClose();
   }
 
-  function keepDraft() {
-    onUseDraft(draft);
-    setStep(3);
-  }
-
   return (
-    <div className={styles.onboardingBackdrop} role="dialog" aria-modal="true" aria-labelledby="ritual-title">
+    <div
+      className={styles.onboardingBackdrop}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="first-decree-title"
+      onKeyDown={trapFocus}
+    >
       <section className={styles.ritual}>
         <header className={styles.ritualHeader}>
           <span>♨</span>
-          <strong>陛下御极 · 开朝仪轨</strong>
-          <span className={styles.steps} aria-label={`第 ${step} 步，共 3 步`}>
-            <i data-active={step === 1} />
-            <i data-active={step === 2} />
-            <i data-active={step === 3} />
-          </span>
+          <strong>丞相</strong>
+          <span className={styles.sourceMode}>{SOURCE_MODE_LABELS.LOCAL}</span>
         </header>
-
-        {step === 1 && (
-          <div className={styles.ritualBody}>
-            <p className={styles.eyebrow}>STEP 1 · 朝政之风</p>
-            <h2 id="ritual-title">陛下欲以何种风范临朝？</h2>
-            <p className={styles.ritualLead}>风格不同，丞相与百官奏对的语气、决策路径、审议严度皆异。日后可随时再改。</p>
-            <div className={styles.styleGrid}>
-              {RULER_STYLES.map((option) => (
-                <button
-                  key={option.id}
-                  type="button"
-                  className={styles.styleCard}
-                  data-tone={option.id}
-                  data-selected={rulerStyle === option.id}
-                  onClick={() => setRulerStyle(option.id)}
-                >
-                  <span className={styles.styleGlyph}>{option.glyph}</span>
-                  <strong>{option.label}</strong>
-                  <small>{option.sub}</small>
-                  <ul>
-                    {option.bullets.map((bullet) => <li key={bullet}>{bullet}</li>)}
-                  </ul>
-                  <em>{option.tone}</em>
-                </button>
-              ))}
-            </div>
-            <div className={styles.ritualActions}>
-              <button type="button" className={styles.skip} onClick={finish}>跳过 · 直接进朝堂</button>
-              <button type="button" className={styles.primary} disabled={!rulerStyle} onClick={() => setStep(2)}>
-                下一步 · 亲下第一道旨　→
-              </button>
-            </div>
+        <div className={styles.ritualBody}>
+          <p className={styles.eyebrow}>第一旨</p>
+          <h2 id="first-decree-title">您想先完成什么？</h2>
+          <p className={styles.ritualLead}>先写一个目标，丞相会据此整理可核验的拟旨草案。</p>
+          <textarea
+            ref={textareaRef}
+            className={styles.firstDraft}
+            aria-label="第一旨目标"
+            value={target}
+            onChange={(event) => setTarget(event.target.value)}
+            rows={5}
+            maxLength={2000}
+          />
+          <div className={styles.ritualActions}>
+            <button ref={actionRef} type="button" className={styles.primary} disabled={!target.trim()} onClick={startDraft}>
+              开始拟旨
+            </button>
           </div>
-        )}
-
-        {step === 2 && (
-          <div className={styles.ritualBody}>
-            <p className={styles.eyebrow}>STEP 2 · 第一道旨</p>
-            <h2 id="ritual-title">请陛下亲拟开朝第一道旨</h2>
-            <p className={styles.ritualLead}>此处只在本地拟旨，不会自动调用模型或提交业务请求。</p>
-            <textarea className={styles.firstDraft} value={draft} onChange={(event) => setDraft(event.target.value)} rows={5} />
-            <div className={styles.draftMeta}><span>字数 {draft.length}</span><span>带入御前输入栏后仍可修改</span></div>
-            <div className={styles.ritualActions}>
-              <button type="button" className={styles.skip} onClick={() => setStep(1)}>← 返回上一步</button>
-              <button type="button" className={styles.primary} disabled={!draft.trim()} onClick={keepDraft}>
-                带入御前输入　→
-              </button>
-            </div>
-          </div>
-        )}
-
-        {step === 3 && (
-          <div className={styles.ritualBody}>
-            <p className={styles.eyebrow}>STEP 3 · 朝堂动线</p>
-            <h2 id="ritual-title">圣意已置于御前</h2>
-            <p className={styles.ritualLead}>请核对旨意内容。只有您亲自点击“下旨”，系统才会进入真实办理流程。</p>
-            <div className={styles.hintGrid}>
-              <article><strong>今日圣旨</strong><span>收卷看殿，展卷读回奏</span></article>
-              <article><strong>御前输入</strong><span>拟好旨意后，即可交由百官会审</span></article>
-              <article><strong>真实办理</strong><span>亲自下旨后才调用当前接口</span></article>
-            </div>
-            <div className={styles.ritualActions}>
-              <button type="button" className={styles.skip} onClick={() => setStep(2)}>← 返回改旨</button>
-              <button type="button" className={styles.primary} onClick={finish}>进入朝堂　›</button>
-            </div>
-          </div>
-        )}
+        </div>
       </section>
     </div>
+  );
+}
+
+function AcceptanceText({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | undefined;
+}) {
+  return <div><dt>{label}</dt><dd>{value === undefined ? "未提供" : value}</dd></div>;
+}
+
+function AcceptanceList({
+  label,
+  values,
+  emptyLabel = "未提供",
+}: {
+  label: string;
+  values: string[] | undefined;
+  emptyLabel?: string;
+}) {
+  if (values === undefined) {
+    return <div><dt>{label}</dt><dd>未提供</dd></div>;
+  }
+  if (values.length === 0) {
+    return <div><dt>{label}</dt><dd>{emptyLabel}</dd></div>;
+  }
+  return (
+    <div>
+      <dt>{label}</dt>
+      <dd><ul>{values.map((value) => <li key={value}>{value}</li>)}</ul></dd>
+    </div>
+  );
+}
+
+function VerifiedJobProgress({
+  progress,
+  freshness = "current",
+}: {
+  progress: ReturnType<typeof projectStudyTaskCockpit>["progress"];
+  freshness?: "current" | "stale";
+}) {
+  if (!progress) {
+    if (freshness !== "stale") return null;
+    return (
+      <section className={styles.jobProgress} data-testid="decree-job-progress-unavailable">
+        <h2>当前状态不可用</h2>
+        <p>尚未取得可展示的已验证任务快照。</p>
+      </section>
+    );
+  }
+  return (
+    <section className={styles.jobProgress} data-testid="decree-job-progress">
+      <h2>{freshness === "stale" ? "最后一次已验证任务进度" : "已验证任务进度"}</h2>
+      {freshness === "stale" && <p>当前状态不可用，以下为最后一次成功读取的任务快照。</p>}
+      <dl>
+        <div><dt>jobId</dt><dd>{progress.jobId}</dd></div>
+        <div><dt>state</dt><dd>{progress.state}</dd></div>
+        <div><dt>stage</dt><dd>{progress.stage}</dd></div>
+        <div><dt>attemptCount</dt><dd>{progress.attemptCount}</dd></div>
+        <div><dt>providerRequestCount</dt><dd>{progress.providerRequestCount}</dd></div>
+        <div><dt>createdAt</dt><dd><time dateTime={progress.createdAt}>{formatBusinessTime(progress.createdAt)}</time></dd></div>
+        <div><dt>updatedAt</dt><dd><time dateTime={progress.updatedAt}>{formatBusinessTime(progress.updatedAt)}</time></dd></div>
+      </dl>
+    </section>
   );
 }
 
@@ -211,7 +225,7 @@ export function DevStudyWorkspace(props: DevStudyWorkspaceProps) {
   const [expanded, setExpanded] = useState(false);
   const polished = false;
   const [attachments, setAttachments] = useState<string[]>([]);
-  const [showRitual, setShowRitual] = useState(false);
+  const [showFirstVisit, setShowFirstVisit] = useState(false);
   const archivedReply = props.selectedArchivedReply;
   const archivedReplyId = archivedReply?.id;
   const archivedReplyRef = useRef<HTMLElement>(null);
@@ -226,6 +240,11 @@ export function DevStudyWorkspace(props: DevStudyWorkspaceProps) {
     draftResult: props.draftResult,
     draftPending: props.draftPending,
     draftError: props.draftError,
+    uiState: props.uiState,
+  });
+  const cockpit = projectStudyTaskCockpit({
+    decreeText: props.decreeText,
+    draftResult: props.draftResult,
     uiState: props.uiState,
   });
   const qintianContext = createQintianContext({
@@ -270,10 +289,10 @@ export function DevStudyWorkspace(props: DevStudyWorkspaceProps) {
   useEffect(() => {
     const timer = window.setTimeout(() => {
       try {
-        const forceForQa = new URLSearchParams(window.location.search).get("ritual") === "1";
-        setShowRitual(forceForQa || window.localStorage.getItem(ONBOARDED_KEY) !== "1");
+        const forceForQa = new URLSearchParams(window.location.search).get("first-decree") === "1";
+        setShowFirstVisit(forceForQa || window.localStorage.getItem(ONBOARDED_KEY) !== "1");
       } catch {
-        setShowRitual(true);
+        setShowFirstVisit(true);
       }
     }, 0);
     return () => window.clearTimeout(timer);
@@ -286,6 +305,9 @@ export function DevStudyWorkspace(props: DevStudyWorkspaceProps) {
 
   const composer = (
     <section className={styles.composer} aria-label="御前拟旨">
+      <p className={styles.sourceMode} data-source-mode="LOCAL">
+        {SOURCE_MODE_LABELS.LOCAL}
+      </p>
       {(polished || attachments.length > 0) && (
         <p className={styles.localNotice}>
           {polished ? "润色预览已开启 · 未调用模型" : ""}
@@ -296,7 +318,7 @@ export function DevStudyWorkspace(props: DevStudyWorkspaceProps) {
       <div className={styles.composerRow}>
         <label className={styles.attach} data-testid="decree-evidence-upload" title="选择本地补证附件（当前不会上传）">上传附件<input type="file" multiple onChange={handleFiles} disabled={!props.canEdit} /></label>
         <textarea id="decree-text" data-testid="decree-textarea" value={props.decreeText} onChange={(event) => props.onDecreeTextChange(event.target.value)} rows={1} maxLength={2000} disabled={!props.canEdit} placeholder="先说出大概想法，丞相会用专业案例帮您拟清楚……" />
-        <button type="button" className={styles.draftAction} data-testid="draft-edict-button" disabled={!props.canEdit || !props.decreeText.trim() || props.draftPending} onClick={props.onDraft}>{props.draftPending ? "拟旨中" : "拟旨"}</button>
+        <button type="button" className={styles.draftAction} data-testid="draft-edict-button" disabled={props.uiState.phase === "error" || !props.canEdit || !props.decreeText.trim() || props.draftPending} onClick={() => props.onDraft(props.decreeText)}>{props.draftPending ? "拟旨中" : "拟旨"}</button>
       </div>
       {props.draftError && <p className={styles.localNotice}>{props.draftError}</p>}
     </section>
@@ -369,7 +391,39 @@ export function DevStudyWorkspace(props: DevStudyWorkspaceProps) {
             </section>
           ) : props.uiState.phase === "error" ? (
             <section className={styles.emptyStage} data-testid="decree-submission-error" aria-live="polite">
+              <p className={styles.sourceMode} data-source-mode={cockpit.sourceMode}>
+                {SOURCE_MODE_LABELS[cockpit.sourceMode]}
+              </p>
               <p className={styles.emptyError}><strong>办理未能完成</strong>{props.uiState.message}</p>
+              <VerifiedJobProgress
+                progress={cockpit.progress}
+                freshness={props.uiState.progressFreshness ?? "current"}
+              />
+              <button
+                type="button"
+                className={styles.retryProgress}
+                data-testid="retry-decree-progress"
+                disabled={!props.canRetryProgress}
+                onClick={props.onRetryProgress}
+              >
+                {props.retryProgressLabel}
+              </button>
+              {props.retryProgressHint && <p className={styles.recoveryHint}>{props.retryProgressHint}</p>}
+            </section>
+          ) : ["enqueueing", "queued", "running"].includes(props.uiState.phase) ? (
+            <section
+              className={styles.emptyStage}
+              data-testid="decree-status"
+              data-phase={props.uiState.phase}
+              aria-live="polite"
+            >
+              <p className={styles.sourceMode} data-source-mode={cockpit.sourceMode}>
+                {SOURCE_MODE_LABELS[cockpit.sourceMode]}
+              </p>
+              {props.uiState.phase === "enqueueing" && <p>圣旨正在入队……</p>}
+              {props.uiState.phase === "queued" && <p>圣旨已入队，正在等候办理……</p>}
+              {props.uiState.phase === "running" && <p>丞相与百官正在办理圣旨……</p>}
+              <VerifiedJobProgress progress={cockpit.progress} />
             </section>
           ) : props.draftResult ? (
             <EdictStage
@@ -384,6 +438,9 @@ export function DevStudyWorkspace(props: DevStudyWorkspaceProps) {
             >
               <section className={styles.response} data-testid="chancellor-draft-result">
                 <div className={styles.returnContent}>
+                  <p className={styles.sourceMode} data-source-mode={cockpit.sourceMode}>
+                    {SOURCE_MODE_LABELS[cockpit.sourceMode]}
+                  </p>
                   {props.draftResult.draft && (
                     <section data-testid="chancellor-readable-draft">
                       <h2>参与部门</h2>
@@ -399,6 +456,23 @@ export function DevStudyWorkspace(props: DevStudyWorkspaceProps) {
                           </li>
                         ))}
                       </ul>
+                    </section>
+                  )}
+                  {cockpit.acceptance && (
+                    <section className={styles.acceptanceContract} data-testid="chancellor-acceptance-contract">
+                      <h2>任务验收契约</h2>
+                      <dl className={styles.acceptanceGrid}>
+                        <AcceptanceText label="任务目标" value={cockpit.acceptance.objective} />
+                        <AcceptanceList label="执行范围" values={cockpit.acceptance.scope} />
+                        <AcceptanceList label="不包含" values={cockpit.acceptance.exclusions} emptyLabel="无排除项" />
+                        <AcceptanceList label="输入材料" values={cockpit.acceptance.inputMaterials} />
+                        <AcceptanceList label="材料缺口" values={cockpit.acceptance.materialGaps} emptyLabel="无已知材料缺口" />
+                        <AcceptanceList label="重点问题" values={cockpit.acceptance.keyQuestions} />
+                        <AcceptanceList label="执行步骤" values={cockpit.acceptance.executionSteps} />
+                        <AcceptanceList label="最终交付物" values={cockpit.acceptance.deliverables} />
+                        <AcceptanceList label="完成标准" values={cockpit.acceptance.completionCriteria} />
+                        <AcceptanceList label="权限与限制" values={cockpit.acceptance.permissionsAndLimits} />
+                      </dl>
                     </section>
                   )}
                   <h2>即将下旨的草案</h2>
@@ -468,6 +542,10 @@ export function DevStudyWorkspace(props: DevStudyWorkspaceProps) {
                 aria-live="polite"
               >
                 <div className={styles.returnContent}>
+                  <p className={styles.sourceMode} data-source-mode={cockpit.sourceMode}>
+                    {SOURCE_MODE_LABELS[cockpit.sourceMode]}
+                  </p>
+                  <VerifiedJobProgress progress={cockpit.progress} />
                   <p data-testid="decree-rationale"><strong>{props.uiState.chancellor}判断</strong>{props.uiState.rationale}</p>
                   <p className={styles.path} data-testid="decree-processing-path"><strong>流转路径</strong>{props.uiState.processingPath.join(" → ")}</p>
                   <h2>分层部门意见</h2>
@@ -540,15 +618,16 @@ export function DevStudyWorkspace(props: DevStudyWorkspaceProps) {
               {props.uiState.phase === "enqueueing" && <p>圣旨正在入队……</p>}
               {props.uiState.phase === "queued" && <p>圣旨已入队，正在等候办理……</p>}
               {props.uiState.phase === "running" && <p>丞相与百官正在办理圣旨……</p>}
+              <VerifiedJobProgress progress={cockpit.progress} />
             </section>
           )}
         </section>
 
       </div>
-      {showRitual && (
-        <FirstCourtRitual
-          onClose={() => setShowRitual(false)}
-          onUseDraft={(value) => props.onDecreeTextChange(value)}
+      {showFirstVisit && (
+        <FirstDecreeWelcome
+          onClose={() => setShowFirstVisit(false)}
+          onStartDraft={props.onDraft}
         />
       )}
     </ImmersiveCourtShell>

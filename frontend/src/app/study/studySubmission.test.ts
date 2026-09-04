@@ -118,6 +118,8 @@ test("401 schedules only the allowlisted Study login redirect", async () => {
   assert.deepEqual(state, {
     phase: "error",
     message: "会话已过期，正在返回登录页。",
+    progressFreshness: "current",
+    recoveryMode: "redraft",
   });
 });
 
@@ -140,7 +142,12 @@ test("invalid JSON, invalid success data, known errors, and network failures map
   const timeoutState: DecreeUiState = {
     phase: "error",
     message: "下旨处理超时，请稍后重试。",
+    progressFreshness: "stale",
+    recoveryMode: "redraft",
   };
+  const staleModelState: DecreeUiState = modelState.phase === "error"
+    ? { ...modelState, progressFreshness: "stale", recoveryMode: "redraft" }
+    : modelState;
   const cases: Array<[string, StudyFetch, DecreeUiState]> = [
     [
       "invalid JSON",
@@ -163,7 +170,7 @@ test("invalid JSON, invalid success data, known errors, and network failures map
         { status: "error", reason: "model", message: "internal" },
         { status: 502 },
       ),
-      modelState,
+      staleModelState,
     ],
     [
       "timeout route error",
@@ -196,12 +203,11 @@ test("invalid JSON, invalid success data, known errors, and network failures map
 test("202 acceptance is polled sequentially through success", async () => {
   const jobId = "a".repeat(32);
   const requests: string[] = [];
-  const jobStates = [
-    { jobId, state: "QUEUED", stage: "QUEUED", attemptCount: 0, providerRequestCount: 0, cancelRequested: false, result: null, error: null, createdAt: "2026-08-07T00:00:00Z", updatedAt: "2026-08-07T00:00:00Z" },
-    { jobId, state: "RUNNING", stage: "RUNNING", attemptCount: 1, providerRequestCount: 1, cancelRequested: false, result: null, error: null, createdAt: "2026-08-07T00:00:00Z", updatedAt: "2026-08-07T00:00:01Z" },
-    { jobId, state: "SUCCEEDED", stage: "SUCCEEDED", attemptCount: 1, providerRequestCount: 1, cancelRequested: false, result: VALID_SUCCESS_BODY, error: null, createdAt: "2026-08-07T00:00:00Z", updatedAt: "2026-08-07T00:00:02Z" },
-  ];
-  const progress: string[] = [];
+  const queuedSnapshot = { jobId, state: "QUEUED", stage: "QUEUED", attemptCount: 0, providerRequestCount: 0, cancelRequested: false, result: null, error: null, createdAt: "2026-08-07T00:00:00Z", updatedAt: "2026-08-07T00:00:00Z" };
+  const runningSnapshot = { jobId, state: "RUNNING", stage: "RUNNING", attemptCount: 1, providerRequestCount: 1, cancelRequested: false, result: null, error: null, createdAt: "2026-08-07T00:00:00Z", updatedAt: "2026-08-07T00:00:01Z" };
+  const succeededSnapshot = { jobId, state: "SUCCEEDED", stage: "SUCCEEDED", attemptCount: 1, providerRequestCount: 1, cancelRequested: false, result: VALID_SUCCESS_BODY, error: null, createdAt: "2026-08-07T00:00:00Z", updatedAt: "2026-08-07T00:00:02Z" };
+  const jobStates = [queuedSnapshot, runningSnapshot, succeededSnapshot];
+  const progress: Array<{ phase: string; jobId: string; snapshot: unknown }> = [];
   let active = 0;
   let maxActive = 0;
 
@@ -219,13 +225,112 @@ test("202 acceptance is polled sequentially through success", async () => {
     },
     scheduleRedirect: () => assert.fail("must not redirect"),
     wait: async () => {},
-    onProgress: (phase) => progress.push(phase),
+    onProgress: (phase, progressJobId, snapshot) => progress.push({
+      phase,
+      jobId: progressJobId,
+      snapshot,
+    }),
   });
 
   assert.equal(maxActive, 1);
-  assert.deepEqual(progress, ["queued", "queued", "running"]);
+  assert.deepEqual(progress, [
+    { phase: "queued", jobId, snapshot: undefined },
+    {
+      phase: "queued",
+      jobId,
+      snapshot: {
+        jobId,
+        state: "QUEUED",
+        stage: "QUEUED",
+        attemptCount: 0,
+        providerRequestCount: 0,
+        createdAt: "2026-08-07T00:00:00Z",
+        updatedAt: "2026-08-07T00:00:00Z",
+      },
+    },
+    {
+      phase: "running",
+      jobId,
+      snapshot: {
+        jobId,
+        state: "RUNNING",
+        stage: "RUNNING",
+        attemptCount: 1,
+        providerRequestCount: 1,
+        createdAt: "2026-08-07T00:00:00Z",
+        updatedAt: "2026-08-07T00:00:01Z",
+      },
+    },
+  ]);
   assert.equal(state.phase, "success");
+  if (state.phase === "success") {
+    assert.deepEqual(state.jobProgress, {
+      jobId,
+      state: "SUCCEEDED",
+      stage: "SUCCEEDED",
+      attemptCount: 1,
+      providerRequestCount: 1,
+      createdAt: "2026-08-07T00:00:00Z",
+      updatedAt: "2026-08-07T00:00:02Z",
+    });
+  }
   assert.equal(requests.length, 4);
+});
+
+test("terminal failure keeps the latest validated public job snapshot", async () => {
+  const jobId = "9".repeat(32);
+  const queued = {
+    jobId,
+    state: "QUEUED",
+    stage: "RETRY_WAIT",
+    attemptCount: 1,
+    providerRequestCount: 2,
+    cancelRequested: false,
+    result: null,
+    error: null,
+    createdAt: "2026-08-26T01:00:00Z",
+    updatedAt: "2026-08-26T01:01:00Z",
+  };
+  const failed = {
+    ...queued,
+    state: "FAILED",
+    stage: "FAILED",
+    error: { code: "provider_failed", stage: "model", category: "provider" },
+    updatedAt: "2026-08-26T01:02:00Z",
+  };
+  const responses = [
+    Response.json({
+      jobId,
+      state: "QUEUED",
+      statusUrl: `/api/decree-jobs/${jobId}`,
+      cancelUrl: `/api/decree-jobs/${jobId}/cancel`,
+      acceptedAt: "2026-08-26T01:00:00Z",
+      replayed: false,
+    }, { status: 202 }),
+    Response.json(queued),
+    Response.json(failed),
+  ];
+
+  const state = await requestStudySubmission("preserve progress", {
+    fetchImpl: async () => responses.shift()!,
+    scheduleRedirect: () => assert.fail("must not redirect"),
+    wait: async () => {},
+  });
+
+  assert.equal(state.phase, "error");
+  if (state.phase === "error") {
+    assert.equal(state.progressFreshness, "current");
+    assert.equal(state.recoveryMode, "redraft");
+    assert.deepEqual(state.lastVerifiedProgress, {
+      jobId,
+      state: "FAILED",
+      stage: "FAILED",
+      attemptCount: 1,
+      providerRequestCount: 2,
+      createdAt: "2026-08-26T01:00:00Z",
+      updatedAt: "2026-08-26T01:02:00Z",
+    });
+  }
 });
 
 test("accounting source blocker shows the missing input and next step", async () => {
@@ -259,10 +364,14 @@ test("accounting source blocker shows the missing input and next step", async ()
     wait: async () => {},
   });
 
-  assert.deepEqual(state, {
-    phase: "error",
-    message: "回奏受阻：系统内财务数据当前无法通过格式或主体身份校验。请管理员修正受控财务数据源后重新下旨；本次未生成 Excel 文件。",
-  });
+  assert.equal(state.phase, "error");
+  if (state.phase === "error") {
+    assert.equal(state.message, "回奏受阻：系统内财务数据当前无法通过格式或主体身份校验。请管理员修正受控财务数据源后重新下旨；本次未生成 Excel 文件。");
+    assert.equal(state.progressFreshness, "current");
+    assert.equal(state.recoveryMode, "redraft");
+    assert.equal(state.lastVerifiedProgress?.state, "SUCCEEDED");
+    assert.equal(state.lastVerifiedProgress?.stage, "SUCCEEDED");
+  }
 });
 
 test("failed format job does not claim a model failure", async () => {
@@ -289,11 +398,14 @@ test("failed format job does not claim a model failure", async () => {
     wait: async () => {},
   });
 
-  assert.deepEqual(state, {
-    phase: "error",
-    message: "会计司未能识别现有数据格式，已尝试替代读取策略。",
-  });
-  assert.equal(state.message.includes("模型"), false);
+  assert.equal(state.phase, "error");
+  if (state.phase === "error") {
+    assert.equal(state.message, "会计司未能识别现有数据格式，已尝试替代读取策略。");
+    assert.equal(state.message.includes("模型"), false);
+    assert.equal(state.progressFreshness, "current");
+    assert.equal(state.recoveryMode, "redraft");
+    assert.equal(state.lastVerifiedProgress?.state, "FAILED");
+  }
 });
 
 test("malformed legacy failure uses unknown fallback rather than model", async () => {
@@ -308,7 +420,13 @@ test("malformed legacy failure uses unknown fallback rather than model", async (
   const state = await requestStudySubmission("accounting decree", {
     fetchImpl: async () => states.shift()!, scheduleRedirect: () => {}, wait: async () => {},
   });
-  assert.deepEqual(state, { phase: "error", message: "发生未知错误，请稍后重试。" });
+  assert.equal(state.phase, "error");
+  if (state.phase === "error") {
+    assert.equal(state.message, "发生未知错误，请稍后重试。");
+    assert.equal(state.progressFreshness, "current");
+    assert.equal(state.recoveryMode, "redraft");
+    assert.equal(state.lastVerifiedProgress?.state, "FAILED");
+  }
 });
 test("polling retries bounded transient status failures and preserves sequencing", async () => {
   const jobId = "e".repeat(32);
@@ -393,6 +511,124 @@ test("an owner switch stops an old resume loop without clearing that owner's job
     idempotencyKey: "owner-a-key",
   });
 });
+
+test("resume preserves the last verified snapshot through bootstrap and exhausted network retries", async () => {
+  const jobId = "8".repeat(32);
+  const initialProgress = {
+    jobId,
+    state: "QUEUED" as const,
+    stage: "RETRY_WAIT",
+    attemptCount: 2,
+    providerRequestCount: 4,
+    createdAt: "2026-08-26T01:00:00Z",
+    updatedAt: "2026-08-26T01:05:00Z",
+  };
+  const progress: unknown[] = [];
+  let calls = 0;
+
+  const state = await resumeStudySubmission(jobId, {
+    initialProgress,
+    fetchImpl: async () => {
+      calls += 1;
+      throw new Error("still offline");
+    },
+    scheduleRedirect: () => assert.fail("must not redirect"),
+    wait: async () => {},
+    onProgress: (phase, progressJobId, snapshot) => {
+      progress.push({ phase, jobId: progressJobId, snapshot });
+    },
+  });
+
+  assert.equal(calls, 4);
+  assert.deepEqual(progress, [{ phase: "queued", jobId, snapshot: initialProgress }]);
+  assert.deepEqual(state, {
+    phase: "error",
+    message: "无法连接朝堂后端，请确认后端服务已启动后重试。",
+    lastVerifiedProgress: initialProgress,
+    progressFreshness: "stale",
+    recoveryMode: "resume",
+  });
+});
+
+test("a 401 after a verified snapshot keeps the snapshot but marks it stale", async () => {
+  const jobId = "9".repeat(32);
+  const verifiedProgress = {
+    jobId,
+    state: "RUNNING" as const,
+    stage: "RUNNING",
+    attemptCount: 1,
+    providerRequestCount: 2,
+    createdAt: "2026-08-26T02:00:00Z",
+    updatedAt: "2026-08-26T02:01:00Z",
+  };
+  const redirects: string[] = [];
+  let calls = 0;
+
+  const state = await requestStudySubmission("核验经营目标", {
+    fetchImpl: async () => {
+      calls += 1;
+      if (calls === 1) {
+        return Response.json({ state: "QUEUED", jobId }, { status: 202 });
+      }
+      if (calls === 2) return Response.json(verifiedProgress);
+      return new Response(null, { status: 401 });
+    },
+    scheduleRedirect: (path) => redirects.push(path),
+    wait: async () => {},
+  });
+
+  assert.equal(calls, 3);
+  assert.deepEqual(redirects, ["/login?next=%2Fstudy"]);
+  assert.deepEqual(state, {
+    phase: "error",
+    message: "会话已过期，正在返回登录页。",
+    lastVerifiedProgress: verifiedProgress,
+    progressFreshness: "stale",
+    recoveryMode: "redraft",
+  });
+});
+
+for (const [name, invalidProgress] of [
+  ["RUNNING with terminal FAILED stage", { state: "RUNNING", stage: "FAILED" }],
+  ["QUEUED with running ARCHIVING stage", { state: "QUEUED", stage: "ARCHIVING" }],
+  ["unparseable createdAt", { createdAt: "not-a-date" }],
+  ["timezone-free createdAt", { createdAt: "2026-08-26T03:00:00" }],
+  ["overflow createdAt", { createdAt: "2026-02-30T03:00:00Z" }],
+  ["invalid updatedAt timezone", { updatedAt: "2026-08-26T03:00:00+24:00" }],
+] as const) {
+  test(`browser job parser rejects ${name}`, async () => {
+    const jobId = "7".repeat(32);
+    let calls = 0;
+    const state = await requestStudySubmission("核验经营目标", {
+      fetchImpl: async () => {
+        calls += 1;
+        if (calls === 1) {
+          return Response.json({ state: "QUEUED", jobId }, { status: 202 });
+        }
+        if (calls > 2) return Response.json({}, { status: 404 });
+        return Response.json(Object.assign({
+          jobId,
+          state: "RUNNING",
+          stage: "RUNNING",
+          attemptCount: 1,
+          providerRequestCount: 2,
+          createdAt: "2026-08-26T03:00:00Z",
+          updatedAt: "2026-08-26T03:01:00Z",
+        }, invalidProgress));
+      },
+      scheduleRedirect: () => assert.fail("invalid progress must not redirect"),
+      wait: async () => {},
+    });
+
+    assert.equal(calls, 2);
+    assert.deepEqual(state, {
+      phase: "error",
+      message: "发生未知错误，请稍后重试。",
+      progressFreshness: "stale",
+      recoveryMode: "resume",
+    });
+  });
+}
 
 test("submission orchestration gates requests when canSubmit is false", async () => {
   const states: DecreeUiState[] = [];

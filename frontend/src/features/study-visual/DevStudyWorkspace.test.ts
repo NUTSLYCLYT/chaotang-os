@@ -59,19 +59,49 @@ test("daily memorial uses the sole main scroll with truthful status and confirma
   assert.match(css, /\.dailyMemorialConfirm:focus-visible/);
 });
 
-test("dev study workspace restores the first-court ritual as local-only interaction", async () => {
-  const source = await readFile(new URL("./DevStudyWorkspace.tsx", import.meta.url), "utf8");
+test("first visit shows only the Chancellor, one blank goal input, and one primary action", async () => {
+  const [source, css] = await Promise.all([
+    readFile(new URL("./DevStudyWorkspace.tsx", import.meta.url), "utf8"),
+    readFile(new URL("./DevStudyWorkspace.module.css", import.meta.url), "utf8"),
+  ]);
+  const firstVisit = source.slice(
+    source.indexOf("function FirstDecreeWelcome"),
+    source.indexOf("export function DevStudyWorkspace"),
+  );
 
   assert.match(source, /courtos\.onboarded/);
-  assert.match(source, /courtos\.ruler\.style/);
-  assert.match(source, /陛下御极 · 开朝仪轨/);
-  assert.match(source, /严政陛下/);
-  assert.match(source, /仁政陛下/);
-  assert.match(source, /勤政陛下/);
-  assert.match(source, /跳过 · 直接进朝堂/);
-  assert.match(source, /下一步 · 亲下第一道旨/);
+  assert.match(firstVisit, /丞相/);
+  assert.match(firstVisit, /aria-label="第一旨目标"/);
+  assert.match(firstVisit, /useState\(""\)/);
+  assert.match(firstVisit, /开始拟旨/);
+  assert.match(firstVisit, /LOCAL/);
+  assert.equal((firstVisit.match(/<textarea/g) ?? []).length, 1);
+  assert.equal((firstVisit.match(/<button/g) ?? []).length, 1);
+  assert.doesNotMatch(source, /courtos\.ruler\.style|RULER_STYLES|FIRST_DECREE/);
+  assert.doesNotMatch(source, /严政陛下|仁政陛下|勤政陛下|开朝仪轨|STEP [123]|跳过/);
   assert.match(source, /role="dialog"/);
   assert.doesNotMatch(source, /fetch\s*\(|EventSource|SWR|useRouter/);
+  assert.match(firstVisit, /onStartDraft\(normalizedTarget\)/);
+  assert.match(firstVisit, /textareaRef\.current\?\.focus\(\)/);
+  assert.match(firstVisit, /event\.key !== "Tab"/);
+  assert.match(firstVisit, /onKeyDown=\{trapFocus\}/);
+  assert.match(css, /\.firstDraft:focus-visible\s*\{/);
+});
+
+test("first decree and composer send an explicit source text to the real draft request", async () => {
+  const source = await readFile(new URL("./DevStudyWorkspace.tsx", import.meta.url), "utf8");
+  const firstVisit = source.slice(
+    source.indexOf("function FirstDecreeWelcome"),
+    source.indexOf("function AcceptanceText"),
+  );
+  const composer = source.slice(
+    source.indexOf("const composer = ("),
+    source.indexOf("const drawers = ("),
+  );
+
+  assert.match(firstVisit, /onStartDraft\(normalizedTarget\)/);
+  assert.doesNotMatch(firstVisit, /onUseDraft/);
+  assert.match(composer, /onClick=\{\(\) => props\.onDraft\(props\.decreeText\)\}/);
 });
 
 test("dev study workspace keeps one polished decree action without secret modes", async () => {
@@ -82,7 +112,7 @@ test("dev study workspace keeps one polished decree action without secret modes"
 
   assert.doesNotMatch(source, /真实任务库暂不可读/);
   assert.doesNotMatch(source, /styles\.warning/);
-  assert.match(source, /今日圣旨/);
+  assert.match(source, /每日奏折/);
   assert.match(source, /收卷看殿/);
   assert.doesNotMatch(source, /DecreeMode|decree-mode-order|decree-mode-secret|setMode|密旨|下密旨/);
   assert.match(source, /data-testid="draft-edict-button"/);
@@ -128,7 +158,7 @@ test("composer only drafts while the completed draft scroll owns the sole issue 
   );
 });
 
-test("ready draft only presents participating departments and the edict about to be issued", async () => {
+test("ready draft presents every existing DraftEdict acceptance field", async () => {
   const source = await readFile(new URL("./DevStudyWorkspace.tsx", import.meta.url), "utf8");
   const draftBranch = source.slice(
     source.indexOf(") : props.draftResult ? ("),
@@ -141,6 +171,16 @@ test("ready draft only presents participating departments and the edict about to
   assert.match(draftBranch, /参与原因/);
   assert.match(draftBranch, /负责事项/);
   assert.match(draftBranch, /预计产出/);
+  assert.match(draftBranch, /任务目标/);
+  assert.match(draftBranch, /执行范围/);
+  assert.match(draftBranch, /不包含/);
+  assert.match(draftBranch, /输入材料/);
+  assert.match(draftBranch, /材料缺口/);
+  assert.match(draftBranch, /重点问题/);
+  assert.match(draftBranch, /执行步骤/);
+  assert.match(draftBranch, /最终交付物/);
+  assert.match(draftBranch, /完成标准/);
+  assert.match(draftBranch, /权限与限制/);
   assert.match(draftBranch, /即将下旨的草案/);
   assert.match(draftBranch, /draftConfirmation\?\.visibleCanonicalText/);
   assert.match(draftBranch, /draftConfirmation\?\.showIssueAction/);
@@ -154,14 +194,88 @@ test("ready draft only presents participating departments and the edict about to
   assert.doesNotMatch(draftBranch, /\{item\.department\} · \{item\.role\}/);
   assert.match(draftBranch, /当前状态/);
   assert.match(draftBranch, /草案完整，可以直接下旨/);
-  assert.doesNotMatch(
-    draftBranch,
-    /臣对您的理解|大神级拟旨草案|丞相为什么这样补全|丞相建议与暂定边界|任务目标|执行范围|不包含|输入材料|材料缺口|重点问题|执行步骤|最终交付物|完成标准|权限与限制/,
+  assert.match(draftBranch, /cockpit\.acceptance/);
+  assert.doesNotMatch(draftBranch, /暂无验收|默认验收/);
+});
+
+test("missing and empty acceptance values render truthful field-specific absence labels", async () => {
+  const source = await readFile(new URL("./DevStudyWorkspace.tsx", import.meta.url), "utf8");
+  const acceptanceText = source.slice(
+    source.indexOf("function AcceptanceText"),
+    source.indexOf("function AcceptanceList"),
   );
-  assert.doesNotMatch(
-    draftBranch,
-    /props\.draftResult\.(understanding|recommendation_reason|assumptions)|props\.draftResult\.draft\.(objective|scope|exclusions|input_materials|material_gaps|key_questions|execution_steps|deliverables|completion_criteria|permissions_and_limits)/,
+  const acceptanceList = source.slice(
+    source.indexOf("function AcceptanceList"),
+    source.indexOf("function VerifiedJobProgress"),
   );
+  const emptyBranch = acceptanceList.slice(
+    acceptanceList.indexOf("if (values.length === 0)"),
+    acceptanceList.indexOf("  return (", acceptanceList.indexOf("if (values.length === 0)")),
+  );
+
+  assert.match(acceptanceText, /value === undefined[\s\S]*?未提供/);
+  assert.match(acceptanceList, /values === undefined[\s\S]*?未提供/);
+  assert.match(acceptanceList, /values\.length === 0/);
+  assert.match(emptyBranch, /emptyLabel/);
+  assert.doesNotMatch(emptyBranch, /<ul>/);
+  assert.match(source, /label="不包含"[\s\S]*?emptyLabel="无排除项"/);
+  assert.match(source, /label="材料缺口"[\s\S]*?emptyLabel="无已知材料缺口"/);
+});
+
+test("study shows explicit LOCAL/API_LIVE modes and only verified job progress fields", async () => {
+  const source = await readFile(new URL("./DevStudyWorkspace.tsx", import.meta.url), "utf8");
+
+  assert.match(source, /SOURCE_MODE_LABELS/);
+  assert.match(source, /cockpit\.sourceMode/);
+  assert.match(source, /jobId/);
+  assert.match(source, /stage/);
+  assert.match(source, /attemptCount/);
+  assert.match(source, /providerRequestCount/);
+  assert.match(source, /createdAt/);
+  assert.match(source, /updatedAt/);
+  assert.doesNotMatch(source, /\b(?:percent|percentage|eta)\b|预计完成|完成度/i);
+  assert.match(source, /aria-live="polite"/);
+});
+
+test("composer labels current browser input LOCAL regardless of historical API facts", async () => {
+  const source = await readFile(new URL("./DevStudyWorkspace.tsx", import.meta.url), "utf8");
+  const composer = source.slice(
+    source.indexOf("const composer = ("),
+    source.indexOf("const drawers = ("),
+  );
+
+  assert.match(composer, /SOURCE_MODE_LABELS\.LOCAL/);
+  assert.doesNotMatch(composer, /cockpit\.sourceMode/);
+});
+
+test("task fact branches render their projected provenance instead of hardcoding API_LIVE", async () => {
+  const source = await readFile(new URL("./DevStudyWorkspace.tsx", import.meta.url), "utf8");
+  const centralFlow = source.slice(
+    source.indexOf(') : props.uiState.phase === "error" ? ('),
+    source.indexOf(') : (props.uiState.phase as string) === "idle" ? ('),
+  );
+
+  assert.ok((centralFlow.match(/SOURCE_MODE_LABELS\[cockpit\.sourceMode\]/g) ?? []).length >= 3);
+  assert.ok((centralFlow.match(/data-source-mode=\{cockpit\.sourceMode\}/g) ?? []).length >= 3);
+  assert.doesNotMatch(centralFlow, /SOURCE_MODE_LABELS\.API_LIVE|data-source-mode="API_LIVE"/);
+});
+
+test("verified job progress keeps machine timestamps semantic and business-formatted", async () => {
+  const source = await readFile(new URL("./DevStudyWorkspace.tsx", import.meta.url), "utf8");
+  const progressView = source.slice(
+    source.indexOf("function VerifiedJobProgress"),
+    source.indexOf("export function DevStudyWorkspace"),
+  );
+
+  assert.match(
+    progressView,
+    /<time dateTime=\{progress\.createdAt\}>\{formatBusinessTime\(progress\.createdAt\)\}<\/time>/,
+  );
+  assert.match(
+    progressView,
+    /<time dateTime=\{progress\.updatedAt\}>\{formatBusinessTime\(progress\.updatedAt\)\}<\/time>/,
+  );
+  assert.doesNotMatch(progressView, /<dd>\{progress\.(?:createdAt|updatedAt)\}<\/dd>/);
 });
 
 test("periodless draft shows canonical 2025 before confirmation while NEEDS_INPUT exposes no decree action", async () => {
@@ -227,11 +341,62 @@ test("draft pending and failure are visible in the central scroll", async () => 
 test("submission failure is visible even while the approved draft is retained", async () => {
   const source = await readFile(new URL("./DevStudyWorkspace.tsx", import.meta.url), "utf8");
 
-  const errorBranch = source.indexOf('props.uiState.phase === "error"');
+  const errorBranch = source.indexOf(') : props.uiState.phase === "error" ? (');
   const draftBranch = source.indexOf("props.draftResult ? (");
   assert.ok(errorBranch >= 0);
   assert.ok(errorBranch < draftBranch);
   assert.match(source, /办理未能完成/);
+  const errorContent = source.slice(errorBranch, draftBranch);
+  assert.match(source, /最后一次已验证任务进度/);
+  assert.match(source, /当前状态不可用/);
+  assert.match(errorContent, /freshness=\{props\.uiState\.progressFreshness/);
+  assert.match(source, /freshness === "stale"/);
+  assert.match(errorContent, /data-testid="retry-decree-progress"/);
+  assert.match(errorContent, /onClick=\{props\.onRetryProgress\}/);
+  assert.match(errorContent, /disabled=\{!props\.canRetryProgress\}/);
+  assert.match(errorContent, /props\.retryProgressLabel/);
+  assert.match(errorContent, /props\.retryProgressHint/);
+  assert.equal((errorContent.match(/<button/g) ?? []).length, 1);
+});
+
+test("job progress relies on its parent live region instead of nesting announcements", async () => {
+  const source = await readFile(new URL("./DevStudyWorkspace.tsx", import.meta.url), "utf8");
+  const progressView = source.slice(
+    source.indexOf("function VerifiedJobProgress"),
+    source.indexOf("export function DevStudyWorkspace"),
+  );
+
+  assert.doesNotMatch(progressView, /aria-live=/);
+});
+
+test("submission failure leaves the recovery button as the only enabled draft action", async () => {
+  const source = await readFile(new URL("./DevStudyWorkspace.tsx", import.meta.url), "utf8");
+  const composer = source.slice(
+    source.indexOf("const composer = ("),
+    source.indexOf("const drawers = ("),
+  );
+
+  assert.match(
+    composer,
+    /disabled=\{props\.uiState\.phase === "error" \|\| !props\.canEdit \|\| !props\.decreeText\.trim\(\) \|\| props\.draftPending\}/,
+  );
+});
+
+test("verified enqueueing, queued, and running progress outranks a retained draft", async () => {
+  const source = await readFile(new URL("./DevStudyWorkspace.tsx", import.meta.url), "utf8");
+  const centralFlow = source.slice(
+    source.indexOf(') : props.uiState.phase === "error" ? ('),
+    source.indexOf(") : archivedReply ? ("),
+  );
+  const activeJobBranch = centralFlow.indexOf(
+    '["enqueueing", "queued", "running"].includes(props.uiState.phase) ? (',
+  );
+  const retainedDraftBranch = centralFlow.indexOf("props.draftResult ? (");
+
+  assert.ok(activeJobBranch >= 0, "active job branch must exist");
+  assert.ok(retainedDraftBranch >= 0, "retained draft branch must exist");
+  assert.ok(activeJobBranch < retainedDraftBranch, "active job progress must render before the retained draft");
+  assert.match(centralFlow.slice(activeJobBranch, retainedDraftBranch), /VerifiedJobProgress/);
 });
 
 test("study places the decree composer in the quick dock center slot", async () => {
@@ -283,9 +448,29 @@ test("study composer keeps the textarea flexible beside the draft action", async
   );
   assert.match(
     css,
-    /@media \(max-width: 700px\)[\s\S]*?\.composerRow\s*\{[^}]*grid-template-columns:\s*auto minmax\(0,\s*1fr\) auto;/,
+    /@media \(max-width: 700px\)[\s\S]*?\.composerRow\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\) auto;/,
   );
   assert.doesNotMatch(css, /\.draftAction\s*\{[^}]*display:\s*none;/);
+});
+
+test("study composer grows around its source label instead of clipping a second row", async () => {
+  const css = await readFile(new URL("./DevStudyWorkspace.module.css", import.meta.url), "utf8");
+  const composerRule = css.match(/\.composer \{([^}]*)\}/)?.[1] ?? "";
+
+  assert.match(composerRule, /min-height:\s*48px/);
+  assert.match(composerRule, /height:\s*auto/);
+  assert.doesNotMatch(composerRule, /(?:^|[;\s])height:\s*48px/);
+});
+
+test("mobile composer fits the 48px quick dock without overlapping controls", async () => {
+  const css = await readFile(new URL("./DevStudyWorkspace.module.css", import.meta.url), "utf8");
+  const mobile = css.slice(css.indexOf("@media (max-width: 700px)"));
+
+  assert.match(mobile, /\.composer\s*\{[^}]*height:\s*48px;[^}]*min-height:\s*48px;[^}]*padding-top:\s*0;/);
+  assert.match(mobile, /\.composer\s*>\s*\.sourceMode\s*\{[^}]*position:\s*absolute;[^}]*bottom:\s*calc\(100% \+ \d+px\);/);
+  assert.match(mobile, /\.attach\s*\{[^}]*display:\s*none;/);
+  assert.match(mobile, /\.composerRow\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\) auto;[^}]*height:\s*100%;[^}]*box-sizing:\s*border-box;/);
+  assert.doesNotMatch(mobile, /\.composerRow\s*\{[^}]*grid-template-columns:\s*auto minmax\(0,\s*1fr\) auto;/);
 });
 
 test("dev study workspace renders parchment only for a real successful reply", async () => {
@@ -378,7 +563,7 @@ test("dev study CSS owns the responsive parent slot instead of redrawing the scr
   assert.match(css, /\.emptyExpanded\s*\{/);
   assert.match(css, /\.composer\s*\{[\s\S]*?grid-template-columns:/);
   assert.match(css, /\.onboardingBackdrop\s*\{/);
-  assert.match(css, /\.styleGrid\s*\{[\s\S]*?grid-template-columns:\s*repeat\(3/);
+  assert.doesNotMatch(css, /\.styleGrid\s*\{|\.hintGrid\s*\{/);
   assert.match(css, /@media \(max-width: 700px\)/);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
   assert.doesNotMatch(css, /\.(?:collapsedScroll|roller|scrollPaper)\s*\{/);

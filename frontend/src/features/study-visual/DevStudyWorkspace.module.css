@@ -121,9 +121,12 @@
 .composer {
   position: relative;
   display: grid;
+  grid-template-rows: auto auto;
   width: 100%;
-  height: 48px;
+  height: auto;
+  min-height: 48px;
   box-sizing: border-box;
+  padding-top: 5px;
   border: 1px solid rgba(240, 198, 106, 0.28);
   border-radius: 8px;
   background: #0b0d12;
@@ -138,7 +141,7 @@
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 7px;
-  padding: 6px 8px 5px;
+  padding: 3px 8px 5px;
 }
 .draftAction,
 .attach,
@@ -189,6 +192,7 @@
   color: #a77c35;
   font-size: 10px;
 }
+.composer > .sourceMode { min-width: 0; padding: 0 9px; overflow-wrap: anywhere; }
 
 .onboardingBackdrop {
   position: fixed;
@@ -217,47 +221,33 @@
 .ritual::before { position: absolute; inset: 0 0 auto; height: 2px; background: linear-gradient(90deg, transparent, #f0c66a, transparent); box-shadow: 0 1px 10px rgba(240,198,106,.6); content: ""; }
 .ritualHeader { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; padding: 16px 28px; border-bottom: 1px solid rgba(240,198,106,.15); color: #f0c66a; }
 .ritualHeader strong { font-size: 11px; letter-spacing: .3em; }
-.steps { display: flex; align-items: center; gap: 8px; }
-.steps i { display: block; width: 12px; height: 3px; border-radius: 99px; background: rgba(255,255,255,.12); }
-.steps i[data-active="true"] { width: 24px; background: #f0c66a; box-shadow: 0 0 8px #f0c66a; }
 .ritualBody { padding: 30px 40px 32px; }
 .eyebrow { margin: 0; color: #f0c66a; font-size: 11px; font-weight: 700; letter-spacing: .28em; }
 .ritualBody h2 { margin: 13px 0 0; color: #f5e9c9; font-size: 32px; line-height: 1.15; letter-spacing: .1em; text-shadow: 0 0 24px rgba(240,198,106,.25); }
 .ritualLead { margin: 8px 0 0; color: #b8c0da; font: 13.5px/1.85 system-ui, sans-serif; }
-.styleGrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 24px; }
-.styleCard {
-  --tone: #f0c66a;
-  min-width: 0;
-  padding: 16px;
-  border: 2px solid rgba(255,255,255,.08);
-  border-radius: 12px;
-  background: rgba(255,255,255,.02);
-  color: #f5e9c9;
-  cursor: pointer;
-  text-align: left;
-  transition: border-color .2s, transform .2s, box-shadow .2s;
-}
-.styleCard[data-tone="strict"] { --tone: #f43f5e; }
-.styleCard[data-tone="diligent"] { --tone: #3dd68c; }
-.styleCard:hover { transform: translateY(-2px); }
-.styleCard[data-selected="true"] { border-color: var(--tone); background: color-mix(in srgb, var(--tone) 10%, transparent); box-shadow: 0 8px 28px color-mix(in srgb, var(--tone) 20%, transparent); }
-.styleGlyph { display: grid; width: 40px; height: 40px; place-items: center; border: 1px solid color-mix(in srgb, var(--tone) 45%, transparent); border-radius: 8px; background: color-mix(in srgb, var(--tone) 13%, transparent); color: var(--tone); font-size: 19px; }
-.styleCard strong { display: block; margin-top: 12px; font-size: 18px; letter-spacing: .1em; }
-.styleCard small { display: block; margin-top: 3px; color: var(--tone); font-size: 10px; letter-spacing: .19em; }
-.styleCard ul { margin: 13px 0 0; padding: 0; list-style: none; color: #c8cdd8; font: 12px/2 system-ui, sans-serif; }
-.styleCard li::before { margin-right: 8px; color: var(--tone); content: "•"; }
-.styleCard em { display: block; margin-top: 10px; color: var(--tone); font: italic 11px/1.5 system-ui, sans-serif; opacity: .72; }
-.ritualActions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 30px; }
-.skip, .primary { min-height: 40px; border-radius: 999px; cursor: pointer; font: 600 12px/1 var(--font-serif, serif); }
-.skip { padding: 0; border: 0; background: transparent; color: #8a92ac; letter-spacing: .16em; }
+.ritualActions { display: flex; justify-content: flex-end; margin-top: 24px; }
+.primary { min-height: 40px; border-radius: 999px; cursor: pointer; font: 600 12px/1 var(--font-serif, serif); }
 .primary { padding: 0 24px; border: 0; background: linear-gradient(135deg, #f0c66a, #d4a84b); box-shadow: 0 0 20px rgba(240,198,106,.35); color: #04060e; letter-spacing: .08em; }
 .primary:disabled { cursor: not-allowed; opacity: .3; }
 .firstDraft { width: 100%; min-height: 130px; box-sizing: border-box; margin-top: 22px; resize: vertical; padding: 16px 18px; border: 2px solid rgba(240,198,106,.4); border-radius: 12px; outline: none; background: rgba(10,7,4,.85); color: #f5e9c9; font: 15px/1.85 var(--font-serif, serif); }
-.draftMeta { display: flex; justify-content: space-between; gap: 12px; margin-top: 8px; color: #8a92ac; font-size: 11px; }
-.hintGrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 24px; }
-.hintGrid article { display: grid; gap: 8px; padding: 16px; border: 1px solid rgba(240,198,106,.24); border-radius: 12px; background: rgba(240,198,106,.05); }
-.hintGrid strong { color: #f0c66a; font-size: 14px; }
-.hintGrid span { color: #b8c0da; font: 12px/1.65 system-ui, sans-serif; }
+.firstDraft:focus-visible { border-color: #f0c66a; outline: 2px solid rgba(240,198,106,.72); outline-offset: 3px; }
+.sourceMode { margin: 0; color: #a77c35; font: 700 10px/1.4 system-ui, sans-serif; letter-spacing: .08em; }
+.acceptanceContract { margin: 18px 0; padding: 16px; border: 1px solid rgba(167,124,53,.24); border-radius: 10px; background: rgba(167,124,53,.05); }
+.acceptanceGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 12px 0 0; }
+.acceptanceGrid div { min-width: 0; }
+.acceptanceGrid dt { color: #76551d; font-weight: 700; }
+.acceptanceGrid dd { margin: 4px 0 0; overflow-wrap: anywhere; }
+.acceptanceGrid ul { margin: 0; padding-left: 18px; }
+.jobProgress { margin-top: 16px; padding: 14px; border: 1px solid rgba(167,124,53,.24); border-radius: 10px; background: rgba(167,124,53,.05); }
+.jobProgress h2 { margin: 0 0 10px; }
+.jobProgress dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 14px; margin: 0; }
+.jobProgress div { min-width: 0; }
+.jobProgress dt { color: #76551d; font: 700 10px/1.4 system-ui, sans-serif; }
+.jobProgress dd { margin: 2px 0 0; overflow-wrap: anywhere; font: 12px/1.5 system-ui, sans-serif; }
+.retryProgress { min-height: 36px; margin-top: 14px; padding: 0 16px; border: 1px solid #a77c35; border-radius: 7px; background: transparent; color: #f0c66a; cursor: pointer; font: 700 12px/1 var(--font-serif, serif); }
+.retryProgress:disabled { cursor: not-allowed; opacity: .48; }
+.retryProgress:focus-visible { outline: 2px solid #f0c66a; outline-offset: 3px; }
+.recoveryHint { margin-top: 8px !important; color: rgba(245,233,201,.72); font: 12px/1.6 system-ui, sans-serif; }
 
 @keyframes ritualFade { from { opacity: 0; } to { opacity: 1; } }
 
@@ -276,27 +266,25 @@
   .collapsedSlot :global([data-testid="collapsed-edict-scroll"]) { height: 58px; }
   .expandedSlot { height: min(74vh, 680px); min-height: 420px; margin-top: 58px; }
   .emptyExpanded { margin-top: 42vh; }
-  .composer { position: relative; bottom: auto; width: 100%; }
-  .composerRow { grid-template-columns: auto minmax(0, 1fr) auto; gap: 5px; padding: 6px; }
-  .draftAction { height: 40px; padding: 0 10px; }
-  .composer textarea { height: 40px; padding: 10px; border-radius: 8px; font-size: 11px; }
+  .composer { position: relative; bottom: auto; width: 100%; height: 48px; min-height: 48px; padding-top: 0; overflow: visible; }
+  .composer > .sourceMode { position: absolute; z-index: 2; bottom: calc(100% + 5px); left: 4px; max-width: calc(100vw - 16px); padding: 0; white-space: nowrap; }
+  .attach { display: none; }
+  .composerRow { grid-template-columns: minmax(0, 1fr) auto; height: 100%; box-sizing: border-box; gap: 3px; padding: 3px 4px; }
+  .draftAction { height: 40px; min-width: 0; padding: 0 6px; }
+  .composer textarea { height: 40px; padding: 8px 6px; border-radius: 8px; font-size: 11px; }
   .submit { height: 40px; padding: 0 10px; }
-  .localNotice { right: 4px; left: 4px; text-align: center; }
+  .localNotice { right: 4px; bottom: calc(100% + 24px); left: 4px; text-align: center; }
   .onboardingBackdrop { padding: 8px; place-items: start center; }
   .ritual { max-height: calc(100dvh - 16px); }
   .ritualHeader { padding: 13px 16px; }
   .ritualHeader strong { letter-spacing: .16em; }
   .ritualBody { padding: 22px 18px 24px; }
   .ritualBody h2 { font-size: 24px; letter-spacing: .05em; }
-  .styleGrid, .hintGrid { grid-template-columns: 1fr; }
-  .styleCard { padding: 13px; }
-  .styleCard ul { display: grid; grid-template-columns: 1fr; gap: 3px; font-size: 11px; line-height: 1.6; }
-  .ritualActions { flex-direction: column-reverse; align-items: stretch; margin-top: 22px; }
-  .skip { border: 1px solid rgba(255,255,255,.1); padding: 0 12px; }
-  .draftMeta { flex-direction: column; }
+  .acceptanceGrid, .jobProgress dl { grid-template-columns: 1fr; }
+  .ritualActions { margin-top: 22px; }
+  .primary { width: 100%; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .onboardingBackdrop { animation: none; }
-  .styleCard { transition: none; }
 }

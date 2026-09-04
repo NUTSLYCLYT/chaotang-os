@@ -4,6 +4,9 @@ import {
   mapDecreeJobFailure,
   parseChancellorSuccessResponse,
   type DecreeErrorKind,
+  type DecreeJobProgress,
+  type DecreeProgressFreshness,
+  type DecreeRecoveryMode,
   type DecreeUiState,
 } from "./decreeStatus.ts";
 import {
@@ -26,8 +29,13 @@ interface StudySubmissionDependencies {
   draftVersion?: number;
   draftFingerprint?: string;
   idempotencyKey?: string;
+  initialProgress?: DecreeJobProgress;
   wait?(milliseconds: number): Promise<void>;
-  onProgress?(phase: "queued" | "running", jobId: string): void;
+  onProgress?(
+    phase: "queued" | "running",
+    jobId: string,
+    jobProgress?: DecreeJobProgress,
+  ): void;
   storage?: Storage;
   userId?: string;
   isCurrent?(): boolean;
@@ -73,6 +81,95 @@ function acceptedJobId(body: unknown): string | null {
     : null;
 }
 
+const PUBLIC_JOB_STATES: readonly DecreeJobProgress["state"][] = [
+  "QUEUED",
+  "RUNNING",
+  "SUCCEEDED",
+  "FAILED",
+  "CANCELLED",
+];
+
+// Mirrors the public state/stage projection enforced by backendClient.parseDecreeJob.
+const PUBLIC_JOB_STAGES: Readonly<
+  Record<DecreeJobProgress["state"], ReadonlySet<string>>
+> = {
+  QUEUED: new Set(["QUEUED", "RETRY_WAIT"]),
+  RUNNING: new Set(["RUNNING", "RESULT_READY", "ARCHIVING", "PUBLISHING"]),
+  SUCCEEDED: new Set(["SUCCEEDED"]),
+  FAILED: new Set(["FAILED"]),
+  CANCELLED: new Set(["CANCELLED"]),
+};
+
+function isTimezoneAwareRfc3339(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  const match = /^(?!0000)(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(?:Z|[+-](\d{2}):(\d{2}))$/u.exec(
+    value,
+  );
+  if (!match || Number.isNaN(Date.parse(value))) return false;
+  const [, yearText, monthText, dayText, hourText, minuteText, secondText, offsetHourText, offsetMinuteText] =
+    match;
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  const hour = Number(hourText);
+  const minute = Number(minuteText);
+  const second = Number(secondText);
+  const offsetHour = offsetHourText === undefined ? 0 : Number(offsetHourText);
+  const offsetMinute = offsetMinuteText === undefined ? 0 : Number(offsetMinuteText);
+  if (
+    month < 1 || month > 12 || hour > 23 || minute > 59 || second > 59 ||
+    offsetHour > 23 || offsetMinute > 59
+  ) return false;
+  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  return day >= 1 && day <= daysInMonth;
+}
+
+function parsePublicJobProgress(
+  body: Record<string, unknown>,
+  expectedJobId: string,
+): DecreeJobProgress | null {
+  if (
+    body.jobId !== expectedJobId ||
+    typeof body.state !== "string" ||
+    !(PUBLIC_JOB_STATES as readonly string[]).includes(body.state) ||
+    typeof body.stage !== "string" ||
+    !Number.isInteger(body.attemptCount) ||
+    (body.attemptCount as number) < 0 ||
+    !Number.isInteger(body.providerRequestCount) ||
+    (body.providerRequestCount as number) < 0 ||
+    !isTimezoneAwareRfc3339(body.createdAt) ||
+    !isTimezoneAwareRfc3339(body.updatedAt)
+  ) {
+    return null;
+  }
+  const state = body.state as DecreeJobProgress["state"];
+  if (!PUBLIC_JOB_STAGES[state].has(body.stage)) return null;
+  return {
+    jobId: expectedJobId,
+    state,
+    stage: body.stage,
+    attemptCount: body.attemptCount as number,
+    providerRequestCount: body.providerRequestCount as number,
+    createdAt: body.createdAt,
+    updatedAt: body.updatedAt,
+  };
+}
+
+function withProgressContext(
+  state: DecreeUiState,
+  progress: DecreeJobProgress | undefined,
+  progressFreshness: DecreeProgressFreshness,
+  recoveryMode: DecreeRecoveryMode,
+): DecreeUiState {
+  if (state.phase !== "error") return state;
+  return {
+    ...state,
+    ...(progress ? { lastVerifiedProgress: progress } : {}),
+    progressFreshness,
+    recoveryMode,
+  };
+}
+
 async function requestHash(
   decreeText: string,
   draftVersion?: number,
@@ -107,6 +204,9 @@ async function pollDecreeJob(
 ): Promise<DecreeUiState> {
   let attempt = 0;
   let transientFailures = 0;
+  let lastVerifiedProgress = dependencies.initialProgress?.jobId === jobId
+    ? dependencies.initialProgress
+    : undefined;
   for (;;) {
     if (!isCurrent(dependencies)) return { phase: "idle" };
     let response: Response;
@@ -116,7 +216,12 @@ async function pollDecreeJob(
       if (!isCurrent(dependencies)) return { phase: "idle" };
       transientFailures += 1;
       if (transientFailures > 3) {
-        return mapSubmitDecreeResultToUiState({ ok: false, kind: "network", error: "" });
+        return withProgressContext(
+          mapSubmitDecreeResultToUiState({ ok: false, kind: "network", error: "" }),
+          lastVerifiedProgress,
+          "stale",
+          "resume",
+        );
       }
       if (!await waitWhileCurrent(dependencies, [1000, 2000, 3000][transientFailures - 1])) {
         return { phase: "idle" };
@@ -129,12 +234,22 @@ async function pollDecreeJob(
         clearActiveJob(dependencies.storage, dependencies.userId);
       }
       dependencies.scheduleRedirect("/login?next=%2Fstudy");
-      return { phase: "error", message: "会话已过期，正在返回登录页。" };
+      return withProgressContext(
+        { phase: "error", message: "会话已过期，正在返回登录页。" },
+        lastVerifiedProgress,
+        lastVerifiedProgress ? "stale" : "current",
+        "redraft",
+      );
     }
     if ([502, 503, 504].includes(response.status)) {
       transientFailures += 1;
       if (transientFailures > 3) {
-        return mapSubmitDecreeResultToUiState({ ok: false, kind: "model", error: "" });
+        return withProgressContext(
+          mapSubmitDecreeResultToUiState({ ok: false, kind: "model", error: "" }),
+          lastVerifiedProgress,
+          "stale",
+          "resume",
+        );
       }
       if (!await waitWhileCurrent(dependencies, [1000, 2000, 3000][transientFailures - 1])) {
         return { phase: "idle" };
@@ -146,15 +261,35 @@ async function pollDecreeJob(
     try {
       body = await response.json();
     } catch {
-      return mapSubmitDecreeResultToUiState({ ok: false, kind: "unknown", error: "" });
+      return withProgressContext(
+        mapSubmitDecreeResultToUiState({ ok: false, kind: "unknown", error: "" }),
+        lastVerifiedProgress,
+        "stale",
+        "resume",
+      );
     }
     if (!isCurrent(dependencies)) return { phase: "idle" };
     if (!response.ok || !isRecord(body) || body.jobId !== jobId) {
       if (response.status === 404 && dependencies.storage && dependencies.userId) {
         clearActiveJob(dependencies.storage, dependencies.userId);
       }
-      return mapSubmitDecreeResultToUiState({ ok: false, kind: "unknown", error: "" });
+      return withProgressContext(
+        mapSubmitDecreeResultToUiState({ ok: false, kind: "unknown", error: "" }),
+        lastVerifiedProgress,
+        "stale",
+        response.status === 404 ? "redraft" : "resume",
+      );
     }
+    const jobProgress = parsePublicJobProgress(body, jobId);
+    if (jobProgress === null) {
+      return withProgressContext(
+        mapSubmitDecreeResultToUiState({ ok: false, kind: "unknown", error: "" }),
+        lastVerifiedProgress,
+        "stale",
+        "resume",
+      );
+    }
+    lastVerifiedProgress = jobProgress;
     if (body.state === "SUCCEEDED") {
       if (dependencies.storage && dependencies.userId) {
         clearActiveJob(dependencies.storage, dependencies.userId);
@@ -169,12 +304,23 @@ async function pollDecreeJob(
         Array.isArray(body.result.artifacts) &&
         body.result.artifacts.length === 0
       ) {
-        return { phase: "error", message: ACCOUNTING_SOURCE_BLOCKED_MESSAGE };
+        return {
+          phase: "error",
+          message: ACCOUNTING_SOURCE_BLOCKED_MESSAGE,
+          lastVerifiedProgress: jobProgress,
+          progressFreshness: "current",
+          recoveryMode: "redraft",
+        };
       }
       const success = parseChancellorSuccessResponse(body.result);
       return success === null
-        ? mapSubmitDecreeResultToUiState({ ok: false, kind: "unknown", error: "" })
-        : mapSubmitDecreeResultToUiState({ ok: true, data: success });
+        ? withProgressContext(
+            mapSubmitDecreeResultToUiState({ ok: false, kind: "unknown", error: "" }),
+            jobProgress,
+            "current",
+            "redraft",
+          )
+        : mapSubmitDecreeResultToUiState({ ok: true, data: success }, jobProgress);
     }
     if (body.state === "FAILED" || body.state === "CANCELLED") {
       if (dependencies.storage && dependencies.userId) {
@@ -185,6 +331,9 @@ async function pollDecreeJob(
         return {
           phase: "error",
           message: ACCOUNTING_SOURCE_BLOCKED_MESSAGE,
+          lastVerifiedProgress: jobProgress,
+          progressFreshness: "current",
+          recoveryMode: "redraft",
         };
       }
       if (
@@ -192,18 +341,37 @@ async function pollDecreeJob(
         typeof failure.category === "string" &&
         typeof failure.code === "string"
       ) {
-        return mapDecreeJobFailure({
-          errorStage: failure.stage,
-          errorCategory: failure.category,
-          errorCode: failure.code,
-        });
+        return withProgressContext(
+          mapDecreeJobFailure({
+            errorStage: failure.stage,
+            errorCategory: failure.category,
+            errorCode: failure.code,
+          }),
+          jobProgress,
+          "current",
+          "redraft",
+        );
       }
-      return mapSubmitDecreeResultToUiState({ ok: false, kind: "unknown", error: "" });
+      return withProgressContext(
+        mapSubmitDecreeResultToUiState({ ok: false, kind: "unknown", error: "" }),
+        jobProgress,
+        "current",
+        "redraft",
+      );
     }
     if (body.state !== "QUEUED" && body.state !== "RUNNING") {
-      return mapSubmitDecreeResultToUiState({ ok: false, kind: "unknown", error: "" });
+      return withProgressContext(
+        mapSubmitDecreeResultToUiState({ ok: false, kind: "unknown", error: "" }),
+        jobProgress,
+        "stale",
+        "resume",
+      );
     }
-    dependencies.onProgress?.(body.state === "QUEUED" ? "queued" : "running", jobId);
+    dependencies.onProgress?.(
+      body.state === "QUEUED" ? "queued" : "running",
+      jobId,
+      jobProgress,
+    );
     if (!await waitWhileCurrent(
       dependencies,
       nextPollDelayMs(response.headers.get("retry-after"), attempt),
@@ -219,7 +387,10 @@ export async function resumeStudySubmission(
   dependencies: StudySubmissionDependencies,
 ): Promise<DecreeUiState> {
   if (!isCurrent(dependencies)) return { phase: "idle" };
-  dependencies.onProgress?.("queued", jobId);
+  const initialProgress = dependencies.initialProgress?.jobId === jobId
+    ? dependencies.initialProgress
+    : undefined;
+  dependencies.onProgress?.("queued", jobId, initialProgress);
   return pollDecreeJob(jobId, dependencies);
 }
 
@@ -274,6 +445,8 @@ export async function requestStudySubmission(
     return {
       phase: "error",
       message: "会话已过期，正在返回登录页。",
+      progressFreshness: "current",
+      recoveryMode: "redraft",
     };
   }
 
@@ -325,11 +498,14 @@ export async function requestStudySubmission(
   const kind: DecreeErrorKind = isKnownErrorKind(error.reason)
     ? error.reason
     : "unknown";
-  return mapSubmitDecreeResultToUiState({
+  const errorState = mapSubmitDecreeResultToUiState({
     ok: false,
     kind,
     error: typeof error.message === "string" ? error.message : "",
   });
+  return response.status >= 500
+    ? withProgressContext(errorState, undefined, "stale", "redraft")
+    : errorState;
 }
 
 interface SubmitStudyDecreeInput {

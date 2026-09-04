@@ -47,6 +47,20 @@ export interface DecreeSuccessData {
   artifacts: ReportArtifact[];
 }
 
+/** 后端任务查询接口已经验证、且可安全向页面公开的进度字段。 */
+export interface DecreeJobProgress {
+  jobId: string;
+  state: "QUEUED" | "RUNNING" | "SUCCEEDED" | "FAILED" | "CANCELLED";
+  stage: string;
+  attemptCount: number;
+  providerRequestCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type DecreeProgressFreshness = "current" | "stale";
+export type DecreeRecoveryMode = "resume" | "redraft";
+
 /**
  * 与 `src/lib/backendClient.ts` 的 `SubmitDecreeResult` 结构兼容的下旨提交结果。
  *
@@ -65,7 +79,11 @@ export type DecreeSubmitOutcome =
 export type DecreeUiState =
   | { phase: "idle" }
   | { phase: "enqueueing" }
-  | { phase: "queued" | "running"; jobId: string }
+  | {
+      phase: "queued" | "running";
+      jobId: string;
+      jobProgress?: DecreeJobProgress;
+    }
   | {
       phase: "success";
       chancellor: string;
@@ -80,8 +98,15 @@ export type DecreeUiState =
       deliveryKind: DeliveryKind;
       deliveryPeriod?: { startYear: number; endYear: number } | null;
       artifacts: ReportArtifact[];
+      jobProgress?: DecreeJobProgress;
     }
-  | { phase: "error"; message: string };
+  | {
+      phase: "error";
+      message: string;
+      lastVerifiedProgress?: DecreeJobProgress;
+      progressFreshness?: DecreeProgressFreshness;
+      recoveryMode?: DecreeRecoveryMode;
+    };
 
 export interface DecreeJobFailure {
   errorStage?: unknown;
@@ -103,6 +128,8 @@ export function mapDecreeJobFailure(failure: DecreeJobFailure): DecreeUiState {
   return {
     phase: "error",
     message: ASYNC_FAILURE_MESSAGES[key] ?? FRIENDLY_MESSAGE_BY_KIND.unknown,
+    progressFreshness: "current",
+    recoveryMode: "redraft",
   };
 }
 
@@ -333,7 +360,10 @@ export function getDecreeFormAvailability(
 }
 
 /** 把一次下旨提交结果（成功或失败）映射为页面可直接渲染的 UI 状态。 */
-export function mapSubmitDecreeResultToUiState(result: DecreeSubmitOutcome): DecreeUiState {
+export function mapSubmitDecreeResultToUiState(
+  result: DecreeSubmitOutcome,
+  jobProgress?: DecreeJobProgress,
+): DecreeUiState {
   if (result.ok) {
     return {
       phase: "success",
@@ -349,7 +379,15 @@ export function mapSubmitDecreeResultToUiState(result: DecreeSubmitOutcome): Dec
       deliveryKind: result.data.deliveryKind,
       deliveryPeriod: result.data.deliveryPeriod,
       artifacts: result.data.artifacts,
+      ...(jobProgress ? { jobProgress } : {}),
     };
   }
-  return { phase: "error", message: FRIENDLY_MESSAGE_BY_KIND[result.kind] };
+  return {
+    phase: "error",
+    message: FRIENDLY_MESSAGE_BY_KIND[result.kind],
+    progressFreshness: result.kind === "network" || result.kind === "unknown"
+      ? "stale"
+      : "current",
+    recoveryMode: "redraft",
+  };
 }
