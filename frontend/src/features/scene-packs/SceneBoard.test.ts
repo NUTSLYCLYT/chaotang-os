@@ -1,6 +1,16 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {readFileSync} from "node:fs";
+test("V4 keeps a single A1 state source and isolates its presentation", () => {
+  const src=readFileSync(new URL("./SceneBoard.tsx",import.meta.url),"utf8");
+  assert.match(src,/SceneBoardV4\.module\.css/);
+  assert.match(src,/buildV4Presentation/);
+  assert.match(src,/key=\{presentation\.identityKey\}/);
+  assert.match(src,/项目案卷/);
+  assert.match(src,/已加载任务/);
+  assert.match(src,/成果与证据/);
+  assert.doesNotMatch(src,/dangerouslySetInnerHTML|localStorage|download=|fetch\(/);
+});
 test("board uses isolated controller and separates generated status from manual stage", () => {
   const src=readFileSync(new URL("./SceneBoard.tsx",import.meta.url),"utf8");
   assert.match(src,/useState\(\(\) => createSceneBoardController/);
