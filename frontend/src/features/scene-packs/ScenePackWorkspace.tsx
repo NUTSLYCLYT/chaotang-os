@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 import { fetchScenePack, runScenePack } from "./client";
 import { demoInputsFor, normalizeSceneInputs } from "./demoInputs";
+import { resultTaskPath } from "./sceneBoardController";
 import type { ScenePack, SceneRun } from "./types";
 import styles from "./scenePacks.module.css";
 
@@ -63,6 +64,7 @@ export function ScenePackWorkspace({ slug }: { slug: string }) {
   const [error, setError] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
   const demo = params.get("demo") === "1";
+  const taskPath = resultTaskPath(result, slug, demo, running);
 
   useEffect(() => {
     let cancelled = false;
@@ -210,8 +212,8 @@ export function ScenePackWorkspace({ slug }: { slug: string }) {
         <button className={styles.sceneButton} type="button" onClick={submit} disabled={running}>
           {slug === "b2b-inquiry-conversion" ? "生成成交作战卡" : running ? "诊断中…" : "提交诊断"}
         </button>
-        <button className={styles.sceneButton} type="button" onClick={() => router.push("/junjichu/scene-board")}>
-          保存到军机处
+        <button className={styles.sceneButton} type="button" disabled={!taskPath} onClick={() => { if (taskPath) router.push(taskPath); }}>
+          查看这份结果的任务
         </button>
         <button className={styles.sceneButton} type="button" onClick={() => document.querySelector("[data-evidence-list]")?.scrollIntoView()}>
           查看证据

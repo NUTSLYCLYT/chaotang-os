@@ -3,8 +3,10 @@ import { redirect } from "next/navigation.js";
 
 import { getCurrentUser, type BackendAuthResult, type PublicUser } from "./backendClient.ts";
 import { SESSION_COOKIE_NAME } from "./session.ts";
+import { BOARD_PATH, buildBoardPath, parseBoardPath, type BoardPath } from "../features/scene-packs/sceneBoardController.ts";
 
 type ProtectedPath =
+  | BoardPath
   | "/jinyiwei"
   | "/study"
   | "/shiguan"
@@ -40,6 +42,10 @@ export async function requireUser(
   nextPath: ProtectedPath,
   dependencies: RequireUserDependencies = serverDependencies,
 ): Promise<PublicUser> {
+  if (nextPath.startsWith(BOARD_PATH)) {
+    const board = parseBoardPath(nextPath);
+    nextPath = board ? buildBoardPath(board) : "/dadian";
+  }
   const sessionId = await dependencies.getSessionId();
   if (!sessionId) dependencies.redirect(`/login?next=${encodeURIComponent(nextPath)}`);
 

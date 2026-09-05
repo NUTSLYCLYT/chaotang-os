@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { normalizeInviteCode, validateLogin, validateRegister } from "./formValidation.ts";
+import { getSafeLoginDestination, normalizeInviteCode, validateLogin, validateRegister } from "./formValidation.ts";
+
+test("A1 RED: login preserves an exact task detail destination", () => {
+  const next = "/junjichu/scene-board?mission=mission-a&filter=high&panel=detail";
+  assert.equal(getSafeLoginDestination(next), next);
+});
 
 test("login validation requires both fields", () => {
   assert.equal(validateLogin({ username: "", password: "secret" }), "请填写账号和密码。");

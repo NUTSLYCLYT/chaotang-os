@@ -411,3 +411,19 @@
     display: block;
   }
 }
+.boardWorkspace .boardGrid { grid-template-columns: minmax(240px, 0.8fr) minmax(0, 1.5fr); align-items: start; }
+.boardWorkspace .boardList, .boardWorkspace .boardDetail { min-width: 0; overflow-wrap: anywhere; }
+.boardWorkspace .missionCard[aria-pressed="true"] { outline: 2px solid #d8b76a; outline-offset: 2px; }
+.boardWorkspace button:focus-visible, .boardWorkspace summary:focus-visible { outline: 2px solid #d8b76a; outline-offset: 3px; }
+.boardWorkspace button:disabled { opacity: .55; cursor: not-allowed; }
+.boardWorkspace .boardActions { display: flex; flex-wrap: wrap; gap: 12px; margin: 16px 0; }
+.boardWorkspace details { margin: 20px 0; }
+.boardWorkspace summary { cursor: pointer; padding: 8px 0; }
+.boardWorkspace [role="alert"] { border-left: 3px solid #e49b7a; padding-left: 12px; }
+@media (max-width: 700px) {
+  .boardWorkspace .boardGrid { display: block; }
+  .boardWorkspace[data-panel="detail"] .boardList { display: none; }
+  .boardWorkspace[data-panel="list"] .boardDetail { display: none; }
+  .boardWorkspace .filterBar { flex-wrap: wrap; }
+  .boardWorkspace .boardActions { flex-direction: column; }
+}

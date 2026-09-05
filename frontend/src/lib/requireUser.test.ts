@@ -3,6 +3,17 @@ import test from "node:test";
 
 import { requireUser } from "./requireUser.ts";
 
+test("A1 board login preserves only valid closed navigation", async () => {
+  const good = "/junjichu/scene-board?mission=m-a&filter=high&panel=detail" as const;
+  for (const [path, expected] of [[good, good], ["/junjichu/scene-board?mission=a&mission=b", "/dadian"], ["/junjichu/scene-board?panel=detail", "/dadian"]] as const) {
+    await assert.rejects(() => requireUser(path, {
+      getSessionId: async () => null,
+      getCurrentUser: async () => { throw new Error("must not query without session"); },
+      redirect: location => { throw new Error(location); },
+    }), {message: "/login?next=" + encodeURIComponent(expected)});
+  }
+});
+
 test("requireUser redirects an absent session to the safe login next URL", async () => {
   await assert.rejects(
     () => requireUser("/jinyiwei", {

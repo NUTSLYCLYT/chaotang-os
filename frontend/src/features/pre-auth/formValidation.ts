@@ -1,9 +1,11 @@
+import { buildBoardPath, parseBoardPath, type BoardPath } from "../scene-packs/sceneBoardController.ts";
+
 export type LoginValues = { username: string; password: string };
 export type RegisterValues = LoginValues & { email: string; confirm: string };
 
 type AuthFetch = (url: string, init?: RequestInit) => Promise<Response>;
 
-type LoginDestination = "/dadian" | "/study" | "/shiguan" | "/jinyiwei";
+type LoginDestination = "/dadian" | "/study" | "/shiguan" | "/jinyiwei" | BoardPath;
 type RegistrationDestination = "/login?registered=1";
 
 export type AuthSubmission =
@@ -11,6 +13,8 @@ export type AuthSubmission =
   | { ok: false; message: string; requestUrl: string };
 
 export function getSafeLoginDestination(next: string | null | undefined): LoginDestination {
+  const board = parseBoardPath(next);
+  if (board) return buildBoardPath(board);
   return next === "/study" || next === "/shiguan" || next === "/dadian" || next === "/jinyiwei" ? next : "/dadian";
 }
 
