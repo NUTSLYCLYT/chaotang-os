@@ -7,8 +7,8 @@
     "targetBranch": "ext-dev"
   },
   "request": {
-    "baseCommit": "91a74574d454420753d78d15d3edfa889a9e767e",
-    "baseTree": "f94a23ac524b98b36487f13fd56492aad77b6651",
+    "baseCommit": "5c1520286557804ca3ecfaf2cfeb738852d72918",
+    "baseTree": "92a72d092b8d47eee576a623b58e77023b2f01f7",
     "approvalPath": ".harness/approvals/SINGLE-PRODUCT-EXPORT-TRUTH-A1-20260906.json",
     "approvalCommitPaths": [
       ".harness/approvals/SINGLE-PRODUCT-EXPORT-TRUTH-A1-20260906.json",

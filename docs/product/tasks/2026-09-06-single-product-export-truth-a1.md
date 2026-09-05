@@ -188,3 +188,61 @@ Owner当前已确认整改方向并要求进入下一轮；本文件据此准备
 本文件SHA-256仅标识本文内容，不能用作M0 manifest canonical digest；也不等于产品commit SHA或tree。不得把这几种标识混用。
 
 本轮交付为草案与审查结果；没有产品修改、提交、推送、合并、部署或真实模型验收。
+
+## Status
+
+Ready
+
+## Product Definition
+
+- 用户确认：用户已批准A1业务范围；本治理格式补正仍须单独批准exact digest，不自动继承推送权。
+- 问题：单品预检的固定评分、误导性风险和完成状态。
+- 目标用户：产品资料准备与出海负责人。
+- 目标：按本文A1原范围实现真实标记、快照和待办。
+- 非目标：A2正式下旨关联、模型/外网调用、产品推送、merge、deploy。
+
+## Acceptance Criteria
+
+- [ ] A1原有T01–T05及分期指定测试通过；保留历史原文，不产生当前GO误导。
+- [ ] 同一最终候选的manifest机器门禁和独立UX-A1浏览器门均完成，不以单测代替浏览器。
+- [ ] 保留14项精确产品路径；不改controller、CSS、authority或其他业务事实源。
+
+## Delivery Constraints
+
+- 范围：原14项产品路径及原A1验收边界不变。
+- 兼容性：其他四场景与V4布局/身份/会话机制保持。
+- 技能计划：codex-engineering-workflow；缺失第三方技能采用项目允许的原生等价门禁。
+- Codex-only：是；禁止Claude CLI/runner。
+- 本次只补任务模板章节与审批base绑定，不能修改护栏规则使失败消失。
+
+## Affected Modules
+
+- 模块：Scene Pack单品预检、API读投影、共享结果解析、军机处V4展示。
+- 允许路径：本审批manifest列出的14项productPaths，详见原A1精确文件列表。
+- 依赖模块：复用既有认证与场景存储；不新增A2依赖。
+
+## Technical Plan
+
+- 本次治理补正base：5c1520286557804ca3ecfaf2cfeb738852d72918。
+- base tree：92a72d092b8d47eee576a623b58e77023b2f01f7。
+- 上文91a74574基线是首轮产品代码基线；5c152028只增加两项审批文件，产品源码未变。
+- 先独立提交/推送更正审批；只在新task authorize GO后把保留的14项本地产品差异应用于审批单亲子候选。
+- 不修改过去审批commit；保持完整Git历史，不force、不merge。
+- 验证计划：原manifest矩阵不变，另按项目规范完成同一最终候选10轮完整门禁及UX证据。
+- 风险：远端推进会使审批失效；届时停止回报，不自动迁移旧批准。
+
+## Implementation Report
+
+- 当前状态：A1代码仅在隔离工作区保留，未创建产品commit。
+- 实际使用的skill：codex-engineering-workflow，原生worktree/TDD/审查/验证等价流程。
+- 验证：曾完成后端4578通过/4跳过及前端773通过；随后legacy修正仅完成19项定向回归，先前全量不代表最终候选验收。
+- 自审与独立审查：风险色和legacy当前GO文案问题已修正；Python、TypeScript、通用代码与安全复审无P0/P1代码阻断。
+- 未通过项：原审批文档缺8个必需章节，根check_harness失败；本补正专门解决该原因，不放宽检查。
+- 未运行项：最终候选10轮、完整UX-A1浏览器验收及verify-candidate。
+- 本报告是治理补正时的历史状态，不作为后续产品完成证据；最终报告须绑定实际候选SHA/tree。
+
+## Acceptance Review
+
+- 验收结果：Pending。
+- 本治理补正候选未被批准，不产生GO。
+- 产品验收仍未完成；合成服务仅验证登录可用，未完成场景浏览器全链。
