@@ -1,0 +1,176 @@
+{
+  "schemaVersion": "product-authority.m0.approval.v1",
+  "authorityId": "product-authority.m0.v1",
+  "taskId": "SINGLE-PRODUCT-EXPORT-TRUTH-A1-20260906",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "91a74574d454420753d78d15d3edfa889a9e767e",
+    "baseTree": "f94a23ac524b98b36487f13fd56492aad77b6651",
+    "approvalPath": ".harness/approvals/SINGLE-PRODUCT-EXPORT-TRUTH-A1-20260906.json",
+    "approvalCommitPaths": [
+      ".harness/approvals/SINGLE-PRODUCT-EXPORT-TRUTH-A1-20260906.json",
+      "docs/product/tasks/2026-09-06-single-product-export-truth-a1.md"
+    ],
+    "productPaths": [
+      "backend/app/api/scene_packs.py",
+      "backend/app/scene_packs/models.py",
+      "backend/app/scene_packs/storage.py",
+      "backend/tests/test_scene_pack_api.py",
+      "backend/tests/test_scene_pack_truth.py",
+      "frontend/src/features/scene-packs/SceneBoard.test.ts",
+      "frontend/src/features/scene-packs/SceneBoard.tsx",
+      "frontend/src/features/scene-packs/ScenePackWorkspace.test.ts",
+      "frontend/src/features/scene-packs/ScenePackWorkspace.tsx",
+      "frontend/src/features/scene-packs/client.test.ts",
+      "frontend/src/features/scene-packs/client.ts",
+      "frontend/src/features/scene-packs/sceneBoardV4Presentation.test.ts",
+      "frontend/src/features/scene-packs/sceneBoardV4Presentation.ts",
+      "frontend/src/features/scene-packs/types.ts"
+    ]
+  },
+  "nonGoals": [
+    "NO_A2_CANONICAL_JOB_LINK",
+    "NO_AUTOMATIC_QUOTE_CONTRACT_PAYMENT_OUTREACH",
+    "NO_CREDENTIAL_OR_RUNTIME_DATA_ACCESS",
+    "NO_ENGINE_AGENT_REGISTRY_OR_ARCHIVE_WRITER",
+    "NO_GOVERNANCE_OR_AUTHORITY_CHANGE",
+    "NO_OTHER_SCENE_BUSINESS_REWRITE",
+    "NO_PRODUCT_PUSH_MERGE_OR_DEPLOY",
+    "NO_REAL_MODEL_OR_EXTERNAL_NETWORK_CALLS",
+    "NO_RUNTIME_DATABASE_MIGRATION"
+  ],
+  "verification": [
+    {
+      "id": "backend-focused",
+      "tool": "python3",
+      "args": [
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_scene_pack_api.py",
+        "tests/test_scene_pack_truth.py"
+      ],
+      "cwd": "backend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "backend-full",
+      "tool": "python3",
+      "args": [
+        "-m",
+        "pytest"
+      ],
+      "cwd": "backend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "backend-ruff",
+      "tool": "python3",
+      "args": [
+        "-m",
+        "ruff",
+        "check",
+        "app/scene_packs",
+        "app/api/scene_packs.py",
+        "tests/test_scene_pack_api.py",
+        "tests/test_scene_pack_truth.py"
+      ],
+      "cwd": "backend",
+      "timeoutMs": 60000
+    },
+    {
+      "id": "diff-check",
+      "tool": "node",
+      "args": [
+        "--input-type=module",
+        "-e",
+        "import {execFileSync} from 'node:child_process'; execFileSync('/usr/bin/git',['diff','--check','HEAD^','HEAD'],{stdio:'inherit'});"
+      ],
+      "cwd": ".",
+      "timeoutMs": 10000
+    },
+    {
+      "id": "frontend-build",
+      "tool": "npm",
+      "args": [
+        "run",
+        "build"
+      ],
+      "cwd": "frontend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "frontend-lint",
+      "tool": "npm",
+      "args": [
+        "run",
+        "lint"
+      ],
+      "cwd": "frontend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "frontend-test",
+      "tool": "npm",
+      "args": [
+        "run",
+        "test"
+      ],
+      "cwd": "frontend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "frontend-typecheck",
+      "tool": "npm",
+      "args": [
+        "run",
+        "typecheck"
+      ],
+      "cwd": "frontend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "root-authority-tests",
+      "tool": "node",
+      "args": [
+        "--test",
+        "scripts/product-authority.test.mjs"
+      ],
+      "cwd": ".",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "root-harness",
+      "tool": "node",
+      "args": [
+        "scripts/check_harness.mjs"
+      ],
+      "cwd": ".",
+      "timeoutMs": 60000
+    },
+    {
+      "id": "root-harness-doctor",
+      "tool": "node",
+      "args": [
+        "scripts/harness-doctor.mjs",
+        "--check"
+      ],
+      "cwd": ".",
+      "timeoutMs": 60000
+    },
+    {
+      "id": "root-harness-selftest",
+      "tool": "node",
+      "args": [
+        "scripts/check_harness.mjs",
+        "--self-test"
+      ],
+      "cwd": ".",
+      "timeoutMs": 60000
+    }
+  ],
+  "state": "APPROVED_FOR_ONE_CHILD"
+}
