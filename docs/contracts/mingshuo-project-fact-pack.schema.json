@@ -1,0 +1,181 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chaotang.local/contracts/mingshuo-project-fact-pack.v1.schema.json",
+  "title": "MingshuoProjectFactPackV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "tenant",
+    "project",
+    "skuCandidates",
+    "sourcePolicy",
+    "evidence",
+    "facts",
+    "claims",
+    "commercial",
+    "channels",
+    "safety",
+    "knowledgeWriteBack",
+    "businessSuccessMeasured",
+    "productionPromotionAuthorized"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "mingshuo.project-fact-pack.v1" },
+    "tenant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "ownerUserId"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{2,127}$" },
+        "ownerUserId": { "type": "string", "minLength": 3, "maxLength": 128 }
+      }
+    },
+    "project": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "productLines", "markets", "languages", "status"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{2,127}$" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "productLines": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4,
+          "uniqueItems": true,
+          "items": { "enum": ["CELL", "PACK_POWER", "PV_STORAGE_CHARGING", "DESIGN_SOLUTION"] }
+        },
+        "markets": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+        "languages": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 2 } },
+        "status": { "enum": ["DRAFT", "HOLD", "BLOCK", "READY_FOR_REVIEW"] }
+      }
+    },
+    "skuCandidates": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "label", "status", "parameterStatus"],
+        "properties": {
+          "id": { "type": "string", "minLength": 3 },
+          "label": { "type": "string", "minLength": 1 },
+          "status": { "enum": ["RESERVED", "EVIDENCE_BOUND", "REJECTED"] },
+          "parameterStatus": { "enum": ["MISSING", "PARTIAL", "EVIDENCE_BOUND"] }
+        }
+      }
+    },
+    "sourcePolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["finalTruthSource", "imaMode", "externalModelMode", "knowledgePromotion"],
+      "properties": {
+        "finalTruthSource": { "const": "COURTOS_SERVER_EVIDENCE_BINDING" },
+        "imaMode": { "enum": ["UNAVAILABLE", "READ_ONLY"] },
+        "externalModelMode": { "enum": ["DISABLED", "DRAFT_ASSIST_ONLY"] },
+        "knowledgePromotion": { "const": "CANDIDATE_ONLY" }
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "sourceClass", "digest", "validUntil", "adoptionStatus"],
+        "properties": {
+          "id": { "type": "string", "minLength": 3 },
+          "sourceClass": {
+            "enum": [
+              "PUBLIC_CANDIDATE",
+              "SUPPLIER_ASSERTED",
+              "INTERNAL_MEASURED",
+              "THIRD_PARTY_VERIFIED",
+              "FROZEN_RELEASED"
+            ]
+          },
+          "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+          "validUntil": { "type": "string", "format": "date", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
+          "adoptionStatus": { "enum": ["PROPOSED", "ADOPTED", "REJECTED"] }
+        }
+      }
+    },
+    "facts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "kind", "subject", "value", "evidenceRefs"],
+        "properties": {
+          "id": { "type": "string", "minLength": 3 },
+          "kind": { "enum": ["PARAMETER", "CERTIFICATION", "PRICE", "LEAD_TIME", "WARRANTY", "MARKET", "RISK"] },
+          "subject": { "type": "string", "minLength": 1 },
+          "value": { "type": ["string", "number", "boolean", "object"] },
+          "evidenceRefs": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "claims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "text", "evidenceRefs", "approvalStatus"],
+        "properties": {
+          "id": { "type": "string", "minLength": 3 },
+          "text": { "type": "string", "minLength": 1, "maxLength": 500 },
+          "evidenceRefs": { "type": "array", "items": { "type": "string" } },
+          "approvalStatus": { "enum": ["DRAFT", "APPROVED", "REJECTED"] }
+        }
+      }
+    },
+    "commercial": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["priceAuthority", "quoteStatus"],
+      "properties": {
+        "priceAuthority": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "approver"],
+          "properties": {
+            "status": { "enum": ["MISSING", "APPROVED"] },
+            "approver": { "type": ["string", "null"] }
+          }
+        },
+        "quoteStatus": { "enum": ["NOT_REQUESTED", "DRAFT", "BLOCKED", "APPROVED"] }
+      }
+    },
+    "channels": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "state", "publicationAuthorized"],
+        "properties": {
+          "id": { "enum": ["ALIBABA_INTL", "WEBSITE", "MINIPROGRAM", "CUSTOMER_COACH"] },
+          "state": { "enum": ["DRAFT", "CHECKED", "APPROVED_FOR_PREVIEW", "PUBLISHED", "ROLLED_BACK"] },
+          "publicationAuthorized": { "type": "boolean" }
+        }
+      }
+    },
+    "safety": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dangerousOperationalInstructionsPresent"],
+      "properties": {
+        "dangerousOperationalInstructionsPresent": { "type": "boolean" }
+      }
+    },
+    "knowledgeWriteBack": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": {
+        "status": { "enum": ["DISABLED", "CANDIDATE_ONLY", "ACTIVE"] }
+      }
+    },
+    "businessSuccessMeasured": { "const": false },
+    "productionPromotionAuthorized": { "const": false }
+  }
+}
