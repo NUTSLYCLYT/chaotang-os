@@ -7,7 +7,32 @@ import type { DecreeJobProgress } from "../../app/study/decreeStatus.ts";
 import {
   SOURCE_MODE_LABELS,
   projectStudyTaskCockpit,
+  projectStudyPrimaryAction,
 } from "./studyTaskCockpit.ts";
+
+test("one full-page business action is projected for every confirmation/job phase", () => {
+  const base = { uiPhase: "idle" as const, draftStatus: null, draftPending: false,
+    consultPending: false, understandingReady: false, goal: "铭硕方案", dailyMemorialReady: false };
+  assert.deepEqual(projectStudyPrimaryAction(base), { stage: "EMPTY", label: "请丞相复述" });
+  assert.deepEqual(projectStudyPrimaryAction({ ...base, goal: "", dailyMemorialReady: true }),
+    { stage: "DAILY_MEMORIAL_REVIEW_ONLY", label: "确认上奏并归档为奏折" });
+  assert.deepEqual(projectStudyPrimaryAction({ ...base, understandingReady: true, dailyMemorialReady: true }),
+    { stage: "UNDERSTANDING_READY", label: "确认理解 · 生成拟旨" });
+  for (const uiPhase of ["enqueueing", "queued", "running"] as const) {
+    assert.deepEqual(projectStudyPrimaryAction({ ...base, uiPhase, draftStatus: "DRAFT_READY", understandingReady: true }),
+      { stage: "QUEUED_OR_RUNNING", label: null });
+  }
+  assert.deepEqual(projectStudyPrimaryAction({ ...base, consultPending: true, understandingReady: true }),
+    { stage: "CONSULTING", label: null });
+  assert.deepEqual(projectStudyPrimaryAction({ ...base, draftPending: true, understandingReady: true }),
+    { stage: "CONFIRMED_AND_DRAFTING", label: null });
+  assert.deepEqual(projectStudyPrimaryAction({ ...base, draftStatus: "DRAFT_READY" }),
+    { stage: "DRAFT_READY", label: "确认下旨 · 开始办理" });
+  assert.deepEqual(projectStudyPrimaryAction({ ...base, uiPhase: "error", draftStatus: "DRAFT_READY" }),
+    { stage: "FAILED_OR_CANCELLED", label: "查看原因与下一步" });
+  assert.deepEqual(projectStudyPrimaryAction({ ...base, uiPhase: "success" }),
+    { stage: "SUCCEEDED", label: "查看成果" });
+});
 
 const READY_DRAFT: ChancellorDraftResult = {
   status: "DRAFT_READY",

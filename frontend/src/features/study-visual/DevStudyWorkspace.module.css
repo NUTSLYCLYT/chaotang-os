@@ -22,7 +22,7 @@
 .dailyMemorialProgress i { color: #73654b; font-style: normal; }
 .dailyMemorialContent { max-height: 160px; margin-top: 12px; padding: 11px 12px; overflow: auto; overflow-wrap: anywhere; border-left: 2px solid #a77c35; background: rgba(114,72,21,.08); color: #33230f; font-size: 13px; line-height: 1.75; white-space: pre-wrap; }
 .dailyMemorialFacts { margin: 8px 0 0; color: #968c76; font: 11px/1.5 system-ui, sans-serif; }
-.dailyMemorialConfirm, .dailyMemorialRetry { min-height: 36px; margin-top: 12px; padding: 0 14px; border: 1px solid #a77c35; border-radius: 7px; background: transparent; color: #d2ad6b; cursor: pointer; font: 700 12px/1 var(--font-serif, serif); }
+.dailyMemorialConfirm, .dailyMemorialRetry { min-height: 36px; margin-top: 12px; padding: 0 14px; border: 1px solid #734516; border-radius: 7px; background: #3b2814; color: #f6e9c9; cursor: pointer; font: 700 12px/1 var(--font-serif, serif); }
 .dailyMemorialConfirm:disabled { cursor: not-allowed; opacity: .45; }
 .dailyMemorialConfirm:focus-visible, .dailyMemorialRetry:focus-visible { outline: 2px solid #8b2a20; outline-offset: 3px; }
 
@@ -121,12 +121,12 @@
 .composer {
   position: relative;
   display: grid;
-  grid-template-rows: auto auto;
+  grid-template-rows: minmax(0, 1fr);
   width: 100%;
-  height: auto;
+  height: 48px;
   min-height: 48px;
   box-sizing: border-box;
-  padding-top: 5px;
+  padding-top: 0;
   border: 1px solid rgba(240, 198, 106, 0.28);
   border-radius: 8px;
   background: #0b0d12;
@@ -138,6 +138,8 @@
 .composer::before { display: none; }
 .composerRow {
   display: grid;
+  height: 100%;
+  box-sizing: border-box;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 7px;
@@ -177,13 +179,13 @@
 }
 .composer textarea::placeholder { color: rgba(245,233,201,.52); }
 .composer textarea:focus { border-color: #a77c35; box-shadow: none; }
-.submit { padding: 0 18px; border-color: #a77c35; background: transparent; box-shadow: none; color: #a77c35; text-shadow: none; }
+.submit { padding: 0 18px; border-color: #734516; background: #3b2814; box-shadow: none; color: #f6e9c9; text-shadow: none; }
 .submit:disabled, .draftAction:disabled { cursor: not-allowed; opacity: .45; }
 .localNotice {
   position: absolute;
   left: 0;
   right: auto;
-  bottom: calc(100% + 7px);
+  bottom: calc(100% + 26px);
   margin: 0;
   padding: 5px 9px;
   border: 1px solid rgba(167,124,53,.24);
@@ -192,7 +194,7 @@
   color: #a77c35;
   font-size: 10px;
 }
-.composer > .sourceMode { min-width: 0; padding: 0 9px; overflow-wrap: anywhere; }
+.composer > .sourceMode { position: absolute; bottom: calc(100% + 5px); left: 4px; min-width: 0; max-width: 100%; padding: 0; overflow-wrap: anywhere; }
 
 .onboardingBackdrop {
   position: fixed;
@@ -287,4 +289,56 @@
 
 @media (prefers-reduced-motion: reduce) {
   .onboardingBackdrop { animation: none; }
+}
+.displayMode {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  color: #f5ebd4;
+  padding: 0.5rem;
+  background: rgb(24 20 17 / 92%);
+  border-radius: 0.5rem;
+}
+
+.displayMode button {
+  border: 1px solid #b6a689;
+  border-radius: 0.35rem;
+  background: #29241d;
+  color: #f5ebd4;
+  padding: 0.4rem 0.7rem;
+}
+
+.displayMode button[aria-pressed="true"] { border-color: #f6d687; text-decoration: underline; }
+.displayMode button:focus-visible, .understandingCard:focus-visible { outline: 3px solid #c18b24; outline-offset: 3px; }
+
+.understandingCard {
+  overflow: auto;
+  max-height: 60vh;
+  padding: 1.5rem;
+  border-radius: 0.7rem;
+  background: #f8f0dd;
+  color: #272019;
+  overflow-wrap: anywhere;
+}
+
+.understandingCard p { white-space: pre-wrap; line-height: 1.65; }
+.recoverySecondary {
+  margin-top: 12px;
+  padding: 8px 12px;
+  color: inherit;
+  background: transparent;
+  border: 1px solid currentColor;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.recoverySecondary:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
+}
+
+.recoverySecondary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }

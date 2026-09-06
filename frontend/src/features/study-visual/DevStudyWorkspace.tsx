@@ -20,6 +20,7 @@ import { StudyArtifactLinks } from "./StudyArtifactLinks";
 import { StudyArtifactConfirmation } from "./StudyArtifactConfirmation";
 import { getStudyDepartmentCountLabel, projectStudyArtifacts } from "./studyWorkspaceState";
 import type { ConsultMessage } from "../../app/study/chancellorConsultStatus";
+import type { StudyIntentSnapshot } from "../../app/study/studyIntentConfirmation";
 import {
   draftDepartmentDisplayRows,
   projectDraftConfirmation,
@@ -38,6 +39,7 @@ import {
 import {
   SOURCE_MODE_LABELS,
   projectStudyTaskCockpit,
+  projectStudyPrimaryAction,
 } from "./studyTaskCockpit";
 
 const ONBOARDED_KEY = "courtos.onboarded";
@@ -52,6 +54,8 @@ export interface DevStudyWorkspaceProps {
   draftPending: boolean;
   draftError: string | null;
   onDraft(sourceText: string): void;
+  understanding: StudyIntentSnapshot | null;
+  onRestate(sourceText: string): void;
   onRetryProgress(): void;
   canRetryProgress: boolean;
   retryProgressLabel: string;
@@ -74,10 +78,10 @@ export interface DevStudyWorkspaceProps {
 
 function FirstDecreeWelcome({
   onClose,
-  onStartDraft,
+  onRestate,
 }: {
   onClose(): void;
-  onStartDraft(value: string): void;
+  onRestate(value: string): void;
 }) {
   const [target, setTarget] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -113,7 +117,7 @@ function FirstDecreeWelcome({
     } catch {
       // Storage is optional; first decree remains usable in privacy-restricted browsers.
     }
-    onStartDraft(normalizedTarget);
+    onRestate(normalizedTarget);
     onClose();
   }
 
@@ -134,7 +138,7 @@ function FirstDecreeWelcome({
         <div className={styles.ritualBody}>
           <p className={styles.eyebrow}>第一旨</p>
           <h2 id="first-decree-title">您想先完成什么？</h2>
-          <p className={styles.ritualLead}>先写一个目标，丞相会据此整理可核验的拟旨草案。</p>
+          <p className={styles.ritualLead}>先写一个目标，请丞相复述；您确认理解后，才会生成拟旨草案。</p>
           <textarea
             ref={textareaRef}
             className={styles.firstDraft}
@@ -146,7 +150,7 @@ function FirstDecreeWelcome({
           />
           <div className={styles.ritualActions}>
             <button ref={actionRef} type="button" className={styles.primary} disabled={!target.trim()} onClick={startDraft}>
-              开始拟旨
+              请丞相复述
             </button>
           </div>
         </div>
@@ -223,18 +227,38 @@ function VerifiedJobProgress({
 
 export function DevStudyWorkspace(props: DevStudyWorkspaceProps) {
   const [expanded, setExpanded] = useState(false);
+  const [displayMode, setDisplayMode] = useState<"smart" | "custom">("smart");
+  const understandingCardRef = useRef<HTMLElement>(null);
   const polished = false;
   const [attachments, setAttachments] = useState<string[]>([]);
-  const [showFirstVisit, setShowFirstVisit] = useState(false);
+  const [showFirstVisit, setShowFirstVisit] = useState<boolean | null>(null);
   const archivedReply = props.selectedArchivedReply;
   const archivedReplyId = archivedReply?.id;
   const archivedReplyRef = useRef<HTMLElement>(null);
+  const hasDailyMemorialDraft = (
+    props.dailyMemorialState.phase === "ready" ||
+    props.dailyMemorialState.phase === "confirming" ||
+    props.dailyMemorialState.phase === "confirmed"
+  ) && props.dailyMemorialState.draft !== null;
   const showScroll = expanded || archivedReply !== null || props.uiState.phase !== "idle" || props.draftPending || props.draftError !== null || props.draftResult !== null;
   const hasReplyContent = archivedReply !== null || props.uiState.phase === "success" || props.uiState.phase === "idle" || props.draftPending || props.draftError !== null || props.draftResult !== null;
   const artifactView = projectStudyArtifacts(props.uiState);
   const draftConfirmation = props.draftResult
     ? projectDraftConfirmation(props.draftResult)
     : null;
+  const action = projectStudyPrimaryAction({
+    uiPhase: props.uiState.phase, draftStatus: props.draftResult?.status ?? null,
+    draftPending: props.draftPending, consultPending: props.consultPending,
+    understandingReady: props.understanding !== null, goal: props.decreeText,
+    dailyMemorialReady: canConfirmDailyMemorial(props.dailyMemorialState),
+  });
+  const welcomeVisible = showFirstVisit === true && action.stage === "EMPTY";
+  const actionSurfaceReady = showFirstVisit !== null && !welcomeVisible;
+  useEffect(() => {
+    if (!props.understanding) return;
+    const timer = window.setTimeout(() => understandingCardRef.current?.focus(), 0);
+    return () => window.clearTimeout(timer);
+  }, [props.understanding]);
   const qintianRadar = projectQintianDecisionRadar({
     decreeText: props.decreeText,
     draftResult: props.draftResult,
@@ -278,6 +302,14 @@ export function DevStudyWorkspace(props: DevStudyWorkspaceProps) {
   });
 
   useEffect(() => {
+    if (!hasDailyMemorialDraft) return;
+    const timer = window.setTimeout(() => {
+      setExpanded(true);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [hasDailyMemorialDraft]);
+
+  useEffect(() => {
     if (!archivedReplyId) return;
     const timer = window.setTimeout(() => {
       setExpanded(true);
@@ -317,9 +349,15 @@ export function DevStudyWorkspace(props: DevStudyWorkspaceProps) {
       )}
       <div className={styles.composerRow}>
         <label className={styles.attach} data-testid="decree-evidence-upload" title="选择本地补证附件（当前不会上传）">上传附件<input type="file" multiple onChange={handleFiles} disabled={!props.canEdit} /></label>
-        <textarea id="decree-text" data-testid="decree-textarea" value={props.decreeText} onChange={(event) => props.onDecreeTextChange(event.target.value)} rows={1} maxLength={2000} disabled={!props.canEdit} placeholder="先说出大概想法，丞相会用专业案例帮您拟清楚……" />
-        <button type="button" className={styles.draftAction} data-testid="draft-edict-button" disabled={props.uiState.phase === "error" || !props.canEdit || !props.decreeText.trim() || props.draftPending} onClick={() => props.onDraft(props.decreeText)}>{props.draftPending ? "拟旨中" : "拟旨"}</button>
+        <textarea id="decree-text" aria-label="希望达成的目标" data-testid="decree-textarea" value={props.decreeText} onChange={(event) => props.onDecreeTextChange(event.target.value)} rows={1} maxLength={2000} disabled={!props.canEdit} placeholder="先说明目标，确认丞相复述后再生成拟旨……" />
+        {actionSurfaceReady && (action.stage === "EMPTY" || action.stage === "UNDERSTANDING_READY") && (
+          <button type="button" className={styles.draftAction} data-testid="draft-edict-button" disabled={!props.canEdit || !props.decreeText.trim()} onClick={() => {
+            if (action.stage === "EMPTY") props.onRestate(props.decreeText);
+            else props.onDraft(props.decreeText);
+          }}>{action.label}</button>
+        )}
       </div>
+      {props.consultError && <p role="alert" className={styles.localNotice}>{props.consultError}</p>}
       {props.draftError && <p className={styles.localNotice}>{props.draftError}</p>}
     </section>
   );
@@ -349,6 +387,11 @@ export function DevStudyWorkspace(props: DevStudyWorkspaceProps) {
       scene="study"
     >
       <div className={styles.stage}>
+        <div className={styles.displayMode} role="group" aria-label="展示深度">
+          <button type="button" aria-pressed={displayMode === "smart"} onClick={() => setDisplayMode("smart")}>智能版</button>
+          <button type="button" aria-pressed={displayMode === "custom"} onClick={() => setDisplayMode("custom")}>定制版</button>
+          <span>同一任务，仅改变信息展开程度</span>
+        </div>
         <button
           className={styles.scrollToggle}
           type="button"
@@ -373,7 +416,19 @@ export function DevStudyWorkspace(props: DevStudyWorkspaceProps) {
               : styles.collapsedSlot
           }`}
         >
-          {!showScroll && props.uiState.phase !== "idle" ? (
+          {action.stage === "CONSULTING" ? (
+            <section className={styles.emptyStage} aria-live="polite" data-testid="chancellor-restatement-pending">
+              <h2>丞相正在复述目标</h2><p>本次仅咨询，不创建办理任务。</p>
+            </section>
+          ) : action.stage === "UNDERSTANDING_READY" && props.understanding ? (
+            <section ref={understandingCardRef} tabIndex={-1} className={styles.understandingCard} data-testid="study-understanding-card" aria-labelledby="understanding-title">
+              <h2 id="understanding-title">请确认丞相的理解</h2>
+              <p>以下为咨询接口的原文，尚未执行；请核对缺失资料、证据与限制。</p>
+              <h3>您的原始目标</h3><p>{props.understanding.normalizedOriginalGoal}</p>
+              <h3>丞相复述</h3><p data-testid="exact-chancellor-restatement">{props.understanding.exactLatestChancellorRestatement}</p>
+              <p>理解不准确时，请修改下方目标或在咨询中补充；旧确认会失效。</p>
+            </section>
+          ) : !showScroll && (props.uiState.phase !== "idle" || hasDailyMemorialDraft) ? (
             <CollapsedEdictScroll
               title="每日奏折"
               status={dailyMemorialPhaseLabel(props.dailyMemorialState.phase)}
@@ -394,21 +449,25 @@ export function DevStudyWorkspace(props: DevStudyWorkspaceProps) {
               <p className={styles.sourceMode} data-source-mode={cockpit.sourceMode}>
                 {SOURCE_MODE_LABELS[cockpit.sourceMode]}
               </p>
-              <p className={styles.emptyError}><strong>办理未能完成</strong>{props.uiState.message}</p>
+              <p className={styles.emptyError}><strong>办理未能完成</strong>尚未完成，不代表已归档。</p>
+              <details data-testid="decree-failure-details">
+                <summary className={styles.retryProgress}>查看原因与下一步</summary>
+                <p>{props.uiState.message}</p>
               <VerifiedJobProgress
                 progress={cockpit.progress}
                 freshness={props.uiState.progressFreshness ?? "current"}
               />
               <button
                 type="button"
-                className={styles.retryProgress}
+                className={styles.recoverySecondary}
                 data-testid="retry-decree-progress"
-                disabled={!props.canRetryProgress}
+                disabled={!actionSurfaceReady || !props.canRetryProgress}
                 onClick={props.onRetryProgress}
               >
                 {props.retryProgressLabel}
               </button>
               {props.retryProgressHint && <p className={styles.recoveryHint}>{props.retryProgressHint}</p>}
+              </details>
             </section>
           ) : ["enqueueing", "queued", "running"].includes(props.uiState.phase) ? (
             <section
@@ -442,7 +501,7 @@ export function DevStudyWorkspace(props: DevStudyWorkspaceProps) {
                     {SOURCE_MODE_LABELS[cockpit.sourceMode]}
                   </p>
                   {props.draftResult.draft && (
-                    <section data-testid="chancellor-readable-draft">
+                    <section data-testid="chancellor-readable-draft" hidden={displayMode !== "custom"}>
                       <h2>参与部门</h2>
                       <ul data-testid="chancellor-draft-departments">
                         {draftDepartmentDisplayRows(props.draftResult.draft.departments).map((item) => (
@@ -484,7 +543,7 @@ export function DevStudyWorkspace(props: DevStudyWorkspaceProps) {
                       ? "草案完整，可以直接下旨"
                       : props.draftResult.revision_prompt}
                   </p>
-                  {draftConfirmation?.showIssueAction && (
+                  {actionSurfaceReady && action.stage === "DRAFT_READY" && draftConfirmation?.showIssueAction && (
                     <button
                       type="button"
                       className={styles.submit}
@@ -492,7 +551,7 @@ export function DevStudyWorkspace(props: DevStudyWorkspaceProps) {
                       disabled={!props.canSubmit}
                       onClick={props.onSubmit}
                     >
-                      {["enqueueing", "queued", "running"].includes(props.uiState.phase) ? "办理中" : "下旨"}
+                      确认下旨 · 开始办理
                     </button>
                   )}
                 </div>
@@ -600,11 +659,13 @@ export function DevStudyWorkspace(props: DevStudyWorkspaceProps) {
                     <p className={styles.dailyMemorialProgress}><span>39/39 司</span><i aria-hidden="true">→</i><span>6/6 部</span><i aria-hidden="true">→</i><span>丞相汇总</span></p>
                     <div className={styles.dailyMemorialContent}>{props.dailyMemorialState.draft.content}</div>
                     <p className={styles.dailyMemorialFacts}>事实引用 {props.dailyMemorialState.draft.factRefs.length} 条</p>
-                    <button type="button" className={styles.dailyMemorialConfirm} onClick={props.onConfirmDailyMemorial} disabled={!canConfirmDailyMemorial(props.dailyMemorialState)}>确认上奏并归档为奏折</button>
+                    {actionSurfaceReady && action.stage === "DAILY_MEMORIAL_REVIEW_ONLY" && <button type="button" className={styles.dailyMemorialConfirm} onClick={props.onConfirmDailyMemorial} disabled={!canConfirmDailyMemorial(props.dailyMemorialState)}>确认上奏并归档为奏折</button>}
                   </>
                 )}
                 {props.dailyMemorialState.phase === "no_facts" && <p className={styles.dailyMemorialNotice}>报告期内没有可用的受控事实，因此没有生成待审草稿。</p>}
-                {(props.dailyMemorialState.phase === "failed" || props.dailyMemorialState.phase === "error") && <button type="button" className={styles.dailyMemorialRetry} onClick={props.onRetryDailyMemorial}>重新读取状态</button>}
+                {(props.dailyMemorialState.phase === "failed" || props.dailyMemorialState.phase === "error") &&
+                  action.stage === "EMPTY" && !props.decreeText.trim() && actionSurfaceReady &&
+                  <button type="button" className={styles.dailyMemorialRetry} onClick={props.onRetryDailyMemorial}>重新读取状态</button>}
               </section>
             </EdictStage>
           ) : (
@@ -624,10 +685,10 @@ export function DevStudyWorkspace(props: DevStudyWorkspaceProps) {
         </section>
 
       </div>
-      {showFirstVisit && (
+      {welcomeVisible && (
         <FirstDecreeWelcome
           onClose={() => setShowFirstVisit(false)}
-          onStartDraft={props.onDraft}
+          onRestate={props.onRestate}
         />
       )}
     </ImmersiveCourtShell>

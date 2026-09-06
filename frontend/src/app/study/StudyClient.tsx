@@ -22,8 +22,11 @@ import {
 } from "./chancellorConsultStatus";
 import {
   requestChancellorConsult,
-  submitChancellorConsult,
 } from "./chancellorConsultSubmission";
+import {
+  captureStudyIntent, confirmStudyIntent, isStudyIntentCurrent,
+  type ConfirmedStudyIntent, type StudyIntentSnapshot,
+} from "./studyIntentConfirmation";
 import {
   loadChancellorConsultMessages,
   saveChancellorConsultMessages,
@@ -66,6 +69,30 @@ import {
 
 function scheduleStudyLoginRedirect(path: string): void {
   window.setTimeout(() => window.location.assign(path), 0);
+}
+
+function scheduleCurrentStudyLoginRedirect(path: string, isCurrent: () => boolean): void {
+  window.setTimeout(() => { if (isCurrent()) window.location.assign(path); }, 0);
+}
+
+export async function runStudyConsultRequest(options: {
+  isCurrent(): boolean;
+  request(): ReturnType<typeof requestChancellorConsult>;
+  accept(reply: string): void;
+  fail(): void;
+  scheduleRedirect(path: string): void;
+}): Promise<boolean> {
+  if (!options.isCurrent()) return false;
+  let response: Awaited<ReturnType<typeof requestChancellorConsult>>;
+  try { response = await options.request(); } catch { response = { ok: false }; }
+  if (!options.isCurrent()) return false;
+  if (!response.ok) {
+    if (response.unauthenticated) options.scheduleRedirect("/login?next=%2Fstudy");
+    options.fail();
+    return false;
+  }
+  options.accept(response.reply);
+  return true;
 }
 
 interface StudyRecentRepliesLoaderOptions {
@@ -149,6 +176,7 @@ interface ChancellorDraftRequestRunnerOptions {
   getLatestRequestId(): number;
   getCurrentSourceText(): string;
   isCurrentOwner?(): boolean;
+  isCurrentSource?(): boolean;
   request(sourceText: string): Promise<ChancellorDraftRequestResult>;
   setPending(pending: boolean): void;
   setError(error: string | null): void;
@@ -174,6 +202,7 @@ export async function runChancellorDraftRequest({
   getLatestRequestId,
   getCurrentSourceText,
   isCurrentOwner,
+  isCurrentSource,
   request,
   setPending,
   setError,
@@ -182,13 +211,14 @@ export async function runChancellorDraftRequest({
   scheduleRedirect,
 }: ChancellorDraftRequestRunnerOptions): Promise<boolean> {
   const normalizedSource = sourceText.trim();
+  if (isCurrentSource?.() === false) return false;
   const result = await request(normalizedSource);
   if (isCurrentOwner?.() === false) {
     clearStaleOwnerPending?.();
     return false;
   }
   if (
-    requestId !== getLatestRequestId() ||
+    isCurrentSource?.() === false || requestId !== getLatestRequestId() ||
     getCurrentSourceText().trim() !== normalizedSource
   ) {
     return false;
@@ -244,7 +274,18 @@ export function StudyClient({ userId }: { userId: string }) {
   const setUiState = (state: DecreeUiState) => {
     setOwnerScopedUiState({ ownerId: userId, value: state });
   };
-  const [consultState, setConsultState] = useState<ChancellorConsultState>(EMPTY_CONSULT_STATE);
+  const [ownerScopedConsult, setOwnerScopedConsult] = useState({ ownerId: userId, value: EMPTY_CONSULT_STATE });
+  const consultState = ownerScopedConsult.ownerId === userId ? ownerScopedConsult.value : EMPTY_CONSULT_STATE;
+  const setConsultState = (value: ChancellorConsultState) => setOwnerScopedConsult({ ownerId: userId, value });
+  const [currentIntent, setCurrentIntent] = useState<StudyIntentSnapshot>({
+    ownerId: userId, normalizedOriginalGoal: "", exactLatestChancellorRestatement: "",
+    consultationGeneration: 0, contextGeneration: 0,
+  });
+  const intentRef = useRef(currentIntent);
+  const [understanding, setUnderstanding] = useState<StudyIntentSnapshot | null>(null);
+  const understandingRef = useRef<StudyIntentSnapshot | null>(null);
+  const [confirmedIntent, setConfirmedIntent] = useState<ConfirmedStudyIntent | null>(null);
+  const draftFlightRef = useRef<number | null>(null);
   const [recentReplies, setRecentReplies] =
     useState<StudyRecentRepliesState>(EMPTY_STUDY_RECENT_REPLIES_STATE);
   const [replyPresentation, setReplyPresentation] =
@@ -259,59 +300,109 @@ export function StudyClient({ userId }: { userId: string }) {
   const resumedJobRef = useRef<string | null>(null);
   const activeOwnerRef = useRef(userId);
   const dailyMemorialRef = useRef<DailyMemorialUiState>(beginDailyMemorialLoad());
+  const recentRepliesOwnerEpochRef = useRef(0);
+  const dailyMemorialOwnerEpochRef = useRef(0);
 
-  function commitDailyMemorial(state: DailyMemorialUiState) {
+  // Reset the rendered state as well as the request refs. React retries this
+  // render before committing children, so returning A after B cannot revive A.
+  if (currentIntent.ownerId !== userId) {
+    const emptyDailyMemorial = beginDailyMemorialLoad();
+    setCurrentIntent({ ownerId: userId, normalizedOriginalGoal: "", exactLatestChancellorRestatement: "",
+      consultationGeneration: currentIntent.consultationGeneration + 1,
+      contextGeneration: currentIntent.contextGeneration + 1 });
+    setUnderstanding(null);
+    setConfirmedIntent(null);
+    setRecentReplies(EMPTY_STUDY_RECENT_REPLIES_STATE);
+    setReplyPresentation(CURRENT_REPLY_PRESENTATION);
+    setDailyMemorialState(emptyDailyMemorial);
+    setOwnerScopedDraftComposer({ ownerId: userId, value: EMPTY_CHANCELLOR_DRAFT_COMPOSER_STATE });
+    setOwnerScopedUiState({ ownerId: userId, value: IDLE_UI_STATE });
+    setOwnerScopedConsult({ ownerId: userId, value: EMPTY_CONSULT_STATE });
+  }
+
+  function isCurrentDailyMemorialOwner(ownerId: string, epoch: number): boolean {
+    return activeOwnerRef.current === ownerId && dailyMemorialOwnerEpochRef.current === epoch;
+  }
+
+  function commitDailyMemorial(
+    state: DailyMemorialUiState,
+    ownerId = userId,
+    epoch = dailyMemorialOwnerEpochRef.current,
+  ) {
+    if (!isCurrentDailyMemorialOwner(ownerId, epoch)) return;
     dailyMemorialRef.current = state;
     setDailyMemorialState(state);
   }
 
-  async function loadLatestDailyMemorial(message?: string) {
-    commitDailyMemorial(beginDailyMemorialLoad());
+  async function loadLatestDailyMemorial(
+    message?: string,
+    ownerId = userId,
+    epoch = dailyMemorialOwnerEpochRef.current,
+  ) {
+    if (!isCurrentDailyMemorialOwner(ownerId, epoch)) return;
+    commitDailyMemorial(beginDailyMemorialLoad(), ownerId, epoch);
     const result = await requestLatestDailyMemorial(window.fetch.bind(window));
+    if (!isCurrentDailyMemorialOwner(ownerId, epoch)) return;
     if (!result.ok) {
       if (result.kind === "unauthenticated") {
-        scheduleStudyLoginRedirect("/login?next=%2Fstudy");
+        scheduleCurrentStudyLoginRedirect("/login?next=%2Fstudy", () =>
+          isCurrentDailyMemorialOwner(ownerId, epoch));
       }
-      commitDailyMemorial(failDailyMemorial(message));
+      commitDailyMemorial(failDailyMemorial(message), ownerId, epoch);
       return;
     }
     const state = resolveDailyMemorialLoad(result.data);
-    commitDailyMemorial(message ? { ...state, message } : state);
+    commitDailyMemorial(message ? { ...state, message } : state, ownerId, epoch);
   }
 
   async function handleConfirmDailyMemorial() {
+    const confirmingOwner = userId;
+    const confirmingEpoch = dailyMemorialOwnerEpochRef.current;
+    if (!isCurrentDailyMemorialOwner(confirmingOwner, confirmingEpoch)) return;
     const current = dailyMemorialRef.current;
     await runDailyMemorialConfirmation({
       state: current,
-      getCurrentState: () => dailyMemorialRef.current,
-      commit: commitDailyMemorial,
-      request: (draft) => requestDailyMemorialConfirmation(draft, window.fetch.bind(window)),
-      refresh: loadLatestDailyMemorial,
-      scheduleRedirect: scheduleStudyLoginRedirect,
+      getCurrentState: () => isCurrentDailyMemorialOwner(confirmingOwner, confirmingEpoch)
+        ? dailyMemorialRef.current : beginDailyMemorialLoad(),
+      commit: (state) => commitDailyMemorial(state, confirmingOwner, confirmingEpoch),
+      request: (draft) => isCurrentDailyMemorialOwner(confirmingOwner, confirmingEpoch)
+        ? requestDailyMemorialConfirmation(draft, window.fetch.bind(window))
+        : Promise.resolve({ ok: false as const, kind: "network" as const }),
+      refresh: (message) => loadLatestDailyMemorial(message, confirmingOwner, confirmingEpoch),
+      scheduleRedirect: (path) => scheduleCurrentStudyLoginRedirect(path, () =>
+        isCurrentDailyMemorialOwner(confirmingOwner, confirmingEpoch)),
     });
   }
 
   useEffect(() => {
-    let active = true;
+    const ownerId = userId;
+    const epoch = dailyMemorialOwnerEpochRef.current;
     void requestLatestDailyMemorial(window.fetch.bind(window)).then((result) => {
-      if (!active) return;
+      if (!isCurrentDailyMemorialOwner(ownerId, epoch)) return;
       if (!result.ok) {
         if (result.kind === "unauthenticated") {
-          scheduleStudyLoginRedirect("/login?next=%2Fstudy");
+          scheduleCurrentStudyLoginRedirect("/login?next=%2Fstudy", () =>
+            isCurrentDailyMemorialOwner(ownerId, epoch));
         }
-        commitDailyMemorial(failDailyMemorial());
+        const failedState = failDailyMemorial();
+        dailyMemorialRef.current = failedState;
+        setDailyMemorialState(failedState);
         return;
       }
-      commitDailyMemorial(resolveDailyMemorialLoad(result.data));
+      const loadedState = resolveDailyMemorialLoad(result.data);
+      dailyMemorialRef.current = loadedState;
+      setDailyMemorialState(loadedState);
     });
-    return () => { active = false; };
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
+    const restoringGeneration = intentRef.current.contextGeneration;
     const restoreTimer = window.setTimeout(() => {
-      setConsultState({
-        ...EMPTY_CONSULT_STATE,
-        messages: loadChancellorConsultMessages(userId, window.localStorage),
+      if (activeOwnerRef.current !== userId || intentRef.current.contextGeneration !== restoringGeneration) return;
+      setOwnerScopedConsult({
+        ownerId: userId,
+        value: { ...EMPTY_CONSULT_STATE,
+          messages: loadChancellorConsultMessages(userId, window.localStorage) },
       });
     }, 0);
     return () => window.clearTimeout(restoreTimer);
@@ -319,6 +410,18 @@ export function StudyClient({ userId }: { userId: string }) {
 
   useLayoutEffect(() => {
     activeOwnerRef.current = userId;
+    if (intentRef.current.ownerId !== userId) {
+      intentRef.current = { ownerId: userId, normalizedOriginalGoal: "", exactLatestChancellorRestatement: "",
+        consultationGeneration: intentRef.current.consultationGeneration + 1,
+        contextGeneration: intentRef.current.contextGeneration + 1 };
+      recentRepliesOwnerEpochRef.current += 1;
+      dailyMemorialOwnerEpochRef.current += 1;
+      recentRepliesRef.current = EMPTY_STUDY_RECENT_REPLIES_STATE;
+      dailyMemorialRef.current = beginDailyMemorialLoad();
+      understandingRef.current = null;
+      draftRequestIdRef.current += 1;
+      draftFlightRef.current = null;
+    }
   }, [userId]);
 
   useEffect(() => {
@@ -361,11 +464,17 @@ export function StudyClient({ userId }: { userId: string }) {
   }
 
   const { canEdit } = getDecreeFormAvailability(decreeText, uiState);
+  const visibleUnderstanding = currentIntent.ownerId === userId &&
+    isStudyIntentCurrent(understanding, currentIntent) ? understanding : null;
+  const confirmedSourceCurrent = currentIntent.ownerId === userId &&
+    isStudyIntentCurrent(confirmedIntent, currentIntent);
   const canIssue = !["enqueueing", "queued", "running"].includes(uiState.phase) &&
-    canIssueChancellorDraft(draftResult);
+    confirmedSourceCurrent && canIssueChancellorDraft(draftResult);
   const selectedArchivedReply = resolveSelectedArchive(replyPresentation, recentReplies.archives);
 
   async function handleSubmitDecree() {
+    if (activeOwnerRef.current !== userId ||
+      !isStudyIntentCurrent(confirmedIntent, intentRef.current)) return;
     const submittingOwner = userId;
     await runStudyDecreeSubmission({
       canSubmit: canIssue,
@@ -394,7 +503,8 @@ export function StudyClient({ userId }: { userId: string }) {
             scheduleRedirect: scheduleStudyLoginRedirect,
             storage: window.sessionStorage,
             userId: submittingOwner,
-            isCurrent: () => activeOwnerRef.current === submittingOwner,
+            isCurrent: () => activeOwnerRef.current === submittingOwner &&
+              isStudyIntentCurrent(confirmedIntent, intentRef.current),
             onProgress: (phase, jobId, jobProgress) => {
               if (activeOwnerRef.current === submittingOwner) {
                 setUiState({ phase, jobId, jobProgress });
@@ -407,10 +517,16 @@ export function StudyClient({ userId }: { userId: string }) {
 
   async function handleDraft(sourceText: string) {
     const normalizedSource = sourceText.trim();
-    if (!normalizedSource || draftPending) return;
+    if (!normalizedSource || draftPending || draftFlightRef.current !== null ||
+      ["enqueueing", "queued", "running"].includes(uiState.phase)) return;
+    const snapshot = understandingRef.current;
+    const confirmed = snapshot && confirmStudyIntent(snapshot, intentRef.current);
+    if (!confirmed || confirmed.ownerId !== userId || confirmed.normalizedOriginalGoal !== normalizedSource) return;
     const draftingOwner = userId;
     const requestId = draftRequestIdRef.current + 1;
     draftRequestIdRef.current = requestId;
+    draftFlightRef.current = requestId;
+    setConfirmedIntent(confirmed);
     decreeTextRef.current = normalizedSource;
     setDecreeText(normalizedSource);
     setUiState(IDLE_UI_STATE);
@@ -423,8 +539,9 @@ export function StudyClient({ userId }: { userId: string }) {
       getLatestRequestId: () => draftRequestIdRef.current,
       getCurrentSourceText: () => decreeTextRef.current,
       isCurrentOwner: () => activeOwnerRef.current === draftingOwner,
-      request: (text) => requestChancellorDraft(
-        text,
+      isCurrentSource: () => isStudyIntentCurrent(confirmed, intentRef.current),
+      request: () => requestChancellorDraft(
+        confirmed,
         (draftResult?.version ?? 0) + 1,
         window.fetch.bind(window),
       ),
@@ -435,8 +552,11 @@ export function StudyClient({ userId }: { userId: string }) {
         setOwnerScopedDraftComposer((current) =>
           clearOwnerDraftPending(current, draftingOwner));
       },
-      scheduleRedirect: scheduleStudyLoginRedirect,
+      scheduleRedirect: (path) => scheduleCurrentStudyLoginRedirect(path, () =>
+        activeOwnerRef.current === draftingOwner && requestId === draftRequestIdRef.current &&
+        isStudyIntentCurrent(confirmed, intentRef.current)),
     });
+    if (draftFlightRef.current === requestId) draftFlightRef.current = null;
   }
 
   async function handleRetryProgress() {
@@ -459,7 +579,11 @@ export function StudyClient({ userId }: { userId: string }) {
         });
         return;
       }
-      await handleDraft(fallbackSourceText);
+      if (isStudyIntentCurrent(understandingRef.current, intentRef.current)) {
+        await handleDraft(fallbackSourceText);
+      } else {
+        await handleRestate(fallbackSourceText);
+      }
     }
     if (active === null) {
       await redraftOrExplain();
@@ -504,34 +628,77 @@ export function StudyClient({ userId }: { userId: string }) {
   }
 
   async function handleOpenRecentReplies() {
+    const loadingOwner = userId;
+    const loadingEpoch = recentRepliesOwnerEpochRef.current;
+    const isCurrentRecentRepliesOwner = () => activeOwnerRef.current === loadingOwner &&
+      recentRepliesOwnerEpochRef.current === loadingEpoch;
+    if (!isCurrentRecentRepliesOwner()) return;
     await loadStudyRecentReplies({
       stateRef: recentRepliesRef,
-      setState: setRecentReplies,
+      setState: (state) => {
+        if (!isCurrentRecentRepliesOwner()) return;
+        recentRepliesRef.current = state;
+        setRecentReplies(state);
+      },
       request: () => requestStudyRecentReplies(window.fetch.bind(window)),
-      scheduleRedirect: scheduleStudyLoginRedirect,
+      scheduleRedirect: (path) => scheduleCurrentStudyLoginRedirect(path,
+        isCurrentRecentRepliesOwner),
     });
   }
 
-  async function handleConsultSend(content: string) {
-    if (consultState.pending) return false;
+  function invalidateIntent(sourceText: string) {
+    const next = { ownerId: userId, normalizedOriginalGoal: sourceText.trim(),
+      exactLatestChancellorRestatement: "",
+      consultationGeneration: intentRef.current.consultationGeneration + 1,
+      contextGeneration: intentRef.current.contextGeneration + 1 };
+    intentRef.current = next;
+    setCurrentIntent(next);
+    understandingRef.current = null;
+    setUnderstanding(null);
+    setConfirmedIntent(null);
+    draftRequestIdRef.current += 1;
+    draftFlightRef.current = null;
+    decreeTextRef.current = sourceText;
+    setDecreeText(sourceText);
+    setDraftPending(false);
+    setDraftResult(null);
+    setDraftError(null);
+    return next;
+  }
+
+  async function performConsult(content: string, goal: string) {
+    if (!content.trim() || !goal.trim() || ["enqueueing", "queued", "running"].includes(uiState.phase)) return false;
+    const token = invalidateIntent(goal);
     const sendingState = { ...consultState, pending: true, error: null };
+    const messages = [...sendingState.messages.slice(-18), { role: "user" as const, content: content.trim() }];
     setConsultState(sendingState);
-    const result = await submitChancellorConsult({
-      state: { ...sendingState, messages: sendingState.messages.slice(-18) },
-      content,
-      request: async (messages) => {
-        const response = await requestChancellorConsult(messages, window.fetch.bind(window));
-        if (!response.ok && response.unauthenticated) {
-          scheduleStudyLoginRedirect("/login?next=%2Fstudy");
-        }
-        return response;
+    setUiState(IDLE_UI_STATE);
+    const isCurrent = () => activeOwnerRef.current === userId && intentRef.current === token;
+    return runStudyConsultRequest({
+      isCurrent,
+      request: () => requestChancellorConsult(messages, window.fetch.bind(window)),
+      accept: (reply) => {
+        const snapshot = captureStudyIntent({ ...token, exactLatestChancellorRestatement: reply });
+        if (!snapshot) { setConsultState({ ...sendingState, pending: false, error: "未取得有效复述，请重试。" }); return; }
+        intentRef.current = snapshot;
+        setCurrentIntent(snapshot);
+        understandingRef.current = snapshot;
+        setUnderstanding(snapshot);
+        const result = { state: { messages: [...messages, { role: "assistant" as const, content: reply }], pending: false, error: null } };
+        setConsultState(result.state);
+        saveChancellorConsultMessages(userId, result.state.messages, window.localStorage);
       },
+      fail: () => setConsultState({ ...sendingState, pending: false, error: "丞相暂时无法复述，请稍后再试。" }),
+      scheduleRedirect: (path) => scheduleCurrentStudyLoginRedirect(path, isCurrent),
     });
-    setConsultState(result.state);
-    if (result.clearDraft) {
-      saveChancellorConsultMessages(userId, result.state.messages, window.localStorage);
-    }
-    return result.clearDraft;
+  }
+
+  async function handleRestate(sourceText: string) {
+    return performConsult("请先复述以下目标，明确缺失资料与限制；不要执行或生成正式旨意。\n\n" + sourceText.trim(), sourceText);
+  }
+
+  async function handleConsultSend(content: string) {
+    return performConsult(content, decreeTextRef.current.trim() || content.trim());
   }
 
   const recoverySourceText = decreeText.trim() ||
@@ -561,13 +728,13 @@ export function StudyClient({ userId }: { userId: string }) {
       canEdit={canEdit}
       canSubmit={canIssue}
       onDecreeTextChange={(value) => {
-        decreeTextRef.current = value;
-        draftRequestIdRef.current += 1;
-        setDecreeText(value);
-        setDraftPending(false);
-        setDraftResult(null);
-        setDraftError(null);
+        if (!canEdit) return;
+        invalidateIntent(value);
+        setConsultState({ ...consultState, pending: false, error: null });
+        setUiState(IDLE_UI_STATE);
       }}
+      understanding={visibleUnderstanding}
+      onRestate={(sourceText) => void handleRestate(sourceText)}
       draftResult={draftResult}
       draftPending={draftPending}
       draftError={draftError}

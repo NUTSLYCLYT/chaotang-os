@@ -2,6 +2,100 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import ts from "typescript";
+import fs from "node:fs";
+import path from "node:path";
+import { createRequire } from "node:module";
+import { fileURLToPath } from "node:url";
+
+export function buildStudyBrowserFixture(kind: "client" | "ui"): string {
+  const root = fileURLToPath(new URL("../../../", import.meta.url));
+  const require = createRequire(path.join(root, "package.json"));
+  const modules: Record<string, { code: string; deps: Record<string, string> }> = {};
+  function visit(file: string): string {
+    if (modules[file]) return file;
+    const entry = modules[file] = { code: '', deps: {} as Record<string, string> };
+    if (file.endsWith('.css')) {
+      entry.code = 'module.exports = new Proxy({}, {get: (_, key) => key});';
+      return file;
+    }
+    let code = fs.readFileSync(file, 'utf8');
+    if (/\.tsx?$/.test(file)) code = ts.transpileModule(code, { compilerOptions: {
+      module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2020,
+    }}).outputText;
+    entry.code = code;
+    for (const match of code.matchAll(/require\(["']([^"']+)["']\)/g)) {
+      const spec = match[1];
+      let resolved;
+      if (spec === 'next/link') resolved = '@link';
+      else if (spec.includes('ImmersiveCourtShell')) resolved = '@shell';
+      else if (spec.includes('court-visuals/edict/EdictStage')) resolved = '@edict';
+      else if (spec.endsWith('/StudySideDrawers')) resolved = '@drawers';
+      else if (spec.endsWith('/StudyArtifactLinks') || spec.endsWith('/StudyArtifactConfirmation')) resolved = '@artifacts';
+      else if (kind === 'client' && spec.endsWith('/DevStudyWorkspace')) resolved = '@probe';
+      else if (spec.startsWith('.')) {
+        const target = path.resolve(path.dirname(file), spec);
+        resolved = ['', '.ts', '.tsx', '.js', '/index.js'].map(s => target + s).find(f => fs.existsSync(f) && fs.statSync(f).isFile());
+        if (!resolved) throw new Error('Unresolved ' + spec + ' in ' + file);
+      } else resolved = createRequire(file).resolve(spec);
+      entry.deps[spec] = resolved;
+      if (!resolved.startsWith('@')) visit(resolved);
+    }
+    return file;
+  }
+  const react = visit(require.resolve('react'));
+  const dom = visit(require.resolve('react-dom/client'));
+  const source = visit(path.join(root, kind === 'client' ? 'src/app/study/StudyClient.tsx' : 'src/features/study-visual/DevStudyWorkspace.tsx'));
+  return `const process={env:{NODE_ENV:'development'}};const modules=${JSON.stringify(modules)};const cache={};
+  function load(id){if(cache[id])return cache[id].exports;
+    if(id.startsWith('@')) {const R=load(${JSON.stringify(react)});const h=R.createElement;
+      if(id==='@probe')return {DevStudyWorkspace:p=>{window.p1Props=p;return h('div',null,h('h1',null,'SYNTHETIC React integration fixture'),h('pre',{id:'probe'},JSON.stringify({canSubmit:p.canSubmit,goal:p.decreeText,draft:p.draftResult,understanding:p.understanding})));}};
+      if(id==='@link')return {default:p=>h('a',p,p.children)};
+      if(id==='@shell')return {ImmersiveCourtShell:p=>h('main',null,p.quickDockCenter,p.children,p.overlay)};
+      if(id==='@edict')return {EdictStage:p=>h('section',null,p.children),CollapsedEdictScroll:p=>h('button',{onClick:p.onOpen},'展卷')};
+      if(id==='@drawers')return {StudySideDrawers:()=>null};
+      if(id==='@artifacts')return {StudyArtifactLinks:()=>null,StudyArtifactConfirmation:()=>null};
+      throw Error(id);
+    }
+    const m=cache[id]={exports:{}};const data=modules[id];if(!data)throw Error(id);
+    new Function('require','module','exports','process',data.code)(s=>load(data.deps[s]),m,m.exports,process);return m.exports;
+  }
+  const R=load(${JSON.stringify(react)});const app=load(${JSON.stringify(source)});const root=load(${JSON.stringify(dom)}).createRoot(document.getElementById('root'));
+  window.calls=[];window.recoveryCalls=0;window.dailyCalls=0;
+  window.fetch=async(url,init)=>{calls.push({url:String(url),body:init?.body});
+    if(String(url).includes('chancellor-consult'))return Response.json({reply:'合成复述：生成报价草案，缺少认证与成本证据，不进行真实报价。'});
+    if(String(url).includes('/drafts/chancellor'))return Response.json({status:'DRAFT_READY',version:1,fingerprint:'a'.repeat(64),understanding:'合成理解',expert_example:'合成草案',recommendation_reason:'合成',assumptions:[],revision_prompt:'修改',decree_text:'合成报价草案，不执行外部动作。',draft:{objective:'合成目标',scope:['合成范围'],exclusions:[],input_materials:['合成输入'],material_gaps:[],key_questions:['合成问题'],departments:[{department:'户部',bureaus:['会计司'],role:'主办',reason:'合成',responsibility:'合成',expected_output:'合成'}],execution_steps:['合成步骤'],deliverables:['草案'],completion_criteria:['人工确认'],permissions_and_limits:['不部署'],current_status:'DRAFT_READY'}});
+    return Response.json({status:'error'}, {status:503});};
+  const syntheticFetch=window.fetch;window.fetch=async(...args)=>{const response=await syntheticFetch(...args);if(String(args[0]).includes('/drafts/chancellor')){const body=await response.json();body.expert_example=body.decree_text;return Response.json(body);}return response;};
+  localStorage.setItem('courtos.onboarded','1');sessionStorage.clear();
+  const defaults={decreeText:'合成目标',uiState:{phase:'idle'},canEdit:true,canSubmit:false,draftResult:null,draftPending:false,draftError:null,understanding:null,onDecreeTextChange:()=>{},onRestate:()=>{},onDraft:()=>{},onSubmit:()=>{},onRetryProgress:()=>window.recoveryCalls++,canRetryProgress:true,retryProgressLabel:'重新拟旨',retryProgressHint:null,recentReplies:{phase:'idle',generation:0,archives:[],expandedIds:[]},onOpenRecentReplies:()=>{},onRetryRecentReplies:()=>{},onSelectRecentReply:()=>{},selectedArchivedReply:null,onReturnToCurrentReply:()=>{},consultMessages:[],consultPending:false,consultError:null,onConsultSend:async()=>false,dailyMemorialState:{phase:'no_facts',draft:null,message:'没有合成事实'},onConfirmDailyMemorial:()=>{},onRetryDailyMemorial:()=>window.dailyCalls++};
+  window.renderOwner=userId=>root.render(R.createElement(app.StudyClient,{userId}));
+  window.renderUi=patch=>root.render(R.createElement(app.DevStudyWorkspace,{...defaults,...patch}));
+  ${kind === 'client' ? "window.renderOwner('synthetic-a');" : 'window.renderUi({});'}
+  `;
+}
+
+// Executed by the external browser verifier; node:test does not pretend to run a DOM.
+export const STUDY_OWNER_ROUND_TRIP_BROWSER_TEST = "async (page) => { await page.goto('http://127.0.0.1:18995/client'); await page.waitForFunction(()=>!!window.p1Props); await page.evaluate(()=>p1Props.onDecreeTextChange('合成铭硕报价草案')); await page.waitForFunction(()=>p1Props.decreeText==='合成铭硕报价草案'); await page.evaluate(()=>p1Props.onRestate('合成铭硕报价草案')); await page.waitForFunction(()=>!!p1Props.understanding); await page.evaluate(()=>p1Props.onDraft('合成铭硕报价草案')); await page.waitForFunction(()=>p1Props.canSubmit); await page.evaluate(()=>{window.staleSubmit=p1Props.onSubmit;window.callCount=calls.length;renderOwner('synthetic-b');}); await page.waitForFunction(()=>p1Props.decreeText===''); await page.evaluate(()=>renderOwner('synthetic-a')); await page.waitForTimeout(100); await page.evaluate(()=>staleSubmit()); const result=await page.evaluate(()=>({canSubmit:p1Props.canSubmit,draft:!!p1Props.draftResult,understanding:!!p1Props.understanding,goal:p1Props.decreeText,noStaleRequest:calls.length===callCount})); if(result.canSubmit||result.draft||result.understanding||result.goal||!result.noStaleRequest)throw Error(JSON.stringify(result));return {green:true,result}; }";
+
+test("retained browser fixture compiles the real StudyClient and React runtime", () => {
+  const fixture = buildStudyBrowserFixture("client");
+  assert.ok(fixture.includes("react-dom-client"));
+  assert.ok(fixture.includes("function StudyClient"));
+  assert.ok(fixture.includes("SYNTHETIC React integration fixture"));
+});
+
+test("owner transition clears rendered confirmation and draft, and submit rechecks the live source", async () => {
+  const source = await readFile(new URL("./StudyClient.tsx", import.meta.url), "utf8");
+  const reset = source.slice(source.indexOf("if (currentIntent.ownerId !== userId)"), source.indexOf("function commitDailyMemorial"));
+  assert.match(reset, /setCurrentIntent\(/);
+  assert.match(reset, /setUnderstanding\(null\)/);
+  assert.match(reset, /setConfirmedIntent\(null\)/);
+  assert.match(reset, /setOwnerScopedDraftComposer\(/);
+  assert.match(reset, /EMPTY_CHANCELLOR_DRAFT_COMPOSER_STATE/);
+  const submit = source.slice(source.indexOf("async function handleSubmitDecree"), source.indexOf("async function handleDraft"));
+  assert.ok(submit.indexOf("isStudyIntentCurrent(confirmedIntent, intentRef.current)") >= 0);
+  assert.ok(submit.indexOf("isStudyIntentCurrent(confirmedIntent, intentRef.current)") < submit.indexOf("runStudyDecreeSubmission("));
+});
 
 import {
   EMPTY_STUDY_RECENT_REPLIES_STATE,
@@ -38,6 +132,7 @@ type DraftRequestRunner = (options: {
   getLatestRequestId(): number;
   getCurrentSourceText(): string;
   isCurrentOwner?(): boolean;
+  isCurrentSource?(): boolean;
   request(sourceText: string): Promise<
     | { ok: true; draft: { status: "DRAFT_READY"; decree_text: string } }
     | { ok: false; unauthenticated: boolean }
@@ -223,8 +318,27 @@ test("daily memorial 401 redirects and 409 refreshes without retrying stale POST
 
   assert.match(source, /\/login\?next=%2Fstudy/);
   assert.match(source, /runDailyMemorialConfirmation\(\{/);
-  assert.match(source, /refresh: loadLatestDailyMemorial/);
+  assert.ok(source.includes("refresh: (message) => loadLatestDailyMemorial(message, confirmingOwner, confirmingEpoch)"));
+  assert.ok(source.includes("isCurrentDailyMemorialOwner(confirmingOwner, confirmingEpoch)"));
   assert.doesNotMatch(source, /useEffect\([\s\S]{0,400}?requestDailyMemorialConfirmation/);
+});
+
+test("StudyClient fail-closes reply and daily state across owner transitions", async () => {
+  const source = await readFile(new URL("./StudyClient.tsx", import.meta.url), "utf8");
+
+  for (const marker of [
+    "recentRepliesOwnerEpochRef.current += 1",
+    "recentRepliesRef.current = EMPTY_STUDY_RECENT_REPLIES_STATE",
+    "setReplyPresentation(CURRENT_REPLY_PRESENTATION)",
+    "dailyMemorialOwnerEpochRef.current += 1",
+    "dailyMemorialRef.current = beginDailyMemorialLoad()",
+    "const loadingOwner = userId",
+    "const loadingEpoch = recentRepliesOwnerEpochRef.current",
+    "if (!isCurrentRecentRepliesOwner()) return",
+    "const confirmingOwner = userId",
+    "const confirmingEpoch = dailyMemorialOwnerEpochRef.current",
+    "if (!isCurrentDailyMemorialOwner(ownerId, epoch)) return",
+  ]) assert.ok(source.includes(marker), marker);
 });
 
 test("Study page scopes consult browser persistence to the authenticated user", async () => {
@@ -237,7 +351,7 @@ test("Study page scopes consult browser persistence to the authenticated user", 
   assert.match(page, /<StudyClient userId=\{user\.id\}/);
   assert.match(client, /loadChancellorConsultMessages\(userId,\s*window\.localStorage\)/);
   assert.match(client, /saveChancellorConsultMessages\(userId,\s*result\.state\.messages,\s*window\.localStorage\)/);
-  assert.match(client, /messages:\s*sendingState\.messages\.slice\(-18\)/);
+  assert.match(client, /messages = \[\.\.\.sendingState\.messages\.slice\(-18\)/);
 });
 
 test("StudyClient uses the executable submission boundary and orchestration", async () => {
@@ -387,7 +501,7 @@ test("StudyClient gates issuing on the confirmed decree text, not the source inp
 
   assert.match(
     source,
-    /const canIssue = !\["enqueueing", "queued", "running"\]\.includes\(uiState\.phase\) &&\s*canIssueChancellorDraft\(draftResult\)/,
+    /const canIssue = !\["enqueueing", "queued", "running"\]\.includes\(uiState\.phase\) &&\s*confirmedSourceCurrent && canIssueChancellorDraft\(draftResult\)/,
   );
   assert.doesNotMatch(
     source,
@@ -396,7 +510,7 @@ test("StudyClient gates issuing on the confirmed decree text, not the source inp
   assert.match(source, /decreeText: draftResult\?\.decree_text \?\? ""/);
 });
 
-test("first decree passes explicit source text into the real Chancellor draft request", async () => {
+test("first decree sends only a current factory-confirmed snapshot to the draft boundary", async () => {
   const source = await readFile(new URL("./StudyClient.tsx", import.meta.url), "utf8");
   const draftHandler = source.slice(
     source.indexOf("async function handleDraft"),
@@ -407,10 +521,77 @@ test("first decree passes explicit source text into the real Chancellor draft re
   assert.match(draftHandler, /const normalizedSource = sourceText\.trim\(\)/);
   assert.match(draftHandler, /decreeTextRef\.current = normalizedSource/);
   assert.match(draftHandler, /setDecreeText\(normalizedSource\)/);
-  assert.match(draftHandler, /request: \(text\) => requestChancellorDraft\(/);
+  assert.match(draftHandler, /confirmStudyIntent\(snapshot, intentRef\.current\)/);
+  assert.match(draftHandler, /request: \(\) => requestChancellorDraft\(\s*confirmed,/);
+  assert.match(draftHandler, /isCurrentSource: \(\) => isStudyIntentCurrent/);
   assert.doesNotMatch(draftHandler, /setTimeout/);
   assert.match(source, /onDraft=\{\(sourceText\) => void handleDraft\(sourceText\)\}/);
 });
+
+async function loadExecutableConsultRunner() {
+  const source = await readFile(new URL("./StudyClient.tsx", import.meta.url), "utf8");
+  const compiled = ts.transpileModule(source, { compilerOptions: {
+    jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2017,
+  } }).outputText;
+  type Result = { ok: true; reply: string } | { ok: false; unauthenticated?: boolean };
+  type Runner = (options: { isCurrent(): boolean; request(): Promise<Result>;
+    accept(reply: string): void; fail(): void; scheduleRedirect(path: string): void }) => Promise<boolean>;
+  const loaded = { exports: {} as { runStudyConsultRequest: Runner } };
+  Function("require", "module", "exports", compiled)(() => ({}), loaded, loaded.exports);
+  return loaded.exports.runStudyConsultRequest;
+}
+
+for (const drift of ["owner switch", "goal edit", "context edit", "newer consultation", "owner A-B-A"]) {
+  for (const response of [{ ok: true as const, reply: "old private reply" }, { ok: false as const, unauthenticated: true }]) {
+    test(`consultation ${drift} suppresses stale ${response.ok ? "success" : "401"} and all effects`, async () => {
+      const run = await loadExecutableConsultRunner();
+      let currentGeneration = 1;
+      let resolve!: (value: typeof response) => void;
+      const deferred = new Promise<typeof response>((done) => { resolve = done; });
+      const effects: string[] = [];
+      const pending = run({ isCurrent: () => currentGeneration === 1, request: () => deferred,
+        accept: () => effects.push("messages,pending,error,confirmation,storage"),
+        fail: () => effects.push("pending,error"), scheduleRedirect: () => effects.push("redirect") });
+      currentGeneration = 2;
+      resolve(response);
+      assert.equal(await pending, false);
+      assert.deepEqual(effects, []);
+    });
+  }
+}
+
+test("a current successful consultation commits once; a stale request never starts", async () => {
+  const run = await loadExecutableConsultRunner();
+  const effects: string[] = [];
+  const options = { isCurrent: () => true, request: async () => ({ ok: true as const, reply: "exact reply" }),
+    accept: (reply: string) => effects.push(reply), fail: () => effects.push("failure"),
+    scheduleRedirect: () => effects.push("redirect") };
+  assert.equal(await run(options), true);
+  assert.deepEqual(effects, ["exact reply"]);
+  assert.equal(await run({ ...options, isCurrent: () => false, request: async () => { throw new Error("must not run"); } }), false);
+  assert.deepEqual(effects, ["exact reply"]);
+});
+
+for (const drift of ["context", "new-consultation", "owner-A-B-A-generation"]) {
+  test(`pending draft ignores ${drift} drift even if owner and goal return to the same values`, async () => {
+    const run = await loadExecutableDraftRequestRunner();
+    let current = true;
+    let resolve!: (value: { ok: false; unauthenticated: boolean }) => void;
+    const response = new Promise<{ ok: false; unauthenticated: boolean }>((done) => { resolve = done; });
+    const effects: string[] = [];
+    const pending = run({
+      requestId: 1, sourceText: "same goal", getLatestRequestId: () => 1,
+      getCurrentSourceText: () => "same goal", isCurrentOwner: () => true,
+      isCurrentSource: () => current, request: () => response,
+      setPending: () => effects.push("pending"), setError: () => effects.push("error"),
+      setDraft: () => effects.push("draft"), scheduleRedirect: () => effects.push("redirect"),
+    });
+    current = false;
+    resolve({ ok: false, unauthenticated: true });
+    assert.equal(await pending, false);
+    assert.deepEqual(effects, []);
+  });
+}
 
 test("progress recovery resumes the owner-scoped active job before falling back to redraft", async () => {
   const source = await readFile(new URL("./StudyClient.tsx", import.meta.url), "utf8");

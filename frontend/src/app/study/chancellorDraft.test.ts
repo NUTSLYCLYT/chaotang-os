@@ -1,5 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { confirmStudyIntent, type ConfirmedStudyIntent } from "./studyIntentConfirmation.ts";
+
+function confirmedGoal(goal: string): ConfirmedStudyIntent {
+  const snapshot = { ownerId: "synthetic-owner", normalizedOriginalGoal: goal,
+    exactLatestChancellorRestatement: "精确确认的丞相理解", consultationGeneration: 1, contextGeneration: 0 };
+  return confirmStudyIntent(snapshot, snapshot)!;
+}
 
 import {
   EMPTY_CHANCELLOR_DRAFT_COMPOSER_STATE,
@@ -10,6 +17,33 @@ import {
   resolveOwnerScopedChancellorDraftComposerState,
   type OwnerScopedChancellorDraftComposerState,
 } from "./chancellorDraft.ts";
+
+test("unconfirmed raw goals cannot cross the draft network boundary", async () => {
+  let requests = 0;
+  // @ts-expect-error Runtime callers must also be rejected before fetch.
+  const result = await requestChancellorDraft("未经用户确认的目标", 1, async () => {
+    requests += 1;
+    return Response.json({
+      status: "CLARIFYING", version: 1, fingerprint: "a".repeat(64),
+      understanding: "理解", expert_example: "案例", draft: null,
+    });
+  });
+  assert.equal(requests, 0);
+  assert.equal(result.ok, false);
+});
+
+test("structural and JSON confirmation clones are rejected before any fetch", async () => {
+  const confirmed = confirmedGoal("报价草案");
+  for (const forged of [{ ...confirmed }, JSON.parse(JSON.stringify(confirmed))]) {
+    let requests = 0;
+    const result = await requestChancellorDraft(forged as ConfirmedStudyIntent, 1, async () => {
+      requests += 1;
+      throw new Error("must not request");
+    });
+    assert.equal(requests, 0);
+    assert.deepEqual(result, { ok: false });
+  }
+});
 
 test("owner-scoped composer hides A draft synchronously and disables B issue action", () => {
   const aDraft = {
@@ -66,7 +100,7 @@ test("owner-scoped composer hides A draft synchronously and disables B issue act
 test("拟旨请求只调用同源 BFF，并透传版本", async () => {
   const requests: Array<{ input: string; body: string }> = [];
   const result = await requestChancellorDraft(
-    " 我想赚钱 ",
+    confirmedGoal(" 我想赚钱 "),
     2,
     async (input, init) => {
       requests.push({ input: String(input), body: String(init?.body) });
@@ -87,7 +121,7 @@ test("拟旨请求只调用同源 BFF，并透传版本", async () => {
   assert.equal(result.ok, true);
   assert.equal(requests[0].input, "/api/drafts/chancellor");
   assert.deepEqual(JSON.parse(requests[0].body), {
-    messages: [{ role: "user", content: "我想赚钱" }],
+    messages: [{ role: "user", content: "[用户原始目标]\n我想赚钱\n\n[用户已确认的丞相理解]\n精确确认的丞相理解" }],
     version: 2,
   });
 });
@@ -213,7 +247,7 @@ test("无年份财务草案只接受系统补全为 2025 的可下旨响应", as
     current_status: "DRAFT_READY" as const,
   };
   const canonical = "读取系统内既有财务数据并生成可下载的 2025 年财务报表";
-  const ready = await requestChancellorDraft("读取系统内既有财务数据并生成可下载财务报表", 1, async () =>
+  const ready = await requestChancellorDraft(confirmedGoal("读取系统内既有财务数据并生成可下载财务报表"), 1, async () =>
     Response.json({
       status: "DRAFT_READY",
       version: 1,
@@ -236,7 +270,7 @@ test("无年份财务草案只接受系统补全为 2025 的可下旨响应", as
 });
 
 test("DRAFT_READY canonical text must equal the executable decree text", async () => {
-  const result = await requestChancellorDraft("generate the 2025 report", 1, async () =>
+  const result = await requestChancellorDraft(confirmedGoal("generate the 2025 report"), 1, async () =>
     Response.json({
       status: "DRAFT_READY",
       version: 1,
@@ -268,7 +302,7 @@ test("DRAFT_READY canonical text must equal the executable decree text", async (
 });
 
 test("NEEDS_INPUT presents deterministic guidance without an issue action", async () => {
-  const result = await requestChancellorDraft("generate a report", 1, async () =>
+  const result = await requestChancellorDraft(confirmedGoal("generate a report"), 1, async () =>
     Response.json({
       status: "NEEDS_INPUT",
       version: 1,
@@ -293,7 +327,7 @@ test("NEEDS_INPUT presents deterministic guidance without an issue action", asyn
 });
 
 test("NEEDS_INPUT 响应不得夹带可执行 decree_text", async () => {
-  const result = await requestChancellorDraft("生成财务报表", 1, async () =>
+  const result = await requestChancellorDraft(confirmedGoal("生成财务报表"), 1, async () =>
     Response.json({
       status: "NEEDS_INPUT",
       version: 1,

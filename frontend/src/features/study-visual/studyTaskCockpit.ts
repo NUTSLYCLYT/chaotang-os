@@ -15,6 +15,39 @@ export const SOURCE_MODE_LABELS: Readonly<Record<StudySourceMode, string>> = {
   API_LIVE: "API_LIVE · 已验证接口响应",
 };
 
+export type StudyStage = "EMPTY" | "DAILY_MEMORIAL_REVIEW_ONLY" | "CONSULTING" |
+  "UNDERSTANDING_READY" | "CONFIRMED_AND_DRAFTING" | "DRAFT_READY" |
+  "QUEUED_OR_RUNNING" | "SUCCEEDED" | "FAILED_OR_CANCELLED";
+
+/** A display projection of existing states, not another job or authority state. */
+export function projectStudyPrimaryAction(input: {
+  uiPhase: DecreeUiState["phase"];
+  draftStatus: ChancellorDraftResult["status"] | null;
+  draftPending: boolean;
+  consultPending: boolean;
+  understandingReady: boolean;
+  goal: string;
+  dailyMemorialReady: boolean;
+}): { stage: StudyStage; label: string | null } {
+  let stage: StudyStage;
+  if (["enqueueing", "queued", "running"].includes(input.uiPhase)) stage = "QUEUED_OR_RUNNING";
+  else if (input.uiPhase === "error") stage = "FAILED_OR_CANCELLED";
+  else if (input.uiPhase === "success") stage = "SUCCEEDED";
+  else if (input.consultPending) stage = "CONSULTING";
+  else if (input.draftPending) stage = "CONFIRMED_AND_DRAFTING";
+  else if (input.draftStatus === "DRAFT_READY") stage = "DRAFT_READY";
+  else if (input.understandingReady && input.draftStatus === null) stage = "UNDERSTANDING_READY";
+  else if (!input.goal.trim() && input.dailyMemorialReady) stage = "DAILY_MEMORIAL_REVIEW_ONLY";
+  else stage = "EMPTY";
+  const labels: Record<StudyStage, string | null> = {
+    EMPTY: "请丞相复述", DAILY_MEMORIAL_REVIEW_ONLY: "确认上奏并归档为奏折",
+    CONSULTING: null, UNDERSTANDING_READY: "确认理解 · 生成拟旨",
+    CONFIRMED_AND_DRAFTING: null, DRAFT_READY: "确认下旨 · 开始办理",
+    QUEUED_OR_RUNNING: null, SUCCEEDED: "查看成果", FAILED_OR_CANCELLED: "查看原因与下一步",
+  };
+  return { stage, label: labels[stage] };
+}
+
 export interface StudyAcceptanceContract {
   objective?: string;
   scope?: string[];

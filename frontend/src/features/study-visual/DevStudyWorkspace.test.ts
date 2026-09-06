@@ -2,6 +2,42 @@ import assert from "node:assert/strict";
 import { access, readFile } from "node:fs/promises";
 import test from "node:test";
 
+test("failed stage discloses the cause before offering a secondary recovery action", async () => {
+  const source = await readFile(new URL("./DevStudyWorkspace.tsx", import.meta.url), "utf8");
+  const error = source.slice(source.indexOf(') : props.uiState.phase === "error" ? ('), source.indexOf(') : ["enqueueing", "queued", "running"].includes'));
+  assert.match(error, /<details[^>]*data-testid="decree-failure-details"/);
+  assert.match(error, /<summary[^>]*>查看原因与下一步<\/summary>/);
+  assert.ok(error.indexOf("<summary") < error.indexOf("onClick={props.onRetryProgress}"));
+  assert.match(error, /className=\{styles\.recoverySecondary\}/);
+});
+
+test("daily status retry cannot compete with an active goal or onboarding", async () => {
+  const source = await readFile(new URL("./DevStudyWorkspace.tsx", import.meta.url), "utf8");
+  const retry = source.slice(source.indexOf('(props.dailyMemorialState.phase === "failed"'), source.indexOf('(props.dailyMemorialState.phase === "failed"') + 700);
+  assert.match(retry, /action\.stage === "EMPTY"/);
+  assert.match(retry, /!props\.decreeText\.trim\(\)/);
+  assert.match(retry, /actionSurfaceReady/);
+  assert.match(source, /const actionSurfaceReady = showFirstVisit !== null && !welcomeVisible/);
+  assert.match(source, /useState<boolean \| null>\(null\)/);
+});
+
+test("all mutating primary actions wait for onboarding resolution", async () => {
+  const source = await readFile(new URL("./DevStudyWorkspace.tsx", import.meta.url), "utf8");
+  assert.match(source, /actionSurfaceReady && \(action\.stage === "EMPTY"/);
+  assert.match(source, /actionSurfaceReady && action\.stage === "DRAFT_READY"/);
+  assert.match(source, /actionSurfaceReady && action\.stage === "DAILY_MEMORIAL_REVIEW_ONLY"/);
+  assert.match(source, /disabled=\{!actionSurfaceReady \|\| !props\.canRetryProgress\}/);
+});
+
+test("every business CTA uses one stage allowlist and onboarding cannot directly draft", async () => {
+  const source = await readFile(new URL("./DevStudyWorkspace.tsx", import.meta.url), "utf8");
+  assert.match(source, /projectStudyPrimaryAction\(/);
+  assert.doesNotMatch(source, /onStartDraft=\{props\.onDraft\}/);
+  assert.match(source, /onRestate=\{props\.onRestate\}/);
+  assert.match(source, /action\.stage === "DAILY_MEMORIAL_REVIEW_ONLY"/);
+  assert.match(source, /action\.stage === "DRAFT_READY"/);
+});
+
 import {
   projectDraftConfirmation,
   type ChancellorDraftResult,
@@ -73,7 +109,7 @@ test("first visit shows only the Chancellor, one blank goal input, and one prima
   assert.match(firstVisit, /丞相/);
   assert.match(firstVisit, /aria-label="第一旨目标"/);
   assert.match(firstVisit, /useState\(""\)/);
-  assert.match(firstVisit, /开始拟旨/);
+  assert.match(firstVisit, /请丞相复述/);
   assert.match(firstVisit, /LOCAL/);
   assert.equal((firstVisit.match(/<textarea/g) ?? []).length, 1);
   assert.equal((firstVisit.match(/<button/g) ?? []).length, 1);
@@ -81,14 +117,14 @@ test("first visit shows only the Chancellor, one blank goal input, and one prima
   assert.doesNotMatch(source, /严政陛下|仁政陛下|勤政陛下|开朝仪轨|STEP [123]|跳过/);
   assert.match(source, /role="dialog"/);
   assert.doesNotMatch(source, /fetch\s*\(|EventSource|SWR|useRouter/);
-  assert.match(firstVisit, /onStartDraft\(normalizedTarget\)/);
+  assert.match(firstVisit, /onRestate\(normalizedTarget\)/);
   assert.match(firstVisit, /textareaRef\.current\?\.focus\(\)/);
   assert.match(firstVisit, /event\.key !== "Tab"/);
   assert.match(firstVisit, /onKeyDown=\{trapFocus\}/);
   assert.match(css, /\.firstDraft:focus-visible\s*\{/);
 });
 
-test("first decree and composer send an explicit source text to the real draft request", async () => {
+test("first decree requests restatement and composer drafts only at the confirmation stage", async () => {
   const source = await readFile(new URL("./DevStudyWorkspace.tsx", import.meta.url), "utf8");
   const firstVisit = source.slice(
     source.indexOf("function FirstDecreeWelcome"),
@@ -99,9 +135,10 @@ test("first decree and composer send an explicit source text to the real draft r
     source.indexOf("const drawers = ("),
   );
 
-  assert.match(firstVisit, /onStartDraft\(normalizedTarget\)/);
+  assert.match(firstVisit, /onRestate\(normalizedTarget\)/);
   assert.doesNotMatch(firstVisit, /onUseDraft/);
-  assert.match(composer, /onClick=\{\(\) => props\.onDraft\(props\.decreeText\)\}/);
+  assert.match(composer, /action\.stage === "UNDERSTANDING_READY"/);
+  assert.match(composer, /if \(action\.stage === "EMPTY"\) props\.onRestate\(props\.decreeText\);\s*else props\.onDraft\(props\.decreeText\)/);
 });
 
 test("dev study workspace keeps one polished decree action without secret modes", async () => {
@@ -116,12 +153,12 @@ test("dev study workspace keeps one polished decree action without secret modes"
   assert.match(source, /收卷看殿/);
   assert.doesNotMatch(source, /DecreeMode|decree-mode-order|decree-mode-secret|setMode|密旨|下密旨/);
   assert.match(source, /data-testid="draft-edict-button"/);
-  assert.match(source, /"拟旨"/);
+  assert.match(source, /\{action\.label\}/);
   assert.match(source, /data-testid="chancellor-draft-result"/);
   assert.match(source, /data-testid="decree-evidence-upload"/);
   assert.match(source, /data-testid="decree-textarea"/);
   assert.match(source, /data-testid="submit-decree-button"/);
-  assert.match(source, /\? "办理中" : "下旨"/);
+  assert.match(source, /确认下旨 · 开始办理/);
   assert.doesNotMatch(source, /data-testid="decree-fee-notice"|下旨会触发真实司议、部议、军机处会审与丞相汇总，并可能产生多次模型调用费用；请确认后提交。|模型调用费用/);
   assert.doesNotMatch(source, /费用提示/);
   assert.doesNotMatch(css, /\.feeNotice\s*\{/);
@@ -353,7 +390,7 @@ test("submission failure is visible even while the approved draft is retained", 
   assert.match(source, /freshness === "stale"/);
   assert.match(errorContent, /data-testid="retry-decree-progress"/);
   assert.match(errorContent, /onClick=\{props\.onRetryProgress\}/);
-  assert.match(errorContent, /disabled=\{!props\.canRetryProgress\}/);
+  assert.match(errorContent, /disabled=\{!actionSurfaceReady \|\| !props\.canRetryProgress\}/);
   assert.match(errorContent, /props\.retryProgressLabel/);
   assert.match(errorContent, /props\.retryProgressHint/);
   assert.equal((errorContent.match(/<button/g) ?? []).length, 1);
@@ -378,8 +415,9 @@ test("submission failure leaves the recovery button as the only enabled draft ac
 
   assert.match(
     composer,
-    /disabled=\{props\.uiState\.phase === "error" \|\| !props\.canEdit \|\| !props\.decreeText\.trim\(\) \|\| props\.draftPending\}/,
+    /action\.stage === "EMPTY" \|\| action\.stage === "UNDERSTANDING_READY"/,
   );
+  assert.match(composer, /disabled=\{!props\.canEdit \|\| !props\.decreeText\.trim\(\)\}/);
 });
 
 test("verified enqueueing, queued, and running progress outranks a retained draft", async () => {
@@ -429,7 +467,7 @@ test("study composer uses a minimal text-first visual treatment", async () => {
   assert.match(composerRule, /border: 1px solid rgba\(240, 198, 106, 0\.28\);/);
   assert.doesNotMatch(composerRule, /linear-gradient|box-shadow: (?!none)|backdrop-filter: (?!none)/);
   assert.doesNotMatch(css, /\.submit \{[^}]*linear-gradient|\.submit:not\(:disabled\):hover/);
-  assert.match(css, /\.submit \{[^}]*border-color: #a77c35;[^}]*color: #a77c35;/);
+  assert.match(css, /\.submit \{[^}]*border-color: #734516;[^}]*background: #3b2814;[^}]*color: #f6e9c9;/);
 });
 
 test("study composer keeps the textarea flexible beside the draft action", async () => {
@@ -453,13 +491,18 @@ test("study composer keeps the textarea flexible beside the draft action", async
   assert.doesNotMatch(css, /\.draftAction\s*\{[^}]*display:\s*none;/);
 });
 
-test("study composer grows around its source label instead of clipping a second row", async () => {
+test("desktop composer fits the fixed 48px dock and keeps its source label outside the controls", async () => {
   const css = await readFile(new URL("./DevStudyWorkspace.module.css", import.meta.url), "utf8");
   const composerRule = css.match(/\.composer \{([^}]*)\}/)?.[1] ?? "";
 
   assert.match(composerRule, /min-height:\s*48px/);
-  assert.match(composerRule, /height:\s*auto/);
-  assert.doesNotMatch(composerRule, /(?:^|[;\s])height:\s*48px/);
+  assert.match(composerRule, /(?:^|[;\s])height:\s*48px/);
+  assert.match(composerRule, /padding-top:\s*0/);
+  assert.match(composerRule, /grid-template-rows:\s*minmax\(0,\s*1fr\)/);
+  const label = css.match(/\.composer > \.sourceMode \{([^}]*)\}/)?.[1] ?? "";
+  assert.match(label, /position:\s*absolute/);
+  assert.match(label, /bottom:\s*calc\(100% \+ 5px\)/);
+  assert.match(css, /\.composerRow\s*\{[^}]*height:\s*100%;[^}]*box-sizing:\s*border-box;/);
 });
 
 test("mobile composer fits the 48px quick dock without overlapping controls", async () => {
@@ -602,4 +645,68 @@ test("successful reply delegates artifact rendering after the three recommendati
   assert.match(source, /projectStudyArtifacts\(props\.uiState\)/);
   assert.match(successBranch, /<StudyArtifactLinks artifacts=\{artifactView\} className=\{styles\.artifact\} \/>/);
   assert.ok(successBranch.indexOf("decree-recommendations") < successBranch.indexOf("<StudyArtifactLinks"));
+});
+
+// Solid control surfaces keep small confirmation text readable on textured paper.
+// Paired with real-browser computed-style and screenshot checks.
+function paperControlColors(css: string, selector: string) {
+  const declarations: Record<string, string> = {};
+  for (const match of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    if (!match[1].split(",").some((part) => part.trim() === selector)) continue;
+    for (const declaration of match[2].split(";")) {
+      const colon = declaration.indexOf(":");
+      if (colon < 0) continue;
+      declarations[declaration.slice(0, colon).trim()] = declaration.slice(colon + 1).trim();
+    }
+  }
+  const foreground = declarations.color;
+  const background = declarations["background-color"] ?? declarations.background;
+  assert.match(foreground ?? "", /^#[0-9a-f]{6}$/i, selector + " needs an explicit opaque text color");
+  assert.match(background ?? "", /^#[0-9a-f]{6}$/i, selector + " needs its own opaque background on textured paper");
+  return { foreground, background };
+}
+
+function relativeLuminance(hex: string) {
+  const channels = [1, 3, 5].map((offset) => Number.parseInt(hex.slice(offset, offset + 2), 16) / 255)
+    .map((value) => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
+  return channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
+}
+
+for (const selector of [".submit", ".dailyMemorialConfirm", ".dailyMemorialRetry"]) {
+  test("paper action contrast: " + selector + " maintains readable small text independently of paper texture", async () => {
+    const css = await readFile(new URL("./DevStudyWorkspace.module.css", import.meta.url), "utf8");
+    const colors = paperControlColors(css, selector);
+    const first = relativeLuminance(colors.foreground);
+    const second = relativeLuminance(colors.background);
+    const ratio = (Math.max(first, second) + 0.05) / (Math.min(first, second) + 0.05);
+    assert.ok(ratio >= 4.5, selector + " text contrast " + ratio.toFixed(2) + " is below 4.5:1");
+  });
+}
+
+test("daily memorial content states require a real draft before auto-expanding the existing scroll", async () => {
+  const source = await readFile(new URL("./DevStudyWorkspace.tsx", import.meta.url), "utf8");
+  const predicate = source.match(/const hasDailyMemorialDraft = ([\s\S]*?);/)?.[1];
+  assert.ok(predicate, "daily memorial needs its own content availability predicate");
+  for (const phase of ["ready", "confirming", "confirmed"]) {
+    assert.ok(predicate.includes('props.dailyMemorialState.phase === "' + phase + '"'));
+  }
+  assert.match(predicate, /&& props\.dailyMemorialState\.draft !== null/);
+});
+
+test("daily memorial arrival schedules expansion once per availability change without confirming anything", async () => {
+  const source = await readFile(new URL("./DevStudyWorkspace.tsx", import.meta.url), "utf8");
+  const effect = source.match(/useEffect\(\(\) => \{\s*if \(!hasDailyMemorialDraft\)[\s\S]*?\}, \[hasDailyMemorialDraft\]\);/)?.[0];
+  assert.ok(effect, "expand only when draft content becomes available, not every render");
+  assert.match(effect, /window\.setTimeout\(\(\) => \{\s*setExpanded\(true\);\s*\}, 0\)/);
+  assert.match(effect, /return \(\) => window\.clearTimeout\(timer\)/);
+  assert.doesNotMatch(effect, /props\.on|fetch\(|dispatch\(|localStorage|\.focus\(/);
+});
+
+test("daily memorial manual collapse uses the existing collapsed scroll rather than clipping full content", async () => {
+  const source = await readFile(new URL("./DevStudyWorkspace.tsx", import.meta.url), "utf8");
+  assert.match(source, /\) : !showScroll && \(props\.uiState\.phase !== "idle" \|\| hasDailyMemorialDraft\) \? \(/);
+  const branch = source.slice(source.indexOf(") : !showScroll"), source.indexOf(") : props.draftPending ? ("));
+  assert.match(branch, /<CollapsedEdictScroll/);
+  assert.match(branch, /onOpen=\{\(\) => setExpanded\(true\)\}/);
+  assert.doesNotMatch(branch, /props\.onConfirm|props\.onSubmit|fetch\(/);
 });

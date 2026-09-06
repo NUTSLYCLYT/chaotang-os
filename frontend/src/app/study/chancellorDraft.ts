@@ -1,3 +1,5 @@
+import { confirmedStudyDraftText, type ConfirmedStudyIntent } from "./studyIntentConfirmation.ts";
+
 export type ChancellorDraftStatus =
   | "CLARIFYING"
   | "DRAFT_READY"
@@ -112,19 +114,21 @@ export function projectDraftConfirmation(
 export const MAX_DECREE_TEXT_LENGTH = 2000;
 
 export async function requestChancellorDraft(
-  content: string,
+  input: ConfirmedStudyIntent,
   version: number,
   fetchImpl: typeof fetch,
 ): Promise<
   | { ok: true; draft: ChancellorDraftResult }
   | { ok: false; unauthenticated?: boolean }
 > {
+  const content = confirmedStudyDraftText(input);
+  if (content === null) return { ok: false };
   try {
     const response = await fetchImpl("/api/drafts/chancellor", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        messages: [{ role: "user", content: content.trim() }],
+        messages: [{ role: "user", content }],
         version,
       }),
     });
