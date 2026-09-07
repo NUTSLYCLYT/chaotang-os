@@ -319,7 +319,11 @@ def _harness_capability_items() -> list[CapabilityRegistryItem]:
         if not isinstance(record, dict):
             continue
         grants = record.get("grants", {})
-        may_write_external = bool(grants.get("may_write_external")) if isinstance(grants, dict) else False
+        may_write_external = (
+            bool(grants.get("may_write_external"))
+            if isinstance(grants, dict)
+            else False
+        )
         card = CapabilityCard(
             id=f"workflow.{key}",
             name=key.replace("-", " ").title(),
@@ -427,8 +431,14 @@ def _mcp_capability_items() -> list[CapabilityRegistryItem]:
                         "description", "外部受控 API 工具"
                     )
                 ),
-                input_needed=list(tool.get("approved_discovered_tool", {}).get("inputSchema", {}).get("required", [])),
-                output_produced=list(tool.get("fact_categories", [])) or ["external evidence candidate"],
+                input_needed=list(
+                    tool.get("approved_discovered_tool", {})
+                    .get("inputSchema", {})
+                    .get("required", [])
+                ),
+                output_produced=list(tool.get("fact_categories", [])) or [
+                    "external evidence candidate"
+                ],
                 risk_level="high",
                 cost_level="medium",
                 reuse_potential="medium",
@@ -444,7 +454,11 @@ def _mcp_capability_items() -> list[CapabilityRegistryItem]:
             )
             review = ExternalCapabilityReview(
                 provider="mcp",
-                permission_needed=["approved server", "approved tool fingerprint", "runtime task authority"],
+                permission_needed=[
+                    "approved server",
+                    "approved tool fingerprint",
+                    "runtime task authority",
+                ],
                 data_exposure=list(tool.get("data_scopes", [])) or ["EXTERNAL_PUBLIC"],
                 allowed_actions=[effect if effect == "READ_ONLY" else "NO_DEFAULT_ACTION"],
                 forbidden_actions=[
@@ -479,7 +493,11 @@ def _agent_items() -> list[CapabilityRegistryItem]:
             best_use_case=persona.role,
             input_needed=["用户任务", "授权边界", "证据上下文"],
             output_produced=["解释", "建议", "下一步"],
-            risk_level="medium" if persona.agent_id in {"chancellor", "honglusi", "xingbu"} else "low",
+            risk_level=(
+                "medium"
+                if persona.agent_id in {"chancellor", "honglusi", "xingbu"}
+                else "low"
+            ),
             cost_level="low",
             reuse_potential="high",
             recommended_home=_home_for_agent(persona.agent_id),

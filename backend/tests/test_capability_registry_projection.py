@@ -22,8 +22,16 @@ def test_projection_maps_external_capabilities_to_honglusi_and_xingbu_review() -
     assert external_items
     assert all(item.card.recommended_home == "honglusi" for item in external_items)
     assert all(item.external_review is not None for item in external_items)
-    assert all(item.external_review.requires_xingbu_review for item in external_items if item.external_review)
-    assert all("external write" in item.external_review.forbidden_actions for item in external_items if item.external_review)
+    assert all(
+        item.external_review.requires_xingbu_review
+        for item in external_items
+        if item.external_review
+    )
+    assert all(
+        "external write" in item.external_review.forbidden_actions
+        for item in external_items
+        if item.external_review
+    )
 
 
 def test_projection_contains_agent_personas_without_permission_inheritance() -> None:

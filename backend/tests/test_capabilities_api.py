@@ -9,7 +9,15 @@ from app.api.capabilities import get_capability, list_capabilities, router
 
 
 def _request(query: bytes = b"") -> Request:
-    return Request({"type": "http", "method": "GET", "path": "/api/v1/capabilities", "headers": [], "query_string": query})
+    return Request(
+        {
+            "type": "http",
+            "method": "GET",
+            "path": "/api/v1/capabilities",
+            "headers": [],
+            "query_string": query,
+        }
+    )
 
 
 def _json_response(response: Response) -> dict:
@@ -17,11 +25,25 @@ def _json_response(response: Response) -> dict:
 
 
 def test_routes_require_current_user_dependency() -> None:
-    list_route = next(route for route in router.routes if getattr(route, "path", "") == "/api/v1/capabilities")
-    detail_route = next(route for route in router.routes if getattr(route, "path", "") == "/api/v1/capabilities/{capability_id}")
+    list_route = next(
+        route
+        for route in router.routes
+        if getattr(route, "path", "") == "/api/v1/capabilities"
+    )
+    detail_route = next(
+        route
+        for route in router.routes
+        if getattr(route, "path", "") == "/api/v1/capabilities/{capability_id}"
+    )
 
-    assert any(dependency.name == "current_user" for dependency in list_route.dependant.dependencies)
-    assert any(dependency.name == "current_user" for dependency in detail_route.dependant.dependencies)
+    assert any(
+        dependency.name == "current_user"
+        for dependency in list_route.dependant.dependencies
+    )
+    assert any(
+        dependency.name == "current_user"
+        for dependency in detail_route.dependant.dependencies
+    )
 
 
 def test_list_returns_safe_readonly_projection() -> None:
