@@ -1,0 +1,56 @@
+{
+  "schemaVersion":"product-authority.m0.approval.v1",
+  "authorityId":"product-authority.m0.v1",
+  "taskId":"MINGSHUO-FACT-PACK-V1-SOURCE-IDENTITY-MANIFEST-EXACT8-CORRECTIVE-SUCCESSOR-20260907",
+  "repository":{"identity":"gitee.com/msxn/chaotang-os","targetBranch":"ext-dev"},
+  "request":{
+    "baseCommit":"535bae44e349b7cb72730e076dc2a676282c1857",
+    "baseTree":"cee222858e5b4acdf1e527f9d2beb2fc41eef1dd",
+    "approvalPath":".harness/approvals/MINGSHUO-FACT-PACK-V1-SOURCE-IDENTITY-MANIFEST-EXACT8-CORRECTIVE-SUCCESSOR-20260907.json",
+    "approvalCommitPaths":[
+      ".harness/approvals/MINGSHUO-FACT-PACK-V1-SOURCE-IDENTITY-MANIFEST-EXACT8-CORRECTIVE-SUCCESSOR-20260907.json",
+      "docs/product/tasks/2026-09-07-mingshuo-fact-pack-v1-source-identity-manifest-exact8-corrective-successor.md",
+      "docs/superpowers/plans/2026-09-07-mingshuo-fact-pack-v1-source-identity-manifest-exact8-corrective-successor.md",
+      "docs/superpowers/plans/2026-09-07-mingshuo-fact-pack-v1-source-identity-manifest.md"
+    ],
+    "productPaths":[
+      "backend/app/mingshuo/__init__.py",
+      "backend/app/mingshuo/fact_pack.py",
+      "backend/tests/test_mingshuo_fact_pack.py",
+      "docs/contracts/mingshuo-project-fact-pack.source-provenance.v1.json",
+      "docs/contracts/mingshuo-project-fact-pack.v1.golden.json",
+      "docs/contracts/mingshuo-project-fact-pack.v1.md",
+      "scripts/mingshuo-fact-pack.mjs",
+      "scripts/mingshuo-fact-pack.test.mjs"
+    ]
+  },
+  "nonGoals":[
+    "API_DATABASE_SCENE_PACK_WORKPRODUCT_OR_SHIGUAN_CHANGE",
+    "AUTHORITY_HARNESS_OR_RELEASE_CHANGE",
+    "CUSTOMER_DATA_CREDENTIAL_NETWORK_MODEL_OR_IMA_ACCESS",
+    "DOWNLOAD_CONFIRMATION_ARCHIVE_OR_QUOTE_GENERATION",
+    "EXTERNAL_PUBLICATION_PAYMENT_OR_PRODUCTION_DEPLOYMENT",
+    "FRONTEND_BFF_OR_UI_CHANGE",
+    "GENERIC_SUBPROCESS_EXECUTOR_OR_PATH_CONFIGURATION",
+    "SECOND_FACT_PACK_SEMANTIC_IMPLEMENTATION",
+    "TENANT_AUTHENTICATION_OR_OWNER_STORAGE_CHANGE"
+  ],
+  "verification":[
+    {"id":"v01-backend-focused","tool":"python3","args":["-m","pytest","-q","tests/test_mingshuo_fact_pack.py"],"cwd":"backend","timeoutMs":180000},
+    {"id":"v02-backend-full","tool":"python3","args":["-m","pytest","-q"],"cwd":"backend","timeoutMs":300000},
+    {"id":"v03-backend-ruff","tool":"python3","args":["-m","ruff","check","app","tests"],"cwd":"backend","timeoutMs":180000},
+    {"id":"v04-node-adapter","tool":"node","args":["--test","scripts/mingshuo-fact-pack.test.mjs"],"cwd":".","timeoutMs":180000},
+    {"id":"v05-node-check","tool":"node","args":["scripts/mingshuo-fact-pack.mjs","--check"],"cwd":".","timeoutMs":180000},
+    {"id":"v06-authority-regression","tool":"node","args":["--input-type=module","--eval","import{spawnSync}from'node:child_process';const r=spawnSync(process.execPath,['--test','scripts/product-authority.test.mjs'],{stdio:'inherit',env:{...process.env,TMPDIR:'/tmp',TEMP:'/tmp',TMP:'/tmp'}});process.exit(r.status??1)"],"cwd":".","timeoutMs":180000},
+    {"id":"v07-root-harness","tool":"node","args":["scripts/check_harness.mjs"],"cwd":".","timeoutMs":180000},
+    {"id":"v08-harness-self-test","tool":"node","args":["scripts/check_harness.mjs","--self-test"],"cwd":".","timeoutMs":180000},
+    {"id":"v09-harness-doctor","tool":"node","args":["scripts/harness-doctor.mjs","--check"],"cwd":".","timeoutMs":180000},
+    {"id":"v10-harness-doctor-tests","tool":"node","args":["--test","scripts/harness-doctor.test.mjs"],"cwd":".","timeoutMs":180000},
+    {"id":"v11-hook-self-test","tool":"node","args":[".agents/hooks/check-harness.mjs","--self-test"],"cwd":".","timeoutMs":180000},
+    {"id":"v12-v2-check","tool":"node","args":["scripts/ext-full-value-convergence.mjs","--check"],"cwd":".","timeoutMs":180000},
+    {"id":"v13-v2-tests","tool":"node","args":["--test","scripts/ext-full-value-convergence.test.mjs"],"cwd":".","timeoutMs":180000},
+    {"id":"v14-diff-check","tool":"node","args":["--input-type=module","--eval","import{execFileSync}from'node:child_process';execFileSync('/usr/bin/git',['diff','--check'],{stdio:'inherit',env:{PATH:'/usr/bin:/bin',GIT_CONFIG_NOSYSTEM:'1',GIT_NO_REPLACE_OBJECTS:'1',GIT_TERMINAL_PROMPT:'0'}})"],"cwd":".","timeoutMs":30000},
+    {"id":"v15-exact8-preimage","tool":"node","args":["--input-type=module","--eval","import{execFileSync as x}from'node:child_process';import{createHash as h}from'node:crypto';import{canonicalDigest as c}from'./scripts/product-authority.mjs';const E=[['A','backend/app/mingshuo/__init__.py',58,'sha256:a85789d12e745e25277f0aba69111b6a1ba0f2670f10f8bc77206e5d4c2f17ef'],['A','backend/app/mingshuo/fact_pack.py',8106,'sha256:4921205d17b8d5ee4cece8518a00df33e09f83426985d9e3e1bdc14795f17249'],['A','backend/tests/test_mingshuo_fact_pack.py',4918,'sha256:88b2d2cc7fe8fe25707083cf75ad7c7e4b1629f926b212cfe7768be24158b3e5'],['A','docs/contracts/mingshuo-project-fact-pack.source-provenance.v1.json',752,'sha256:cc16c8356677ce8e5adfca3a410b20a6b4241aef16408c79010557ac9b568f75'],['A','docs/contracts/mingshuo-project-fact-pack.v1.golden.json',430,'sha256:1123b2ada2e966aabbeb8a29a882b0fedffffa1ffe9986eebdaca21c305be737'],['M','docs/contracts/mingshuo-project-fact-pack.v1.md',5741,'sha256:5015209117b9136aafc548c09c8910bb1578530a460189f6d2831b97d181352f'],['M','scripts/mingshuo-fact-pack.mjs',13273,'sha256:60d8572f9fc029714c942f1cf6d42417e93dc32d4d31b740daf4c486034f8fb5'],['M','scripts/mingshuo-fact-pack.test.mjs',8039,'sha256:13a9249a69a54e4ee62e50d3fc37e9db5123c86216002867910c75a1cc1e93aa']];const e={PATH:'/usr/bin:/bin',GIT_CONFIG_NOSYSTEM:'1',GIT_CONFIG_GLOBAL:'/dev/null',GIT_NO_REPLACE_OBJECTS:'1',GIT_TERMINAL_PROMPT:'0'},g=(a,o={encoding:'utf8'})=>x('/usr/bin/git',a,{...o,env:e,maxBuffer:20000000}),S=g(['diff-tree','--no-commit-id','--name-status','-r','--no-renames','HEAD^','HEAD']).trim().split('\n').filter(Boolean).map(v=>v.split('\t'));if(JSON.stringify(S)!==JSON.stringify(E.map(([s,p])=>[s,p])))throw Error('EXACT8_STATUS');const R=E.map(([,p,n,d])=>{const t=g(['ls-tree','HEAD','--',p]).trim();if(!t.startsWith('100644 blob ')||!t.endsWith('\t'+p))throw Error('EXACT8_MODE');const b=g(['cat-file','blob','HEAD:'+p],{encoding:null}),q='sha256:'+h('sha256').update(b).digest('hex');if(b.length!==n||q!==d)throw Error('EXACT8_BYTES');return{path:p,mode:'100644',bytes:n,rawSha256:d}});if(c(R)!=='sha256:a2d2884cd6910443f9db165280175c4dd95736bdfbb85ffe172c9da703cd0197')throw Error('EXACT8_BUNDLE')"],"cwd":".","timeoutMs":30000}
+  ],
+  "state":"APPROVED_FOR_ONE_CHILD"
+}
