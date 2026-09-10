@@ -1,0 +1,117 @@
+{
+  "schemaVersion": "product-authority.m0.approval.v1",
+  "authorityId": "product-authority.m0.v1",
+  "taskId": "B1-SHIGUAN-OUTCOME-UI-CONVERGENCE-20260910",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "c825c3f7b47755b75cb2fb4a625c9d85cc9134e8",
+    "baseTree": "01f9e86f9a19878dbef03533ffd8557f812b8e50",
+    "approvalPath": ".harness/approvals/B1-SHIGUAN-OUTCOME-UI-CONVERGENCE-20260910.json",
+    "approvalCommitPaths": [
+      ".harness/approvals/B1-SHIGUAN-OUTCOME-UI-CONVERGENCE-20260910.json",
+      "docs/product/tasks/2026-09-10-b1-shiguan-outcome-ui-convergence.md"
+    ],
+    "productPaths": [
+      "frontend/src/app/api/shiguan/archives/[id]/outcomes/route.test.ts",
+      "frontend/src/app/api/shiguan/archives/[id]/outcomes/route.ts",
+      "frontend/src/app/api/shiguan/outcomes/route.test.ts",
+      "frontend/src/app/api/shiguan/outcomes/route.ts",
+      "frontend/src/app/shiguan/ShiguanClient.tsx",
+      "frontend/src/app/shiguan/shiguanController.test.ts",
+      "frontend/src/app/shiguan/shiguanController.ts",
+      "frontend/src/app/shiguan/shiguanPayload.test.ts",
+      "frontend/src/app/shiguan/shiguanPayload.ts",
+      "frontend/src/features/shiguan-visual/ShiguanOutcomePanel.test.ts",
+      "frontend/src/features/shiguan-visual/ShiguanOutcomePanel.tsx",
+      "frontend/src/features/shiguan-visual/ShiguanWorkspace.test.ts",
+      "frontend/src/features/shiguan-visual/ShiguanWorkspace.tsx",
+      "frontend/src/lib/backendClient.shiguanOutcome.test.ts",
+      "frontend/src/lib/backendClient.ts"
+    ]
+  },
+  "nonGoals": [
+    "NO_AUTHORITY_OR_ADR_CHANGE",
+    "NO_BACKEND_CHANGE",
+    "NO_DEPLOYMENT",
+    "NO_OTHER_PRODUCT_FAMILY",
+    "NO_REAL_MODEL_CALL",
+    "NO_RUNTIME_DATA_ACCESS",
+    "NO_TEST_WEAKENING"
+  ],
+  "verification": [
+    {
+      "id": "backend-outcome",
+      "tool": "python3",
+      "args": [
+        "-I",
+        "-c",
+        "import subprocess; subprocess.run(['.venv/bin/python','-m','pytest','-q','-p','no:cacheprovider','tests/test_shiguan_api.py','tests/test_shiguan_storage.py','tests/test_shiguan_migrations.py','-k','outcome'],check=True)"
+      ],
+      "cwd": "backend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "diff-check",
+      "tool": "node",
+      "args": [
+        "--input-type=module",
+        "-e",
+        "import{execFileSync}from'node:child_process';execFileSync('/usr/bin/git',['diff','--check','HEAD^','HEAD'],{stdio:'inherit'});"
+      ],
+      "cwd": ".",
+      "timeoutMs": 10000
+    },
+    {
+      "id": "frontend-build",
+      "tool": "npm",
+      "args": [
+        "run",
+        "build"
+      ],
+      "cwd": "frontend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "frontend-lint",
+      "tool": "npm",
+      "args": [
+        "run",
+        "lint"
+      ],
+      "cwd": "frontend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "frontend-test",
+      "tool": "npm",
+      "args": [
+        "test"
+      ],
+      "cwd": "frontend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "frontend-typecheck",
+      "tool": "npm",
+      "args": [
+        "run",
+        "typecheck"
+      ],
+      "cwd": "frontend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "root-harness",
+      "tool": "node",
+      "args": [
+        "scripts/check_harness.mjs"
+      ],
+      "cwd": ".",
+      "timeoutMs": 60000
+    }
+  ],
+  "state": "APPROVED_FOR_ONE_CHILD"
+}
