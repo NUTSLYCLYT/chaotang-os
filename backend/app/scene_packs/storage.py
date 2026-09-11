@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 import uuid
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -88,7 +90,7 @@ _SCENE_PACK_SEEDS = [
         "default_owner_dept": "丞相 / 工部 / 户部 / 刑部 / 礼部",
         "required_inputs": ["projectName", "customerRequirement"],
         "optional_inputs": ["rfqFile", "budget", "deadline", "competitors"],
-        "implementation_status": "stubbed",
+        "implementation_status": "real_v1",
         "entry_route": "/scene-pack/proposal-quotation-tender",
     },
     {
@@ -144,16 +146,25 @@ def _now_iso() -> str:
 
 
 def _dump_json(value: object) -> str:
-    return json.dumps(value, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+    result = json.dumps(
+        value, ensure_ascii=False, separators=(",", ":"), sort_keys=True, allow_nan=False
+    )
+    result.encode("utf-8")
+    return result
+
+
+class SceneUnavailableError(RuntimeError):
+    """An internal output/storage contract failed; details stay server-side."""
 
 
 def _load_json(value: str | None, fallback: Any) -> Any:
-    if value is None:
-        return fallback
+    del fallback
     try:
-        return json.loads(value)
-    except json.JSONDecodeError:
-        return fallback
+        result = json.loads(value)
+        _dump_json(result)  # Reject NaN, infinity/overflow and invalid Unicode on reads too.
+        return result
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise SceneUnavailableError("unavailable") from exc
 
 
 def _connect(db_path: Path | None = None) -> sqlite3.Connection:
@@ -321,12 +332,8 @@ def _run_from_row(row: sqlite3.Row) -> SceneRun:
         opportunity_grade=row["opportunity_grade"],
         result_summary=row["result_summary"],
         missing_items=_load_json(row["missing_items_json"], []),
-        next_actions=[
-            NextAction.model_validate(item) for item in _load_json(row["next_actions_json"], [])
-        ],
-        evidence_refs=[
-            EvidenceRef.model_validate(item) for item in _load_json(row["evidence_refs_json"], [])
-        ],
+        next_actions=_load_json(row["next_actions_json"], []),
+        evidence_refs=_load_json(row["evidence_refs_json"], []),
         action_payload=_load_json(row["action_payload_json"], {}),
         created_at=row["created_at"],
         updated_at=row["updated_at"],
@@ -500,71 +507,92 @@ def create_scene_run(
     owner_user_id: str,
     tenant_id: str,
     db_path: Path | None = None,
+    validate_response: Callable[[SceneRun, BoardMission], None] | None = None,
 ) -> tuple[SceneRun, BoardMission]:
-    with _connect(db_path) as connection:
-        pack_row = connection.execute(
-            "SELECT * FROM scene_packs WHERE slug = ? AND enabled = 1",
-            (payload.pack_slug,),
-        ).fetchone()
-        if pack_row is None:
-            raise LookupError("scene pack not found")
-        pack = _pack_from_row(pack_row)
-        run = _build_scene_result(pack, payload, owner_user_id, tenant_id)
-        mission = _build_mission(pack, run)
-        connection.execute(
-            """
-            INSERT INTO scene_runs (
-                id, pack_id, user_id, tenant_id, status, verdict, verdict_text,
-                confidence, risk_grade, opportunity_grade, result_summary,
-                missing_items_json, next_actions_json, evidence_refs_json,
-                action_payload_json, created_at, updated_at
+    payload = SceneRunInput.model_validate(payload.model_dump())
+    try:
+        _dump_json(payload.model_dump())
+        with _connect(db_path) as connection:
+            pack_row = connection.execute(
+                "SELECT * FROM scene_packs WHERE slug = ? AND enabled = 1",
+                (payload.pack_slug,),
+            ).fetchone()
+            if pack_row is None:
+                raise LookupError("scene pack not found")
+            pack = _pack_from_row(pack_row)
+            run = _build_scene_result(pack, payload, owner_user_id, tenant_id)
+            run = SceneRun.model_validate(run.model_dump())
+            mission = _build_mission(pack, run)
+            mission = BoardMission.model_validate(mission.model_dump())
+            _dump_json(run.model_dump())
+            _dump_json(mission.model_dump())
+            if pack.slug == "proposal-quotation-tender" and run.status == "completed":
+                _validate_s4_result(run, payload.inputs)
+            if validate_response is not None:
+                validate_response(run, mission)
+            connection.execute(
+                """
+                INSERT INTO scene_runs (
+                    id, pack_id, user_id, tenant_id, status, verdict, verdict_text,
+                    confidence, risk_grade, opportunity_grade, result_summary,
+                    missing_items_json, next_actions_json, evidence_refs_json,
+                    action_payload_json, created_at, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    run.id,
+                    run.pack_id,
+                    run.user_id,
+                    run.tenant_id,
+                    run.status,
+                    run.verdict,
+                    run.verdict_text,
+                    run.confidence,
+                    run.risk_grade,
+                    run.opportunity_grade,
+                    run.result_summary,
+                    _dump_json(run.missing_items),
+                    _dump_json([item.model_dump() for item in run.next_actions]),
+                    _dump_json([item.model_dump() for item in run.evidence_refs]),
+                    _dump_json(run.action_payload),
+                    run.created_at,
+                    run.updated_at,
+                ),
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                run.id,
-                run.pack_id,
-                run.user_id,
-                run.tenant_id,
-                run.status,
-                run.verdict,
-                run.verdict_text,
-                run.confidence,
-                run.risk_grade,
-                run.opportunity_grade,
-                run.result_summary,
-                _dump_json(run.missing_items),
-                _dump_json([item.model_dump() for item in run.next_actions]),
-                _dump_json([item.model_dump() for item in run.evidence_refs]),
-                _dump_json(run.action_payload),
-                run.created_at,
-                run.updated_at,
-            ),
-        )
-        connection.execute(
-            """
-            INSERT INTO board_missions (
-                id, run_id, pack_id, title, owner, stage, risk_grade,
-                next_milestone, due_at, pinned, created_at, updated_at
+            connection.execute(
+                """
+                INSERT INTO board_missions (
+                    id, run_id, pack_id, title, owner, stage, risk_grade,
+                    next_milestone, due_at, pinned, created_at, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
+                """,
+                (
+                    mission.id,
+                    mission.run_id,
+                    mission.pack_id,
+                    mission.title,
+                    mission.owner,
+                    mission.stage,
+                    mission.risk_grade,
+                    mission.next_milestone,
+                    mission.due_at,
+                    mission.created_at,
+                    mission.updated_at,
+                ),
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
-            """,
-            (
-                mission.id,
-                mission.run_id,
-                mission.pack_id,
-                mission.title,
-                mission.owner,
-                mission.stage,
-                mission.risk_grade,
-                mission.next_milestone,
-                mission.due_at,
-                mission.created_at,
-                mission.updated_at,
-            ),
-        )
-        connection.commit()
-        return run, mission
+            connection.commit()
+            return run, mission
+
+    except LookupError:
+        raise
+    except (ValueError, TypeError, OverflowError, sqlite3.Error) as exc:
+        raise SceneUnavailableError("unavailable") from exc
+
+
+def _excerpt(value: str, limit: int) -> str:
+    return value if len(value) <= limit else value[: limit - 1] + "…"
 
 
 def _text(inputs: dict[str, Any], *keys: str) -> str:
@@ -631,11 +659,11 @@ def _base_result(
         tenant_id=tenant_id,
         status=status,
         verdict=verdict,
-        verdict_text=verdict_text,
+        verdict_text=_excerpt(verdict_text, 500),
         confidence=confidence,
         risk_grade=risk_grade,
         opportunity_grade=opportunity_grade,
-        result_summary=result_summary,
+        result_summary=_excerpt(result_summary, 1200),
         missing_items=missing_items,
         next_actions=[NextAction.model_validate(item) for item in next_actions],
         evidence_refs=[EvidenceRef.model_validate(item) for item in evidence_refs],
@@ -992,6 +1020,12 @@ def _run_enterprise_growth(
     if not isinstance(metrics, dict) or not metrics:
         if "threeMonthMetrics" not in missing_items:
             missing_items.append("threeMonthMetrics")
+    if isinstance(metrics, dict):
+        missing_items.extend(
+            f"threeMonthMetrics.{key}"
+            for key in ("profitMargin", "conversionRate", "cashflow")
+            if key not in metrics
+        )
     if missing_items:
         return _blocked_result(
             pack,
@@ -1072,14 +1106,7 @@ def _run_enterprise_growth(
 
 
 def _numeric(value: Any) -> float | None:
-    if isinstance(value, (int, float)):
-        return float(value)
-    if isinstance(value, str):
-        try:
-            return float(value.strip().rstrip("%"))
-        except ValueError:
-            return None
-    return None
+    return value if type(value) in (int, float) else None
 
 
 def _growth_gap_index(
@@ -1093,6 +1120,176 @@ def _growth_gap_index(
     if cashflow is None or cashflow < 0:
         score += 35
     return min(score, 100)
+
+
+_S4_RULES = {
+    "warranty": r"质保|保修|\bwarranty\b",
+    "penalty": r"违约|罚|\bpenalty\b",
+    "bond": r"保证金|保函|\bbond\b",
+    "custom": r"定制|非标|\bcustom\b",
+    "acceptance": r"验收|\bacceptance\b",
+}
+_S4_LABELS = {
+    "warranty": "质保/保修",
+    "penalty": "违约/罚则",
+    "bond": "保证金/保函",
+    "custom": "定制/非标",
+    "acceptance": "验收",
+}
+
+
+def _s4_analysis(inputs: dict[str, Any]) -> dict[str, Any]:
+    categories, anchors = [], []
+    for category, pattern in _S4_RULES.items():
+        for field in ("customerRequirement", "rfqFile"):
+            material = inputs.get(field, "")
+            match = re.search(pattern, material, re.IGNORECASE)
+            if match is None:
+                continue
+            if category not in categories:
+                categories.append(category)
+            start = max(0, match.start() - 80)
+            anchors.append(
+                {"category": category, "field": field, "excerpt": material[start : start + 240]}
+            )
+    return {"ruleVersion": "s4-keyword-v1", "matchedCategories": categories, "anchors": anchors}
+
+
+def _validate_s4_result(run: SceneRun, inputs: dict[str, Any]) -> None:
+    expected = _s4_analysis(inputs)
+    count = len(expected["matchedCategories"])
+    risk = "high" if count >= 3 else "medium" if count else "low"
+    if run.action_payload.get("ruleAnalysis") != expected or run.risk_grade != risk:
+        raise ValueError("invalid rule analysis")
+
+
+def _run_proposal_quotation_tender(
+    pack: ScenePack,
+    payload: SceneRunInput,
+    owner_user_id: str,
+    tenant_id: str,
+) -> SceneRun:
+    inputs = payload.inputs
+    missing_items = _missing(inputs, pack.required_inputs)
+    if missing_items:
+        labels = {
+            "projectName": "缺少项目或招标名称",
+            "customerRequirement": "缺少客户要求原文或摘要",
+        }
+        result = _blocked_result(
+            pack,
+            payload,
+            owner_user_id,
+            tenant_id,
+            [labels.get(item, item) for item in missing_items],
+            details={"quotationAdvice": "资料不足，不给成本口径与报价建议"},
+        )
+
+        result.evidence_refs = [
+            EvidenceRef.model_validate(
+                _evidence(
+                    "材料由用户提交，必填资料尚未齐备，未运行规则分析",
+                    "用户提交：" + ("客户需求" if field == "customerRequirement" else "询价资料"),
+                    "user_claim",
+                    "medium",
+                )
+            )
+            for field in ("customerRequirement", "rfqFile")
+            if _text(inputs, field)
+        ]
+        return result
+
+    project = _text(inputs, "projectName")
+    budget = _text(inputs, "budget")
+    deadline = _text(inputs, "deadline")
+    competitors = _text(inputs, "competitors")
+    rule_analysis = _s4_analysis(inputs)
+    unpriced_risks = [
+        _S4_LABELS[category]
+        + "相关词项被提及，含义、适用范围与费用待核；否定或引用不构成已确认责任。"
+        for category in rule_analysis["matchedCategories"]
+    ]
+
+    gaps = []
+    if not budget:
+        gaps.append("未提供预算或目标价，报价缺少锚点")
+    if not deadline:
+        gaps.append("未提供交付节点，工期与产能风险不可评估")
+    if not competitors:
+        gaps.append("未提供竞争对手信息，竞争定位不明")
+    if not _has_value(inputs, "rfqFile"):
+        gaps.append("未提供招标或需求文件，只能按摘要判断，条款级偏差未覆盖")
+
+    confidence = 72 - 5 * len(unpriced_risks) - 6 * len(gaps)
+    confidence = max(35, min(confidence, 85))
+    verdict = "BID_WITH_CONDITIONS" if unpriced_risks else "PREPARE_BID"
+    verdict_text = (
+        "可进入方案编制，但报价前必须先锁定未计价风险与成本口径。"
+        if unpriced_risks
+        else "可进入方案编制与报价准备；仍需人工确认最终价格与承诺。"
+    )
+    return _base_result(
+        pack,
+        owner_user_id=owner_user_id,
+        tenant_id=tenant_id,
+        status="completed",
+        verdict=verdict,
+        verdict_text=verdict_text,
+        confidence=confidence,
+        risk_grade="high" if len(unpriced_risks) >= 3 else "medium" if unpriced_risks else "low",
+        opportunity_grade="medium" if budget else "low",
+        result_summary=(
+            f"项目 {project}：本轮完成固定词项规则预分析，仅标记待核事项，"
+            "不形成最终报价，也不代表可以投标或中标。"
+        ),
+        missing_items=gaps,
+        next_actions=_actions(
+            [
+                ("把客户要求逐条拆成应答/偏离/不满足三态偏差表", "工部", "P0", "今天"),
+                ("锁定成本口径：材料、人工、质保准备金、汇率与账期", "户部", "P0", "今天"),
+                (
+                    "复核罚则、质保责任与履约担保上限",
+                    "刑部",
+                    "P0" if unpriced_risks else "P1",
+                    "48小时内",
+                ),
+                ("备齐资质、业绩与合规文件清单", "礼部", "P1", "3天内"),
+                ("关键条款不可接受时形成弃标或改标建议", "丞相", "P1", "报价前"),
+            ]
+        ),
+        evidence_refs=[
+            _evidence(
+                "规则预分析仅依据用户提交材料，未核实条款责任",
+                "用户提交：客户要求/招标文件",
+                "user_claim",
+                "medium",
+            ),
+        ],
+        action_payload={
+            "demo": payload.demo,
+            "canProceed": True,
+            "bidAdvice": "仅规则预分析，报价与投标须人工复核",
+            "ruleAnalysis": rule_analysis,
+            "unpricedRisks": unpriced_risks,
+            "deviationFocus": ["技术规格", "交付与工期", "质保与责任", "商务与付款"],
+            "costAnchors": [
+                "材料与采购成本",
+                "人工与安装",
+                "质保准备金",
+                "汇率与账期成本",
+            ],
+            "largestUnpricedRisk": unpriced_risks[0]
+            if unpriced_risks
+            else "未命中登记词项，不代表已确认低风险；仍需人工复核全文与报价假设。",
+            "todayTop3": ["拆偏差表", "锁成本口径", "审罚则上限"],
+            "compositionSpine": [
+                "flow_product",
+                "flow_quotation",
+                "flow_jinyiwei",
+                "flow_haolong",
+            ],
+        },
+    )
 
 
 def _run_stub(
@@ -1138,6 +1335,7 @@ def _build_scene_result(
         "contract-cashflow-risk": _run_contract_cashflow,
         "b2b-inquiry-conversion": _run_b2b_inquiry,
         "enterprise-growth-diagnosis": _run_enterprise_growth,
+        "proposal-quotation-tender": _run_proposal_quotation_tender,
     }
     runner = runners.get(pack.slug)
     if runner is None:
@@ -1154,7 +1352,7 @@ def _build_mission(pack: ScenePack, run: SceneRun) -> BoardMission:
         "blocked": "blocked",
         "failed": "blocked",
     }[run.status]
-    title = _mission_title(pack, run)
+    title = _excerpt(_mission_title(pack, run), 180)
     next_milestone = run.next_actions[0].title if run.next_actions else "等待人工确认下一步"
     return BoardMission(
         id=uuid.uuid4().hex,

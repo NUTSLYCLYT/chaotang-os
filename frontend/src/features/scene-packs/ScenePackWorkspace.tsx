@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
-import { fetchScenePack, runScenePack } from "./client";
+import { fetchScenePack, parseS4RuleAnalysis, runScenePack, s4CategoryText, s4FieldText, S4_PACK_SLUG, SceneRequestError } from "./client";
 import { demoInputsFor, normalizeSceneInputs } from "./demoInputs";
 import { resultTaskPath } from "./sceneBoardController";
 import type { ScenePack, SceneRun } from "./types";
@@ -52,7 +52,11 @@ const FIELD_LABELS: Record<string, string> = {
   availablePeople: "可用人力",
   targetCollectionCycle: "目标回款周期",
   projectName: "项目名称",
+  budget: "预算或目标价",
+  deadline: "交付节点",
+  competitors: "竞争对手信息",
   customerRequirement: "客户需求",
+  rfqFile: "询价资料（粘贴文本）",
 };
 
 export function ScenePackWorkspace({ slug }: { slug: string }) {
@@ -62,9 +66,14 @@ export function ScenePackWorkspace({ slug }: { slug: string }) {
   const [values, setValues] = useState<Record<string, string>>({});
   const [result, setResult] = useState<SceneRun | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [authExpired, setAuthExpired] = useState(false);
+  const [needsReview, setNeedsReview] = useState(false);
   const [running, setRunning] = useState(false);
+  const submitting = useRef(false);
   const demo = params.get("demo") === "1";
   const taskPath = resultTaskPath(result, slug, demo, running);
+  const s4Analysis = result ? parseS4RuleAnalysis(result) : null;
+  const usesVerifiedS4Level = s4Analysis?.state === "available";
 
   useEffect(() => {
     let cancelled = false;
@@ -90,14 +99,29 @@ export function ScenePackWorkspace({ slug }: { slug: string }) {
   const missingLocal = pack?.requiredInputs.filter((field) => !values[field]?.trim()) ?? [];
 
   async function submit() {
+    if (submitting.current) return;
+    submitting.current = true;
     setRunning(true);
     setError(null);
+    setAuthExpired(false);
+    setNeedsReview(false);
+    setResult(null);
     try {
       const sceneRun = await runScenePack(slug, normalizeSceneInputs(values), demo);
       setResult(sceneRun);
-    } catch {
-      setError("诊断未完成：请确认已登录且后端服务可用。");
+    } catch (caught) {
+      const status = caught instanceof SceneRequestError ? caught.status : 0;
+      if (status === 401) {
+        setAuthExpired(true);
+        setError("会话已失效，旧结果已隐藏。请重新登录。");
+      } else if (status === 422) {
+        setError("输入未通过校验：请检查字段类型、格式或长度后修改并重新提交。");
+      } else {
+        setNeedsReview(true);
+        setError("本次结果尚未确认。请到任务列表核对后再决定是否重新提交。");
+      }
     } finally {
+      submitting.current = false;
       setRunning(false);
     }
   }
@@ -124,7 +148,7 @@ export function ScenePackWorkspace({ slug }: { slug: string }) {
                 {FIELD_LABELS[field] ?? field}
                 {pack?.requiredInputs.includes(field) ? " *" : ""}
               </span>
-              {field.toLowerCase().includes("text") || field === "knownParameters" || field === "threeMonthMetrics" ? (
+              {field.toLowerCase().includes("text") || field === "knownParameters" || field === "threeMonthMetrics" || field === "customerRequirement" || field === "rfqFile" ? (
                 <textarea
                   value={values[field] ?? ""}
                   onChange={(event) => setValues((current) => ({ ...current, [field]: event.target.value }))}
@@ -135,10 +159,11 @@ export function ScenePackWorkspace({ slug }: { slug: string }) {
                   onChange={(event) => setValues((current) => ({ ...current, [field]: event.target.value }))}
                 />
               )}
+              {inputHint(field) ? <small>{inputHint(field)}</small> : null}
             </label>
           ))}
           <div className={styles.materialBox}>
-            材料上传占位：本轮先接入资料说明与附件引用字段，不读取受保护文件、不自动外联。
+            材料文本最多 20000 字符；普通文本最多 2000 字符。询价资料为粘贴文本，不是文件上传或解析。服务端会校验长度和结构。
           </div>
         </aside>
 
@@ -157,12 +182,12 @@ export function ScenePackWorkspace({ slug }: { slug: string }) {
           {result ? (
             <div className={styles.resultCard}>
               <div className={styles.verdict}>
-                <span>丞相裁决</span>
+                <span>{result.packSlug === S4_PACK_SLUG ? "规则预分析" : "丞相裁决"}</span>
                 <strong>{result.verdictText}</strong>
-                <i className={styles.riskBadge} data-risk={result.riskGrade}>风险：{riskText(result.riskGrade)}</i>
+                <i className={styles.riskBadge} data-risk={result.riskGrade}>{result.packSlug === S4_PACK_SLUG ? usesVerifiedS4Level ? "规则提示级别" : "兼容提示级别" : "风险"}：{riskText(result.riskGrade)}</i>
               </div>
               <p>{result.summaryForUser}</p>
-              <ScoreLine label="置信度" value={`${result.confidence}%`} />
+              {result.packSlug === S4_PACK_SLUG ? <S4RuleAnalysis result={result} /> : <ScoreLine label="置信度" value={`${result.confidence}%`} />}
               {typeof result.leadScore === "number" ? <ScoreLine label="线索评分" value={`${result.leadScore}`} /> : null}
               {result.recommendedReply ? (
                 <div className={styles.evidence}>
@@ -172,7 +197,7 @@ export function ScenePackWorkspace({ slug }: { slug: string }) {
               ) : null}
             </div>
           ) : (
-            <p>提交后这里会出现 verdict、riskGrade、missingItems、nextActions 与证据来源。</p>
+            <p>提交后可查看诊断结论、缺失资料、下一步与证据来源。</p>
           )}
         </section>
 
@@ -207,6 +232,8 @@ export function ScenePackWorkspace({ slug }: { slug: string }) {
       </section>
 
       {error ? <p className={styles.evidence} role="alert">{error}</p> : null}
+      {authExpired ? <button className={styles.sceneButton} type="button" onClick={() => router.push("/login?next=" + encodeURIComponent("/scene-pack/" + slug))}>重新登录</button> : null}
+      {needsReview ? <button className={styles.sceneButton} type="button" onClick={() => router.push("/junjichu/scene-board?filter=all&panel=list")}>前往任务列表核对</button> : null}
 
       <footer className={styles.fixedBar}>
         <button className={styles.sceneButton} type="button" onClick={submit} disabled={running}>
@@ -232,4 +259,24 @@ function ScoreLine({ label, value }: { label: string; value: string }) {
 
 function riskText(risk: string): string {
   return risk === "low" ? "低" : risk === "medium" ? "中" : "高";
+}
+
+
+function S4RuleAnalysis({ result }: { result: SceneRun }) {
+  const analysis = parseS4RuleAnalysis(result);
+  if (analysis.state === "available") return <div className={styles.evidence}>
+    <strong>已校验规则依据 · {analysis.ruleVersion}</strong><p>这是词项提示，不含模型分析或校准概率。</p>
+    {analysis.matchedCategories.length ? <ul className={styles.list}>{analysis.anchors.map(anchor => <li key={anchor.category + anchor.field}>{s4CategoryText(anchor.category)} · {s4FieldText(anchor.field)}：{anchor.excerpt}</li>)}</ul>
+      : <p>当前词表未命中，不能排除风险。</p>}
+  </div>;
+  if (analysis.state === "legacy-stub") return <p className={styles.evidence}>历史占位：尚未运行规则预分析。</p>;
+  return <p className={styles.evidence}>尚无可校验规则依据。</p>;
+}
+
+
+function inputHint(field: string) {
+  if (field === "projectName" || field === "productName") return "名称最多 120 字符。";
+  if (field === "threeMonthMetrics") return "填写 JSON 对象，至少包含 profitMargin（利润率）、conversionRate（成单率，0–100）和 cashflow（现金流）；数值需为有限数字。";
+  if (field === "customerRequirement" || field === "rfqFile") return "材料文本最多 20000 字符。";
+  return null;
 }

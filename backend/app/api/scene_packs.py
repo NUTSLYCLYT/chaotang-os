@@ -5,14 +5,32 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import APIRouter, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from fastapi.routing import APIRoute
 from pydantic import ValidationError
 
 from app.api.auth import CurrentUser
 from app.scene_packs import storage
 from app.scene_packs.models import BoardMission, MissionPatch, ScenePack, SceneRun, SceneRunInput
 
-router = APIRouter(prefix="/api/v1/court", tags=["scene-packs"])
+
+class _SceneRoute(APIRoute):
+    def get_route_handler(self):
+        original = super().get_route_handler()
+
+        async def handler(request: Request):
+            try:
+                return await original(request)
+            except RequestValidationError:
+                return _error(422, "validation")
+            except (storage.SceneUnavailableError, ValidationError):
+                return _error(503, "unavailable")
+
+        return handler
+
+
+router = APIRouter(prefix="/api/v1/court", tags=["scene-packs"], route_class=_SceneRoute)
 
 _ALLOWED_MISSION_QUERY_FIELDS = frozenset({"stage", "risk_grade", "pack_slug"})
 _ALLOWED_STAGES = frozenset({"todo", "in_progress", "awaiting_input", "blocked", "done"})
@@ -157,29 +175,42 @@ def create_scene_run(
         run_input = SceneRunInput.model_validate(normalized)
     except ValidationError:
         return _error(422, "validation")
+    response = None
+
+    def prepare_response(run: SceneRun, mission: BoardMission) -> None:
+        nonlocal response
+        response = {
+            "status": "ok",
+            "runId": run.id,
+            "initialStatus": run.status,
+            "sceneRun": _run_json(run, mission),
+        }
+        JSONResponse(content=response)  # Finish response serialization before either INSERT.
+
     try:
         run, mission = storage.create_scene_run(
             run_input,
             owner_user_id=current_user.id,
             tenant_id=current_user.tenant_id,
+            validate_response=prepare_response,
         )
+    except storage.SceneUnavailableError:
+        return _error(503, "unavailable")
     except LookupError:
         return _error(404, "scene_pack_not_found")
-    return {
-        "status": "ok",
-        "runId": run.id,
-        "initialStatus": run.status,
-        "sceneRun": _run_json(run, mission),
-    }
+    return response
 
 
 @router.get("/scene-runs/{run_id}", response_model=None)
 def get_scene_run(run_id: str, current_user: CurrentUser) -> dict[str, Any] | JSONResponse:
-    result = storage.get_scene_run(
-        run_id,
-        owner_user_id=current_user.id,
-        tenant_id=current_user.tenant_id,
-    )
+    try:
+        result = storage.get_scene_run(
+            run_id,
+            owner_user_id=current_user.id,
+            tenant_id=current_user.tenant_id,
+        )
+    except (storage.SceneUnavailableError, ValidationError):
+        return _error(503, "unavailable")
     if result is None:
         return _error(404, "scene_run_not_found")
     run, mission = result

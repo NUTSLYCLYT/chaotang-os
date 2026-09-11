@@ -62,3 +62,46 @@ test("projection owns nested arrays and preserves long text without mutating sou
   assert.deepEqual(run.missingItems,["缺签章"]);assert.equal(run.nextActions[0].title,"补签章");
   assert.equal(run.evidenceRefs[0].claim,"付款条款");
 });
+
+
+const s4Details = {
+  ruleAnalysis: {
+    ruleVersion: "s4-keyword-v1",
+    matchedCategories: ["warranty", "acceptance"],
+    anchors: [
+      {category: "warranty", field: "customerRequirement", excerpt: "无质保要求"},
+      {category: "acceptance", field: "rfqFile", excerpt: "acceptance quoted"},
+    ],
+  },
+};
+test("S4 RED: projection exposes only validated rule anchors and never confidence or full materials", () => {
+  const s4Mission = {...mission, packSlug: "proposal-quotation-tender", riskGrade: "medium" as const};
+  const s4Run = {...run, packSlug: "proposal-quotation-tender", status: "completed" as const, riskGrade: "medium" as const, details: s4Details};
+  const p = buildV4Presentation(s4Mission, s4Run)!;
+  assert.deepEqual(p.ruleAnalysis, {state: "available", ...s4Details.ruleAnalysis});
+  assert.equal("confidence" in p, false);
+  assert.equal("customerRequirement" in p, false);
+  assert.equal("rfqFile" in p, false);
+});
+test("S4 RED: legacy stub and invalid or absent metadata degrade without inventing a rule conclusion", () => {
+  const s4Mission = {...mission, packSlug: "proposal-quotation-tender"};
+  const stub = buildV4Presentation(s4Mission, {...run, packSlug: "proposal-quotation-tender", status: "blocked", verdict: "STUBBED", details: {}})!;
+  assert.deepEqual(stub.ruleAnalysis, {state: "legacy-stub"});
+  for (const details of [{}, {ruleAnalysis: {ruleVersion: "unknown", matchedCategories: [], anchors: []}}, {ruleAnalysis: {...s4Details.ruleAnalysis, anchors: []}}]) {
+    const p = buildV4Presentation(s4Mission, {...run, packSlug: "proposal-quotation-tender", status: "completed", details})!;
+    assert.deepEqual(p.ruleAnalysis, {state: "unavailable"});
+  }
+});
+
+
+test("S4 projection degrades every malformed rule boundary without exposing malicious details", () => {
+  const s4Mission = {...mission, packSlug: "proposal-quotation-tender", riskGrade: "medium" as const};
+  const s4Run = {...run, packSlug: "proposal-quotation-tender", status: "completed" as const, riskGrade: "medium" as const};
+  const rule = s4Details.ruleAnalysis;
+  for (const ruleAnalysis of [null, [], "bad", {...rule, extra:true}, {...rule, matchedCategories:["alien"]}, {...rule, anchors: [{category:"warranty",field:"html",excerpt:"<script>bad</script>"}]}, {...rule, anchors:[{category:"warranty",field:"customerRequirement",excerpt:"😀".repeat(241)}]}, {...rule, anchors:[]}, {...rule, matchedCategories:[]}]) {
+    const p = buildV4Presentation(s4Mission, {...s4Run, details:{ruleAnalysis, html:"<script>bad</script>", url:"javascript:bad()", approved:true}})!;
+    assert.deepEqual(p.ruleAnalysis, {state:"unavailable"});
+    for (const key of ["html", "url", "approved", "confidence"]) assert.equal(key in p, false);
+  }
+  assert.deepEqual(buildV4Presentation(s4Mission, {...s4Run, riskGrade:"high", details:s4Details})!.ruleAnalysis, {state:"unavailable"});
+});

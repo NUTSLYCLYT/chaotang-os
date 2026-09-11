@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
-import { fetchSceneMissions, fetchSceneRun, updateSceneMission } from "./client";
+import { fetchSceneMissions, fetchSceneRun, s4CategoryText, s4FieldText, updateSceneMission } from "./client";
 import { buildBoardPath, createSceneBoardController, parseBoardPath, visibleMissions, type BoardFilter, type BoardNavigation } from "./sceneBoardController";
 import { buildV4Presentation, riskText, stageText, type V4Presentation } from "./sceneBoardV4Presentation";
 import styles from "./SceneBoardV4.module.css";
@@ -83,6 +83,7 @@ export function SceneBoard({ initialPath = "/junjichu/scene-board" }: { initialP
                 onClick={() => go({mission: nav?.mission ?? null, filter, panel: "list"})}>{label}</button>
             ))}
           </div>
+          <p className={styles.subtle}>“高风险”筛选保持原有条件；S4 按兼容提示级别为 high 时同样纳入，打开详情核对规则依据。</p>
           <button className={styles.button} type="button" disabled={state.list === "loading" || !requested} onClick={() => void controller.refresh()}>重新读取列表</button>
           {!current || state.list === "loading" ? <p className={styles.notice} role="status">正在读取任务…</p> : null}
           {current && state.list === "error" ? <p className={styles.notice} role="alert">任务列表暂不可读。可重新读取，不会重新提交任务。</p> : null}
@@ -94,7 +95,7 @@ export function SceneBoard({ initialPath = "/junjichu/scene-board" }: { initialP
                 aria-pressed={nav?.mission === m.missionId} onClick={() => go({mission: m.missionId, filter: nav?.filter ?? "all", panel: "detail"})}>
                 <span className={styles.missionTop}>{m.packName}<span>看板：{stageText(m.stage)}</span></span>
                 <strong>{m.title}</strong>
-                <small>风险：{riskText(m.riskGrade)} · 提示日期：{m.dueAt}</small>
+                <small>{m.packSlug === "proposal-quotation-tender" ? "S4 兼容提示级别" : "风险"}：{riskText(m.riskGrade)} · 提示日期：{m.dueAt}</small>
                 <small>下一步：{m.nextMilestone}</small>
               </button>
             ))}
@@ -146,7 +147,8 @@ function TaskColumns({model, back, excluded, showAll, enterScene, mark, busy}: {
         <button type="button" aria-pressed={view === "results"} onClick={() => setView("results")}>成果与证据</button>
       </div>
       {view === "overview" ? <section aria-label="任务概览内容">
-        <span className={styles.risk} data-risk={model.risk}>风险：{model.riskLabel}</span>
+        <span className={styles.risk} data-risk={model.risk}>{model.packSlug === "proposal-quotation-tender" ? model.ruleAnalysis?.state === "available" ? "规则提示级别" : "兼容提示级别" : "风险"}：{model.riskLabel}</span>
+        <S4RuleAnalysis model={model} />
         <p className={styles.verdict}>{model.verdict}</p><p className={styles.summary}>{model.summary}</p>
         <div className={styles.actionRow}><button className={styles.button} type="button" onClick={enterScene}>进入对应场景</button>
           <button className={styles.button} type="button" onClick={() => setView("results")}>查看现有证据</button></div>
@@ -182,4 +184,17 @@ function TaskColumns({model, back, excluded, showAll, enterScene, mark, busy}: {
       </details>
     </aside>
   </>;
+}
+
+
+function S4RuleAnalysis({model}: {model: V4Presentation}) {
+  const analysis = model.ruleAnalysis;
+  if (analysis === undefined) return null;
+  if (analysis.state === "available") return <section className={styles.unavailable} aria-label="S4 规则预分析依据">
+    <h3>规则预分析依据</h3><p>规则版本：{analysis.ruleVersion}。词项提示仅供待核实，不表示义务或风险已成立。</p>
+    {analysis.matchedCategories.length ? <ul>{analysis.anchors.map(anchor => <li key={anchor.category + anchor.field}>{s4CategoryText(anchor.category)} · {s4FieldText(anchor.field)}：{anchor.excerpt}</li>)}</ul>
+      : <p>当前词表未命中，不能排除风险。</p>}
+  </section>;
+  if (analysis.state === "legacy-stub") return <p className={styles.notice}>历史占位：尚未运行规则预分析。</p>;
+  return <p className={styles.notice}>尚无可校验规则依据；请勿从兼容提示级别推断规则版本或命中情况。</p>;
 }

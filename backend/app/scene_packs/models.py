@@ -8,9 +8,11 @@ payment, contract-signing, mailing or publishing actions.
 
 from __future__ import annotations
 
+import math
+import re
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 SceneRunStatus = Literal["created", "running", "completed", "blocked", "failed"]
 RiskGrade = Literal["low", "medium", "high"]
@@ -132,6 +134,161 @@ class BoardMission(BaseModel):
     updated_at: str
 
 
+# Scene input names mirror the registry; parity is verified in the model tests.
+_SCENE_INPUT_FIELDS = {
+    "single-product-export-diagnosis": [
+        "productName",
+        "productCategory",
+        "knownParameters",
+        "certifications",
+        "currentPriceOrCost",
+        "monthlyCapacity",
+        "deliveryCycle",
+        "plannedChannel",
+        "productMaterials",
+        "targetMarket",
+        "attachments",
+    ],
+    "b2b-inquiry-conversion": [
+        "inquirySource",
+        "customerOriginalText",
+        "productDemand",
+        "customerName",
+        "customerCompany",
+        "countryRegion",
+        "contact",
+        "quantity",
+        "targetPrice",
+        "paymentMethod",
+        "requiresSample",
+        "chatHistory",
+        "inquiryTime",
+        "applicationScenario",
+    ],
+    "proposal-quotation-tender": [
+        "projectName",
+        "customerRequirement",
+        "rfqFile",
+        "budget",
+        "deadline",
+        "competitors",
+    ],
+    "contract-cashflow-risk": [
+        "contractText",
+        "contractAmount",
+        "currency",
+        "paymentMilestones",
+        "deliveryCycle",
+        "acceptanceMethod",
+        "warrantyResponsibility",
+        "counterpartyName",
+        "targetRegion",
+        "hasHistory",
+        "contractSummary",
+        "attachments",
+    ],
+    "enterprise-growth-diagnosis": [
+        "industry",
+        "region",
+        "targetMarkets",
+        "products",
+        "stage",
+        "threeMonthMetrics",
+        "topProblems",
+        "budgetLimit",
+        "availablePeople",
+        "targetCollectionCycle",
+        "costDelivery",
+        "channelEvidence",
+        "refundRecords",
+    ],
+}
+_MATERIAL_FIELDS = frozenset(
+    {
+        "contractText",
+        "contractSummary",
+        "customerOriginalText",
+        "chatHistory",
+        "knownParameters",
+        "productMaterials",
+        "customerRequirement",
+        "rfqFile",
+    }
+)
+_LIST_FIELDS = frozenset({"targetMarkets", "products", "topProblems"})
+_METRIC_FIELDS = frozenset(
+    {
+        "sales",
+        "profitMargin",
+        "grossProfit",
+        "cashflow",
+        "aov",
+        "inquiries",
+        "conversionRate",
+        "cac",
+    }
+)
+_DECIMAL = re.compile(r"[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?")
+
+
+def metric_number(key: str, value: Any) -> float:
+    """Accept finite numbers and bounded decimal strings, never truthy coercions."""
+    if isinstance(value, str):
+        if len(value) > 200:
+            raise ValueError("invalid metric")
+        value = value.strip()
+        if key in {"profitMargin", "conversionRate"} and value.endswith("%"):
+            value = value[:-1]
+        if not _DECIMAL.fullmatch(value):
+            raise ValueError("invalid metric")
+    elif type(value) not in (int, float):
+        raise ValueError("invalid metric")
+    try:
+        number = float(value)
+    except (ValueError, OverflowError):
+        raise ValueError("invalid metric") from None
+    if not math.isfinite(number) or (key == "conversionRate" and not 0 <= number <= 100):
+        raise ValueError("invalid metric")
+    return number
+
+
+def validate_scene_inputs(slug: str, inputs: dict[str, Any]) -> dict[str, Any]:
+    fields = _SCENE_INPUT_FIELDS.get(slug)
+    if fields is None:
+        return inputs  # Registry lookup preserves the unknown-scene 404 contract.
+    normalized = dict(inputs)
+    for key, value in inputs.items():
+        if key == "attachments":
+            if type(value) is not list or value:
+                raise ValueError("attachments unsupported")
+        elif key not in fields:
+            raise ValueError("unknown input")
+        elif slug == "enterprise-growth-diagnosis" and key in _LIST_FIELDS:
+            if type(value) is not list or len(value) > 30:
+                raise ValueError("invalid list")
+            if any(type(item) is not str or len(item) > 200 for item in value):
+                raise ValueError("invalid list item")
+            for item in value:
+                item.encode("utf-8")
+            normalized[key] = [item.strip() for item in value if item.strip()]
+        elif slug == "enterprise-growth-diagnosis" and key == "threeMonthMetrics":
+            if type(value) is not dict or any(name not in _METRIC_FIELDS for name in value):
+                raise ValueError("invalid metrics")
+            normalized[key] = {name: metric_number(name, number) for name, number in value.items()}
+        else:
+            limit = (
+                120
+                if key in {"projectName", "productName"}
+                else 20000
+                if key in _MATERIAL_FIELDS
+                else 2000
+            )
+            if type(value) is not str or len(value) > limit:
+                raise ValueError("invalid text")
+            value.encode("utf-8")
+    return normalized
+
+
 class SceneRunInput(BaseModel):
     """HTTP request payload accepted by ``POST /api/v1/court/scene-runs``."""
 
@@ -140,7 +297,14 @@ class SceneRunInput(BaseModel):
     pack_slug: str = Field(min_length=1, max_length=120)
     inputs: dict[str, Any] = Field(default_factory=dict)
     attachments: list[dict[str, Any]] = Field(default_factory=list)
-    demo: bool = False
+    demo: bool = Field(default=False, strict=True)
+
+    @model_validator(mode="after")
+    def _validate_inputs(self) -> SceneRunInput:
+        if self.attachments:
+            raise ValueError("attachments unsupported")
+        self.inputs = validate_scene_inputs(self.pack_slug, self.inputs)
+        return self
 
     @field_validator("pack_slug")
     @classmethod

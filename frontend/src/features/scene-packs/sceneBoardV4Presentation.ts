@@ -1,3 +1,4 @@
+import { parseS4RuleAnalysis, type S4RuleAnalysis } from "./client.ts";
 import { isSceneId } from "./sceneBoardController.ts";
 import type { SceneMission, SceneRun } from "./types.ts";
 
@@ -15,7 +16,9 @@ export function runStatusText(value: string) {
 export function buildV4Presentation(mission: SceneMission | null, run: SceneRun | null) {
   if (!mission || !run || !isSceneId(mission.missionId) || !isSceneId(mission.runId)
     || mission.missionId !== run.missionId || mission.runId !== run.runId || mission.packSlug !== run.packSlug) return null;
+  const ruleAnalysis = parseS4RuleAnalysis(run);
   return {
+    ...(ruleAnalysis.state === "not-s4" ? {} : {ruleAnalysis}),
     identityKey: mission.missionId + ":" + mission.runId,
     missionId: mission.missionId,
     runId: mission.runId,
@@ -34,4 +37,5 @@ export function buildV4Presentation(mission: SceneMission | null, run: SceneRun 
     evidenceRefs: run.evidenceRefs.map(e => ({claim:e.claim,sourceLabel:e.sourceLabel,sourceType:e.sourceType,capturedAt:e.capturedAt,reliability:e.reliability})),
   };
 }
-export type V4Presentation = NonNullable<ReturnType<typeof buildV4Presentation>>;
+type InferredV4Presentation = NonNullable<ReturnType<typeof buildV4Presentation>>;
+export type V4Presentation = InferredV4Presentation & {ruleAnalysis?: Exclude<S4RuleAnalysis, {state: "not-s4"}>};

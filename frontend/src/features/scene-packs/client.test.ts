@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { fetchSceneMissions, fetchSceneRun, updateSceneMission } from "./client.ts";
+import { fetchSceneMissions, fetchSceneRun, parseS4RuleAnalysis, runScenePack, s4CategoryText, s4FieldText, updateSceneMission } from "./client.ts";
 
 export const mission = (id = "mission-a") => ({
   missionId: id, runId: "run-" + id, packSlug: "contract-cashflow-risk",
@@ -92,4 +92,108 @@ test("already aborted board read performs no network request", async (t) => {
   const abort=new AbortController();abort.abort();
   await assert.rejects(()=>fetchSceneMissions({},abort.signal));
   assert.equal(calls,0);
+});
+
+
+const s4RuleAnalysis = {
+  ruleVersion: "s4-keyword-v1",
+  matchedCategories: ["warranty", "penalty"],
+  anchors: [
+    {category: "warranty", field: "customerRequirement", excerpt: "含质保条款"},
+    {category: "penalty", field: "rfqFile", excerpt: "penalty excluded"},
+  ],
+};
+const s4Completed = () => ({
+  ...run(), packSlug: "proposal-quotation-tender", status: "completed", verdict: "S4_RULE_ANALYSIS", riskGrade: "medium",
+  details: {ruleAnalysis: s4RuleAnalysis},
+});
+
+test("S4 RED: closed rule metadata accepts only the ordered five-category contract", () => {
+  const available = parseS4RuleAnalysis(s4Completed());
+  assert.deepEqual(available, {state: "available", ...s4RuleAnalysis});
+  const bad = [
+    {...s4RuleAnalysis, extra: true},
+    {...s4RuleAnalysis, ruleVersion: "other"},
+    {...s4RuleAnalysis, matchedCategories: ["penalty", "warranty"]},
+    {...s4RuleAnalysis, matchedCategories: ["warranty", "warranty"], anchors: [{category: "warranty", field: "customerRequirement", excerpt: "x"}]},
+    {...s4RuleAnalysis, anchors: [{category: "warranty", field: "customerRequirement", excerpt: "x", extra: true}]},
+    {...s4RuleAnalysis, anchors: [{category: "warranty", field: "unknown", excerpt: "x"}]},
+    {...s4RuleAnalysis, anchors: [{category: "warranty", field: "customerRequirement", excerpt: "x".repeat(241)}]},
+  ];
+  for (const ruleAnalysis of bad) assert.deepEqual(
+    parseS4RuleAnalysis({...s4Completed(), details: {ruleAnalysis}}), {state: "unavailable"},
+  );
+  const astral = "😀".repeat(240);
+  assert.equal(parseS4RuleAnalysis({...s4Completed(), details: {ruleAnalysis: {
+    ...s4RuleAnalysis, anchors: [{category: "warranty", field: "customerRequirement", excerpt: astral}, {category: "penalty", field: "rfqFile", excerpt: "penalty"}],
+  }}}).state, "available");
+  assert.equal(parseS4RuleAnalysis({...s4Completed(), details: {ruleAnalysis: {
+    ...s4RuleAnalysis, anchors: [{category: "warranty", field: "customerRequirement", excerpt: "😀".repeat(241)}, {category: "penalty", field: "rfqFile", excerpt: "penalty"}],
+  }}}).state, "unavailable");
+});
+
+test("S4 RED: POST completed requires valid metadata but GET retains a readable legacy result", async (t) => {
+  const legacy = {...s4Completed(), details: {}};
+  t.mock.method(globalThis, "fetch", async () => Response.json({sceneRun: legacy}));
+  await assert.rejects(() => runScenePack("proposal-quotation-tender", {projectName: "项目", customerRequirement: "需求"}, true));
+  t.mock.restoreAll();
+  t.mock.method(globalThis, "fetch", async () => Response.json({sceneRun: legacy}));
+  assert.equal((await fetchSceneRun(legacy.runId)).runId, legacy.runId);
+  t.mock.restoreAll();
+  t.mock.method(globalThis, "fetch", async () => Response.json({sceneRun: s4Completed()}));
+  assert.equal((await runScenePack("proposal-quotation-tender", {projectName: "项目", customerRequirement: "需求"}, true)).packSlug, "proposal-quotation-tender");
+});
+
+
+test("S4 RED: POST preserves 401 and 422 for workspace recovery without a replay", async (t) => {
+  for (const status of [401, 422]) {
+    let calls = 0;
+    t.mock.method(globalThis, "fetch", async () => { calls++; return new Response(null, {status}); });
+    await assert.rejects(
+      () => runScenePack("proposal-quotation-tender", {projectName: "项目", customerRequirement: "需求"}),
+      (error: unknown) => error instanceof Error && "status" in error && error.status === status,
+    );
+    assert.equal(calls, 1);
+    t.mock.restoreAll();
+  }
+});
+
+
+test("S4 RED: user-facing rule captions translate only validated internal identifiers", () => {
+  assert.equal(s4CategoryText("warranty"), "质保/保修提示");
+  assert.equal(s4CategoryText("acceptance"), "验收提示");
+  assert.equal(s4FieldText("customerRequirement"), "客户需求");
+  assert.equal(s4FieldText("rfqFile"), "询价资料");
+});
+
+
+test("S4 refuses metadata inconsistent with lifecycle or rule level", () => {
+  for (const patch of [{riskGrade: "high"}, {riskGrade: "low"}, {status: "blocked"}, {status: "failed"}])
+    assert.deepEqual(parseS4RuleAnalysis({...s4Completed(), ...patch}), {state: "unavailable"});
+});
+
+test("POST rejects malformed success, mismatched slug/demo, and network failure without replay", async (t) => {
+  for (const sceneRun of [{}, {...s4Completed(), packSlug: "another-scene"}, {...s4Completed(), demo: false}, {...s4Completed(), nextActions: [{}]}]) {
+    let calls = 0;
+    t.mock.method(globalThis, "fetch", async () => { calls++; return Response.json({sceneRun}); });
+    await assert.rejects(() => runScenePack("proposal-quotation-tender", {}, true));
+    assert.equal(calls, 1);
+    t.mock.restoreAll();
+  }
+  let calls = 0;
+  t.mock.method(globalThis, "fetch", async () => { calls++; throw new TypeError("network unavailable"); });
+  await assert.rejects(() => runScenePack("proposal-quotation-tender", {}, true));
+  assert.equal(calls, 1);
+});
+
+test("POST classifies error status without reading an untrusted error body", async (t) => {
+  for (const status of [401, 422]) {
+    const response = new Response(null, {status});
+    let reads = 0;
+    t.mock.method(response, "json", async () => { reads++; throw new Error("body must not be read"); });
+    t.mock.method(globalThis, "fetch", async () => response);
+    await assert.rejects(() => runScenePack("proposal-quotation-tender", {}), (e: unknown) => e instanceof Error && "status" in e && e.status === status);
+    assert.equal(reads, 0);
+    t.mock.restoreAll();
+  }
 });

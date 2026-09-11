@@ -53,7 +53,7 @@ function missionValue(v: unknown): v is SceneMission {
     && [v.packName, v.title, v.owner, v.nextMilestone, v.dueAt, v.createdAt, v.updatedAt].every(text)
     && typeof v.stage === "string" && stage(v.stage) && grade(v.riskGrade) && typeof v.pinned === "boolean";
 }
-function runValue(v: unknown): v is SceneRun {
+function runValue(v: unknown, requireS4Metadata = false): v is SceneRun {
   return isRecord(v) && isSceneId(v.runId) && isSceneId(v.missionId) && isSceneId(v.packSlug)
     && typeof v.status === "string" && ["created", "running", "completed", "blocked", "failed"].includes(v.status)
     && [v.verdict, v.verdictText, v.summaryForUser].every(text)
@@ -63,7 +63,68 @@ function runValue(v: unknown): v is SceneRun {
     && Array.isArray(v.nextActions) && v.nextActions.every(a => isRecord(a) && [a.title, a.ownerDept, a.dueHint].every(text)
       && typeof a.priority === "string" && ["P0", "P1", "P2"].includes(a.priority))
     && Array.isArray(v.evidenceRefs) && v.evidenceRefs.every(e => isRecord(e)
-      && [e.claim, e.sourceLabel, e.sourceType, e.capturedAt].every(text) && grade(e.reliability));
+      && [e.claim, e.sourceLabel, e.sourceType, e.capturedAt].every(text) && grade(e.reliability))
+    && (!requireS4Metadata || v.packSlug !== S4_PACK_SLUG || v.status !== "completed"
+      || parseS4RuleAnalysis(v).state === "available");
+}
+
+export const S4_PACK_SLUG = "proposal-quotation-tender";
+const S4_CATEGORIES = ["warranty", "penalty", "bond", "custom", "acceptance"] as const;
+type S4Category = typeof S4_CATEGORIES[number];
+type S4Anchor = { category: S4Category; field: "customerRequirement" | "rfqFile"; excerpt: string };
+
+export function s4CategoryText(category: S4Category) {
+  return ({warranty: "质保/保修提示", penalty: "违约/罚则提示", bond: "保证金/保函提示", custom: "定制/非标提示", acceptance: "验收提示"} as const)[category];
+}
+export function s4FieldText(field: S4Anchor["field"]) {
+  return field === "customerRequirement" ? "客户需求" : "询价资料";
+}
+export type S4RuleAnalysis =
+  | { state: "not-s4" | "unavailable" | "legacy-stub" }
+  | { state: "available"; ruleVersion: "s4-keyword-v1"; matchedCategories: S4Category[]; anchors: S4Anchor[] };
+
+function exactKeys(value: Record<string, unknown>, keys: readonly string[]) {
+  return Object.keys(value).length === keys.length && Object.keys(value).every(key => keys.includes(key));
+}
+function isS4Category(value: unknown): value is S4Category {
+  return typeof value === "string" && S4_CATEGORIES.includes(value as S4Category);
+}
+function codePointLength(value: string) {
+  return Array.from(value).length;
+}
+
+/** Parses only persisted S4 keyword metadata; it never derives a rule conclusion from material text. */
+export function parseS4RuleAnalysis(value: unknown): S4RuleAnalysis {
+  if (!isRecord(value) || value.packSlug !== S4_PACK_SLUG) return { state: "not-s4" };
+  if (value.status === "blocked" && value.verdict === "STUBBED") return { state: "legacy-stub" };
+  if (value.status !== "completed") return { state: "unavailable" };
+  const details = value.details;
+  if (!isRecord(details) || !isRecord(details.ruleAnalysis)) return { state: "unavailable" };
+  const ruleAnalysis = details.ruleAnalysis;
+  if (!exactKeys(ruleAnalysis, ["ruleVersion", "matchedCategories", "anchors"])
+    || ruleAnalysis.ruleVersion !== "s4-keyword-v1"
+    || !Array.isArray(ruleAnalysis.matchedCategories)
+    || !Array.isArray(ruleAnalysis.anchors)) return { state: "unavailable" };
+  const matchedCategories = ruleAnalysis.matchedCategories;
+  if (!matchedCategories.every(isS4Category)
+    || new Set(matchedCategories).size !== matchedCategories.length
+    || matchedCategories.some((category, index) => index > 0
+      && S4_CATEGORIES.indexOf(category) <= S4_CATEGORIES.indexOf(matchedCategories[index - 1] as S4Category))) return { state: "unavailable" };
+  const anchors: S4Anchor[] = [];
+  for (const anchor of ruleAnalysis.anchors) {
+    if (!isRecord(anchor) || !exactKeys(anchor, ["category", "field", "excerpt"])
+      || !isS4Category(anchor.category)
+      || (anchor.field !== "customerRequirement" && anchor.field !== "rfqFile")
+      || !text(anchor.excerpt) || codePointLength(anchor.excerpt) > 240) return { state: "unavailable" };
+    anchors.push({category: anchor.category, field: anchor.field, excerpt: anchor.excerpt});
+  }
+  if (anchors.length > 10
+    || new Set(anchors.map(anchor => anchor.category + ":" + anchor.field)).size !== anchors.length
+    || new Set(anchors.map(anchor => anchor.category)).size !== matchedCategories.length
+    || anchors.some(anchor => !matchedCategories.includes(anchor.category))) return { state: "unavailable" };
+  const expectedRisk = matchedCategories.length >= 3 ? "high" : matchedCategories.length ? "medium" : "low";
+  if (value.riskGrade !== expectedRisk) return { state: "unavailable" };
+  return {state: "available", ruleVersion: "s4-keyword-v1", matchedCategories: [...matchedCategories], anchors};
 }
 
 export async function fetchScenePacks(): Promise<ScenePack[]> {
@@ -94,11 +155,13 @@ export async function runScenePack(
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ packSlug, inputs, attachments: [], demo }),
   });
+  if (!response.ok) throw new SceneRequestError(response.status);
   const body = await readJson(response);
-  if (!response.ok || !isRecord(body) || !isRecord(body.sceneRun)) {
-    throw new Error("scene_run_failed");
+  if (!isRecord(body) || !runValue(body.sceneRun, true)
+    || body.sceneRun.packSlug !== packSlug || body.sceneRun.demo !== demo) {
+    throw new SceneRequestError(response.status);
   }
-  return body.sceneRun as unknown as SceneRun;
+  return body.sceneRun;
 }
 
 export async function fetchSceneRun(runId: string, signal?: AbortSignal): Promise<SceneRun> {
