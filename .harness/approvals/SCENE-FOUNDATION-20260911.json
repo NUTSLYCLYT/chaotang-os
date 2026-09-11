@@ -1,0 +1,127 @@
+{
+  "schemaVersion": "product-authority.m0.approval.v1",
+  "authorityId": "product-authority.m0.v1",
+  "taskId": "SCENE-FOUNDATION-20260911",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "aa869db1ab0dc99ac2e707ce00f17fce65edc90e",
+    "baseTree": "a483de7c2047de7d949243511750c721916d4828",
+    "approvalPath": ".harness/approvals/SCENE-FOUNDATION-20260911.json",
+    "approvalCommitPaths": [
+      ".harness/approvals/SCENE-FOUNDATION-20260911.json",
+      "docs/product/tasks/2026-09-11-scene-foundation.md"
+    ],
+    "productPaths": [
+      "backend/app/api/scene_packs.py",
+      "backend/app/scene_packs/models.py",
+      "backend/app/scene_packs/storage.py",
+      "backend/tests/test_scene_pack_api.py",
+      "backend/tests/test_scene_pack_models.py",
+      "frontend/src/features/scene-packs/SceneBoard.tsx",
+      "frontend/src/features/scene-packs/ScenePackWorkspace.test.ts",
+      "frontend/src/features/scene-packs/ScenePackWorkspace.tsx",
+      "frontend/src/features/scene-packs/client.test.ts",
+      "frontend/src/features/scene-packs/client.ts",
+      "frontend/src/features/scene-packs/sceneBoardV4Presentation.test.ts",
+      "frontend/src/features/scene-packs/sceneBoardV4Presentation.ts"
+    ]
+  },
+  "nonGoals": [
+    "NO_AUTHORITY_OR_ADR_CHANGE",
+    "NO_AUTOMATIC_BUSINESS_ACTION",
+    "NO_DATABASE_SCHEMA_CHANGE",
+    "NO_DEPLOYMENT",
+    "NO_GENERATION_IDEMPOTENCY_CHANGE",
+    "NO_REAL_MODEL_CALL",
+    "NO_RUNTIME_DATA_ACCESS",
+    "NO_S4_FORMAL_BUSINESS_ACTION",
+    "NO_TEST_WEAKENING"
+  ],
+  "verification": [
+    {
+      "id": "backend-lint",
+      "tool": "python3",
+      "args": [
+        "-I",
+        "-c",
+        "import subprocess; subprocess.run(['.venv/bin/python','-m','ruff','check','.'],check=True)"
+      ],
+      "cwd": "backend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "backend-scene",
+      "tool": "python3",
+      "args": [
+        "-I",
+        "-c",
+        "import os,subprocess; subprocess.run(['.venv/bin/python','-m','pytest','-q','-p','no:cacheprovider','tests/test_scene_pack_api.py','tests/test_scene_pack_models.py'],check=True,env={**os.environ,'PYTHONDONTWRITEBYTECODE':'1'})"
+      ],
+      "cwd": "backend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "diff-check",
+      "tool": "node",
+      "args": [
+        "--input-type=module",
+        "-e",
+        "import{execFileSync}from'node:child_process';execFileSync('/usr/bin/git',['diff','--check','HEAD^','HEAD'],{stdio:'inherit'});"
+      ],
+      "cwd": ".",
+      "timeoutMs": 10000
+    },
+    {
+      "id": "frontend-build",
+      "tool": "npm",
+      "args": [
+        "run",
+        "build"
+      ],
+      "cwd": "frontend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "frontend-lint",
+      "tool": "npm",
+      "args": [
+        "run",
+        "lint"
+      ],
+      "cwd": "frontend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "frontend-test",
+      "tool": "npm",
+      "args": [
+        "test"
+      ],
+      "cwd": "frontend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "frontend-typecheck",
+      "tool": "npm",
+      "args": [
+        "run",
+        "typecheck"
+      ],
+      "cwd": "frontend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "root-harness",
+      "tool": "node",
+      "args": [
+        "scripts/check_harness.mjs"
+      ],
+      "cwd": ".",
+      "timeoutMs": 60000
+    }
+  ],
+  "state": "APPROVED_FOR_ONE_CHILD"
+}
