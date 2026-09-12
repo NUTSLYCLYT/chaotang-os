@@ -1,0 +1,95 @@
+{
+  "schemaVersion": "product-authority.m0.approval.v1",
+  "authorityId": "product-authority.m0.v1",
+  "taskId": "CT-ENTERPRISE-C01A-REPLY-NAVIGATION-SUCCESSOR-20260912",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "9ee9cf78ecd9514247aefb585d2df98ce5f13ef4",
+    "baseTree": "d98380e51f22bc7e218ebeaf646693d437ba6c5d",
+    "approvalPath": ".harness/approvals/CT-ENTERPRISE-C01A-REPLY-NAVIGATION-SUCCESSOR-20260912.json",
+    "approvalCommitPaths": [
+      ".harness/approvals/CT-ENTERPRISE-C01A-REPLY-NAVIGATION-SUCCESSOR-20260912.json",
+      "docs/product/tasks/2026-09-12-c01a-reply-navigation-successor.md"
+    ],
+    "productPaths": [
+      "frontend/src/app/api/shiguan/archives/[id]/handler.ts",
+      "frontend/src/app/api/shiguan/archives/[id]/route.test.ts",
+      "frontend/src/app/api/shiguan/archives/[id]/route.ts",
+      "frontend/src/app/shiguan/ShiguanClient.tsx",
+      "frontend/src/app/shiguan/ShiguanClient.visual.test.ts",
+      "frontend/src/app/shiguan/shiguanController.test.ts",
+      "frontend/src/app/shiguan/shiguanController.ts",
+      "frontend/src/app/shiguan/shiguanPayload.test.ts",
+      "frontend/src/app/shiguan/shiguanPayload.ts",
+      "frontend/src/features/study-visual/StudyArtifactConfirmation.test.ts",
+      "frontend/src/features/study-visual/StudyArtifactConfirmation.tsx",
+      "frontend/src/features/study-visual/StudyArtifactLinks.test.ts",
+      "frontend/src/features/study-visual/StudyArtifactLinks.ts",
+      "frontend/src/lib/backendClient.test.ts",
+      "frontend/src/lib/backendClient.ts"
+    ]
+  },
+  "nonGoals": [
+    "BACKEND_CHANGES",
+    "DATABASE_MIGRATION",
+    "DEPLOYMENT",
+    "ERP_ACCESS",
+    "MODEL_CALLS",
+    "P14_FULL_PROJECTION",
+    "PRODUCTION_DATA"
+  ],
+  "verification": [
+    {
+      "id": "frontend-build",
+      "tool": "npm",
+      "args": [
+        "run",
+        "build"
+      ],
+      "cwd": "frontend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "frontend-lint",
+      "tool": "npm",
+      "args": [
+        "run",
+        "lint"
+      ],
+      "cwd": "frontend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "frontend-test",
+      "tool": "npm",
+      "args": [
+        "test"
+      ],
+      "cwd": "frontend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "frontend-typecheck",
+      "tool": "npm",
+      "args": [
+        "run",
+        "typecheck"
+      ],
+      "cwd": "frontend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "root-harness",
+      "tool": "node",
+      "args": [
+        "scripts/check_harness.mjs"
+      ],
+      "cwd": ".",
+      "timeoutMs": 60000
+    }
+  ],
+  "state": "APPROVED_FOR_ONE_CHILD"
+}
