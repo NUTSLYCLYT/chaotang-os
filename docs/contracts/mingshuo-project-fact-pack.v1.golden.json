@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "mingshuo.fact-pack.golden.v1",
+  "entries": [
+    {
+      "id": "synthetic-valid",
+      "utcNow": "2026-09-05T12:00:00Z",
+      "expectedDecision": "PASS",
+      "note": "Synthetic fixture only; it is not customer, commercial, or production evidence.",
+      "wire": {
+        "schemaVersion": "mingshuo.project-fact-pack.v1",
+        "tenant": {"id": "tenant-demo", "ownerUserId": "owner-demo"},
+        "project": {"id": "project-demo", "name": "Synthetic", "productLines": ["CELL"], "markets": ["EU"], "languages": ["zh-CN"], "status": "READY_FOR_REVIEW"},
+        "skuCandidates": [{"id": "sku-one", "label": "one", "status": "EVIDENCE_BOUND", "parameterStatus": "EVIDENCE_BOUND"}, {"id": "sku-two", "label": "two", "status": "RESERVED", "parameterStatus": "MISSING"}, {"id": "sku-three", "label": "three", "status": "RESERVED", "parameterStatus": "MISSING"}],
+        "sourcePolicy": {"finalTruthSource": "COURTOS_SERVER_EVIDENCE_BINDING", "imaMode": "READ_ONLY", "externalModelMode": "DRAFT_ASSIST_ONLY", "knowledgePromotion": "CANDIDATE_ONLY"},
+        "evidence": [{"id": "ev-one", "sourceClass": "INTERNAL_MEASURED", "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111", "validUntil": "2027-01-01", "adoptionStatus": "ADOPTED"}],
+        "facts": [{"id": "fact-one", "kind": "PARAMETER", "subject": "sku-one", "value": "synthetic", "evidenceRefs": ["ev-one"]}],
+        "claims": [{"id": "claim-one", "text": "synthetic", "evidenceRefs": ["ev-one"], "approvalStatus": "DRAFT"}],
+        "commercial": {"priceAuthority": {"status": "APPROVED", "approver": "owner-demo"}, "quoteStatus": "DRAFT"},
+        "channels": [{"id": "WEBSITE", "state": "DRAFT", "publicationAuthorized": false}],
+        "safety": {"dangerousOperationalInstructionsPresent": false},
+        "knowledgeWriteBack": {"status": "CANDIDATE_ONLY"},
+        "businessSuccessMeasured": false,
+        "productionPromotionAuthorized": false
+      }
+    }
+  ]
+}

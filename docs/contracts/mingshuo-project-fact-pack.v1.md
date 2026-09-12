@@ -2,7 +2,15 @@
 
 ## Status
 
-Non-authorizing contract.
+Non-authorizing contract. Python `backend/app/mingshuo/fact_pack.py` is the
+only semantic evaluator. `scripts/mingshuo-fact-pack.mjs` is a bounded local
+relay and source/lineage verifier; it must never independently decide evidence,
+safety, price, publication or Fact Pack eligibility.
+
+The provenance manifest is local byte-integrity input only, never an authority
+root. The product identity root is formal approval last-touch commit followed
+by one direct candidate child with the exact eight approved product paths.
+Uncommitted worktrees return `LINEAGE_UNCOMMITTED_CANDIDATE`, never PASS.
 
 ## Purpose
 
