@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "product-authority.m0.approval.v1",
+  "authorityId": "product-authority.m0.v1",
+  "taskId": "CT-ENTERPRISE-C01B-DEEP-LINK-FILTER-RECOVERY-20260912",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "a1c2022245f864ae749d3582b2e0ba99561114a6",
+    "baseTree": "a5e19a49136d5d6ef99c7d563b781c6f8d3deb02",
+    "approvalPath": ".harness/approvals/CT-ENTERPRISE-C01B-DEEP-LINK-FILTER-RECOVERY-20260912.json",
+    "approvalCommitPaths": [
+      ".harness/approvals/CT-ENTERPRISE-C01B-DEEP-LINK-FILTER-RECOVERY-20260912.json",
+      "docs/product/tasks/2026-09-12-c01b-deep-link-filter-recovery.md"
+    ],
+    "productPaths": [
+      "frontend/src/app/shiguan/shiguanController.test.ts",
+      "frontend/src/app/shiguan/shiguanController.ts"
+    ]
+  },
+  "nonGoals": [
+    "BACKEND_CHANGES",
+    "DATABASE_MIGRATION",
+    "DEPLOYMENT",
+    "ERP_ACCESS",
+    "MODEL_CALLS",
+    "P14_FULL_PROJECTION",
+    "PRODUCTION_DATA"
+  ],
+  "verification": [
+    {"id": "frontend-build", "tool": "npm", "args": ["run", "build"], "cwd": "frontend", "timeoutMs": 300000},
+    {"id": "frontend-lint", "tool": "npm", "args": ["run", "lint"], "cwd": "frontend", "timeoutMs": 300000},
+    {"id": "frontend-test", "tool": "npm", "args": ["test"], "cwd": "frontend", "timeoutMs": 300000},
+    {"id": "frontend-typecheck", "tool": "npm", "args": ["run", "typecheck"], "cwd": "frontend", "timeoutMs": 300000},
+    {"id": "root-harness", "tool": "node", "args": ["scripts/check_harness.mjs"], "cwd": ".", "timeoutMs": 60000}
+  ],
+  "state": "APPROVED_FOR_ONE_CHILD"
+}
