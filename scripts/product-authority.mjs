@@ -424,6 +424,7 @@ function verificationEnvironment() {
     LANG: "C.UTF-8",
     LC_ALL: "C.UTF-8",
     NO_COLOR: "1",
+    NEXT_TELEMETRY_DISABLED: "1",
   };
 }
 

@@ -595,3 +595,25 @@ test("CLI authorizes and verifies the full flow against a local immutable remote
   assert.equal(result.candidateCommit, candidateCommit);
   assert.equal(approvalCommit, git(repository.root, ["rev-parse", "HEAD^"]));
 });
+
+test("verification commands disable optional Next telemetry in the fixed environment", async (t) => {
+  const repository = await initializeRepository(t);
+  const manifest = approvalManifest({
+    ...repository,
+    verification: [{
+      id: "requires-next-telemetry-disabled",
+      tool: "node",
+      args: ["-e", "if (process.env.NEXT_TELEMETRY_DISABLED !== '1') process.exit(73)"],
+      cwd: ".",
+      timeoutMs: 5_000,
+    }],
+  });
+  await publishApproval(t, repository, manifest);
+  await commitCandidate(repository);
+
+  const verified = await verifyProductCandidate({
+    cwd: repository.root,
+    taskId: TASK_ID,
+  });
+  assert.equal(verified.decision, "PASS");
+});
