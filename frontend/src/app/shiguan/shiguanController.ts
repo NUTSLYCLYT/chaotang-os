@@ -27,6 +27,8 @@ export interface ShiguanRequestState {
   message: string;
   stale: boolean;
   errorKind: ShiguanErrorKind | null;
+  /** Public capability flag only; the private failed archive ID never enters UI state. */
+  deepLinkRetryAvailable: boolean;
 }
 
 export interface ShiguanReviewState extends ShiguanRequestState {
@@ -147,6 +149,7 @@ function requestState(
   options: {
     stale?: boolean;
     errorKind?: ShiguanErrorKind | null;
+    deepLinkRetryAvailable?: boolean;
   } = {},
 ): ShiguanRequestState {
   return {
@@ -154,6 +157,7 @@ function requestState(
     message,
     stale: options.stale ?? false,
     errorKind: options.errorKind ?? null,
+    deepLinkRetryAvailable: options.deepLinkRetryAvailable ?? false,
   };
 }
 
@@ -235,6 +239,8 @@ export class ShiguanController {
   /** IDs loaded by a deep link may legitimately sit outside the current 100-record list page. */
   private readonly deepLinkedArchiveIds = new Set<string>();
   private deepLinkTarget: string | null = null;
+  /** A failed target stays private while a public boolean keeps recovery discoverable. */
+  private failedDeepLinkTarget: string | null = null;
   private lastFilter: ShiguanFilterInput = INITIAL_FILTER;
   private lastRecall: ShiguanRecallInput = { matterType: "", department: "" };
   private lifecycleVersion = 0;
@@ -313,7 +319,8 @@ export class ShiguanController {
   }
 
   retryArchives(): void {
-    if (this.deepLinkTarget) { this.openArchive(this.deepLinkTarget); return; }
+    const retryTarget = this.failedDeepLinkTarget ?? this.deepLinkTarget;
+    if (retryTarget) { this.openArchive(retryTarget); return; }
     if (!this.active || this.disposed) {
       return;
     }
@@ -333,13 +340,22 @@ export class ShiguanController {
     if (!preserveDeepLink) {
       this.begin("archive");
       this.deepLinkTarget = null;
+      this.failedDeepLinkTarget = null;
       this.deepLinkedArchiveIds.clear();
     }
     const cached = this.outcomeCache.get(id);
     const outcomeState = this.outcomeWriteStates.get(id) ?? {
       ...requestState("ready", "选择档案后可记入结果账。"), archiveId: id,
     };
-    this.update({ selectedArchiveId: id, outcomes: cached?.items ?? [], outcomeNextCursor: cached?.nextCursor ?? null, outcomeState });
+    this.update({
+      selectedArchiveId: id,
+      archiveState: preserveDeepLink
+        ? this.currentState.archiveState
+        : { ...this.currentState.archiveState, deepLinkRetryAvailable: false },
+      outcomes: cached?.items ?? [],
+      outcomeNextCursor: cached?.nextCursor ?? null,
+      outcomeState,
+    });
     this.loadOutcomes(id, null, false);
   }
 
@@ -348,6 +364,7 @@ export class ShiguanController {
     if (!this.active || this.disposed) return;
     const { generation, signal } = this.begin("archive");
     this.deepLinkTarget = id && id.trim() ? id : null;
+    this.failedDeepLinkTarget = null;
     this.deepLinkedArchiveIds.clear();
     if (!this.deepLinkTarget) { this.loadArchives(this.lastFilter); return; }
     const targetId = this.deepLinkTarget;
@@ -372,14 +389,29 @@ export class ShiguanController {
             Date.parse(archive.decisionStatus.decidedAt) < Date.parse(confirmedDecision.decidedAt))) {
           archive = { ...archive, decisionStatus: confirmedDecision };
         }
+        this.deepLinkTarget = null;
+        this.failedDeepLinkTarget = null;
         this.deepLinkedArchiveIds.add(targetId);
         const existing = this.currentState.archives.filter((item) => item.id !== targetId);
         this.update({ archives: [archive, ...existing], archiveState: requestState("ready", "已读取对应回奏。") });
         this.selectArchive(targetId, true);
       } catch (error) {
         const normalized = this.handleError("archive", generation, error);
-        if (normalized) this.update({ archiveState: requestState("error", normalized.message,
-          { stale: false, errorKind: normalized.kind }) });
+        if (!normalized || normalized.kind === "unauthenticated") return;
+        if (this.deepLinkTarget === targetId) this.deepLinkTarget = null;
+        this.failedDeepLinkTarget = targetId;
+        const currentArchiveState = this.currentState.archiveState;
+        const deepLinkStillOwnsVisibleState = currentArchiveState.status === "loading"
+          && currentArchiveState.message === "正在读取对应回奏…";
+        this.update({
+          archiveState: deepLinkStillOwnsVisibleState
+            ? requestState("error", normalized.message, {
+              stale: false,
+              errorKind: normalized.kind,
+              deepLinkRetryAvailable: true,
+            })
+            : { ...currentArchiveState, deepLinkRetryAvailable: true },
+        });
       }
     })();
   }
@@ -606,6 +638,7 @@ export class ShiguanController {
     this.confirmedDecisions.clear();
     this.deepLinkedArchiveIds.clear();
     this.deepLinkTarget = null;
+    this.failedDeepLinkTarget = null;
     const expiredState = requestState(
       "error",
       normalized.message,
@@ -648,6 +681,7 @@ export class ShiguanController {
     this.update({
       archiveState: requestState("loading", "正在读取史馆档案…", {
         stale: this.currentState.archives.length > 0,
+        deepLinkRetryAvailable: this.failedDeepLinkTarget !== null,
       }),
     });
 
@@ -690,7 +724,14 @@ export class ShiguanController {
         );
         if (preserved && !archives.some((archive) => archive.id === preserved.id)) archives.unshift(preserved);
         if (this.deepLinkTarget && !this.deepLinkedArchiveIds.has(this.deepLinkTarget)) {
-          this.update({ archives });
+          this.update({
+            archives,
+            archiveState: requestState(
+              archives.length === 0 ? "empty" : "ready",
+              archives.length === 0 ? "没有命中档案。" : "史馆档案已更新。",
+              { deepLinkRetryAvailable: this.failedDeepLinkTarget !== null },
+            ),
+          });
           return;
         }
         const selectedArchiveId = archives.some(
@@ -705,6 +746,7 @@ export class ShiguanController {
           archiveState: requestState(
             archives.length === 0 ? "empty" : "ready",
             archives.length === 0 ? "没有命中档案。" : "史馆档案已更新。",
+            { deepLinkRetryAvailable: this.failedDeepLinkTarget !== null },
           ),
         });
         if (selectedArchiveId && (selectionChanged || !this.outcomeCache.has(selectedArchiveId))) this.selectArchive(selectedArchiveId, true);
@@ -717,6 +759,7 @@ export class ShiguanController {
           archiveState: requestState("error", normalized.message, {
             stale: this.currentState.archives.length > 0,
             errorKind: normalized.kind,
+            deepLinkRetryAvailable: this.failedDeepLinkTarget !== null,
           }),
         });
       }
@@ -901,6 +944,7 @@ export class ShiguanController {
     this.confirmedDecisions.clear();
     this.deepLinkedArchiveIds.clear();
     this.deepLinkTarget = null;
+    this.failedDeepLinkTarget = null;
     this.listeners.clear();
   }
 }

@@ -33,6 +33,7 @@ export interface ShiguanRequestViewState {
   message: string;
   stale: boolean;
   errorKind: string | null;
+  deepLinkRetryAvailable?: boolean;
 }
 
 export interface ShiguanReviewViewState extends ShiguanRequestViewState {
@@ -254,9 +255,19 @@ function ArchiveIndexPanel({
       <StateNotice
         state={archiveState}
         staleText="以下为上次成功读取的档案，当前筛选尚未刷新。"
-        onRetry={onRetryArchives}
+        onRetry={() => onFilter({ type, matterType: query, department })}
         retryLabel="重试档案"
       />
+      {archiveState.deepLinkRetryAvailable === true && (
+        <div className={styles.stateNotice}>
+          <p className={styles.stateMessage} role="status">
+            对应回奏尚未读取成功，可在不影响当前筛选结果的情况下重试。
+          </p>
+          <button className={styles.retryButton} type="button" onClick={onRetryArchives}>
+            重试对应回奏
+          </button>
+        </div>
+      )}
 
       {archiveState.status === "loading" && archives.length === 0 && (
         <div className={styles.loadingList} aria-hidden="true">
@@ -496,11 +507,13 @@ function StateNotice({
   staleText,
   onRetry,
   retryLabel,
+  showRetry = true,
 }: {
   state: ShiguanRequestViewState;
   staleText: string;
   onRetry(): void;
   retryLabel: string;
+  showRetry?: boolean;
 }) {
   return (
     <div className={styles.stateNotice}>
@@ -511,7 +524,7 @@ function StateNotice({
         {state.message}
         {state.stale ? ` ${staleText}` : ""}
       </p>
-      {state.status === "error" && (
+      {state.status === "error" && showRetry && (
         <button className={styles.retryButton} type="button" onClick={onRetry}>
           {retryLabel}
         </button>

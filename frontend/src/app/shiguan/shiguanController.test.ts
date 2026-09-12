@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import type {
@@ -1017,4 +1018,160 @@ test("C01A navigation and an explicit selection discard a late deep-link respons
   assert.equal(manual.state.selectedArchiveId, "listed");
   assert.ok(!manual.state.archives.some((item) => item.id === "first"));
   assert.ok(!ledgerReads.includes("first"));
+});
+
+test("C01C failed deep links remain recoverable while later filters settle independently", async () => {
+  for (const failure of [
+    new ShiguanUiError("not_found", "missing"),
+    new ShiguanUiError("storage", "temporarily unavailable"),
+    new ShiguanUiError("network", "offline"),
+  ]) {
+    let deepLinkCalls = 0;
+    let listCalls = 0;
+    const controller = new ShiguanController({
+      listArchives: async () => {
+        listCalls += 1;
+        if (listCalls === 1) return [archive("listed")];
+        if (listCalls === 2) return [archive("filtered")];
+        if (listCalls === 3) return [];
+        throw new ShiguanUiError("network", "filter unavailable");
+      },
+      getArchive: async () => {
+        deepLinkCalls += 1;
+        if (deepLinkCalls === 1) throw failure;
+        return archive("retry-target");
+      },
+      getStatistics: async () => statistics(1),
+      recall: async () => [],
+      review: async () => review("OBSERVING", "2026-09-12T00:00:00Z"),
+      decide: async () => decision("ADOPTED"),
+    });
+
+    controller.start();
+    await settle();
+    controller.openArchive("retry-target");
+    await settle();
+    assert.equal(controller.state.archiveState.status, "error");
+    assert.equal(controller.state.archiveState.deepLinkRetryAvailable, true);
+
+    controller.filter({ type: "REPLY", matterType: "ready", department: "" });
+    await settle();
+    assert.equal(controller.state.archiveState.status, "ready");
+    assert.equal(controller.state.archiveState.deepLinkRetryAvailable, true);
+
+    controller.filter({ type: "REPLY", matterType: "empty", department: "" });
+    await settle();
+    assert.equal(controller.state.archiveState.status, "empty");
+    assert.equal(controller.state.archiveState.deepLinkRetryAvailable, true);
+
+    controller.filter({ type: "REPLY", matterType: "error", department: "" });
+    await settle();
+    assert.equal(controller.state.archiveState.status, "error");
+    assert.equal(controller.state.archiveState.deepLinkRetryAvailable, true);
+
+    controller.retryArchives();
+    await settle();
+    assert.equal(deepLinkCalls, 2);
+    assert.equal(controller.state.selectedArchiveId, "retry-target");
+    assert.equal(controller.state.archiveState.status, "ready");
+    assert.equal(controller.state.archiveState.deepLinkRetryAvailable, false);
+  }
+});
+
+test("C01C a late deep-link failure cannot overwrite a settled filtered list", async () => {
+  const deepLink = deferred<ShiguanArchive>();
+  let listCalls = 0;
+  const controller = new ShiguanController({
+    listArchives: async () => {
+      listCalls += 1;
+      return listCalls === 1 ? [archive("listed")] : [archive("filtered")];
+    },
+    getArchive: () => deepLink.promise,
+    getStatistics: async () => statistics(1),
+    recall: async () => [],
+    review: async () => review("OBSERVING", "2026-09-12T00:00:00Z"),
+    decide: async () => decision("ADOPTED"),
+  });
+
+  controller.start();
+  await settle();
+  controller.openArchive("late-failure");
+  controller.filter({ type: "REPLY", matterType: "ready", department: "" });
+  await settle();
+  assert.equal(controller.state.archiveState.status, "ready");
+  assert.equal(controller.state.archives[0]?.id, "filtered");
+
+  deepLink.reject(new ShiguanUiError("network", "late deep-link failure"));
+  await settle();
+  assert.equal(controller.state.archiveState.status, "ready");
+  assert.equal(controller.state.archiveState.message, "史馆档案已更新。");
+  assert.equal(controller.state.archiveState.deepLinkRetryAvailable, true);
+});
+
+test("C01C unauthorized deep links erase the private retry target", async () => {
+  let deepLinkCalls = 0;
+  let unauthorized = 0;
+  const controller = new ShiguanController({
+    listArchives: async () => [archive("listed")],
+    getArchive: async () => {
+      deepLinkCalls += 1;
+      throw new ShiguanUiError("unauthenticated", "expired");
+    },
+    getStatistics: async () => statistics(1),
+    recall: async () => [],
+    review: async () => review("OBSERVING", "2026-09-12T00:00:00Z"),
+    decide: async () => decision("ADOPTED"),
+  }, { onUnauthorized: () => { unauthorized += 1; } });
+
+  controller.start();
+  await settle();
+  controller.openArchive("private-reply-id");
+  await settle();
+  assert.equal(unauthorized, 1);
+  assert.equal(controller.state.archiveState.errorKind, "unauthenticated");
+  assert.equal(controller.state.archiveState.deepLinkRetryAvailable, false);
+
+  controller.retryArchives();
+  await settle();
+  assert.equal(deepLinkCalls, 1, "retry must not revive the private deep-link target");
+});
+
+test("C01C explicit selection clears recovery and ordinary list failures do not create it", async () => {
+  let failList = false;
+  const controller = new ShiguanController({
+    listArchives: async () => {
+      if (failList) throw new ShiguanUiError("network", "list unavailable");
+      return [archive("listed")];
+    },
+    getArchive: async () => { throw new ShiguanUiError("not_found", "missing"); },
+    getStatistics: async () => statistics(1),
+    recall: async () => [],
+    review: async () => review("OBSERVING", "2026-09-12T00:00:00Z"),
+    decide: async () => decision("ADOPTED"),
+  });
+
+  controller.start();
+  await settle();
+  controller.openArchive("missing-reply");
+  await settle();
+  assert.equal(controller.state.archiveState.deepLinkRetryAvailable, true);
+  controller.selectArchive("listed");
+  assert.equal(controller.state.archiveState.deepLinkRetryAvailable, false);
+
+  failList = true;
+  controller.filter({ type: "REPLY", matterType: "", department: "" });
+  await settle();
+  assert.equal(controller.state.archiveState.status, "error");
+  assert.equal(controller.state.archiveState.deepLinkRetryAvailable, false);
+});
+
+test("C01C workspace exposes recovery independently with an accessible exact-target label", () => {
+  const source = readFileSync(
+    new URL("../../features/shiguan-visual/ShiguanWorkspace.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(source, /archiveState\.deepLinkRetryAvailable/);
+  assert.match(source, />\s*重试对应回奏\s*</);
+  assert.doesNotMatch(source, /showRetry=\{archiveState\.deepLinkRetryAvailable !== true\}/);
+  assert.match(source, /onRetry=\{\(\) => onFilter\(\{ type, matterType: query, department \}\)\}/);
 });
