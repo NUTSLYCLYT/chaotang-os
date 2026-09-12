@@ -12,7 +12,6 @@ const READY_SNAPSHOT = {
   workProductId: "wp-1",
   version: 1,
   runId: "run-1",
-  replyId: "reply-1",
   capabilityId: "accounting_management_report",
   workStatus: "READY_FOR_HUMAN_CONFIRMATION",
   confirmationStatus: "PENDING",
@@ -37,6 +36,13 @@ const READY_SNAPSHOT = {
   artifactId: "report 甲/2025",
   confirmationReceipts: [],
 } as const;
+
+test("confirmation projection exposes only a server-provided reply identifier", () => {
+  const snapshot = parseStudyArtifactConfirmationSnapshot(READY_SNAPSHOT);
+  assert.equal(projectStudyArtifactConfirmationUi({ phase: "ready", snapshot, message: null, verifiedReplyId: "reply-1" }).replyId, "reply-1");
+  const legacy = parseStudyArtifactConfirmationSnapshot({ ...READY_SNAPSHOT, replyId: undefined });
+  assert.equal(projectStudyArtifactConfirmationUi({ phase: "ready", snapshot: legacy, message: null, verifiedReplyId: null }).replyId, null);
+});
 
 test("confirmation projection keeps machine and human axes separate", () => {
   const cases = [
@@ -66,6 +72,7 @@ test("browser snapshot parser refuses published or receipts as confirmation subs
   assert.equal(
     parseStudyArtifactConfirmationSnapshot({
       artifactState: "PUBLISHED",
+      replyId: null,
       confirmationReceipts: [{ decision: "CONFIRMED" }],
     }),
     null,
@@ -81,12 +88,14 @@ test("browser snapshot parser refuses published or receipts as confirmation subs
     parseStudyArtifactConfirmationSnapshot({
       workStatus: "READY_FOR_HUMAN_CONFIRMATION",
       confirmationStatus: "PENDING",
-      artifactState: "PUBLISHED",
+        artifactState: "PUBLISHED",
+      replyId: null,
     }),
     {
       workStatus: "READY_FOR_HUMAN_CONFIRMATION",
       confirmationStatus: "PENDING",
       artifactState: "PUBLISHED",
+      replyId: null,
     },
   );
 });
@@ -106,6 +115,7 @@ test("controller starts with zero fetches and performs an explicit encoded same-
     showLookupButton: true,
     showControls: false,
     downloadOnly: false,
+    replyId: null,
   });
   await controller.load();
   assert.equal(requests.length, 1);
@@ -143,6 +153,7 @@ test("a real legacy artifact 404 permanently becomes download-only without a con
     showLookupButton: false,
     showControls: false,
     downloadOnly: true,
+    replyId: null,
   });
   await controller.load();
   assert.equal(calls, 1);

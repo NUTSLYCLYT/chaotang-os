@@ -12,6 +12,7 @@ export interface StudyArtifactConfirmationSnapshot {
   workStatus: WorkProductStatus;
   confirmationStatus: ConfirmationStatus;
   artifactState: ArtifactState;
+  replyId: string | null;
 }
 
 const WORK_STATUSES: readonly WorkProductStatus[] = [
@@ -29,11 +30,13 @@ export function parseStudyArtifactConfirmationSnapshot(
   const record = value as Record<string, unknown>;
   if (!WORK_STATUSES.includes(record.workStatus as WorkProductStatus) ||
       !CONFIRMATION_STATUSES.includes(record.confirmationStatus as ConfirmationStatus) ||
-      !ARTIFACT_STATES.includes(record.artifactState as ArtifactState)) return null;
+      !ARTIFACT_STATES.includes(record.artifactState as ArtifactState) ||
+      !(record.replyId === undefined || record.replyId === null || (typeof record.replyId === "string" && record.replyId.trim().length > 0))) return null;
   return {
     workStatus: record.workStatus as WorkProductStatus,
     confirmationStatus: record.confirmationStatus as ConfirmationStatus,
     artifactState: record.artifactState as ArtifactState,
+    replyId: typeof record.replyId === "string" ? record.replyId : null,
   };
 }
 
@@ -67,6 +70,7 @@ export interface StudyArtifactConfirmationState {
   phase: StudyArtifactConfirmationPhase;
   snapshot: StudyArtifactConfirmationSnapshot | null;
   message: string | null;
+  verifiedReplyId: string | null;
 }
 
 export interface StudyArtifactConfirmationUi {
@@ -74,10 +78,11 @@ export interface StudyArtifactConfirmationUi {
   showLookupButton: boolean;
   showControls: boolean;
   downloadOnly: boolean;
+  replyId: string | null;
 }
 
 export function initialStudyArtifactConfirmationState(): StudyArtifactConfirmationState {
-  return { phase: "idle", snapshot: null, message: null };
+  return { phase: "idle", snapshot: null, message: null, verifiedReplyId: null };
 }
 
 export function projectStudyArtifactConfirmationUi(
@@ -89,15 +94,17 @@ export function projectStudyArtifactConfirmationUi(
       showLookupButton: false,
       showControls: false,
       downloadOnly: true,
+      replyId: null,
     };
   }
   if (state.snapshot) {
     const snapshotView = projectStudyArtifactConfirmation(state.snapshot);
     return {
       label: snapshotView.label,
-      showLookupButton: false,
+      showLookupButton: state.phase === "ready" && Boolean(state.snapshot.replyId) && !state.verifiedReplyId,
       showControls: snapshotView.showControls,
       downloadOnly: false,
+      replyId: state.verifiedReplyId,
     };
   }
   return {
@@ -105,6 +112,7 @@ export function projectStudyArtifactConfirmationUi(
     showLookupButton: state.phase !== "loading",
     showControls: false,
     downloadOnly: false,
+    replyId: null,
   };
 }
 
@@ -119,6 +127,7 @@ export interface StudyArtifactConfirmationController {
 export function createStudyArtifactConfirmationController(options: {
   artifactId: string;
   fetchImpl?: typeof fetch;
+  onUnauthorized?: () => void;
   onStateChange?: (state: StudyArtifactConfirmationState) => void;
 }): StudyArtifactConfirmationController {
   const fetchImpl = options.fetchImpl ?? fetch;
@@ -149,7 +158,14 @@ export function createStudyArtifactConfirmationController(options: {
     if (disposed || (requestGeneration !== undefined && requestGeneration !== generation)) {
       return state;
     }
-    return publish({ phase: snapshot ? "ready" : "error", snapshot, message });
+    return publish({ phase: snapshot ? "ready" : "error", snapshot, message, verifiedReplyId: null });
+  }
+
+  function handleUnauthorized(requestGeneration: number): StudyArtifactConfirmationState {
+    if (disposed || requestGeneration !== generation) return state;
+    publish({ phase: "error", snapshot: null, message: "会话已过期，请重新登录", verifiedReplyId: null });
+    options.onUnauthorized?.();
+    return state;
   }
 
   async function parseSuccessfulResponse(
@@ -160,6 +176,26 @@ export function createStudyArtifactConfirmationController(options: {
       return parseStudyArtifactConfirmationSnapshot(await response.json());
     } catch {
       return null;
+    }
+  }
+
+  async function verifyReply(
+    requestGeneration: number,
+    snapshot: StudyArtifactConfirmationSnapshot,
+  ): Promise<StudyArtifactConfirmationState> {
+    if (!snapshot.replyId) {
+      return publishForGeneration(requestGeneration, { phase: "ready", snapshot, message: "尚未关联回奏", verifiedReplyId: null });
+    }
+    try {
+      const response = await fetchImpl(`/api/shiguan/archives/${encodeURIComponent(snapshot.replyId)}`, { method: "GET", cache: "no-store" });
+      if (response.status === 401) return handleUnauthorized(requestGeneration);
+      const body = response.ok ? await response.json() as { archive?: { id?: unknown; type?: unknown } } : null;
+      if (body?.archive?.id === snapshot.replyId && body.archive.type === "REPLY") {
+        return publishForGeneration(requestGeneration, { phase: "ready", snapshot, message: null, verifiedReplyId: snapshot.replyId });
+      }
+      return publishForGeneration(requestGeneration, { phase: "ready", snapshot, message: response.status === 404 ? "回奏尚未回写或不可访问，可重试读取" : "对应回奏暂时不可用，请重试", verifiedReplyId: null });
+    } catch {
+      return publishForGeneration(requestGeneration, { phase: "ready", snapshot, message: "对应回奏暂时不可用，请重试", verifiedReplyId: null });
     }
   }
 
@@ -176,11 +212,16 @@ export function createStudyArtifactConfirmationController(options: {
       submissionActive = false;
     },
     async load() {
-      if (disposed || state.phase === "legacy" || state.phase === "loading" || state.phase === "submitting" || state.phase === "ready") {
+      if (disposed || state.phase === "legacy" || state.phase === "loading" || state.phase === "submitting" || (state.phase === "ready" && (!state.snapshot?.replyId || state.verifiedReplyId))) {
         return state;
       }
       const requestGeneration = ++generation;
-      publish({ phase: "loading", snapshot: null, message: null });
+      if (state.phase === "ready" && state.snapshot?.replyId) {
+        const snapshot = state.snapshot;
+        publish({ phase: "loading", snapshot, message: "正在核验对应回奏…", verifiedReplyId: null });
+        return verifyReply(requestGeneration, snapshot);
+      }
+      publish({ phase: "loading", snapshot: null, message: null, verifiedReplyId: null });
       try {
         const response = await fetchImpl(
           `/api/report-artifacts/${encodeURIComponent(options.artifactId)}/work-product`,
@@ -189,13 +230,14 @@ export function createStudyArtifactConfirmationController(options: {
         if (disposed || requestGeneration !== generation) return state;
         if (response.status === 404) {
           return publishForGeneration(requestGeneration, {
-            phase: "legacy", snapshot: null, message: null,
+            phase: "legacy", snapshot: null, message: null, verifiedReplyId: null,
           });
         }
+        if (response.status === 401) return handleUnauthorized(requestGeneration);
         const snapshot = await parseSuccessfulResponse(response);
         if (disposed || requestGeneration !== generation) return state;
         return snapshot
-          ? publishForGeneration(requestGeneration, { phase: "ready", snapshot, message: null })
+          ? await verifyReply(requestGeneration, snapshot)
           : preserveSnapshot(null, "确认状态暂时不可用", requestGeneration);
       } catch {
         return preserveSnapshot(null, "确认状态暂时不可用", requestGeneration);
@@ -210,7 +252,7 @@ export function createStudyArtifactConfirmationController(options: {
       }
       submissionActive = true;
       const requestGeneration = ++generation;
-      publish({ phase: "submitting", snapshot: previous, message: null });
+      publish({ phase: "submitting", snapshot: previous, message: null, verifiedReplyId: state.verifiedReplyId });
       try {
         const response = await fetchImpl(
           `/api/report-artifacts/${encodeURIComponent(options.artifactId)}/confirmation`,
@@ -220,10 +262,11 @@ export function createStudyArtifactConfirmationController(options: {
             body: JSON.stringify({ decision, structured_reason: reason.trim() }),
           },
         );
+        if (response.status === 401) return handleUnauthorized(requestGeneration);
         const snapshot = await parseSuccessfulResponse(response);
         if (disposed || requestGeneration !== generation) return state;
         return snapshot
-          ? publishForGeneration(requestGeneration, { phase: "ready", snapshot, message: null })
+          ? await verifyReply(requestGeneration, snapshot)
           : preserveSnapshot(previous, "确认提交暂时不可用", requestGeneration);
       } catch {
         return preserveSnapshot(previous, "确认提交暂时不可用", requestGeneration);

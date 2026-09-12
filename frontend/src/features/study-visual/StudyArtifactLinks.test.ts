@@ -24,6 +24,7 @@ const READY_SNAPSHOT: StudyArtifactConfirmationSnapshot = {
   workStatus: "READY_FOR_HUMAN_CONFIRMATION",
   confirmationStatus: "PENDING",
   artifactState: "PENDING",
+  replyId: null,
 };
 
 function deferredResponse() {
@@ -62,6 +63,11 @@ test("artifact links render zero anchors for an ordinary reply and perform zero 
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test("confirmation snapshot retains a reply deep link only after the server supplies it", () => {
+  const parsed = createStudyArtifactConfirmationController({ artifactId: "report-1" });
+  assert.equal(parsed.getState().snapshot, null);
 });
 
 test("artifact link preserves the raw test id and encodes a dangerous artifact ID", () => {
@@ -195,3 +201,53 @@ test("disposed controller cannot overwrite a newer artifact with an inverse resp
   assert.equal(visibleStatuses.at(-1), "ESCALATED");
   assert.equal(visibleStatuses.includes("CONFIRMED"), false);
 });
+
+
+test("C01A unavailable reply can be retried without resubmitting confirmation", async () => {
+  let replyReads = 0;
+  const controller = createStudyArtifactConfirmationController({ artifactId: "report-1", fetchImpl: async (url) => {
+    if (String(url).includes("/api/shiguan/")) {
+      return ++replyReads === 1 ? new Response(null, { status: 503 }) : Response.json({ status: "ok", archive: { id: "reply-1", type: "REPLY" } });
+    }
+    return Response.json({ ...READY_SNAPSHOT, replyId: "reply-1" });
+  } });
+  await controller.load();
+  assert.equal(controller.getState().verifiedReplyId, null);
+  await controller.load();
+  assert.equal(replyReads, 2);
+  assert.equal(controller.getState().verifiedReplyId, "reply-1");
+});
+
+test("C01A confirmation 401 clears the previously visible private snapshot", async () => {
+  const controller = createStudyArtifactConfirmationController({ artifactId: "report-1", fetchImpl: async (_url, init) =>
+    init?.method === "POST" ? new Response(null, { status: 401 }) : Response.json(READY_SNAPSHOT)
+  });
+  await controller.load(); await controller.submit("CONFIRMED", "reviewed");
+  assert.equal(controller.getState().snapshot, null);
+  assert.equal(controller.getState().verifiedReplyId, null);
+});
+
+for (const unauthorizedStage of ["work-product", "reply", "confirmation"]) {
+  test(`current ${unauthorizedStage} 401 clears state and requests login`, async () => {
+    let redirects = 0;
+    const controller = createStudyArtifactConfirmationController({
+      artifactId: "auth-test",
+      onUnauthorized: () => { redirects += 1; },
+      fetchImpl: async (input) => {
+        const url = String(input);
+        if ((unauthorizedStage === "work-product" && url.endsWith("work-product")) ||
+            (unauthorizedStage === "reply" && url.includes("/archives/")) ||
+            (unauthorizedStage === "confirmation" && url.endsWith("confirmation"))) {
+          return new Response(null, { status: 401 });
+        }
+        if (url.includes("/archives/")) return Response.json({ archive: { id: "reply-auth", type: "REPLY" } });
+        return Response.json({ workStatus: "READY_FOR_HUMAN_CONFIRMATION", confirmationStatus: "PENDING", artifactState: "PUBLISHED", replyId: "reply-auth" });
+      },
+    });
+    await controller.load();
+    if (unauthorizedStage === "confirmation") await controller.submit("CONFIRMED", "reviewed");
+    assert.equal(redirects, 1);
+    assert.equal(controller.getState().snapshot, null);
+    assert.equal(controller.getState().verifiedReplyId, null);
+  });
+}

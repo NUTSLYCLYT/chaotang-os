@@ -510,6 +510,13 @@ export function parseArchivesPayload(value: unknown): ShiguanArchive[] | null {
     : null;
 }
 
+/** The single-archive BFF deliberately has a distinct closed envelope. */
+export function parseArchivePayload(value: unknown): ShiguanArchive | null {
+  return isRecord(value) && hasExactKeys(value, ["status", "archive"]) && value.status === "ok"
+    ? parseArchive(value.archive)
+    : null;
+}
+
 export function parseStatisticsPayload(value: unknown): ShiguanStatistics | null {
   if (
     !isRecord(value) ||

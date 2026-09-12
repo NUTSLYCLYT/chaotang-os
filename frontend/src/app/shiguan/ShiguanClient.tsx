@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 import { ShiguanWorkspace } from "../../features/shiguan-visual/ShiguanWorkspace";
 import { buildArchiveFilterQuery } from "./archiveStatus.ts";
 import {
   parseArchivesPayload,
+  parseArchivePayload,
   parseDecisionPayload,
   parseOutcomeListPayload,
   parseOutcomeRecordPayload,
@@ -30,6 +32,11 @@ function createTransport(): ShiguanTransport {
         parseArchivesPayload,
       );
     },
+    getArchive: (archiveId, signal) => requestShiguanJson(
+      `/api/shiguan/archives/${encodeURIComponent(archiveId)}`,
+      { signal },
+      parseArchivePayload,
+    ),
     getStatistics: (signal) => requestShiguanJson(
       "/api/shiguan/statistics",
       { signal },
@@ -85,6 +92,8 @@ function createTransport(): ShiguanTransport {
 }
 
 export function ShiguanClient() {
+  const searchParams = useSearchParams();
+  const previousReplyId = useRef<string | null | undefined>(undefined);
   const [controller] = useState(() => new ShiguanController(
     createTransport(),
     {
@@ -103,6 +112,15 @@ export function ShiguanClient() {
     controller.start();
     return disconnect;
   }, [controller]);
+
+  const replyId = searchParams.get("replyId");
+  useEffect(() => {
+    // start() already fetches the normal list. Only a deep link needs a
+    // second, independent single-archive read; navigating away must still
+    // cancel a pending deep link.
+    if (replyId || previousReplyId.current) controller.openArchive(replyId);
+    previousReplyId.current = replyId;
+  }, [controller, replyId]);
 
   const selectedArchive =
     state.archives.find((archive) => archive.id === state.selectedArchiveId) ?? null;

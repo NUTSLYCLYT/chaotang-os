@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  parseArchivePayload,
   parseArchivesPayload,
   parseDecisionPayload,
   parseOutcomeListPayload,
@@ -118,6 +119,11 @@ test("strict Shiguan payload decoders accept complete legal payloads and preserv
     status: "ok",
     decisionStatus: { decision: "ADOPTED", decidedAt: "2026-08-09T02:00:00Z" },
   }), { decision: "ADOPTED", decidedAt: "2026-08-09T02:00:00Z" });
+});
+
+test("single archive envelope is closed and preserves the exact reply", () => {
+  assert.equal(parseArchivePayload({ status: "ok", archive: ARCHIVE })?.id, "reply-1");
+  assert.equal(parseArchivePayload({ status: "ok", archive: ARCHIVE, extra: true }), null);
 });
 
 test("strict Shiguan payload decoders require an explicit exact decisionStatus", () => {

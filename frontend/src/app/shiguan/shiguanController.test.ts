@@ -95,6 +95,22 @@ test("decision is non-optimistic, suppresses duplicate clicks, and survives a st
   assert.equal(controller.decideArchive("a-1", "ADOPTED"), false);
 });
 
+test("deep-linked reply loads outside the current page and reuses the selected archive lifecycle", async () => {
+  let outcomeArchiveId: string | null = null;
+  const controller = new ShiguanController({
+    listArchives: async () => [archive("listed")],
+    getArchive: async (id) => archive(id),
+    getStatistics: async () => statistics(1), recall: async () => [],
+    review: async () => review("OBSERVING", "2026-08-09T01:00:00Z"),
+    decide: async () => decision("ADOPTED"),
+    listOutcomes: async (id) => { outcomeArchiveId = id; return { items: [], nextCursor: null }; },
+  });
+  controller.start(); await settle();
+  controller.openArchive("reply-outside-page"); await settle();
+  assert.equal(controller.state.selectedArchiveId, "reply-outside-page");
+  assert.equal(outcomeArchiveId, "reply-outside-page");
+});
+
 test("decision conflict keeps the last confirmed archive value and exposes retry guidance", async () => {
   const existing = { ...archive("a-1"), decisionStatus: decision("REJECTED") };
   const controller = new ShiguanController({
@@ -902,4 +918,103 @@ test("401 discards private Outcome cache and write state before a later archive 
   assert.deepEqual(controller.state.pendingOutcomeDrafts, {});
   assert.equal(reads, 2);
   nextList.resolve(outcomePage([])); await settle();
+});
+
+
+test("C01A 401 invalidates a late deep-link reply before it can restore private state", async () => {
+  const target = deferred<ShiguanArchive>();
+  let unauthorized = 0;
+  const deepLinkSignals: AbortSignal[] = [];
+  const controller = new ShiguanController({
+    listArchives: async () => [archive("listed")],
+    getArchive: (_id, signal) => { deepLinkSignals.push(signal); return target.promise; },
+    getStatistics: async () => { throw new ShiguanUiError("unauthenticated", "expired"); },
+    recall: async () => [],
+    review: async () => review("OBSERVING", "2026-09-12T00:00:00Z"),
+    decide: async () => decision("ADOPTED"),
+    listOutcomes: async () => outcomePage([]),
+  }, { onUnauthorized: () => { unauthorized += 1; } });
+
+  controller.start();
+  controller.openArchive("deep-target");
+  await settle();
+  target.resolve(archive("deep-target"));
+  await settle();
+
+  assert.equal(unauthorized, 1);
+  assert.equal(deepLinkSignals.length, 1);
+  assert.equal(deepLinkSignals[0]?.aborted, true);
+  assert.deepEqual(controller.state.archives, []);
+  assert.equal(controller.state.selectedArchiveId, null);
+  assert.equal(controller.state.archiveState.errorKind, "unauthenticated");
+});
+
+test("C01A initial list must not cancel a slower deep-linked reply", async () => {
+  const target = deferred<ShiguanArchive>();
+  const ledgerReads: string[] = [];
+  const controller = new ShiguanController({
+    listArchives: async () => [archive("list-first")],
+    getArchive: () => target.promise,
+    getStatistics: async () => statistics(1), recall: async () => [],
+    review: async () => review("OBSERVING", "2026-09-12T00:00:00Z"), decide: async () => decision("ADOPTED"),
+    listOutcomes: async (id) => { ledgerReads.push(id); return outcomePage([]); },
+  });
+  controller.start(); controller.openArchive("deep-target");
+  await settle();
+  target.resolve(archive("deep-target")); await settle();
+  assert.equal(controller.state.selectedArchiveId, "deep-target");
+  assert.ok(ledgerReads.includes("deep-target"));
+});
+
+test("C01A retry retries the failed target rather than only the list", async () => {
+  let calls = 0;
+  const controller = new ShiguanController({
+    listArchives: async () => [],
+    getArchive: async () => { if (++calls === 1) throw new ShiguanUiError("network", "unavailable"); return archive("retry-target"); },
+    getStatistics: async () => statistics(0), recall: async () => [],
+    review: async () => review("OBSERVING", "2026-09-12T00:00:00Z"), decide: async () => decision("ADOPTED"),
+  });
+  controller.start(); await settle(); controller.openArchive("retry-target"); await settle();
+  assert.equal(controller.state.archiveState.status, "error");
+  controller.retryArchives(); await settle();
+  assert.equal(calls, 2);
+  assert.equal(controller.state.selectedArchiveId, "retry-target");
+  assert.equal(controller.state.archiveState.status, "ready");
+});
+
+test("C01A navigation and an explicit selection discard a late deep-link response", async () => {
+  const first = deferred<ShiguanArchive>();
+  const second = deferred<ShiguanArchive>();
+  const ledgerReads: string[] = [];
+  const controller = new ShiguanController({
+    listArchives: async () => [archive("listed")],
+    getArchive: (id) => id === "first" ? first.promise : second.promise,
+    getStatistics: async () => statistics(1), recall: async () => [],
+    review: async () => review("OBSERVING", "2026-09-12T00:00:00Z"), decide: async () => decision("ADOPTED"),
+    listOutcomes: async (id) => { ledgerReads.push(id); return outcomePage([]); },
+  });
+  controller.start(); await settle();
+
+  controller.openArchive("first");
+  controller.openArchive("second");
+  first.resolve(archive("first")); await settle();
+  assert.notEqual(controller.state.selectedArchiveId, "first");
+  second.resolve(archive("second")); await settle();
+  assert.equal(controller.state.selectedArchiveId, "second");
+
+  const late = deferred<ShiguanArchive>();
+  const manual = new ShiguanController({
+    listArchives: async () => [archive("listed")],
+    getArchive: () => late.promise,
+    getStatistics: async () => statistics(1), recall: async () => [],
+    review: async () => review("OBSERVING", "2026-09-12T00:00:00Z"), decide: async () => decision("ADOPTED"),
+    listOutcomes: async (id) => { ledgerReads.push(id); return outcomePage([]); },
+  });
+  manual.start(); await settle();
+  manual.openArchive("first");
+  manual.selectArchive("listed");
+  late.resolve(archive("first")); await settle();
+  assert.equal(manual.state.selectedArchiveId, "listed");
+  assert.ok(!manual.state.archives.some((item) => item.id === "first"));
+  assert.ok(!ledgerReads.includes("first"));
 });

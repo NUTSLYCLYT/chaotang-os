@@ -91,6 +91,7 @@ export interface ShiguanTransport {
     input: ShiguanFilterInput,
     signal: AbortSignal,
   ): Promise<ShiguanArchive[]>;
+  getArchive?(archiveId: string, signal: AbortSignal): Promise<ShiguanArchive>;
   getStatistics(signal: AbortSignal): Promise<ShiguanStatistics>;
   recall(
     input: ShiguanRecallInput,
@@ -216,6 +217,7 @@ export class ShiguanController {
   private readonly listeners = new Set<Listener>();
   private readonly generations = {
     archives: 0,
+    archive: 0,
     statistics: 0,
     recall: 0,
     review: 0,
@@ -230,6 +232,9 @@ export class ShiguanController {
   private readonly outcomeWriteAborters = new Map<string, AbortController>();
   private readonly confirmedReviews = new Map<string, ShiguanReviewStatus>();
   private readonly confirmedDecisions = new Map<string, ArchiveDecision>();
+  /** IDs loaded by a deep link may legitimately sit outside the current 100-record list page. */
+  private readonly deepLinkedArchiveIds = new Set<string>();
+  private deepLinkTarget: string | null = null;
   private lastFilter: ShiguanFilterInput = INITIAL_FILTER;
   private lastRecall: ShiguanRecallInput = { matterType: "", department: "" };
   private lifecycleVersion = 0;
@@ -308,6 +313,7 @@ export class ShiguanController {
   }
 
   retryArchives(): void {
+    if (this.deepLinkTarget) { this.openArchive(this.deepLinkTarget); return; }
     if (!this.active || this.disposed) {
       return;
     }
@@ -321,14 +327,61 @@ export class ShiguanController {
     this.loadStatistics();
   }
 
-  selectArchive(id: string): void {
+  selectArchive(id: string, preserveDeepLink = false): void {
     if (!this.active || this.disposed || !this.currentState.archives.some((archive) => archive.id === id)) return;
+    // Only an explicit selection may cancel the independently requested target.
+    if (!preserveDeepLink) {
+      this.begin("archive");
+      this.deepLinkTarget = null;
+      this.deepLinkedArchiveIds.clear();
+    }
     const cached = this.outcomeCache.get(id);
     const outcomeState = this.outcomeWriteStates.get(id) ?? {
       ...requestState("ready", "选择档案后可记入结果账。"), archiveId: id,
     };
     this.update({ selectedArchiveId: id, outcomes: cached?.items ?? [], outcomeNextCursor: cached?.nextCursor ?? null, outcomeState });
     this.loadOutcomes(id, null, false);
+  }
+
+  /** Resolve the target independently of the current list page. */
+  openArchive(id: string | null): void {
+    if (!this.active || this.disposed) return;
+    const { generation, signal } = this.begin("archive");
+    this.deepLinkTarget = id && id.trim() ? id : null;
+    this.deepLinkedArchiveIds.clear();
+    if (!this.deepLinkTarget) { this.loadArchives(this.lastFilter); return; }
+    const targetId = this.deepLinkTarget;
+    const getArchive = this.transport.getArchive;
+    if (!getArchive) return;
+    this.begin("outcomeList");
+    this.update({ selectedArchiveId: null, outcomes: [], outcomeNextCursor: null,
+      archiveState: requestState("loading", "正在读取对应回奏…") });
+    void (async () => {
+      try {
+        let archive = await getArchive.call(this.transport, targetId, signal);
+        if (!this.isCurrent("archive", generation)) return;
+        if (archive.id !== targetId || archive.type !== "REPLY") {
+          throw new ShiguanUiError("not_found", "未找到对应回奏。");
+        }
+        const confirmedReview = this.confirmedReviews.get(targetId);
+        if (confirmedReview && isOlderReview(archive.reviewStatus, confirmedReview)) {
+          archive = { ...archive, reviewStatus: confirmedReview };
+        }
+        const confirmedDecision = this.confirmedDecisions.get(targetId);
+        if (confirmedDecision && (!archive.decisionStatus ||
+            Date.parse(archive.decisionStatus.decidedAt) < Date.parse(confirmedDecision.decidedAt))) {
+          archive = { ...archive, decisionStatus: confirmedDecision };
+        }
+        this.deepLinkedArchiveIds.add(targetId);
+        const existing = this.currentState.archives.filter((item) => item.id !== targetId);
+        this.update({ archives: [archive, ...existing], archiveState: requestState("ready", "已读取对应回奏。") });
+        this.selectArchive(targetId, true);
+      } catch (error) {
+        const normalized = this.handleError("archive", generation, error);
+        if (normalized) this.update({ archiveState: requestState("error", normalized.message,
+          { stale: false, errorKind: normalized.kind }) });
+      }
+    })();
   }
 
   retryOutcomes(): void {
@@ -538,9 +591,7 @@ export class ShiguanController {
   private handleUnauthorized(normalized: ShiguanUiError): void {
     if (this.unauthorizedHandled) return;
     this.unauthorizedHandled = true;
-    const requestChannels = Object.keys(this.generations) as Array<
-      "archives" | "statistics" | "recall" | "review" | "decision" | "outcomeList" | "outcomeWrite"
-    >;
+    const requestChannels = Object.keys(this.generations) as Array<keyof typeof this.generations>;
     for (const requestChannel of requestChannels) {
       this.generations[requestChannel] += 1;
       this.aborters[requestChannel]?.abort();
@@ -553,6 +604,8 @@ export class ShiguanController {
     this.outcomeWriteStates.clear();
     this.confirmedReviews.clear();
     this.confirmedDecisions.clear();
+    this.deepLinkedArchiveIds.clear();
+    this.deepLinkTarget = null;
     const expiredState = requestState(
       "error",
       normalized.message,
@@ -632,6 +685,14 @@ export class ShiguanController {
           }
           return reconciled;
         });
+        const preserved = this.currentState.archives.find((archive) =>
+          archive.id === this.currentState.selectedArchiveId && this.deepLinkedArchiveIds.has(archive.id),
+        );
+        if (preserved && !archives.some((archive) => archive.id === preserved.id)) archives.unshift(preserved);
+        if (this.deepLinkTarget && !this.deepLinkedArchiveIds.has(this.deepLinkTarget)) {
+          this.update({ archives });
+          return;
+        }
         const selectedArchiveId = archives.some(
           (archive) => archive.id === this.currentState.selectedArchiveId,
         )
@@ -646,7 +707,7 @@ export class ShiguanController {
             archives.length === 0 ? "没有命中档案。" : "史馆档案已更新。",
           ),
         });
-        if (selectedArchiveId && (selectionChanged || !this.outcomeCache.has(selectedArchiveId))) this.selectArchive(selectedArchiveId);
+        if (selectedArchiveId && (selectionChanged || !this.outcomeCache.has(selectedArchiveId))) this.selectArchive(selectedArchiveId, true);
       } catch (error) {
         const normalized = this.handleError("archives", generation, error);
         if (!normalized) {
@@ -838,6 +899,8 @@ export class ShiguanController {
     this.outcomeWriteStates.clear();
     this.confirmedReviews.clear();
     this.confirmedDecisions.clear();
+    this.deepLinkedArchiveIds.clear();
+    this.deepLinkTarget = null;
     this.listeners.clear();
   }
 }

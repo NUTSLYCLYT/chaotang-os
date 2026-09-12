@@ -1924,6 +1924,19 @@ export async function listShiguanArchives(
   );
 }
 
+/** Read one archive without relying on a bounded list page. */
+export async function getShiguanArchive(
+  archiveId: string,
+  options: ShiguanRequestOptions = {},
+): Promise<ShiguanResult<ShiguanArchive>> {
+  return fetchShiguan(
+    `/api/v1/shiguan/archives/${encodeURIComponent(archiveId)}`,
+    { method: "GET" },
+    parseArchive,
+    options,
+  );
+}
+
 export async function getShiguanStatistics(
   options: ShiguanRequestOptions = {},
 ): Promise<ShiguanResult<ShiguanStatistics>> {

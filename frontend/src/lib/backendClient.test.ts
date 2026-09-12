@@ -12,6 +12,7 @@ import {
   submitReportArtifactConfirmation,
   fetchHealth,
   getShiguanStatistics,
+  getShiguanArchive,
   listShiguanArchives,
   recallShiguanArchives,
   submitDecree,
@@ -1874,3 +1875,16 @@ for (const [status, kind] of [[401, "unauthenticated"], [404, "not_found"], [503
     assert.deepEqual(result, { ok: false, kind });
   });
 }
+test("getShiguanArchive uses one encoded archive path", async () => {
+  let url = "";
+  const result = await getShiguanArchive("reply a/1", {
+    baseUrl: "https://backend.invalid",
+    sessionId: "session",
+    fetchImpl: async (input) => {
+      url = String(input);
+      return new Response("{}", { status: 404, headers: { "content-type": "application/json" } });
+    },
+  });
+  assert.equal(url, "https://backend.invalid/api/v1/shiguan/archives/reply%20a%2F1");
+  assert.deepEqual(result, { ok: false, kind: "not_found", error: "史馆后端响应非预期状态码：404" });
+});
