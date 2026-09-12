@@ -109,3 +109,18 @@ test("document decisions render as the final scroll-body section with honest int
   assert.match(css, /@media \(max-width: 420px\)[\s\S]*\.decisionButtons[\s\S]*grid-template-columns:\s*1fr/);
   assert.match(css, /overflow-wrap:\s*anywhere/);
 });
+
+
+test("Outcome workspace preserves controller-owned retry and paging boundaries", async () => {
+  const source = await readFile(new URL("./ShiguanWorkspace.tsx", import.meta.url), "utf8");
+  // Wiring guard only: controller/panel behavior and actual browser acceptance
+  // prove recovery. This prevents a presentation refactor from dropping props.
+  for (const name of ["outcomeListState", "outcomeNextCursor", "pendingOutcomeDraft"]) {
+    assert.ok(source.includes(`${name}={props.${name}}`));
+    assert.ok(source.includes(`${name}={${name}}`));
+  }
+  assert.ok(source.includes("onLoadMore={onLoadMoreOutcomes}"));
+  assert.ok(source.includes("onRetryList={onRetryOutcomes}"));
+  assert.ok(source.includes("onRecord={onRecordOutcome}"));
+  assert.doesNotMatch(source, /idempotencyKey:\s*(?:crypto|Math|Date)/);
+});

@@ -5,6 +5,9 @@ import type {
   ArchiveDecision,
   ReviewStatusValue,
   ShiguanArchive,
+  ShiguanOutcomePage,
+  ShiguanOutcomeProjection,
+  ShiguanOutcomeValue,
   ShiguanRecallMatch,
   ShiguanReviewStatus,
   ShiguanStatistics,
@@ -12,6 +15,7 @@ import type {
 import {
   ShiguanController,
   ShiguanUiError,
+  type ShiguanOutcomeInput,
 } from "./shiguanController.ts";
 import { requestShiguanJson } from "./shiguanRequest.ts";
 
@@ -202,6 +206,118 @@ async function settle(): Promise<void> {
   await Promise.resolve();
   await Promise.resolve();
 }
+
+function outcome(eventId: string, value: ShiguanOutcomeValue = "ACHIEVED"): ShiguanOutcomeProjection {
+  const digest = "sha256:" + "a".repeat(64);
+  return { eventId, archiveId: "a-1", eventKind: "RECORDED", outcome: value, sourceType: "OWNER_ATTESTATION", sourceAuthLevel: "AUTHENTICATED_OWNER_ASSERTION", occurredAt: "2026-09-10T00:00:00Z", recordedAt: "2026-09-10T00:00:00Z", archiveDigest: digest, decisionDigest: digest, evidenceBundleDigest: digest, evidenceCount: 1, supersedesEventId: null, eventDigest: digest };
+}
+function outcomePage(items: ShiguanOutcomeProjection[], nextCursor: string | null = null): ShiguanOutcomePage { return { items, nextCursor }; }
+
+test("Outcome completed history stays complete after switching and refresh discovers new corrections", async () => {
+  let rows = Array.from({ length: 101 }, (_, i) => outcome(i.toString(16).padStart(32, "0")));
+  const calls: Array<[string, string | null]> = [];
+  const controller = new ShiguanController({
+    listArchives: async () => [archive("a-1"), archive("b-1")], getStatistics: async () => statistics(2), recall: async () => [],
+    review: async () => review("OBSERVING", "2026-09-10T00:00:00Z"), decide: async () => decision("ADOPTED"),
+    listOutcomes: async (id, cursor) => {
+      calls.push([id, cursor]);
+      if (id === "b-1") return outcomePage([]);
+      const offset = cursor ? Number(cursor) : 0;
+      return outcomePage(rows.slice(offset, offset + 100), offset + 100 < rows.length ? String(offset + 100) : null);
+    },
+  });
+  const disconnect = controller.connect(() => undefined);
+  controller.start(); await settle();
+  controller.loadMoreOutcomes(); await settle();
+  assert.equal(controller.state.outcomeNextCursor, null);
+  controller.selectArchive("b-1"); await settle(); controller.selectArchive("a-1"); await settle(); await settle();
+  assert.equal(controller.state.outcomeNextCursor, null, "switching back must not require manual re-pagination");
+  assert.equal(controller.state.outcomeListState.status, "ready");
+  assert.equal(controller.state.outcomes.length, 101);
+  const correction = { ...outcome("f".repeat(32)), eventKind: "CORRECTED" as const, supersedesEventId: rows[0].eventId };
+  // More than one new page prevents a fix that only preserves the old terminal cursor.
+  rows = [correction, ...Array.from({ length: 104 }, (_, i) => outcome((1000 + i).toString(16).padStart(32, "0"))), ...rows];
+  controller.retryOutcomes(); await settle(); await settle();
+  assert.equal(controller.state.outcomeNextCursor, null);
+  assert.equal(controller.state.outcomes.length, 206);
+  assert.equal(new Set(controller.state.outcomes.map(item => item.eventId)).size, 206);
+  assert.equal(controller.state.outcomes.find(item => item.eventId === correction.eventId)?.supersedesEventId, correction.supersedesEventId);
+  assert.deepEqual(calls.slice(-3), [["a-1", null], ["a-1", "100"], ["a-1", "200"]]);
+  disconnect(); await settle();
+});
+
+test("Outcome complete-history refresh keeps failures recoverable and discards late pages after switching", async () => {
+  const first = Array.from({ length: 100 }, (_, i) => outcome(i.toString(16).padStart(32, "0")));
+  let tail = async () => outcomePage([outcome("e".repeat(32))]);
+  const controller = new ShiguanController({
+    listArchives: async () => [archive("a-1"), archive("b-1")], getStatistics: async () => statistics(2), recall: async () => [],
+    review: async () => review("OBSERVING", "2026-09-10T00:00:00Z"), decide: async () => decision("ADOPTED"),
+    listOutcomes: async (id, cursor) => id === "b-1" ? outcomePage([]) : cursor ? tail() : outcomePage(first, "tail"),
+  });
+  const disconnect = controller.connect(() => undefined);
+  controller.start(); await settle(); controller.loadMoreOutcomes(); await settle(); await settle();
+  tail = async () => { throw new ShiguanUiError("network", "tail unavailable"); };
+  controller.retryOutcomes(); await settle(); await settle();
+  assert.equal(controller.state.outcomeListState.status, "error");
+  assert.equal(controller.state.outcomes.length, 101);
+  const late = deferred<ShiguanOutcomePage>(); tail = () => late.promise;
+  controller.retryOutcomes(); await settle();
+  assert.equal(controller.state.outcomeListState.status, "loading");
+  controller.selectArchive("b-1"); await settle();
+  late.resolve(outcomePage([outcome("f".repeat(32))])); await settle(); await settle();
+  assert.equal(controller.state.selectedArchiveId, "b-1"); assert.deepEqual(controller.state.outcomes, []);
+  tail = async () => outcomePage([outcome("e".repeat(32))]);
+  controller.selectArchive("a-1"); await settle(); await settle();
+  assert.equal(controller.state.outcomeNextCursor, null); assert.equal(controller.state.outcomeListState.status, "ready");
+  assert.equal(controller.state.outcomes.length, 101);
+  disconnect(); await settle();
+});
+
+test("Outcome refresh does not auto-complete partially loaded history", async () => {
+  let calls = 0;
+  const controller = new ShiguanController({
+    listArchives: async () => [archive("a-1")], getStatistics: async () => statistics(1), recall: async () => [],
+    review: async () => review("OBSERVING", "2026-09-10T00:00:00Z"), decide: async () => decision("ADOPTED"),
+    listOutcomes: async () => { calls += 1; return outcomePage([outcome("a".repeat(32))], "next"); },
+  });
+  const disconnect = controller.connect(() => undefined);
+  controller.start(); await settle(); controller.retryOutcomes(); await settle();
+  assert.equal(calls, 2); assert.equal(controller.state.outcomeNextCursor, "next");
+  disconnect(); await settle();
+});
+
+test("Outcome initial/filter selection loads and pagination keeps 101 unique events", async () => {
+  const first = Array.from({ length: 100 }, (_, i) => outcome(i.toString(16).padStart(32, "0")));
+  const calls: Array<[string, string | null]> = [];
+  let archives = [archive("a-1"), archive("b-1")];
+  const controller = new ShiguanController({
+    listArchives: async () => archives, getStatistics: async () => statistics(2), recall: async () => [],
+    review: async () => review("OBSERVING", "2026-09-10T00:00:00Z"), decide: async () => decision("ADOPTED"),
+    listOutcomes: async (id, cursor) => { calls.push([id, cursor]); return cursor ? outcomePage([first[99], outcome("f".repeat(32))]) : outcomePage(id === "a-1" ? first : [], id === "a-1" ? "next-100" : null); },
+  });
+  controller.start(); await settle();
+  assert.deepEqual(calls[0], ["a-1", null]);
+  assert.equal(controller.state.outcomeNextCursor, "next-100");
+  assert.equal(controller.loadMoreOutcomes(), true); await settle();
+  assert.equal(controller.state.outcomes.length, 101);
+  assert.equal(new Set(controller.state.outcomes.map((item) => item.eventId)).size, 101);
+  archives = [archive("b-1")]; controller.filter({ type: "REPLY", matterType: "", department: "" }); await settle();
+  assert.equal(controller.state.selectedArchiveId, "b-1"); assert.deepEqual(calls.at(-1), ["b-1", null]);
+});
+
+test("Outcome writes retain only uncertain frozen drafts across archive changes", async () => {
+  const pending = deferred<ShiguanOutcomeProjection>();
+  const controller = new ShiguanController({
+    listArchives: async () => [archive("a-1"), archive("b-1")], getStatistics: async () => statistics(2), recall: async () => [],
+    review: async () => review("OBSERVING", "2026-09-10T00:00:00Z"), decide: async () => decision("ADOPTED"),
+    listOutcomes: async () => outcomePage([]), recordOutcome: () => pending.promise,
+  });
+  controller.start(); await settle();
+  const draft = { outcome: "PARTIAL" as const, occurredAt: "2026-09-10T00:00:00Z", idempotencyKey: "stable-key" };
+  assert.equal(controller.recordOutcome("a-1", draft), true); controller.selectArchive("b-1"); await settle();
+  pending.reject(new ShiguanUiError("network", "unavailable")); await settle();
+  assert.deepEqual(controller.state.pendingOutcomeDrafts["a-1"], draft);
+});
 
 test("archives and statistics settle independently and preserve stale last-known-good data", async () => {
   const archiveRequests = [
@@ -686,4 +802,104 @@ test("immediate reconnect restores active continuations without repeating initia
 
   finalDisconnect();
   await settle();
+});
+
+
+test("Outcome writes for different archives do not abort each other, and retries reuse the frozen draft", async () => {
+  const writes = [deferred<ShiguanOutcomeProjection>(), deferred<ShiguanOutcomeProjection>(), deferred<ShiguanOutcomeProjection>()];
+  const inputs: ShiguanOutcomeInput[] = [];
+  let call = 0;
+  const controller = new ShiguanController({
+    listArchives: async () => [archive("a-1"), archive("b-1")], getStatistics: async () => statistics(2), recall: async () => [],
+    review: async () => review("OBSERVING", "2026-09-10T00:00:00Z"), decide: async () => decision("ADOPTED"), listOutcomes: async () => outcomePage([]),
+    recordOutcome: (_id, input) => { inputs.push(input); return writes[call++].promise; },
+  });
+  controller.start(); await settle();
+  const a = { outcome: "PARTIAL" as const, occurredAt: "2026-09-10T00:00:00Z", idempotencyKey: "a-frozen" };
+  const b = { outcome: "ACHIEVED" as const, occurredAt: "2026-09-10T00:00:00Z", idempotencyKey: "b-frozen" };
+  assert.equal(controller.recordOutcome("a-1", a), true);
+  assert.equal(controller.recordOutcome("b-1", b), true);
+  writes[1].resolve({ ...outcome("b".repeat(32)), archiveId: "b-1" });
+  writes[0].reject(new ShiguanUiError("network", "retry")); await settle();
+  assert.deepEqual(controller.state.pendingOutcomeDrafts["a-1"], a);
+  assert.equal(controller.recordOutcome("a-1", { ...a, idempotencyKey: "attacker-replacement" }), true);
+  assert.deepEqual(inputs[2], a);
+  writes[2].reject(new ShiguanUiError("validation", "422")); await settle();
+  assert.equal(controller.state.pendingOutcomeDrafts["a-1"], undefined);
+});
+
+test("Late Outcome list page cannot erase a confirmed record", async () => {
+  const list = deferred<ShiguanOutcomePage>();
+  const write = deferred<ShiguanOutcomeProjection>();
+  const controller = new ShiguanController({
+    listArchives: async () => [archive("a-1")], getStatistics: async () => statistics(1), recall: async () => [],
+    review: async () => review("OBSERVING", "2026-09-10T00:00:00Z"), decide: async () => decision("ADOPTED"),
+    listOutcomes: () => list.promise, recordOutcome: () => write.promise,
+  });
+  controller.start(); await settle();
+  controller.recordOutcome("a-1", { outcome: "ACHIEVED", occurredAt: "2026-09-10T00:00:00Z", idempotencyKey: "late-list" });
+  write.resolve(outcome("e".repeat(32))); await settle();
+  list.resolve(outcomePage([])); await settle();
+  assert.deepEqual(controller.state.outcomes.map((item) => item.eventId), ["e".repeat(32)]);
+});
+
+
+test("Outcome 401 clears global state and a late write cannot revive it", async () => {
+  const first = deferred<ShiguanOutcomeProjection>();
+  const late = deferred<ShiguanOutcomeProjection>();
+  let navigations = 0;
+  let call = 0;
+  const controller = new ShiguanController({
+    listArchives: async () => [archive("a-1"), archive("b-1")], getStatistics: async () => statistics(2), recall: async () => [],
+    review: async () => review("OBSERVING", "2026-09-10T00:00:00Z"), decide: async () => decision("ADOPTED"), listOutcomes: async () => outcomePage([]),
+    recordOutcome: () => [first, late][call++].promise,
+  }, { onUnauthorized: () => { navigations += 1; } });
+  controller.start(); await settle();
+  controller.recordOutcome("a-1", { outcome: "ACHIEVED", occurredAt: "2026-09-10T00:00:00Z", idempotencyKey: "expired-a" });
+  controller.recordOutcome("b-1", { outcome: "PARTIAL", occurredAt: "2026-09-10T00:00:00Z", idempotencyKey: "expired-b" });
+  first.reject(new ShiguanUiError("unauthenticated", "expired")); await settle();
+  late.resolve({ ...outcome("b".repeat(32)), archiveId: "b-1" }); await settle();
+  assert.deepEqual(controller.state.archives, []);
+  assert.equal(controller.state.outcomes.length, 0);
+  assert.equal(controller.state.pendingOutcomeDrafts["b-1"], undefined);
+  assert.equal(controller.state.outcomeState.errorKind, "unauthenticated");
+  assert.equal(navigations, 1);
+});
+
+
+test("Outcome list rejects an event from another archive without polluting the selected ledger", async () => {
+  const controller = new ShiguanController({
+    listArchives: async () => [archive("a-1")], getStatistics: async () => statistics(1), recall: async () => [],
+    review: async () => review("OBSERVING", "2026-09-10T00:00:00Z"), decide: async () => decision("ADOPTED"),
+    listOutcomes: async () => outcomePage([{ ...outcome("b".repeat(32)), archiveId: "other-archive" }]),
+  });
+  controller.start(); await settle();
+  assert.deepEqual(controller.state.outcomes, []);
+  assert.equal(controller.state.outcomeListState.status, "error");
+  assert.equal(controller.state.outcomeListState.errorKind, "unknown");
+});
+
+
+test("401 discards private Outcome cache and write state before a later archive read", async () => {
+  const nextList = deferred<ShiguanOutcomePage>();
+  let reads = 0;
+  const controller = new ShiguanController({
+    listArchives: async () => [archive("a-1")],
+    getStatistics: async () => statistics(1), recall: async () => [],
+    review: async () => review("OBSERVING", "2026-09-10T00:00:00Z"),
+    decide: async () => decision("ADOPTED"),
+    listOutcomes: async () => ++reads === 1 ? outcomePage([outcome("a".repeat(32))]) : nextList.promise,
+    recordOutcome: async () => { throw new ShiguanUiError("unauthenticated", "expired"); },
+  });
+  controller.start(); await settle();
+  assert.equal(controller.state.outcomes.length, 1);
+  controller.recordOutcome("a-1", { outcome: "ACHIEVED", occurredAt: "2026-09-10T00:00:00Z", idempotencyKey: "expired-cache" });
+  await settle();
+  controller.retryArchives(); await settle();
+  assert.equal(controller.state.selectedArchiveId, "a-1");
+  assert.deepEqual(controller.state.outcomes, []);
+  assert.equal(controller.state.outcomeState.errorKind, null);
+  assert.deepEqual(controller.state.pendingOutcomeDrafts, {});
+  assert.equal(reads, 2);
+  nextList.resolve(outcomePage([])); await settle();
 });

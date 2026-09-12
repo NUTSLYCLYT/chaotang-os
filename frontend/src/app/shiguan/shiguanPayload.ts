@@ -13,6 +13,8 @@ import type {
   ShiguanArchive,
   ShiguanEvidenceReference,
   ShiguanEvidenceSnapshot,
+  ShiguanOutcomePage,
+  ShiguanOutcomeProjection,
   ShiguanRecallMatch,
   ShiguanReviewStatus,
   ShiguanStatistics,
@@ -653,4 +655,106 @@ export function parseDecisionPayload(value: unknown): ArchiveDecision | null {
   )
     ? parseArchiveDecision(value.decisionStatus)
     : null;
+}
+
+const OUTCOME_VALUES = new Set(["ACHIEVED", "PARTIAL", "NOT_ACHIEVED", "OBSERVING"]);
+const OUTCOME_EVENT_KINDS = new Set(["RECORDED", "CORRECTED"]);
+const OUTCOME_EVENT_ID = /^[0-9a-f]{32}$/u;
+const OUTCOME_DIGEST = /^sha256:[0-9a-f]{64}$/u;
+
+const OUTCOME_PROJECTION_KEYS = [
+  "eventId",
+  "archiveId",
+  "eventKind",
+  "outcome",
+  "sourceType",
+  "sourceAuthLevel",
+  "occurredAt",
+  "recordedAt",
+  "archiveDigest",
+  "decisionDigest",
+  "evidenceBundleDigest",
+  "evidenceCount",
+  "supersedesEventId",
+  "eventDigest",
+];
+
+/**
+ * 重新校验跨网络边界回来的结果事件。BFF 已经校验过一次，但浏览器这一侧不能
+ * 把上游的正确性当作前提；闭合契约在这里再判一次。
+ */
+function parseOutcomeProjection(value: unknown): ShiguanOutcomeProjection | null {
+  if (!isRecord(value) || !hasExactKeys(value, OUTCOME_PROJECTION_KEYS)) {
+    return null;
+  }
+  if (
+    typeof value.eventId !== "string" || !OUTCOME_EVENT_ID.test(value.eventId) ||
+    typeof value.archiveId !== "string" || value.archiveId.trim().length === 0 ||
+    typeof value.eventKind !== "string" || !OUTCOME_EVENT_KINDS.has(value.eventKind) ||
+    typeof value.outcome !== "string" || !OUTCOME_VALUES.has(value.outcome) ||
+    value.sourceType !== "OWNER_ATTESTATION" ||
+    value.sourceAuthLevel !== "AUTHENTICATED_OWNER_ASSERTION" ||
+    typeof value.occurredAt !== "string" || value.occurredAt.trim().length === 0 ||
+    typeof value.recordedAt !== "string" || value.recordedAt.trim().length === 0 ||
+    typeof value.archiveDigest !== "string" || !OUTCOME_DIGEST.test(value.archiveDigest) ||
+    typeof value.decisionDigest !== "string" || !OUTCOME_DIGEST.test(value.decisionDigest) ||
+    typeof value.evidenceBundleDigest !== "string" ||
+    !OUTCOME_DIGEST.test(value.evidenceBundleDigest) ||
+    !Number.isInteger(value.evidenceCount) || (value.evidenceCount as number) < 1 ||
+    !(value.supersedesEventId === null ||
+      (typeof value.supersedesEventId === "string" &&
+        OUTCOME_EVENT_ID.test(value.supersedesEventId))) ||
+    typeof value.eventDigest !== "string" || !OUTCOME_DIGEST.test(value.eventDigest)
+  ) {
+    return null;
+  }
+  return {
+    eventId: value.eventId,
+    archiveId: value.archiveId,
+    eventKind: value.eventKind as ShiguanOutcomeProjection["eventKind"],
+    outcome: value.outcome as ShiguanOutcomeProjection["outcome"],
+    sourceType: "OWNER_ATTESTATION",
+    sourceAuthLevel: "AUTHENTICATED_OWNER_ASSERTION",
+    occurredAt: value.occurredAt,
+    recordedAt: value.recordedAt,
+    archiveDigest: value.archiveDigest,
+    decisionDigest: value.decisionDigest,
+    evidenceBundleDigest: value.evidenceBundleDigest,
+    evidenceCount: value.evidenceCount as number,
+    supersedesEventId: value.supersedesEventId as string | null,
+    eventDigest: value.eventDigest,
+  };
+}
+
+export function parseOutcomeRecordPayload(value: unknown): ShiguanOutcomeProjection | null {
+  return (
+    isRecord(value) &&
+    hasExactKeys(value, ["status", "outcome"]) &&
+    value.status === "ok"
+  )
+    ? parseOutcomeProjection(value.outcome)
+    : null;
+}
+
+export function parseOutcomeListPayload(value: unknown): ShiguanOutcomePage | null {
+  if (
+    !isRecord(value) ||
+    !hasExactKeys(value, ["status", "page"]) ||
+    value.status !== "ok" ||
+    !isRecord(value.page) ||
+    !hasExactKeys(value.page, ["items", "nextCursor"]) ||
+    !Array.isArray(value.page.items) ||
+    !(value.page.nextCursor === null || (typeof value.page.nextCursor === "string" && value.page.nextCursor.trim().length > 0 && value.page.nextCursor.length <= 256))
+  ) {
+    return null;
+  }
+  const items: ShiguanOutcomeProjection[] = [];
+  for (const item of value.page.items) {
+    const parsed = parseOutcomeProjection(item);
+    if (parsed === null) {
+      return null;
+    }
+    items.push(parsed);
+  }
+  return { items, nextCursor: value.page.nextCursor as string | null };
 }

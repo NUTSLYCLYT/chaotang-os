@@ -3206,3 +3206,232 @@ export function confirmDailyMemorialDraft(
     { method: "POST", body: input },
   );
 }
+
+// ---------------------------------------------------------------------------
+// 史馆 authenticated Outcome（append-only 结果账）
+//
+// 后端契约是闭合的（`extra="forbid"`）：多一个键、少一个键、枚举越界都必须
+// 判为不可信响应，而不是"尽力解析"。此处的校验刻意与
+// backend/app/shiguan/models.py 的 OutcomeCreate / OutcomeProjection 逐字段对齐。
+// ---------------------------------------------------------------------------
+
+export type ShiguanOutcomeValue = "ACHIEVED" | "PARTIAL" | "NOT_ACHIEVED" | "OBSERVING";
+export type ShiguanOutcomeEventKind = "RECORDED" | "CORRECTED";
+export type ShiguanOutcomeSourceType = "OWNER_ATTESTATION";
+export type ShiguanOutcomeSourceAuthLevel = "AUTHENTICATED_OWNER_ASSERTION";
+
+const SHIGUAN_OUTCOME_VALUES = new Set<string>([
+  "ACHIEVED",
+  "PARTIAL",
+  "NOT_ACHIEVED",
+  "OBSERVING",
+]);
+const SHIGUAN_OUTCOME_EVENT_KINDS = new Set<string>(["RECORDED", "CORRECTED"]);
+const SHIGUAN_OUTCOME_SOURCE_TYPES = new Set<string>(["OWNER_ATTESTATION"]);
+const SHIGUAN_OUTCOME_AUTH_LEVELS = new Set<string>(["AUTHENTICATED_OWNER_ASSERTION"]);
+
+const OUTCOME_EVENT_ID_RE = /^[0-9a-f]{32}$/u;
+const OUTCOME_DIGEST_RE = /^sha256:[0-9a-f]{64}$/u;
+const OUTCOME_IDEMPOTENCY_KEY_RE = /^[A-Za-z0-9._:-]{8,128}$/u;
+
+const OUTCOME_PROJECTION_KEYS = [
+  "event_id",
+  "archive_id",
+  "event_kind",
+  "outcome",
+  "source_type",
+  "source_auth_level",
+  "occurred_at",
+  "recorded_at",
+  "archive_digest",
+  "decision_digest",
+  "evidence_bundle_digest",
+  "evidence_count",
+  "supersedes_event_id",
+  "event_digest",
+] as const;
+
+export interface ShiguanOutcomeProjection {
+  eventId: string;
+  archiveId: string;
+  eventKind: ShiguanOutcomeEventKind;
+  outcome: ShiguanOutcomeValue;
+  sourceType: ShiguanOutcomeSourceType;
+  sourceAuthLevel: ShiguanOutcomeSourceAuthLevel;
+  occurredAt: string;
+  recordedAt: string;
+  archiveDigest: string;
+  decisionDigest: string;
+  evidenceBundleDigest: string;
+  evidenceCount: number;
+  supersedesEventId: string | null;
+  eventDigest: string;
+}
+
+export interface ShiguanOutcomePage {
+  items: ShiguanOutcomeProjection[];
+  nextCursor: string | null;
+}
+
+/** 与后端 OutcomeCreate 一一对应；不允许前端补字段。 */
+export interface CreateShiguanOutcomeInput {
+  outcome: ShiguanOutcomeValue;
+  occurredAt: string;
+  /** 幂等键由调用方负责稳定；客户端绝不自行生成后静默重试。 */
+  idempotencyKey: string;
+  /** 仅在追加"更正事件"时提供；更正是追加，不是改写。 */
+  supersedesEventId?: string;
+}
+
+export interface ListShiguanOutcomesOptions extends ShiguanRequestOptions {
+  limit?: number;
+  cursor?: string;
+}
+
+function parseShiguanOutcomeProjection(value: unknown): ShiguanOutcomeProjection | null {
+  const record = asRecord(value);
+  if (record === null || !hasExactKeys(record, OUTCOME_PROJECTION_KEYS)) {
+    return null;
+  }
+  if (
+    typeof record.event_id !== "string" || !OUTCOME_EVENT_ID_RE.test(record.event_id) ||
+    !textValue(record.archive_id) ||
+    typeof record.event_kind !== "string" || !SHIGUAN_OUTCOME_EVENT_KINDS.has(record.event_kind) ||
+    typeof record.outcome !== "string" || !SHIGUAN_OUTCOME_VALUES.has(record.outcome) ||
+    typeof record.source_type !== "string" || !SHIGUAN_OUTCOME_SOURCE_TYPES.has(record.source_type) ||
+    typeof record.source_auth_level !== "string" ||
+    !SHIGUAN_OUTCOME_AUTH_LEVELS.has(record.source_auth_level) ||
+    !isTimezoneAwareIsoDateTime(record.occurred_at) ||
+    !isTimezoneAwareIsoDateTime(record.recorded_at) ||
+    typeof record.archive_digest !== "string" || !OUTCOME_DIGEST_RE.test(record.archive_digest) ||
+    typeof record.decision_digest !== "string" || !OUTCOME_DIGEST_RE.test(record.decision_digest) ||
+    typeof record.evidence_bundle_digest !== "string" ||
+    !OUTCOME_DIGEST_RE.test(record.evidence_bundle_digest) ||
+    !Number.isInteger(record.evidence_count) || (record.evidence_count as number) < 1 ||
+    !(record.supersedes_event_id === null ||
+      (typeof record.supersedes_event_id === "string" &&
+        OUTCOME_EVENT_ID_RE.test(record.supersedes_event_id))) ||
+    typeof record.event_digest !== "string" || !OUTCOME_DIGEST_RE.test(record.event_digest)
+  ) {
+    return null;
+  }
+  return {
+    eventId: record.event_id,
+    archiveId: record.archive_id,
+    eventKind: record.event_kind as ShiguanOutcomeEventKind,
+    outcome: record.outcome as ShiguanOutcomeValue,
+    sourceType: record.source_type as ShiguanOutcomeSourceType,
+    sourceAuthLevel: record.source_auth_level as ShiguanOutcomeSourceAuthLevel,
+    occurredAt: record.occurred_at,
+    recordedAt: record.recorded_at,
+    archiveDigest: record.archive_digest,
+    decisionDigest: record.decision_digest,
+    evidenceBundleDigest: record.evidence_bundle_digest,
+    evidenceCount: record.evidence_count as number,
+    supersedesEventId: record.supersedes_event_id as string | null,
+    eventDigest: record.event_digest,
+  };
+}
+
+function parseShiguanOutcomePage(value: unknown): ShiguanOutcomePage | null {
+  const record = asRecord(value);
+  if (
+    record === null ||
+    !hasExactKeys(record, ["items", "next_cursor"]) ||
+    !Array.isArray(record.items) ||
+    !(record.next_cursor === null || textValue(record.next_cursor))
+  ) {
+    return null;
+  }
+  const items: ShiguanOutcomeProjection[] = [];
+  for (const item of record.items) {
+    const parsed = parseShiguanOutcomeProjection(item);
+    if (parsed === null) {
+      return null;
+    }
+    items.push(parsed);
+  }
+  return { items, nextCursor: record.next_cursor as string | null };
+}
+
+function outcomePagingQuery(options: ListShiguanOutcomesOptions): string {
+  const params = new URLSearchParams();
+  if (options.limit !== undefined) {
+    params.set("limit", String(options.limit));
+  }
+  if (options.cursor?.trim()) {
+    params.set("cursor", options.cursor.trim());
+  }
+  const query = params.toString();
+  return query ? `?${query}` : "";
+}
+
+/**
+ * 追加一条经认证的 Owner 结果断言。
+ *
+ * 后端以数据库触发器强制 append-only：既有事件不可改写、不可删除。更正只能
+ * 通过 `supersedesEventId` 追加一条 CORRECTED 事件实现。
+ */
+export async function createShiguanOutcome(
+  archiveId: string,
+  input: CreateShiguanOutcomeInput,
+  options: ShiguanRequestOptions = {},
+): Promise<ShiguanResult<ShiguanOutcomeProjection>> {
+  if (!SHIGUAN_OUTCOME_VALUES.has(input.outcome)) {
+    return { ok: false, kind: "validation", error: "outcome 必须是四个受控取值之一。" };
+  }
+  if (!OUTCOME_IDEMPOTENCY_KEY_RE.test(input.idempotencyKey)) {
+    return { ok: false, kind: "validation", error: "idempotency_key 必须是 8 到 128 位受限 ASCII。" };
+  }
+  if (
+    input.supersedesEventId !== undefined &&
+    !OUTCOME_EVENT_ID_RE.test(input.supersedesEventId)
+  ) {
+    return { ok: false, kind: "validation", error: "supersedes_event_id 必须是 32 位小写十六进制。" };
+  }
+
+  const body: Record<string, string> = {
+    outcome: input.outcome,
+    occurred_at: input.occurredAt,
+    idempotency_key: input.idempotencyKey,
+  };
+  if (input.supersedesEventId !== undefined) {
+    body.supersedes_event_id = input.supersedesEventId;
+  }
+
+  return fetchShiguan(
+    `/api/v1/shiguan/archives/${encodeURIComponent(archiveId)}/outcomes`,
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    },
+    parseShiguanOutcomeProjection,
+    options,
+  );
+}
+
+/** 列出单一档案的结果账分页（脱敏回执，非事件全文）。 */
+export async function listShiguanArchiveOutcomes(
+  archiveId: string,
+  options: ListShiguanOutcomesOptions = {},
+): Promise<ShiguanResult<ShiguanOutcomePage>> {
+  return fetchShiguan(
+    `/api/v1/shiguan/archives/${encodeURIComponent(archiveId)}/outcomes${outcomePagingQuery(options)}`,
+    { method: "GET" },
+    parseShiguanOutcomePage,
+    options,
+  );
+}
+
+/** 列出当前 owner 全部结果账分页。 */
+export async function listShiguanOutcomes(
+  options: ListShiguanOutcomesOptions = {},
+): Promise<ShiguanResult<ShiguanOutcomePage>> {
+  return fetchShiguan(
+    `/api/v1/shiguan/outcomes${outcomePagingQuery(options)}`,
+    { method: "GET" },
+    parseShiguanOutcomePage,
+    options,
+  );
+}

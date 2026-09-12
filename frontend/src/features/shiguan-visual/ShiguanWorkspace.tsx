@@ -6,6 +6,7 @@ import type {
   ArchiveDecisionValue,
   ReviewStatusValue,
   ShiguanArchive,
+  ShiguanOutcomeProjection,
   ShiguanRecallMatch,
   ShiguanStatistics,
 } from "../../lib/backendClient.ts";
@@ -24,6 +25,7 @@ import {
   formatSuccessRate,
 } from "../../app/shiguan/archiveStatus.ts";
 import { ShiguanArchiveDetail, ShiguanReviewControl } from "./ShiguanArchiveDetail";
+import { ShiguanOutcomePanel, type FrozenOutcomeDraft } from "./ShiguanOutcomePanel";
 import styles from "./ShiguanWorkspace.module.css";
 
 export interface ShiguanRequestViewState {
@@ -41,6 +43,10 @@ export interface ShiguanDecisionViewState extends ShiguanRequestViewState {
   archiveId: string | null;
 }
 
+export interface ShiguanOutcomeViewState extends ShiguanRequestViewState {
+  archiveId: string | null;
+}
+
 export interface ShiguanWorkspaceProps {
   archives: ShiguanArchive[];
   selectedArchive: ShiguanArchive | null;
@@ -51,6 +57,14 @@ export interface ShiguanWorkspaceProps {
   recallState: ShiguanRequestViewState;
   reviewState: ShiguanReviewViewState;
   decisionState: ShiguanDecisionViewState;
+  outcomes: ShiguanOutcomeProjection[];
+  outcomeState: ShiguanOutcomeViewState;
+  outcomeListState: ShiguanRequestViewState;
+  outcomeNextCursor: string | null;
+  pendingOutcomeDraft: FrozenOutcomeDraft | null;
+  onLoadMoreOutcomes(): void;
+  onRetryOutcomes(): void;
+  onRecordOutcome(id: string, draft: FrozenOutcomeDraft): void;
   onSelectArchive(id: string): void;
   onFilter(input: { type: string; matterType: string; department: string }): void;
   onRecall(input: { matterType: string; department: string }): void;
@@ -123,8 +137,16 @@ export function ShiguanWorkspace(props: ShiguanWorkspaceProps) {
             matches={props.matches}
             recallState={props.recallState}
             reviewState={props.reviewState}
+            outcomes={props.outcomes}
+            outcomeState={props.outcomeState}
+            outcomeListState={props.outcomeListState}
+            outcomeNextCursor={props.outcomeNextCursor}
+            pendingOutcomeDraft={props.pendingOutcomeDraft}
+            onLoadMoreOutcomes={props.onLoadMoreOutcomes}
+            onRetryOutcomes={props.onRetryOutcomes}
             onRecall={props.onRecall}
             onReview={props.onReview}
+            onRecordOutcome={props.onRecordOutcome}
             onRetry={props.onRetryRecall}
           />
         </aside>
@@ -283,14 +305,30 @@ function ReviewRecallPanel({
   reviewState,
   onRecall,
   onReview,
+  outcomes,
+  outcomeState,
+  outcomeListState,
+  outcomeNextCursor,
+  pendingOutcomeDraft,
+  onLoadMoreOutcomes,
+  onRetryOutcomes,
+  onRecordOutcome,
   onRetry,
 }: {
   selectedArchive: ShiguanArchive | null;
   matches: ShiguanRecallMatch[];
   recallState: ShiguanRequestViewState;
   reviewState: ShiguanReviewViewState;
+  outcomes: ShiguanOutcomeProjection[];
+  outcomeState: ShiguanOutcomeViewState;
+  outcomeListState: ShiguanRequestViewState;
+  outcomeNextCursor: string | null;
+  pendingOutcomeDraft: FrozenOutcomeDraft | null;
+  onLoadMoreOutcomes(): void;
+  onRetryOutcomes(): void;
   onRecall(input: { matterType: string; department: string }): void;
   onReview(id: string, input: { status: ReviewStatusValue; note: string }): void;
+  onRecordOutcome(id: string, draft: FrozenOutcomeDraft): void;
   onRetry(): void;
 }) {
   const [matterType, setMatterType] = useState("");
@@ -308,12 +346,27 @@ function ReviewRecallPanel({
           <span>右侧面板负责展示复盘状态、历史结论和相似旧案。</span>
         </div>
       ) : (
-        <ShiguanReviewControl
-          key={selectedArchive.id}
-          archive={selectedArchive}
-          reviewState={reviewState}
-          onReview={onReview}
-        />
+        <>
+          <ShiguanReviewControl
+            key={`review-${selectedArchive.id}`}
+            archive={selectedArchive}
+            reviewState={reviewState}
+            onReview={onReview}
+          />
+          {/* 结果账与复盘刻意并置：取值相同、语义相反，并排展示才看得出差别。 */}
+          <ShiguanOutcomePanel
+            key={`outcome-${selectedArchive.id}`}
+            archive={selectedArchive}
+            outcomes={outcomes}
+            outcomeState={outcomeState}
+            outcomeListState={outcomeListState}
+            outcomeNextCursor={outcomeNextCursor}
+            pendingOutcomeDraft={pendingOutcomeDraft}
+            onLoadMore={onLoadMoreOutcomes}
+            onRetryList={onRetryOutcomes}
+            onRecord={onRecordOutcome}
+          />
+        </>
       )}
       <h3 className={styles.sectionTitle}>相似旧案召回</h3>
       <form

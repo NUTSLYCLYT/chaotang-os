@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   parseArchivesPayload,
   parseDecisionPayload,
+  parseOutcomeListPayload,
   parseRecallPayload,
   parseReviewPayload,
   parseStatisticsPayload,
@@ -388,4 +389,21 @@ test("archive decoder requires complete timezone-aware ISO datetimes", () => {
     }),
     null,
   );
+});
+
+
+const OUTCOME = {
+  eventId: "a".repeat(32), archiveId: "reply-1", eventKind: "RECORDED", outcome: "PARTIAL",
+  sourceType: "OWNER_ATTESTATION", sourceAuthLevel: "AUTHENTICATED_OWNER_ASSERTION",
+  occurredAt: "2026-09-10T00:00:00Z", recordedAt: "2026-09-10T00:00:01Z",
+  archiveDigest: "sha256:" + "a".repeat(64), decisionDigest: "sha256:" + "b".repeat(64),
+  evidenceBundleDigest: "sha256:" + "c".repeat(64), evidenceCount: 1, supersedesEventId: null, eventDigest: "sha256:" + "d".repeat(64),
+};
+
+test("Outcome list payload preserves a legal next cursor and rejects malformed cursors", () => {
+  const payload = { status: "ok", page: { items: [OUTCOME], nextCursor: "cursor-100" } };
+  assert.deepEqual(parseOutcomeListPayload(payload), { items: [OUTCOME], nextCursor: "cursor-100" });
+  for (const nextCursor of ["", " ", 42, "x".repeat(257)]) {
+    assert.equal(parseOutcomeListPayload({ status: "ok", page: { items: [OUTCOME], nextCursor } }), null);
+  }
 });

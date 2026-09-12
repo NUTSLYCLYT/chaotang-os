@@ -7,6 +7,8 @@ import { buildArchiveFilterQuery } from "./archiveStatus.ts";
 import {
   parseArchivesPayload,
   parseDecisionPayload,
+  parseOutcomeListPayload,
+  parseOutcomeRecordPayload,
   parseRecallPayload,
   parseReviewPayload,
   parseStatisticsPayload,
@@ -63,6 +65,22 @@ function createTransport(): ShiguanTransport {
       },
       parseDecisionPayload,
     ),
+    listOutcomes: (archiveId, cursor, signal) => requestShiguanJson(
+      `/api/shiguan/archives/${encodeURIComponent(archiveId)}/outcomes?limit=100${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`,
+      { signal },
+      parseOutcomeListPayload,
+    ),
+    recordOutcome: (archiveId, input, signal) => requestShiguanJson(
+      `/api/shiguan/archives/${encodeURIComponent(archiveId)}/outcomes`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        // 原样透传冻结载荷：多加或改写任何字段都会改变幂等 digest。
+        body: JSON.stringify(input),
+        signal,
+      },
+      parseOutcomeRecordPayload,
+    ),
   };
 }
 
@@ -101,6 +119,14 @@ export function ShiguanClient() {
         recallState={state.recallState}
         reviewState={state.reviewState}
         decisionState={state.decisionState}
+        outcomes={state.outcomes}
+        outcomeState={state.outcomeState}
+        outcomeListState={state.outcomeListState}
+        outcomeNextCursor={state.outcomeNextCursor}
+        pendingOutcomeDraft={state.pendingOutcomeDrafts[state.selectedArchiveId ?? ""] ?? null}
+        onRecordOutcome={(archiveId, draft) => { controller.recordOutcome(archiveId, draft); }}
+        onLoadMoreOutcomes={() => { controller.loadMoreOutcomes(); }}
+        onRetryOutcomes={() => { controller.retryOutcomes(); }}
         onSelectArchive={(id) => controller.selectArchive(id)}
         onFilter={(input) => controller.filter(input)}
         onRecall={(input) => { controller.recall(input); }}

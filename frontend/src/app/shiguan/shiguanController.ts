@@ -3,6 +3,9 @@ import type {
   ArchiveDecisionValue,
   ReviewStatusValue,
   ShiguanArchive,
+  ShiguanOutcomePage,
+  ShiguanOutcomeProjection,
+  ShiguanOutcomeValue,
   ShiguanRecallMatch,
   ShiguanReviewStatus,
   ShiguanStatistics,
@@ -34,6 +37,14 @@ export interface ShiguanDecisionState extends ShiguanRequestState {
   archiveId: string | null;
 }
 
+export interface ShiguanOutcomeState extends ShiguanRequestState {
+  archiveId: string | null;
+}
+
+export interface ShiguanOutcomeListState extends ShiguanRequestState {
+  archiveId: string | null;
+}
+
 export interface ShiguanControllerState {
   archives: ShiguanArchive[];
   selectedArchiveId: string | null;
@@ -44,6 +55,11 @@ export interface ShiguanControllerState {
   recallState: ShiguanRequestState;
   reviewState: ShiguanReviewState;
   decisionState: ShiguanDecisionState;
+  outcomes: ShiguanOutcomeProjection[];
+  outcomeState: ShiguanOutcomeState;
+  outcomeListState: ShiguanOutcomeListState;
+  outcomeNextCursor: string | null;
+  pendingOutcomeDrafts: Record<string, ShiguanOutcomeInput>;
 }
 
 export interface ShiguanFilterInput {
@@ -60,6 +76,14 @@ export interface ShiguanRecallInput {
 export interface ShiguanReviewInput {
   status: ReviewStatusValue;
   note: string;
+}
+
+/** 与后端 OutcomeCreate 对齐；重试必须原样复用同一份，否则幂等键会绑定不同内容。 */
+export interface ShiguanOutcomeInput {
+  outcome: ShiguanOutcomeValue;
+  occurredAt: string;
+  idempotencyKey: string;
+  supersedesEventId?: string;
 }
 
 export interface ShiguanTransport {
@@ -82,6 +106,17 @@ export interface ShiguanTransport {
     decision: ArchiveDecisionValue,
     signal: AbortSignal,
   ): Promise<ArchiveDecision>;
+  /** 结果账为渐进增强能力：未实现时史馆其余功能不受影响。 */
+  listOutcomes?(
+    archiveId: string,
+    cursor: string | null,
+    signal: AbortSignal,
+  ): Promise<ShiguanOutcomePage>;
+  recordOutcome?(
+    archiveId: string,
+    input: ShiguanOutcomeInput,
+    signal: AbortSignal,
+  ): Promise<ShiguanOutcomeProjection>;
 }
 
 export class ShiguanUiError extends Error {
@@ -168,6 +203,14 @@ export class ShiguanController {
       ...requestState("ready", "选择文书后可在卷尾处置。"),
       archiveId: null,
     },
+    outcomes: [],
+    outcomeState: {
+      ...requestState("ready", "选择档案后可记入结果账。"),
+      archiveId: null,
+    },
+    outcomeListState: { ...requestState("ready", "选择档案后可读取结果账。"), archiveId: null },
+    outcomeNextCursor: null,
+    pendingOutcomeDrafts: {},
   };
 
   private readonly listeners = new Set<Listener>();
@@ -177,8 +220,14 @@ export class ShiguanController {
     recall: 0,
     review: 0,
     decision: 0,
+    outcomeList: 0,
+    outcomeWrite: 0,
   };
   private readonly aborters: Partial<Record<keyof typeof this.generations, AbortController>> = {};
+  private readonly outcomeCache = new Map<string, ShiguanOutcomePage & { historyComplete: boolean }>();
+  private readonly outcomeWriteStates = new Map<string, ShiguanOutcomeState>();
+  private readonly outcomeWriteGenerations = new Map<string, number>();
+  private readonly outcomeWriteAborters = new Map<string, AbortController>();
   private readonly confirmedReviews = new Map<string, ShiguanReviewStatus>();
   private readonly confirmedDecisions = new Map<string, ArchiveDecision>();
   private lastFilter: ShiguanFilterInput = INITIAL_FILTER;
@@ -273,13 +322,126 @@ export class ShiguanController {
   }
 
   selectArchive(id: string): void {
-    if (!this.active || this.disposed) {
-      return;
+    if (!this.active || this.disposed || !this.currentState.archives.some((archive) => archive.id === id)) return;
+    const cached = this.outcomeCache.get(id);
+    const outcomeState = this.outcomeWriteStates.get(id) ?? {
+      ...requestState("ready", "选择档案后可记入结果账。"), archiveId: id,
+    };
+    this.update({ selectedArchiveId: id, outcomes: cached?.items ?? [], outcomeNextCursor: cached?.nextCursor ?? null, outcomeState });
+    this.loadOutcomes(id, null, false);
+  }
+
+  retryOutcomes(): void {
+    if (this.currentState.selectedArchiveId) this.loadOutcomes(this.currentState.selectedArchiveId, null, false);
+  }
+
+  loadMoreOutcomes(): boolean {
+    const archiveId = this.currentState.selectedArchiveId;
+    if (!archiveId || !this.currentState.outcomeNextCursor || this.currentState.outcomeListState.status === "loading") return false;
+    this.loadOutcomes(archiveId, this.currentState.outcomeNextCursor, true);
+    return true;
+  }
+
+  recordOutcome(archiveId: string, input: ShiguanOutcomeInput): boolean {
+    if (!this.active || this.disposed || this.outcomeWriteStates.get(archiveId)?.status === "loading") return false;
+    // A retry is always the first frozen draft; caller input must never replace its idempotency identity.
+    this.runRecordOutcome(archiveId, this.currentState.pendingOutcomeDrafts[archiveId] ?? input);
+    return true;
+  }
+
+  private loadOutcomes(archiveId: string, cursor: string | null, append: boolean): void {
+    const list = this.transport.listOutcomes;
+    if (!list || !this.active || this.disposed) return;
+    const refreshCompleteHistory = !append && this.outcomeCache.get(archiveId)?.historyComplete === true;
+    const { generation, signal } = this.begin("outcomeList");
+    if (this.currentState.selectedArchiveId === archiveId) {
+      this.update({ outcomeListState: { ...requestState("loading", "正在读取结果账…", { stale: append || this.currentState.outcomes.length > 0 }), archiveId } });
     }
-    if (!this.currentState.archives.some((archive) => archive.id === id)) {
-      return;
-    }
-    this.update({ selectedArchiveId: id });
+    void (async () => {
+      try {
+        // Revalidate a completed history to its end before enabling correction again.
+        // Retaining the old null cursor alone could hide new events from another session.
+        const refreshed: ShiguanOutcomeProjection[] = [];
+        const visited = new Set<string | null>();
+        let nextCursor = cursor;
+        do {
+          if (visited.has(nextCursor)) throw new ShiguanUiError("unknown", "结果账分页未前进，请重试读取。");
+          visited.add(nextCursor);
+          const page = await list.call(this.transport, archiveId, nextCursor, signal);
+          if (!this.isCurrent("outcomeList", generation)) return;
+          if (page.items.some((item) => item.archiveId !== archiveId)) {
+            throw new ShiguanUiError("unknown", "结果账返回了不匹配的档案。");
+          }
+          refreshed.push(...page.items);
+          nextCursor = page.nextCursor;
+        } while (refreshCompleteHistory && nextCursor !== null);
+        // The ledger is append-only. Merge even a late first page so it cannot erase a confirmed write.
+        const existing = this.outcomeCache.get(archiveId)?.items ?? [];
+        const byId = new Map(existing.map(item => [item.eventId, item]));
+        for (const item of refreshed) if (!byId.has(item.eventId)) byId.set(item.eventId, item);
+        const items = [...byId.values()];
+        this.outcomeCache.set(archiveId, { items, nextCursor, historyComplete: nextCursor === null });
+        if (this.currentState.selectedArchiveId === archiveId) {
+          this.update({ outcomes: items, outcomeNextCursor: nextCursor, outcomeListState: { ...requestState(items.length ? "ready" : "empty", items.length ? "结果账已更新。" : "尚无结果记录。"), archiveId } });
+        }
+      } catch (error) {
+        const normalized = this.handleError("outcomeList", generation, error);
+        if (normalized && this.currentState.selectedArchiveId === archiveId) {
+          this.update({ outcomeListState: { ...requestState("error", normalized.message, { stale: this.currentState.outcomes.length > 0, errorKind: normalized.kind }), archiveId } });
+        }
+      }
+    })();
+  }
+
+  private runRecordOutcome(archiveId: string, input: ShiguanOutcomeInput): void {
+    const loading = { ...requestState("loading", "正在记入结果账…"), archiveId };
+    this.outcomeWriteStates.set(archiveId, loading);
+    this.update({ pendingOutcomeDrafts: { ...this.currentState.pendingOutcomeDrafts, [archiveId]: input }, ...(this.currentState.selectedArchiveId === archiveId ? { outcomeState: loading } : {}) });
+    const record = this.transport.recordOutcome;
+    if (!record) { this.finishOutcomeWrite(archiveId, new ShiguanUiError("unknown", "当前环境未启用结果账记录。")); return; }
+    this.outcomeWriteAborters.get(archiveId)?.abort();
+    const aborter = new AbortController();
+    this.outcomeWriteAborters.set(archiveId, aborter);
+    const generation = (this.outcomeWriteGenerations.get(archiveId) ?? 0) + 1;
+    this.outcomeWriteGenerations.set(archiveId, generation);
+    void (async () => {
+      try {
+        const recorded = await record.call(this.transport, archiveId, input, aborter.signal);
+        if (!this.isOutcomeWriteCurrent(archiveId, generation)) return;
+        if (recorded.archiveId !== archiveId) {
+          this.finishOutcomeWrite(archiveId, new ShiguanUiError("unknown", "结果账返回了不匹配的档案。"));
+          return;
+        }
+        const page = this.outcomeCache.get(archiveId) ?? { items: [], nextCursor: null, historyComplete: false };
+        if (!page.items.some((item) => item.eventId === recorded.eventId)) page.items = [...page.items, recorded];
+        this.outcomeCache.set(archiveId, page);
+        const ready = { ...requestState("ready", "结果已记入结果账。"), archiveId };
+        this.outcomeWriteStates.set(archiveId, ready);
+        const pending = { ...this.currentState.pendingOutcomeDrafts };
+        delete pending[archiveId];
+        this.update({ pendingOutcomeDrafts: pending, ...(this.currentState.selectedArchiveId === archiveId ? { outcomes: page.items, outcomeNextCursor: page.nextCursor, outcomeState: ready } : {}) });
+      } catch (error) {
+        if (!this.isOutcomeWriteCurrent(archiveId, generation)) return;
+        const normalized = normalizeError(error);
+        if (normalized?.kind === "unauthenticated") {
+          this.handleUnauthorized(normalized);
+          return;
+        }
+        if (normalized) this.finishOutcomeWrite(archiveId, normalized);
+      }
+    })();
+  }
+
+  private isOutcomeWriteCurrent(archiveId: string, generation: number): boolean {
+    return this.active && !this.disposed && this.outcomeWriteGenerations.get(archiveId) === generation;
+  }
+
+  private finishOutcomeWrite(archiveId: string, error: ShiguanUiError): void {
+    const state = { ...requestState("error", error.message, { errorKind: error.kind }), archiveId };
+    this.outcomeWriteStates.set(archiveId, state);
+    const pending = { ...this.currentState.pendingOutcomeDrafts };
+    if (!["network", "storage", "unknown"].includes(error.kind)) delete pending[archiveId];
+    this.update({ pendingOutcomeDrafts: pending, ...(this.currentState.selectedArchiveId === archiveId ? { outcomeState: state } : {}) });
   }
 
   recall(input: ShiguanRecallInput): boolean {
@@ -369,46 +531,59 @@ export class ShiguanController {
       return null;
     }
     const normalized = normalizeError(error);
-    if (
-      normalized?.kind === "unauthenticated" &&
-      !this.unauthorizedHandled
-    ) {
-      this.unauthorizedHandled = true;
-      const requestChannels = Object.keys(this.generations) as Array<
-        "archives" | "statistics" | "recall" | "review" | "decision"
-      >;
-      for (const requestChannel of requestChannels) {
-        this.generations[requestChannel] += 1;
-        this.aborters[requestChannel]?.abort();
-        delete this.aborters[requestChannel];
-      }
-      this.confirmedReviews.clear();
-      this.confirmedDecisions.clear();
-      const expiredState = requestState(
-        "error",
-        normalized.message,
-        { errorKind: "unauthenticated" },
-      );
-      this.update({
-        archives: [],
-        statistics: null,
-        matches: [],
-        selectedArchiveId: null,
-        archiveState: expiredState,
-        statisticsState: expiredState,
-        recallState: expiredState,
-        reviewState: {
-          ...expiredState,
-          archiveId: null,
-        },
-        decisionState: {
-          ...expiredState,
-          archiveId: null,
-        },
-      });
-      this.options.onUnauthorized?.();
-    }
+    if (normalized?.kind === "unauthenticated") this.handleUnauthorized(normalized);
     return normalized;
+  }
+
+  private handleUnauthorized(normalized: ShiguanUiError): void {
+    if (this.unauthorizedHandled) return;
+    this.unauthorizedHandled = true;
+    const requestChannels = Object.keys(this.generations) as Array<
+      "archives" | "statistics" | "recall" | "review" | "decision" | "outcomeList" | "outcomeWrite"
+    >;
+    for (const requestChannel of requestChannels) {
+      this.generations[requestChannel] += 1;
+      this.aborters[requestChannel]?.abort();
+      delete this.aborters[requestChannel];
+    }
+    for (const aborter of this.outcomeWriteAborters.values()) aborter.abort();
+    this.outcomeWriteAborters.clear();
+    this.outcomeWriteGenerations.clear();
+    this.outcomeCache.clear();
+    this.outcomeWriteStates.clear();
+    this.confirmedReviews.clear();
+    this.confirmedDecisions.clear();
+    const expiredState = requestState(
+      "error",
+      normalized.message,
+      { errorKind: "unauthenticated" },
+    );
+    this.update({
+      archives: [],
+      statistics: null,
+      matches: [],
+      selectedArchiveId: null,
+      archiveState: expiredState,
+      statisticsState: expiredState,
+      recallState: expiredState,
+      reviewState: {
+        ...expiredState,
+        archiveId: null,
+      },
+      decisionState: {
+        ...expiredState,
+        archiveId: null,
+      },
+      outcomes: [],
+      outcomeNextCursor: null,
+      pendingOutcomeDrafts: {},
+      outcomeListState: { ...expiredState, archiveId: null },
+      outcomeState: {
+        ...expiredState,
+        archiveId: null,
+      },
+    });
+    this.options.onUnauthorized?.();
   }
 
   private loadArchives(input: ShiguanFilterInput): void {
@@ -462,6 +637,7 @@ export class ShiguanController {
         )
           ? this.currentState.selectedArchiveId
           : archives[0]?.id ?? null;
+        const selectionChanged = selectedArchiveId !== this.currentState.selectedArchiveId;
         this.update({
           archives,
           selectedArchiveId,
@@ -470,6 +646,7 @@ export class ShiguanController {
             archives.length === 0 ? "没有命中档案。" : "史馆档案已更新。",
           ),
         });
+        if (selectedArchiveId && (selectionChanged || !this.outcomeCache.has(selectedArchiveId))) this.selectArchive(selectedArchiveId);
       } catch (error) {
         const normalized = this.handleError("archives", generation, error);
         if (!normalized) {
@@ -654,6 +831,11 @@ export class ShiguanController {
       this.aborters[channel]?.abort();
       delete this.aborters[channel];
     }
+    for (const aborter of this.outcomeWriteAborters.values()) aborter.abort();
+    this.outcomeWriteAborters.clear();
+    this.outcomeWriteGenerations.clear();
+    this.outcomeCache.clear();
+    this.outcomeWriteStates.clear();
     this.confirmedReviews.clear();
     this.confirmedDecisions.clear();
     this.listeners.clear();
