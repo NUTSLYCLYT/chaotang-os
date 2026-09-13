@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import math
 import re
+import uuid
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -101,7 +102,7 @@ class SceneRun(BaseModel):
     status: SceneRunStatus
     verdict: str = Field(min_length=1, max_length=80)
     verdict_text: str = Field(min_length=1, max_length=500)
-    confidence: int = Field(ge=0, le=100)
+    confidence: int | None = Field(default=None, ge=0, le=100)
     risk_grade: RiskGrade
     opportunity_grade: OpportunityGrade
     result_summary: str = Field(min_length=1, max_length=1200)
@@ -295,6 +296,7 @@ class SceneRunInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     pack_slug: str = Field(min_length=1, max_length=120)
+    request_key: str | None = Field(default=None, max_length=36)
     inputs: dict[str, Any] = Field(default_factory=dict)
     attachments: list[dict[str, Any]] = Field(default_factory=list)
     demo: bool = Field(default=False, strict=True)
@@ -310,6 +312,19 @@ class SceneRunInput(BaseModel):
     @classmethod
     def _normalize_slug(cls, value: str) -> str:
         return value.strip()
+
+    @field_validator("request_key")
+    @classmethod
+    def _validate_request_key(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        try:
+            parsed = uuid.UUID(value)
+        except (ValueError, AttributeError, TypeError):
+            raise ValueError("request key must be a canonical UUID v4") from None
+        if parsed.version != 4 or str(parsed) != value:
+            raise ValueError("request key must be a canonical UUID v4")
+        return value
 
 
 class MissionPatch(BaseModel):

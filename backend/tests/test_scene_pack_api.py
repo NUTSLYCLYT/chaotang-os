@@ -4,6 +4,7 @@ from __future__ import annotations
 
 # Foundation regression cases: isolated SQLite via conftest, no runtime/model calls.
 import json
+import uuid
 
 import pytest
 from fastapi import FastAPI
@@ -13,7 +14,9 @@ from starlette.requests import Request
 from app.api import scene_packs as scene_api
 from app.api.auth import require_current_user
 from app.api.scene_packs import (
-    create_scene_run,
+    create_scene_run as _create_scene_run,
+)
+from app.api.scene_packs import (
     list_missions,
     list_scene_packs,
     patch_mission,
@@ -21,6 +24,14 @@ from app.api.scene_packs import (
 from app.auth.models import AuthenticatedPrincipal
 from app.scene_packs import storage
 from app.scene_packs.models import MissionPatch
+
+
+def create_scene_run(payload, current_user):
+    """Keep historical API tests explicit while exercising the required body key."""
+    return _create_scene_run(
+        {**payload, "requestKey": str(uuid.uuid4())},
+        current_user,
+    )
 
 
 def _owner(
@@ -87,8 +98,11 @@ def test_single_product_run_creates_board_mission():
     scene_run = response["sceneRun"]
     assert scene_run["status"] == "completed"
     assert scene_run["demo"] is True
-    assert scene_run["verdict"]
-    assert scene_run["riskGrade"] in {"low", "medium"}
+    assert scene_run["verdict"] == "PRECHECK_ONLY"
+    assert scene_run["confidence"] is None
+    assert scene_run["riskGrade"] == "medium"
+    assert scene_run["canProceed"] is False
+    assert scene_run["boardMission"]["stage"] == "awaiting_input"
     assert scene_run["nextActions"]
     assert scene_run["missionId"]
 
@@ -545,7 +559,11 @@ def test_contract_and_single_product_long_display_fields_remain_valid():
         assert run["status"] == "completed"
         assert len(run["summaryForUser"]) <= 1200
         assert len(run["verdictText"]) <= 500
-        assert "…" in run["summaryForUser"]
+        if slug == "single-product-export-diagnosis":
+            assert "字" * 20 not in run["summaryForUser"]
+            assert run["confidence"] is None
+        else:
+            assert "…" in run["summaryForUser"]
 
 
 @pytest.mark.parametrize(

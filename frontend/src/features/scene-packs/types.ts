@@ -40,7 +40,7 @@ export interface SceneRun {
   status: SceneRunStatus;
   verdict: string;
   verdictText: string;
-  confidence: number;
+  confidence: number | null;
   riskGrade: SceneRiskGrade;
   opportunityGrade: SceneRiskGrade;
   missingItems: string[];

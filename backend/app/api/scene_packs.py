@@ -172,7 +172,11 @@ def create_scene_run(
         normalized = dict(payload)
         if "packSlug" in normalized and "pack_slug" not in normalized:
             normalized["pack_slug"] = normalized.pop("packSlug")
+        if "requestKey" in normalized and "request_key" not in normalized:
+            normalized["request_key"] = normalized.pop("requestKey")
         run_input = SceneRunInput.model_validate(normalized)
+        if run_input.request_key is None:
+            return _error(422, "validation")
     except ValidationError:
         return _error(422, "validation")
     response = None
@@ -194,6 +198,8 @@ def create_scene_run(
             tenant_id=current_user.tenant_id,
             validate_response=prepare_response,
         )
+    except storage.SceneIdempotencyConflictError:
+        return _error(409, "idempotency_conflict")
     except storage.SceneUnavailableError:
         return _error(503, "unavailable")
     except LookupError:
@@ -248,12 +254,15 @@ def list_missions(
 def patch_mission(
     mission_id: str, payload: MissionPatch, current_user: CurrentUser
 ) -> dict[str, Any] | JSONResponse:
-    mission = storage.update_board_mission(
-        mission_id,
-        payload,
-        owner_user_id=current_user.id,
-        tenant_id=current_user.tenant_id,
-    )
+    try:
+        mission = storage.update_board_mission(
+            mission_id,
+            payload,
+            owner_user_id=current_user.id,
+            tenant_id=current_user.tenant_id,
+        )
+    except storage.SceneMissionImmutableError:
+        return _error(409, "truth_mission_immutable")
     if mission is None:
         return _error(404, "mission_not_found")
     return {"status": "ok", "mission": _mission_json(mission)}

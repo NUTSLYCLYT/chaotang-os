@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
+import math
 import re
 import sqlite3
+import unicodedata
 import uuid
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -22,6 +26,14 @@ from app.scene_packs.models import (
 )
 
 _DEFAULT_DB_PATH = Path(__file__).resolve().parents[2] / "data" / "scene_packs.sqlite3"
+
+_SCENE_OPERATION = "create_scene_run"
+_CANONICALIZATION_VERSION = "scene-request-v1"
+_IDENTITY_SCHEMA_VERSION = "scene-request-identity.v1"
+_MINGSHUO_TRUTH_CONTRACT = "mingshuo.scene.precheck.v1"
+_LEGACY_COMPATIBLE_CONTRACT = "scene.legacy-compatible.v1"
+_SINGLE_PRODUCT_SLUG = "single-product-export-diagnosis"
+_UNSCORED_SENTINEL = -1
 
 _CORE_OUTPUT_CONTRACT = {
     "runId": "string",
@@ -157,6 +169,85 @@ class SceneUnavailableError(RuntimeError):
     """An internal output/storage contract failed; details stay server-side."""
 
 
+class SceneIdempotencyConflictError(RuntimeError):
+    """A scoped request key was already bound to different server input."""
+
+
+class SceneMissionImmutableError(RuntimeError):
+    """A truth-bound precheck mission cannot be edited in place."""
+
+
+def _normalize_nfc(value: Any) -> Any:
+    if isinstance(value, str):
+        return unicodedata.normalize("NFC", value)
+    if isinstance(value, list):
+        return [_normalize_nfc(item) for item in value]
+    if isinstance(value, dict):
+        return {key: _normalize_nfc(item) for key, item in value.items()}
+    return value
+
+
+def _canonical_number(value: int | float) -> str:
+    if isinstance(value, bool) or not math.isfinite(value):
+        raise ValueError("non-finite canonical number")
+    if value == 0:
+        return "0"
+    if isinstance(value, int):
+        return str(value)
+    text = repr(value).lower()
+    absolute = abs(value)
+    if 1e-6 <= absolute < 1e21:
+        result = format(Decimal(text), "f")
+        if "." in result:
+            result = result.rstrip("0").rstrip(".")
+        return result
+    mantissa, exponent = text.split("e")
+    mantissa = mantissa.rstrip("0").rstrip(".")
+    exponent_value = int(exponent)
+    sign = "+" if exponent_value >= 0 else ""
+    return f"{mantissa}e{sign}{exponent_value}"
+
+
+def _canonical_json(value: Any) -> str:
+    if value is None:
+        return "null"
+    if value is True:
+        return "true"
+    if value is False:
+        return "false"
+    if type(value) in (int, float):
+        return _canonical_number(value)
+    if isinstance(value, str):
+        return json.dumps(value, ensure_ascii=False, allow_nan=False)
+    if isinstance(value, list):
+        return "[" + ",".join(_canonical_json(item) for item in value) + "]"
+    if isinstance(value, dict) and all(isinstance(key, str) for key in value):
+        return (
+            "{"
+            + ",".join(
+                f"{_canonical_json(key)}:{_canonical_json(value[key])}" for key in sorted(value)
+            )
+            + "}"
+        )
+    raise TypeError("value is outside the canonical JSON domain")
+
+
+def _source_snapshot(payload: SceneRunInput) -> dict[str, Any]:
+    return {
+        "operation": _SCENE_OPERATION,
+        "packSlug": payload.pack_slug,
+        "demo": payload.demo,
+        "inputs": payload.inputs,
+        "attachments": payload.attachments,
+        "canonicalizationVersion": _CANONICALIZATION_VERSION,
+    }
+
+
+def _server_input_digest(snapshot: dict[str, Any]) -> str:
+    canonical = _canonical_json(_normalize_nfc(snapshot)).encode("utf-8")
+    return f"sha256:{hashlib.sha256(canonical).hexdigest()}"
+
+
 def _load_json(value: str | None, fallback: Any) -> Any:
     del fallback
     try:
@@ -232,6 +323,23 @@ def _connect(db_path: Path | None = None) -> sqlite3.Connection:
             FOREIGN KEY (pack_id) REFERENCES scene_packs(id)
         );
 
+        CREATE TABLE IF NOT EXISTS scene_run_request_identities (
+            tenant_id TEXT NOT NULL,
+            owner_user_id TEXT NOT NULL,
+            operation_scope TEXT NOT NULL,
+            request_key TEXT NOT NULL,
+            pack_slug TEXT NOT NULL,
+            canonicalization_version TEXT NOT NULL,
+            identity_schema_version TEXT NOT NULL,
+            truth_contract_version TEXT NOT NULL,
+            source_snapshot_json TEXT NOT NULL,
+            server_input_digest TEXT NOT NULL,
+            run_id TEXT NOT NULL UNIQUE,
+            created_at TEXT NOT NULL,
+            PRIMARY KEY (tenant_id, owner_user_id, operation_scope, request_key),
+            FOREIGN KEY (run_id) REFERENCES scene_runs(id)
+        );
+
         CREATE INDEX IF NOT EXISTS scene_runs_pack_status_risk_updated_idx
         ON scene_runs (pack_id, status, risk_grade, updated_at DESC);
 
@@ -285,7 +393,12 @@ def _seed_scene_packs(connection: sqlite3.Connection) -> None:
                 order,
                 _dump_json(item["required_inputs"]),
                 _dump_json(item["optional_inputs"]),
-                _dump_json(_CORE_OUTPUT_CONTRACT),
+                _dump_json(
+                    {
+                        **_CORE_OUTPUT_CONTRACT,
+                        "confidence": ("null" if item["slug"] == _SINGLE_PRODUCT_SLUG else "0-100"),
+                    }
+                ),
                 item["implementation_status"],
                 item["entry_route"],
                 now,
@@ -316,8 +429,9 @@ def _pack_from_row(row: sqlite3.Row) -> ScenePack:
     )
 
 
-def _run_from_row(row: sqlite3.Row) -> SceneRun:
+def _run_from_row(row: sqlite3.Row, *, public_confidence: int | None | object = ...) -> SceneRun:
     pack_slug = row["pack_slug"] if "pack_slug" in row.keys() else row["slug"]
+    confidence = row["confidence"] if public_confidence is ... else public_confidence
     return SceneRun(
         id=row["id"],
         pack_id=row["pack_id"],
@@ -327,7 +441,7 @@ def _run_from_row(row: sqlite3.Row) -> SceneRun:
         status=row["status"],
         verdict=row["verdict"],
         verdict_text=row["verdict_text"],
-        confidence=row["confidence"],
+        confidence=confidence,
         risk_grade=row["risk_grade"],
         opportunity_grade=row["opportunity_grade"],
         result_summary=row["result_summary"],
@@ -359,6 +473,218 @@ def _mission_from_row(row: sqlite3.Row) -> BoardMission:
     )
 
 
+def _truth_contract_for(pack_slug: str) -> str:
+    return (
+        _MINGSHUO_TRUTH_CONTRACT
+        if pack_slug == _SINGLE_PRODUCT_SLUG
+        else _LEGACY_COMPATIBLE_CONTRACT
+    )
+
+
+def _identity_is_valid(
+    identity: sqlite3.Row | None,
+    *,
+    run_row: sqlite3.Row,
+    mission_row: sqlite3.Row,
+    owner_user_id: str,
+    tenant_id: str,
+) -> bool:
+    if identity is None:
+        return False
+    try:
+        snapshot = _load_json(identity["source_snapshot_json"], {})
+    except SceneUnavailableError:
+        return False
+    expected_keys = {
+        "operation",
+        "packSlug",
+        "demo",
+        "inputs",
+        "attachments",
+        "canonicalizationVersion",
+    }
+    if not isinstance(snapshot, dict) or set(snapshot) != expected_keys:
+        return False
+    try:
+        validated = SceneRunInput.model_validate(
+            {
+                "pack_slug": snapshot["packSlug"],
+                "request_key": identity["request_key"],
+                "inputs": snapshot["inputs"],
+                "attachments": snapshot["attachments"],
+                "demo": snapshot["demo"],
+            }
+        )
+    except (ValueError, TypeError):
+        return False
+    if _source_snapshot(validated) != snapshot:
+        return False
+    return all(
+        (
+            identity["tenant_id"] == tenant_id,
+            identity["owner_user_id"] == owner_user_id,
+            identity["operation_scope"] == _SCENE_OPERATION,
+            identity["canonicalization_version"] == _CANONICALIZATION_VERSION,
+            identity["identity_schema_version"] == _IDENTITY_SCHEMA_VERSION,
+            identity["truth_contract_version"] == _truth_contract_for(run_row["pack_slug"]),
+            identity["pack_slug"] == run_row["pack_slug"],
+            identity["run_id"] == run_row["id"],
+            snapshot["operation"] == _SCENE_OPERATION,
+            snapshot["packSlug"] == run_row["pack_slug"],
+            snapshot["canonicalizationVersion"] == _CANONICALIZATION_VERSION,
+            identity["source_snapshot_json"] == _canonical_json(snapshot),
+            identity["server_input_digest"] == _server_input_digest(snapshot),
+            mission_row["run_id"] == run_row["id"],
+            mission_row["pack_id"] == run_row["pack_id"],
+        )
+    )
+
+
+def _single_product_public_projection_is_valid(
+    identity: sqlite3.Row,
+    *,
+    run_row: sqlite3.Row,
+    mission_row: sqlite3.Row,
+    owner_user_id: str,
+    tenant_id: str,
+) -> bool:
+    try:
+        snapshot = _load_json(identity["source_snapshot_json"], {})
+        payload = SceneRunInput.model_validate(
+            {
+                "pack_slug": snapshot["packSlug"],
+                "request_key": identity["request_key"],
+                "inputs": snapshot["inputs"],
+                "attachments": snapshot["attachments"],
+                "demo": snapshot["demo"],
+            }
+        )
+        seed = next(item for item in _SCENE_PACK_SEEDS if item["slug"] == _SINGLE_PRODUCT_SLUG)
+        pack = ScenePack(
+            id=seed["id"],
+            slug=seed["slug"],
+            name=seed["name"],
+            short_value=seed["short_value"],
+            target_user=seed["target_user"],
+            default_owner_dept=seed["default_owner_dept"],
+            sort_order=1,
+            required_inputs=seed["required_inputs"],
+            optional_inputs=seed["optional_inputs"],
+            output_contract={"confidence": "null"},
+            enabled=True,
+            implementation_status=seed["implementation_status"],
+            entry_route=seed["entry_route"],
+            demo_available=True,
+            created_at=run_row["created_at"],
+            updated_at=run_row["updated_at"],
+        )
+        expected = _run_single_product(pack, payload, owner_user_id, tenant_id)
+        actual_missing = _load_json(run_row["missing_items_json"], [])
+        actual_actions = [
+            NextAction.model_validate(item).model_dump()
+            for item in _load_json(run_row["next_actions_json"], [])
+        ]
+        actual_evidence = [
+            EvidenceRef.model_validate(item).model_dump(exclude={"captured_at"})
+            for item in _load_json(run_row["evidence_refs_json"], [])
+        ]
+        action_payload = _load_json(run_row["action_payload_json"], {})
+        expected_mission = _build_mission(pack, expected)
+    except (LookupError, SceneUnavailableError, TypeError, ValueError):
+        return False
+    expected_evidence = [
+        item.model_dump(exclude={"captured_at"}) for item in expected.evidence_refs
+    ]
+    return all(
+        (
+            run_row["pack_id"] == expected.pack_id,
+            run_row["user_id"] == expected.user_id,
+            run_row["tenant_id"] == expected.tenant_id,
+            run_row["status"] == expected.status,
+            run_row["verdict"] == expected.verdict,
+            run_row["verdict_text"] == expected.verdict_text,
+            run_row["confidence"] == _UNSCORED_SENTINEL,
+            run_row["risk_grade"] == expected.risk_grade,
+            run_row["opportunity_grade"] == expected.opportunity_grade,
+            run_row["result_summary"] == expected.result_summary,
+            actual_missing == expected.missing_items,
+            actual_actions == [item.model_dump() for item in expected.next_actions],
+            actual_evidence == expected_evidence,
+            action_payload == expected.action_payload,
+            mission_row["pack_id"] == expected_mission.pack_id,
+            mission_row["title"] == expected_mission.title,
+            mission_row["owner"] == expected_mission.owner,
+            mission_row["stage"] == expected_mission.stage,
+            mission_row["risk_grade"] == expected_mission.risk_grade,
+            mission_row["next_milestone"] == expected_mission.next_milestone,
+            bool(mission_row["pinned"]) is expected_mission.pinned,
+        )
+    )
+
+
+def _legacy_single_product_projection(
+    run_row: sqlite3.Row, mission_row: sqlite3.Row | None
+) -> tuple[SceneRun, BoardMission]:
+    timestamp = run_row["updated_at"]
+    run = SceneRun(
+        id=run_row["id"],
+        pack_id=run_row["pack_id"],
+        pack_slug=_SINGLE_PRODUCT_SLUG,
+        user_id=run_row["user_id"],
+        tenant_id=run_row["tenant_id"],
+        status="blocked",
+        verdict="LEGACY_UNVERIFIED",
+        verdict_text="历史结果缺少当前事实身份，已安全降级。",
+        confidence=None,
+        risk_grade="high",
+        opportunity_grade="low",
+        result_summary="该历史结果不能按当前合同核验；请人工核对后重新提交。",
+        missing_items=["当前事实身份与来源核验"],
+        next_actions=[
+            NextAction(
+                title="人工核对原始资料并重新提交",
+                owner_dept="工部",
+                priority="P0",
+                due_hint="今天",
+            )
+        ],
+        evidence_refs=[],
+        action_payload={
+            "demo": False,
+            "canProceed": False,
+            "blockedReason": "legacy_unverified",
+        },
+        created_at=run_row["created_at"],
+        updated_at=timestamp,
+    )
+    if mission_row is None:
+        mission = BoardMission(
+            id=f"legacy-{run_row['id']}",
+            run_id=run_row["id"],
+            pack_id=run_row["pack_id"],
+            pack_slug=_SINGLE_PRODUCT_SLUG,
+            pack_name=run_row["pack_name"],
+            title="历史任务记录缺失，等待人工核对",
+            owner="工部",
+            stage="blocked",
+            risk_grade="high",
+            next_milestone="人工核对原始资料并重新提交",
+            due_at="待人工安排",
+            pinned=False,
+            created_at=run_row["created_at"],
+            updated_at=timestamp,
+        )
+    else:
+        mission = _mission_from_row(mission_row).model_copy(
+            update={
+                "stage": "blocked",
+                "risk_grade": "high",
+                "next_milestone": "人工核对原始资料并重新提交",
+            }
+        )
+    return run, mission
+
+
 def list_scene_packs(*, db_path: Path | None = None) -> list[ScenePack]:
     with _connect(db_path) as connection:
         rows = connection.execute(
@@ -386,7 +712,7 @@ def get_scene_run(
     with _connect(db_path) as connection:
         row = connection.execute(
             """
-            SELECT scene_runs.*, scene_packs.slug AS pack_slug
+            SELECT scene_runs.*, scene_packs.slug AS pack_slug, scene_packs.name AS pack_name
             FROM scene_runs
             JOIN scene_packs ON scene_packs.id = scene_runs.pack_id
             WHERE scene_runs.id = ? AND scene_runs.user_id = ? AND scene_runs.tenant_id = ?
@@ -405,8 +731,36 @@ def get_scene_run(
             (run_id,),
         ).fetchone()
         if mission_row is None:
+            if row["pack_slug"] == _SINGLE_PRODUCT_SLUG:
+                return _legacy_single_product_projection(row, None)
             return None
-        return _run_from_row(row), _mission_from_row(mission_row)
+        if row["pack_slug"] != _SINGLE_PRODUCT_SLUG:
+            return _run_from_row(row), _mission_from_row(mission_row)
+        identity = connection.execute(
+            """
+            SELECT * FROM scene_run_request_identities
+            WHERE run_id = ? AND owner_user_id = ? AND tenant_id = ?
+            """,
+            (run_id, owner_user_id, tenant_id),
+        ).fetchone()
+        if (
+            not _identity_is_valid(
+                identity,
+                run_row=row,
+                mission_row=mission_row,
+                owner_user_id=owner_user_id,
+                tenant_id=tenant_id,
+            )
+            or not _single_product_public_projection_is_valid(
+                identity,
+                run_row=row,
+                mission_row=mission_row,
+                owner_user_id=owner_user_id,
+                tenant_id=tenant_id,
+            )
+        ):
+            return _legacy_single_product_projection(row, mission_row)
+        return _run_from_row(row, public_confidence=None), _mission_from_row(mission_row)
 
 
 def list_board_missions(
@@ -441,7 +795,67 @@ def list_board_missions(
             """,
             values,
         ).fetchall()
-        return [_mission_from_row(row) for row in rows]
+        target_run_ids = [row["run_id"] for row in rows if row["slug"] == _SINGLE_PRODUCT_SLUG]
+        run_rows: dict[str, sqlite3.Row] = {}
+        identities: dict[str, sqlite3.Row] = {}
+        if target_run_ids:
+            placeholders = ",".join("?" for _ in target_run_ids)
+            run_rows = {
+                item["id"]: item
+                for item in connection.execute(
+                    f"""
+                    SELECT scene_runs.*, scene_packs.slug AS pack_slug
+                    FROM scene_runs
+                    JOIN scene_packs ON scene_packs.id = scene_runs.pack_id
+                    WHERE scene_runs.id IN ({placeholders})
+                      AND scene_runs.user_id = ? AND scene_runs.tenant_id = ?
+                    """,
+                    [*target_run_ids, owner_user_id, tenant_id],
+                ).fetchall()
+            }
+            identities = {
+                item["run_id"]: item
+                for item in connection.execute(
+                    f"""
+                    SELECT * FROM scene_run_request_identities
+                    WHERE run_id IN ({placeholders})
+                      AND owner_user_id = ? AND tenant_id = ?
+                    """,
+                    [*target_run_ids, owner_user_id, tenant_id],
+                ).fetchall()
+            }
+        missions: list[BoardMission] = []
+        for row in rows:
+            mission = _mission_from_row(row)
+            if row["slug"] == _SINGLE_PRODUCT_SLUG:
+                run_row = run_rows.get(row["run_id"])
+                identity = identities.get(row["run_id"])
+                if (
+                    run_row is None
+                    or not _identity_is_valid(
+                        identity,
+                        run_row=run_row,
+                        mission_row=row,
+                        owner_user_id=owner_user_id,
+                        tenant_id=tenant_id,
+                    )
+                    or not _single_product_public_projection_is_valid(
+                        identity,
+                        run_row=run_row,
+                        mission_row=row,
+                        owner_user_id=owner_user_id,
+                        tenant_id=tenant_id,
+                    )
+                ):
+                    mission = mission.model_copy(
+                        update={
+                            "stage": "blocked",
+                            "risk_grade": "high",
+                            "next_milestone": "人工核对原始资料并重新提交",
+                        }
+                    )
+            missions.append(mission)
+        return missions
 
 
 def update_board_mission(
@@ -473,15 +887,60 @@ def update_board_mission(
     with _connect(db_path) as connection:
         exists = connection.execute(
             """
-            SELECT board_missions.id
+            SELECT board_missions.*, scene_packs.slug, scene_packs.name
             FROM board_missions
             JOIN scene_runs ON scene_runs.id = board_missions.run_id
+            JOIN scene_packs ON scene_packs.id = board_missions.pack_id
             WHERE board_missions.id = ? AND scene_runs.user_id = ? AND scene_runs.tenant_id = ?
             """,
             (mission_id, owner_user_id, tenant_id),
         ).fetchone()
         if exists is None:
             return None
+        if exists["slug"] == _SINGLE_PRODUCT_SLUG:
+            run_row = connection.execute(
+                """
+                SELECT scene_runs.*, scene_packs.slug AS pack_slug
+                FROM scene_runs
+                JOIN scene_packs ON scene_packs.id = scene_runs.pack_id
+                WHERE scene_runs.id = ? AND scene_runs.user_id = ?
+                  AND scene_runs.tenant_id = ?
+                """,
+                (exists["run_id"], owner_user_id, tenant_id),
+            ).fetchone()
+            identity = connection.execute(
+                """
+                SELECT * FROM scene_run_request_identities
+                WHERE run_id = ? AND owner_user_id = ? AND tenant_id = ?
+                """,
+                (exists["run_id"], owner_user_id, tenant_id),
+            ).fetchone()
+            if (
+                run_row is None
+                or not _identity_is_valid(
+                    identity,
+                    run_row=run_row,
+                    mission_row=exists,
+                    owner_user_id=owner_user_id,
+                    tenant_id=tenant_id,
+                )
+                or not _single_product_public_projection_is_valid(
+                    identity,
+                    run_row=run_row,
+                    mission_row=exists,
+                    owner_user_id=owner_user_id,
+                    tenant_id=tenant_id,
+                )
+            ):
+                return _mission_from_row(exists).model_copy(
+                    update={
+                        "stage": "blocked",
+                        "risk_grade": "high",
+                        "next_milestone": "人工核对原始资料并重新提交",
+                    }
+                )
+            if updates:
+                raise SceneMissionImmutableError("truth_mission_immutable")
         if updates:
             values.append(mission_id)
             connection.execute(
@@ -510,9 +969,16 @@ def create_scene_run(
     validate_response: Callable[[SceneRun, BoardMission], None] | None = None,
 ) -> tuple[SceneRun, BoardMission]:
     payload = SceneRunInput.model_validate(payload.model_dump())
+    if payload.request_key is None:
+        raise SceneUnavailableError("unavailable")
+    snapshot = _source_snapshot(payload)
+    snapshot_json = _canonical_json(snapshot)
+    input_digest = _server_input_digest(snapshot)
+    truth_contract = _truth_contract_for(payload.pack_slug)
     try:
         _dump_json(payload.model_dump())
         with _connect(db_path) as connection:
+            connection.execute("BEGIN IMMEDIATE")
             pack_row = connection.execute(
                 "SELECT * FROM scene_packs WHERE slug = ? AND enabled = 1",
                 (payload.pack_slug,),
@@ -520,6 +986,74 @@ def create_scene_run(
             if pack_row is None:
                 raise LookupError("scene pack not found")
             pack = _pack_from_row(pack_row)
+            identity = connection.execute(
+                """
+                SELECT * FROM scene_run_request_identities
+                WHERE tenant_id = ? AND owner_user_id = ?
+                  AND operation_scope = ? AND request_key = ?
+                """,
+                (tenant_id, owner_user_id, _SCENE_OPERATION, payload.request_key),
+            ).fetchone()
+            if identity is not None:
+                if any(
+                    (
+                        identity["pack_slug"] != payload.pack_slug,
+                        identity["canonicalization_version"] != _CANONICALIZATION_VERSION,
+                        identity["identity_schema_version"] != _IDENTITY_SCHEMA_VERSION,
+                        identity["truth_contract_version"] != truth_contract,
+                        identity["server_input_digest"] != input_digest,
+                    )
+                ):
+                    raise SceneIdempotencyConflictError("conflict")
+                run_row = connection.execute(
+                    """
+                    SELECT scene_runs.*, scene_packs.slug AS pack_slug
+                    FROM scene_runs
+                    JOIN scene_packs ON scene_packs.id = scene_runs.pack_id
+                    WHERE scene_runs.id = ? AND scene_runs.user_id = ?
+                      AND scene_runs.tenant_id = ?
+                    """,
+                    (identity["run_id"], owner_user_id, tenant_id),
+                ).fetchone()
+                mission_row = connection.execute(
+                    """
+                    SELECT board_missions.*, scene_packs.slug, scene_packs.name
+                    FROM board_missions
+                    JOIN scene_packs ON scene_packs.id = board_missions.pack_id
+                    WHERE board_missions.run_id = ?
+                    """,
+                    (identity["run_id"],),
+                ).fetchone()
+                if (
+                    run_row is None
+                    or mission_row is None
+                    or not _identity_is_valid(
+                        identity,
+                        run_row=run_row,
+                        mission_row=mission_row,
+                        owner_user_id=owner_user_id,
+                        tenant_id=tenant_id,
+                    )
+                ):
+                    raise SceneUnavailableError("unavailable")
+                if payload.pack_slug == _SINGLE_PRODUCT_SLUG:
+                    if not _single_product_public_projection_is_valid(
+                        identity,
+                        run_row=run_row,
+                        mission_row=mission_row,
+                        owner_user_id=owner_user_id,
+                        tenant_id=tenant_id,
+                    ):
+                        raise SceneUnavailableError("unavailable")
+                    run = _run_from_row(run_row, public_confidence=None)
+                else:
+                    run = _run_from_row(run_row)
+                mission = _mission_from_row(mission_row)
+                if validate_response is not None:
+                    validate_response(run, mission)
+                connection.commit()
+                return run, mission
+
             run = _build_scene_result(pack, payload, owner_user_id, tenant_id)
             run = SceneRun.model_validate(run.model_dump())
             mission = _build_mission(pack, run)
@@ -548,7 +1082,7 @@ def create_scene_run(
                     run.status,
                     run.verdict,
                     run.verdict_text,
-                    run.confidence,
+                    (_UNSCORED_SENTINEL if pack.slug == _SINGLE_PRODUCT_SLUG else run.confidence),
                     run.risk_grade,
                     run.opportunity_grade,
                     run.result_summary,
@@ -582,10 +1116,35 @@ def create_scene_run(
                     mission.updated_at,
                 ),
             )
+            connection.execute(
+                """
+                INSERT INTO scene_run_request_identities (
+                    tenant_id, owner_user_id, operation_scope, request_key,
+                    pack_slug, canonicalization_version, identity_schema_version,
+                    truth_contract_version, source_snapshot_json, server_input_digest,
+                    run_id, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    tenant_id,
+                    owner_user_id,
+                    _SCENE_OPERATION,
+                    payload.request_key,
+                    payload.pack_slug,
+                    _CANONICALIZATION_VERSION,
+                    _IDENTITY_SCHEMA_VERSION,
+                    truth_contract,
+                    snapshot_json,
+                    input_digest,
+                    run.id,
+                    run.created_at,
+                ),
+            )
             connection.commit()
             return run, mission
 
-    except LookupError:
+    except (LookupError, SceneIdempotencyConflictError, SceneUnavailableError):
         raise
     except (ValueError, TypeError, OverflowError, sqlite3.Error) as exc:
         raise SceneUnavailableError("unavailable") from exc
@@ -641,7 +1200,7 @@ def _base_result(
     status: str,
     verdict: str,
     verdict_text: str,
-    confidence: int,
+    confidence: int | None,
     risk_grade: str,
     opportunity_grade: str,
     result_summary: str,
@@ -722,80 +1281,93 @@ def _run_single_product(
     tenant_id: str,
 ) -> SceneRun:
     inputs = payload.inputs
-    missing_items = _missing(inputs, pack.required_inputs)
-    if missing_items:
-        return _blocked_result(pack, payload, owner_user_id, tenant_id, missing_items)
+    labels = {
+        "productName": "产品名称",
+        "productCategory": "产品类别",
+        "knownParameters": "已知参数",
+        "certifications": "已有认证",
+        "currentPriceOrCost": "当前报价或成本",
+        "monthlyCapacity": "月产能",
+        "deliveryCycle": "交付周期",
+        "plannedChannel": "计划渠道",
+    }
+    common_placeholders = {
+        "无",
+        "没有",
+        "未知",
+        "未提供",
+        "待提供",
+        "待补充",
+        "待确认",
+    }
+    placeholders = {
+        "knownParameters": common_placeholders | {"未经核验", "参数未知"},
+        "certifications": common_placeholders | {"无认证", "认证未知"},
+        "currentPriceOrCost": common_placeholders | {"未报价", "价格未知", "成本未知"},
+        "monthlyCapacity": common_placeholders | {"未知产能", "产能未知"},
+        "deliveryCycle": common_placeholders | {"未知交期", "交期未知"},
+        "plannedChannel": common_placeholders | {"渠道未知"},
+    }
 
-    target = _text(inputs, "targetMarket") or "目标国家待定"
-    channel = _text(inputs, "plannedChannel")
-    certification = _text(inputs, "certifications")
-    price = _text(inputs, "currentPriceOrCost")
-    capacity = _text(inputs, "monthlyCapacity")
-    product = _text(inputs, "productName")
-    category = _text(inputs, "productCategory")
-    markets = [target, "欧盟/英国（待法规核验）", "中东/东南亚渠道（待渠道证据）"]
-    risk = "medium" if target == "目标国家待定" else "low"
+    missing_items: list[str] = []
+    for field in pack.required_inputs:
+        value = inputs.get(field)
+        normalized = (
+            unicodedata.normalize("NFKC", value).strip().casefold()
+            if isinstance(value, str)
+            else ""
+        )
+        if not normalized or normalized in placeholders.get(field, common_placeholders):
+            missing_items.append(labels.get(field, field))
+
+    blocked = bool(missing_items)
+    verification_gaps = [
+        labels.get(field, field)
+        for field in pack.required_inputs
+        if isinstance(inputs.get(field), str) and inputs[field].strip()
+    ]
     return _base_result(
         pack,
         owner_user_id=owner_user_id,
         tenant_id=tenant_id,
-        status="completed",
-        verdict="CONDITIONAL_GO",
-        verdict_text=f"{product} 可以进入低成本出海验证，但先补目标国准入和渠道证据。",
-        confidence=68,
-        risk_grade=risk,
-        opportunity_grade="medium",
-        result_summary=(
-            f"{category} 已有参数、认证、价格/成本、产能和交付周期输入；"
-            "当前适合先做目标市场证据核验与小批量渠道验证，不宜直接放大投放。"
+        status="blocked" if blocked else "completed",
+        verdict="BLOCKED" if blocked else "PRECHECK_ONLY",
+        verdict_text=(
+            "资料缺失或使用明确占位值，预检已阻断。"
+            if blocked
+            else "资料预检完成，全部内容仍是用户申报；不构成业务放行。"
         ),
-        missing_items=[] if target != "目标国家待定" else ["targetMarket"],
+        confidence=None,
+        risk_grade="high" if blocked else "medium",
+        opportunity_grade="low",
+        result_summary=(
+            "仅完成资料完整性预检；认证、参数、价格、产能、交期和市场均未经独立核验。"
+            "本结果未评分，不是报价、准入、交付或销售放行。"
+        ),
+        missing_items=missing_items,
         next_actions=_actions(
             [
-                ("确认前三目标市场的认证/准入清单", "锦衣卫", "P0", "48小时内"),
-                ("把产品参数整理成客户可验收的技术表", "工部", "P0", "3天内"),
-                ("按样品/试单/批量拆出报价底线", "户部", "P1", "5天内"),
+                (
+                    "补齐缺失资料并保留来源原文" if blocked else "人工核对产品原文与参数出处",
+                    "工部",
+                    "P0",
+                    "今天",
+                ),
+                ("核验认证适用范围与目标市场准入", "锦衣卫", "P0", "48小时内"),
+                ("核对成本、产能和交期凭证", "户部", "P1", "3天内"),
             ]
         ),
         evidence_refs=[
-            _evidence("产品事实来自用户提交材料", "用户提交：产品资料字段", "user_claim", "medium"),
-            _evidence(
-                "市场排序需要锦衣卫后续核验", "flow_jinyiwei 待核验", "model_inference", "low"
-            ),
-            _evidence(
-                "价格风险进入户部报价结构推演",
-                "flow_quotation 组合入口",
-                "model_inference",
-                "medium",
-            ),
-            _evidence(
-                "行动计划由皓龙文档编排承接", "flow_haolong 组合入口", "model_inference", "medium"
-            ),
+            _evidence("用户申报字段，尚未独立核验", "Scene Pack 输入", "user_claim", "low")
         ],
         action_payload={
             "demo": payload.demo,
-            "canProceed": True,
-            "productReadiness": 72,
-            "recommendedMarkets": markets,
-            "largestBlocker": "目标国家准入、认证适用性和渠道证据尚未独立核验。",
-            "sevenDayPlan": [
-                "第1天：锁定目标市场与禁售/准入红线。",
-                "第2-3天：完成参数表、认证差距表和样品验证口径。",
-                "第4-5天：形成样品/试单报价边界。",
-                "第6-7天：准备渠道页卖点与客户问答卡。",
-            ],
-            "compositionSpine": [
-                "flow_product",
-                "flow_jinyiwei",
-                "flow_quotation",
-                "flow_haolong",
-            ],
-            "knownCommercialInputs": {
-                "priceOrCost": price,
-                "monthlyCapacity": capacity,
-                "channel": channel,
-                "certifications": certification,
-            },
+            "canProceed": False,
+            "truthContract": _MINGSHUO_TRUTH_CONTRACT,
+            "verificationGaps": verification_gaps,
+            "blockedReason": (
+                "missing_or_placeholder_inputs" if blocked else "verification_required"
+            ),
         },
     )
 
@@ -1352,6 +1924,8 @@ def _build_mission(pack: ScenePack, run: SceneRun) -> BoardMission:
         "blocked": "blocked",
         "failed": "blocked",
     }[run.status]
+    if pack.slug == _SINGLE_PRODUCT_SLUG and run.verdict == "PRECHECK_ONLY":
+        stage = "awaiting_input"
     title = _excerpt(_mission_title(pack, run), 180)
     next_milestone = run.next_actions[0].title if run.next_actions else "等待人工确认下一步"
     return BoardMission(

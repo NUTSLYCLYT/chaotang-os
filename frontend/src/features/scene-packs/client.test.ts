@@ -1,6 +1,18 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { fetchSceneMissions, fetchSceneRun, parseS4RuleAnalysis, runScenePack, s4CategoryText, s4FieldText, updateSceneMission } from "./client.ts";
+import {
+  fetchSceneMissions,
+  fetchSceneRun,
+  parseS4RuleAnalysis,
+  runScenePack,
+  scenePrincipalUnchanged,
+  sceneRequestFingerprint,
+  s4CategoryText,
+  s4FieldText,
+  updateSceneMission,
+} from "./client.ts";
+
+const requestKey = "123e4567-e89b-42d3-a456-426614174000";
 
 export const mission = (id = "mission-a") => ({
   missionId: id, runId: "run-" + id, packSlug: "contract-cashflow-risk",
@@ -135,13 +147,13 @@ test("S4 RED: closed rule metadata accepts only the ordered five-category contra
 test("S4 RED: POST completed requires valid metadata but GET retains a readable legacy result", async (t) => {
   const legacy = {...s4Completed(), details: {}};
   t.mock.method(globalThis, "fetch", async () => Response.json({sceneRun: legacy}));
-  await assert.rejects(() => runScenePack("proposal-quotation-tender", {projectName: "项目", customerRequirement: "需求"}, true));
+  await assert.rejects(() => runScenePack("proposal-quotation-tender", {projectName: "项目", customerRequirement: "需求"}, true, requestKey));
   t.mock.restoreAll();
   t.mock.method(globalThis, "fetch", async () => Response.json({sceneRun: legacy}));
   assert.equal((await fetchSceneRun(legacy.runId)).runId, legacy.runId);
   t.mock.restoreAll();
   t.mock.method(globalThis, "fetch", async () => Response.json({sceneRun: s4Completed()}));
-  assert.equal((await runScenePack("proposal-quotation-tender", {projectName: "项目", customerRequirement: "需求"}, true)).packSlug, "proposal-quotation-tender");
+  assert.equal((await runScenePack("proposal-quotation-tender", {projectName: "项目", customerRequirement: "需求"}, true, requestKey)).packSlug, "proposal-quotation-tender");
 });
 
 
@@ -150,7 +162,7 @@ test("S4 RED: POST preserves 401 and 422 for workspace recovery without a replay
     let calls = 0;
     t.mock.method(globalThis, "fetch", async () => { calls++; return new Response(null, {status}); });
     await assert.rejects(
-      () => runScenePack("proposal-quotation-tender", {projectName: "项目", customerRequirement: "需求"}),
+      () => runScenePack("proposal-quotation-tender", {projectName: "项目", customerRequirement: "需求"}, false, requestKey),
       (error: unknown) => error instanceof Error && "status" in error && error.status === status,
     );
     assert.equal(calls, 1);
@@ -176,13 +188,13 @@ test("POST rejects malformed success, mismatched slug/demo, and network failure 
   for (const sceneRun of [{}, {...s4Completed(), packSlug: "another-scene"}, {...s4Completed(), demo: false}, {...s4Completed(), nextActions: [{}]}]) {
     let calls = 0;
     t.mock.method(globalThis, "fetch", async () => { calls++; return Response.json({sceneRun}); });
-    await assert.rejects(() => runScenePack("proposal-quotation-tender", {}, true));
+    await assert.rejects(() => runScenePack("proposal-quotation-tender", {}, true, requestKey));
     assert.equal(calls, 1);
     t.mock.restoreAll();
   }
   let calls = 0;
   t.mock.method(globalThis, "fetch", async () => { calls++; throw new TypeError("network unavailable"); });
-  await assert.rejects(() => runScenePack("proposal-quotation-tender", {}, true));
+  await assert.rejects(() => runScenePack("proposal-quotation-tender", {}, true, requestKey));
   assert.equal(calls, 1);
 });
 
@@ -192,8 +204,88 @@ test("POST classifies error status without reading an untrusted error body", asy
     let reads = 0;
     t.mock.method(response, "json", async () => { reads++; throw new Error("body must not be read"); });
     t.mock.method(globalThis, "fetch", async () => response);
-    await assert.rejects(() => runScenePack("proposal-quotation-tender", {}), (e: unknown) => e instanceof Error && "status" in e && e.status === status);
+    await assert.rejects(() => runScenePack("proposal-quotation-tender", {}, false, requestKey), (e: unknown) => e instanceof Error && "status" in e && e.status === status);
     assert.equal(reads, 0);
     t.mock.restoreAll();
   }
+});
+
+test("truth request uses the existing JSON body and accepts unscored precheck", async (t) => {
+  let body: Record<string, unknown> | null = null;
+  t.mock.method(globalThis, "fetch", async (_url: string | URL | Request, init?: RequestInit) => {
+    body = JSON.parse(String(init?.body));
+    return Response.json({sceneRun: {
+      ...run(), packSlug: "single-product-export-diagnosis", status: "completed",
+      verdict: "PRECHECK_ONLY", confidence: null, riskGrade: "medium",
+      opportunityGrade: "low", canProceed: false, demo: false,
+      details: {demo: false, canProceed: false, truthContract: "mingshuo.scene.precheck.v1", verificationGaps: [], blockedReason: "verification_required"},
+      boardMission: {title: "补齐资料", stage: "awaiting_input", nextMilestone: "人工核验"},
+    }});
+  });
+  const result = await runScenePack("single-product-export-diagnosis", {productName: "test"}, false, requestKey);
+  assert.equal(result.confidence, null);
+  assert.deepEqual(body, {
+    packSlug: "single-product-export-diagnosis", inputs: {productName: "test"},
+    attachments: [], demo: false, requestKey,
+  });
+});
+
+test("truth request rejects every forged business-ready or commercial response", async (t) => {
+  const safe = {
+    ...run(), packSlug: "single-product-export-diagnosis", status: "completed",
+    verdict: "PRECHECK_ONLY", confidence: null, riskGrade: "medium",
+    opportunityGrade: "low", canProceed: false, demo: false,
+    details: {demo: false, canProceed: false, truthContract: "mingshuo.scene.precheck.v1", verificationGaps: [], blockedReason: "verification_required"},
+    boardMission: {title: "补齐资料", stage: "awaiting_input", nextMilestone: "人工核验"},
+  };
+  const unsafe = [
+    {...safe, verdict: "CONDITIONAL_GO"},
+    {...safe, canProceed: true},
+    {...safe, riskGrade: "low"},
+    {...safe, opportunityGrade: "high"},
+    {...safe, boardMission: {...safe.boardMission, stage: "done"}},
+    {...safe, recommendedReply: "立即成交"},
+    {...safe, leadScore: 99},
+    {...safe, details: {...safe.details, recommendedMarkets: ["DE"]}},
+    {...safe, details: {...safe.details, truthContract: undefined}},
+    {...safe, details: {...safe.details, verificationGaps: undefined}},
+    {...safe, details: {...safe.details, truthContract: "forged"}},
+  ];
+  for (const sceneRun of unsafe) {
+    t.mock.method(globalThis, "fetch", async () => Response.json({sceneRun}));
+    await assert.rejects(() => runScenePack(
+      "single-product-export-diagnosis", {productName: "test"}, false, requestKey,
+    ));
+    t.mock.restoreAll();
+  }
+});
+
+test("a scene response is accepted only while all principal observations stay identical", () => {
+  assert.equal(scenePrincipalUnchanged("user-a", "user-a", "user-a"), true);
+  assert.equal(scenePrincipalUnchanged("user-a", "user-b", "user-a"), false);
+  assert.equal(scenePrincipalUnchanged("user-a", "user-a", "user-b"), false);
+  assert.equal(scenePrincipalUnchanged("user-a", null, "user-a"), false);
+});
+
+test("409 is preserved as a non-replayable identity conflict", async (t) => {
+  t.mock.method(globalThis, "fetch", async () => new Response(null, {status: 409}));
+  await assert.rejects(
+    () => runScenePack("single-product-export-diagnosis", {}, false, requestKey),
+    (error: unknown) => error instanceof Error && "status" in error && error.status === 409,
+  );
+});
+
+test("client revision fingerprint is NFC-equivalent but not NFKC-equivalent", async () => {
+  const decomposed = await sceneRequestFingerprint(
+    "single-product-export-diagnosis", {productName: "Cafe\u0301 Pack"}, false,
+  );
+  const composed = await sceneRequestFingerprint(
+    "single-product-export-diagnosis", {productName: "Caf\u00e9 Pack"}, false,
+  );
+  const compatibilityChanged = await sceneRequestFingerprint(
+    "single-product-export-diagnosis", {productName: "Ｃaf\u00e9 Pack"}, false,
+  );
+  assert.equal(decomposed, composed);
+  assert.notEqual(composed, compatibilityChanged);
+  assert.match(composed, /^sha256:[0-9a-f]{64}$/);
 });

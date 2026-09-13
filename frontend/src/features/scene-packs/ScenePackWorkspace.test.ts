@@ -15,7 +15,25 @@ test("workspace navigation is guarded without changing the generation action", (
   const src=readFileSync(new URL("./ScenePackWorkspace.tsx",import.meta.url),"utf8");
   assert.match(src,/disabled=\{!taskPath\}/);assert.match(src,/if \(taskPath\) router.push\(taskPath\)/);
   assert.match(src,/查看这份结果的任务/);assert.doesNotMatch(src,/保存到军机处/);
-  assert.match(src,/runScenePack\(slug, normalizeSceneInputs\(values\), demo\)/);
+  assert.match(src,/runScenePack\(slug, normalizedInputs, demo, requestKey\)/);
+});
+
+test("truth workspace binds request identity, stale responses, pending retry and unscored UI", () => {
+  const src=readFileSync(new URL("./ScenePackWorkspace.tsx",import.meta.url),"utf8");
+  assert.match(src,/crypto\.randomUUID\(\)/);
+  assert.match(src,/sessionStorage/);
+  assert.match(src,/clientRevisionFingerprint/);
+  assert.match(src,/responseRevision !== revisionRef\.current/);
+  assert.match(src,/输入已变化，不能重放/);
+  assert.match(src,/未评分/);
+  assert.doesNotMatch(src,/\$\{result\.confidence\}%/);
+  assert.doesNotMatch(src,/Idempotency-Key/i);
+  assert.match(src,/addEventListener\("focus"/);
+  assert.match(src,/addEventListener\("visibilitychange"/);
+  assert.match(src,/document\.visibilityState === "visible"/);
+  assert.match(src,/responsePrincipalMarker/);
+  assert.match(src,/scenePrincipalUnchanged\(principalMarker, principalRef\.current, responsePrincipalMarker\)/);
+  assert.match(src,/身份已变化，旧响应已隐藏/);
 });
 
 
