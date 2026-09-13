@@ -1,0 +1,172 @@
+{
+  "schemaVersion": "product-authority.m0.approval.v1",
+  "authorityId": "product-authority.m0.v1",
+  "taskId": "MINGSHUO-SCENE-TRUTH-IDEMPOTENCY-V1-PRODUCT-SUCCESSOR-20260913",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "0ac8fe9083913839fbeba2aec8909baa964fd3c8",
+    "baseTree": "70b7ce20283b39dda27008fd5f5534037dfb515d",
+    "approvalPath": ".harness/approvals/MINGSHUO-SCENE-TRUTH-IDEMPOTENCY-V1-PRODUCT-SUCCESSOR-20260913.json",
+    "approvalCommitPaths": [
+      ".harness/approvals/MINGSHUO-SCENE-TRUTH-IDEMPOTENCY-V1-PRODUCT-SUCCESSOR-20260913.json",
+      "docs/product/tasks/2026-09-13-mingshuo-scene-truth-idempotency-v1-product-successor.md",
+      "docs/superpowers/plans/2026-09-13-mingshuo-scene-truth-idempotency-v1-product-successor.md"
+    ],
+    "productPaths": [
+      "backend/app/api/scene_packs.py",
+      "backend/app/scene_packs/models.py",
+      "backend/app/scene_packs/storage.py",
+      "backend/tests/test_scene_pack_api.py",
+      "backend/tests/test_scene_pack_truth.py",
+      "frontend/src/features/scene-packs/ScenePackWorkspace.test.ts",
+      "frontend/src/features/scene-packs/ScenePackWorkspace.tsx",
+      "frontend/src/features/scene-packs/client.test.ts",
+      "frontend/src/features/scene-packs/client.ts",
+      "frontend/src/features/scene-packs/types.ts"
+    ]
+  },
+  "nonGoals": [
+    "ACCOUNTING_ARTIFACT_STORAGE_SCHEMA_OR_REPORT_API_CHANGE",
+    "AUTOMATIC_EXTERNAL_PUBLICATION_PAYMENT_OR_PRODUCTION_DEPLOYMENT",
+    "DADIAN_HONGLUSI_SHIGUAN_OR_STUDY_UI_CHANGE",
+    "DOWNLOAD_CONFIRMATION_ARCHIVE_OR_VERSION_COMPARISON_IMPLEMENTATION",
+    "FACT_PACK_EVALUATOR_OR_MINGSHUO_DATABASE_CHANGE",
+    "IMA_MCP_EXTERNAL_MODEL_NETWORK_OR_REAL_CUSTOMER_DATA",
+    "NEW_BFF_ROUTE_AGENT_SWARM_TASK_LEDGER_OR_FACT_SOURCE",
+    "OTHER_SCENE_PACK_BUSINESS_SEMANTIC_CHANGE",
+    "PRODUCT_SCORE_MARKET_RECOMMENDATION_PRICE_OR_CERTIFICATION_APPROVAL",
+    "S4_RULE_ANALYSIS_CONTRACT_OR_KEYWORD_CHANGE"
+  ],
+  "verification": [
+    {
+      "id": "v01-scene-truth-focused",
+      "tool": "python3",
+      "args": ["-m", "pytest", "-q", "tests/test_scene_pack_truth.py", "tests/test_scene_pack_api.py"],
+      "cwd": "backend",
+      "timeoutMs": 240000
+    },
+    {
+      "id": "v02-scene-frontend-focused",
+      "tool": "node",
+      "args": ["--test", "src/features/scene-packs/ScenePackWorkspace.test.ts", "src/features/scene-packs/client.test.ts"],
+      "cwd": "frontend",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v03-backend-full",
+      "tool": "python3",
+      "args": ["-m", "pytest", "-q"],
+      "cwd": "backend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "v04-backend-ruff",
+      "tool": "python3",
+      "args": ["-m", "ruff", "check", "--no-cache", "app/api/scene_packs.py", "app/scene_packs/models.py", "app/scene_packs/storage.py", "tests/test_scene_pack_api.py", "tests/test_scene_pack_truth.py"],
+      "cwd": "backend",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v05-frontend-full-tests",
+      "tool": "npm",
+      "args": ["test"],
+      "cwd": "frontend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "v06-frontend-typecheck",
+      "tool": "npm",
+      "args": ["run", "typecheck"],
+      "cwd": "frontend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "v07-frontend-lint",
+      "tool": "npm",
+      "args": ["run", "lint"],
+      "cwd": "frontend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "v08-frontend-build",
+      "tool": "npm",
+      "args": ["run", "build"],
+      "cwd": "frontend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "v09-root-harness",
+      "tool": "node",
+      "args": ["scripts/check_harness.mjs"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v10-harness-self-test",
+      "tool": "node",
+      "args": ["scripts/check_harness.mjs", "--self-test"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v11-harness-doctor",
+      "tool": "node",
+      "args": ["scripts/harness-doctor.mjs", "--check"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v12-harness-doctor-tests",
+      "tool": "node",
+      "args": ["--test", "scripts/harness-doctor.test.mjs"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v13-hook-self-test",
+      "tool": "node",
+      "args": [".agents/hooks/check-harness.mjs", "--self-test"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v14-authority-regression",
+      "tool": "node",
+      "args": ["--input-type=module", "--eval", "import{spawnSync}from'node:child_process';const r=spawnSync(process.execPath,['--test','scripts/product-authority.test.mjs'],{stdio:'inherit',env:{...process.env,TMPDIR:'/tmp',TEMP:'/tmp',TMP:'/tmp'}});process.exit(r.status??1)"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v15-v2-check",
+      "tool": "node",
+      "args": ["scripts/ext-full-value-convergence.mjs", "--check"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v16-v2-tests",
+      "tool": "node",
+      "args": ["--test", "scripts/ext-full-value-convergence.test.mjs"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v17-diff-check",
+      "tool": "node",
+      "args": ["--input-type=module", "--eval", "import{execFileSync}from'node:child_process';execFileSync('/usr/bin/git',['diff','--check'],{stdio:'inherit',env:{PATH:'/usr/bin:/bin',GIT_CONFIG_NOSYSTEM:'1',GIT_CONFIG_GLOBAL:'/dev/null',GIT_NO_REPLACE_OBJECTS:'1',GIT_TERMINAL_PROMPT:'0'}})"],
+      "cwd": ".",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "v18-exact10-preimage",
+      "tool": "node",
+      "args": ["--input-type=module", "--eval", "import{execFileSync}from'node:child_process';const g=(a)=>execFileSync('/usr/bin/git',a,{encoding:'utf8',env:{PATH:'/usr/bin:/bin',GIT_CONFIG_NOSYSTEM:'1',GIT_CONFIG_GLOBAL:'/dev/null',GIT_NO_REPLACE_OBJECTS:'1',GIT_TERMINAL_PROMPT:'0'}}).trim();const frozenBase='0ac8fe9083913839fbeba2aec8909baa964fd3c8';const productBase=g(['rev-parse','HEAD^']);if(g(['rev-parse','HEAD^^'])!==frozenBase)throw Error('approval_parent_mismatch');const expected=[['M','backend/app/api/scene_packs.py'],['M','backend/app/scene_packs/models.py'],['M','backend/app/scene_packs/storage.py'],['M','backend/tests/test_scene_pack_api.py'],['A','backend/tests/test_scene_pack_truth.py'],['M','frontend/src/features/scene-packs/ScenePackWorkspace.test.ts'],['M','frontend/src/features/scene-packs/ScenePackWorkspace.tsx'],['M','frontend/src/features/scene-packs/client.test.ts'],['M','frontend/src/features/scene-packs/client.ts'],['M','frontend/src/features/scene-packs/types.ts']];const rows=g(['diff-tree','--no-commit-id','--name-status','--no-renames','-r',productBase,'HEAD']).split('\\n').filter(Boolean).map(x=>x.split('\\t'));if(JSON.stringify(rows)!==JSON.stringify(expected))throw Error('exact10_status_paths_mismatch:'+JSON.stringify(rows));for(const[,p]of expected){const line=g(['ls-tree','HEAD','--',p]);if(!line.startsWith('100644 blob ')||!line.endsWith('\\t'+p))throw Error('mode_or_type_mismatch:'+p)}"],
+      "cwd": ".",
+      "timeoutMs": 30000
+    }
+  ],
+  "state": "APPROVED_FOR_ONE_CHILD"
+}
