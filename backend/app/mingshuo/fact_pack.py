@@ -59,6 +59,30 @@ def _parse_wire(raw: bytes) -> Any:
     return value
 
 
+def parse_json_wire(raw: bytes) -> Any:
+    """Parse one bounded JSON body while rejecting duplicate object keys."""
+
+    return _parse_wire(raw)
+
+
+def canonical_fact_pack_bytes(pack: Any) -> bytes:
+    """Return the sole canonical full-pack representation used for persistence."""
+
+    return json.dumps(
+        pack,
+        ensure_ascii=False,
+        allow_nan=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+
+
+def fact_pack_digest(pack: Any) -> str:
+    """Bind a complete fact pack to its canonical UTF-8 bytes."""
+
+    return "sha256:" + hashlib.sha256(canonical_fact_pack_bytes(pack)).hexdigest()
+
+
 def _today(now: str | None) -> str | None:
     if not isinstance(now, str):
         return None

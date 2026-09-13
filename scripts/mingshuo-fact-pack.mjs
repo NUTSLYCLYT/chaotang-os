@@ -9,17 +9,43 @@ import { fileURLToPath } from "node:url";
 const ROOT = realpathSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."));
 const GIT = "/usr/bin/git";
 const PYTHON = "/usr/bin/python3.12";
-const TASK = "MINGSHUO-FACT-PACK-V1-PYTHON-CANONICAL-RUNTIME-LINEAGE-SUCCESSOR-20260913";
+const UNSHARE = "/usr/bin/unshare";
+const TASK = "MINGSHUO-FIRST-DELIVERY-PROJECT-FACT-PACK-V1-EXACT23-RUNNER-IDENTITY-CORRECTIVE-SUCCESSOR-20260913";
 const APPROVAL = `.harness/approvals/${TASK}.json`;
 const MANIFEST = "docs/contracts/mingshuo-project-fact-pack.source-provenance.v1.json";
 const SOURCES = Object.freeze(["backend/app/mingshuo/fact_pack.py", "docs/contracts/mingshuo-project-fact-pack.schema.json", "docs/contracts/mingshuo-project-fact-pack.v1.golden.json", "scripts/mingshuo-fact-pack.mjs"]);
-const PRODUCT_PATHS = Object.freeze(["backend/app/mingshuo/__init__.py", "backend/app/mingshuo/fact_pack.py", "backend/tests/test_mingshuo_fact_pack.py", MANIFEST, "docs/contracts/mingshuo-project-fact-pack.v1.golden.json", "docs/contracts/mingshuo-project-fact-pack.v1.md", "scripts/mingshuo-fact-pack.mjs", "scripts/mingshuo-fact-pack.test.mjs"]);
+const PRODUCT_PATHS = Object.freeze([
+  "backend/app/api/mingshuo.py",
+  "backend/app/main.py",
+  "backend/app/mingshuo/__init__.py",
+  "backend/app/mingshuo/fact_pack.py",
+  "backend/app/mingshuo/models.py",
+  "backend/app/mingshuo/service.py",
+  "backend/app/mingshuo/storage.py",
+  "backend/app/operations/runtime_data_registry.py",
+  "backend/app/operations/sqlite_backup.py",
+  "backend/tests/test_mingshuo_fact_pack.py",
+  "backend/tests/test_mingshuo_vertical.py",
+  "backend/tests/test_readiness.py",
+  "backend/tests/test_sqlite_backup.py",
+  "deploy/release-manifest.schema.json",
+  MANIFEST,
+  "scripts/build_offline_release.mjs",
+  "scripts/build_offline_release.test.mjs",
+  "scripts/mingshuo-fact-pack.mjs",
+  "scripts/mingshuo-fact-pack.test.mjs",
+  "scripts/run_rc1_release_acceptance.mjs",
+  "scripts/run_rc1_release_acceptance.test.mjs",
+  "scripts/verify_offline_release.mjs",
+  "scripts/verify_offline_release.test.mjs",
+]);
 const LIMITS = Object.freeze({ stdin: 1_048_576, stdout: 65_536, stderr: 16_384, timeoutMs: 5_000, killMs: 250 });
 const MAX_SOURCE_BYTES = 10 * 1024 * 1024;
 const GIT_GUARDS = Object.freeze(["-c", "core.filemode=true", "-c", "core.fsmonitor=false", "-c", "core.hooksPath=/dev/null", "-c", "core.pager=cat", "-c", "core.attributesfile=/dev/null"]);
 const PYTHON_RELAY = [
-  "import json,sys;", "take=lambda n:sys.stdin.buffer.read(n);", "item=lambda:take(int.from_bytes(take(8),'big'));",
+  "import json,os,sys;", "take=lambda n:sys.stdin.buffer.read(n);", "item=lambda:take(int.from_bytes(take(8),'big'));",
   "source=item();schema=item();raw=item();", "assert sys.stdin.buffer.read(1)==b'';",
+  "os.closerange(3,1048576);",
   "scope={'__file__':'backend/app/mingshuo/fact_pack.py','__name__':'mingshuo_verified_fact_pack'};",
   "exec(compile(source.decode('utf-8'),'backend/app/mingshuo/fact_pack.py','exec'),scope);",
   "scope['SCHEMA_BYTES']=schema;", "result=scope['evaluate_json_wire'](raw,now='2026-09-05T12:00:00Z');",
@@ -52,7 +78,7 @@ function openVerifiedTool(binary, version) {
     fd = openSync(binary, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
     const before = fstatSync(fd, { bigint: true });
     if (!before.isFile() || before.nlink !== 1n || before.uid !== 0n || before.gid !== 0n || (before.mode & 0o022n)) throw new Error();
-    const result = childProcess.spawnSync(`/proc/self/fd/${fd}`, ["--version"], { encoding: "utf8", timeout: 2_000, env: { PATH: "/usr/bin:/bin", LANG: "C.UTF-8", LC_ALL: "C.UTF-8" } });
+    const result = childProcess.spawnSync(`/proc/self/fd/${fd}`, ["--version"], { argv0: path.basename(binary), encoding: "utf8", timeout: 2_000, env: { PATH: "/usr/bin:/bin", LANG: "C.UTF-8", LC_ALL: "C.UTF-8" } });
     const after = fstatSync(fd, { bigint: true });
     if (after.dev !== before.dev || after.ino !== before.ino || after.ctimeNs !== before.ctimeNs || result.status !== 0 || result.stdout.trim() !== version) throw new Error();
     return fd;
@@ -101,6 +127,7 @@ export function verifyCandidateLineage() {
   } catch { return { ok: false, error: "LINEAGE_APPROVAL_INVALID" }; }
 }
 function verifyInterpreter() { return openVerifiedTool(PYTHON, "Python 3.12.3"); }
+function verifyUnshare() { return openVerifiedTool(UNSHARE, "unshare from util-linux 2.39.3"); }
 function verifiedSources() {
   const lineage = verifyCandidateLineage(); if (!lineage.ok) throw new Error(lineage.error);
   const manifestBytes = stableRead(MANIFEST);
@@ -108,14 +135,20 @@ function verifiedSources() {
   if (!manifestBlob || !manifestBytes.equals(manifestBlob)) throw new Error("SOURCE_IDENTITY_DRIFT");
   const manifest = strictJson(manifestBytes); if (!closed(manifest, ["schemaVersion", "sources"]) || manifest.schemaVersion !== "mingshuo.fact-pack.source-provenance.v1" || !Array.isArray(manifest.sources) || JSON.stringify(manifest.sources.map((x) => x?.path)) !== JSON.stringify(SOURCES)) throw new Error("SOURCE_IDENTITY_DRIFT");
   const records = new Map(); for (const record of manifest.sources) { if (!closed(record, ["bytes", "mode", "path", "rawSha256"]) || record.mode !== "100644" || !Number.isSafeInteger(record.bytes) || record.bytes < 1 || record.bytes > MAX_SOURCE_BYTES || !/^sha256:[0-9a-f]{64}$/.test(record.rawSha256)) throw new Error("SOURCE_IDENTITY_DRIFT"); const bytes = stableRead(record.path, record); const blob = gitRun(["show", `${lineage.candidate}:${record.path}`], { blob: true }); if (!blob || !bytes.equals(blob)) throw new Error("SOURCE_IDENTITY_DRIFT"); records.set(record.path, bytes); }
-  return { evaluator: records.get(SOURCES[0]), schema: records.get(SOURCES[1]), golden: records.get(SOURCES[2]), interpreterFd: verifyInterpreter() };
+  const interpreterFd = verifyInterpreter();
+  try {
+    return { evaluator: records.get(SOURCES[0]), schema: records.get(SOURCES[1]), golden: records.get(SOURCES[2]), interpreterFd, unshareFd: verifyUnshare() };
+  } catch (error) {
+    closeSync(interpreterFd);
+    throw error;
+  }
 }
 function frame(bytes) { const size = Buffer.alloc(8); size.writeBigUInt64BE(BigInt(bytes.length)); return Buffer.concat([size, bytes]); }
-export function runRelay({ interpreterFd, payload, spawn = childProcess.spawn, kill = process.kill, limits = LIMITS }) {
+export function runRelay({ interpreterFd, unshareFd, payload, spawn = childProcess.spawn, kill = process.kill, limits = LIMITS }) {
   return new Promise((resolve) => {
     let child;
-    try { child = spawn(`/proc/self/fd/${interpreterFd}`, ["-I", "-c", PYTHON_RELAY], { cwd: path.join(ROOT, "backend"), shell: false, detached: true, env: { PATH: "/usr/bin:/bin", LANG: "C.UTF-8", LC_ALL: "C.UTF-8", PYTHONDONTWRITEBYTECODE: "1", PYTHONNOUSERSITE: "1", PYTHONSAFEPATH: "1" }, stdio: ["pipe", "pipe", "pipe"] }); } catch { closeSync(interpreterFd); resolve(stop("RELAY_SPAWN_FAILED")); return; }
-    closeSync(interpreterFd); let out = Buffer.alloc(0); let err = Buffer.alloc(0); let pending; let killTimer; let done = false;
+    try { child = spawn(`/proc/self/fd/${unshareFd}`, ["--user", "--map-root-user", "--net", "--", "/proc/self/fd/3", "-I", "-c", PYTHON_RELAY], { cwd: path.join(ROOT, "backend"), shell: false, detached: true, env: { PATH: "/usr/bin:/bin", LANG: "C.UTF-8", LC_ALL: "C.UTF-8", PYTHONDONTWRITEBYTECODE: "1", PYTHONNOUSERSITE: "1", PYTHONSAFEPATH: "1" }, stdio: ["pipe", "pipe", "pipe", interpreterFd] }); } catch { closeSync(interpreterFd); closeSync(unshareFd); resolve(stop("RELAY_SPAWN_FAILED")); return; }
+    closeSync(interpreterFd); closeSync(unshareFd); let out = Buffer.alloc(0); let err = Buffer.alloc(0); let pending; let killTimer; let done = false;
     const finish = (value) => { if (!done) { done = true; clearTimeout(timer); clearTimeout(killTimer); child.stdin.destroy(); child.stdout.destroy(); child.stderr.destroy(); resolve(value); } };
     const stopChild = (value) => { if (pending || done) return; pending = value; try { kill(-child.pid, "SIGTERM"); } catch {} killTimer = setTimeout(() => { try { kill(-child.pid, "SIGKILL"); } catch {} }, limits.killMs); killTimer.unref(); };
     const timer = setTimeout(() => stopChild(stop("RELAY_TIMEOUT")), limits.timeoutMs); timer.unref();
@@ -130,9 +163,9 @@ export function runRelay({ interpreterFd, payload, spawn = childProcess.spawn, k
 export async function evaluateWire(raw) {
   if (!Buffer.isBuffer(raw) || raw.length > LIMITS.stdin) return stop("INPUT_BYTES_LIMIT");
   let verified; try { verified = verifiedSources(); } catch (error) { return stop(error.message === "LINEAGE_UNCOMMITTED_CANDIDATE" ? error.message : "SOURCE_IDENTITY_DRIFT"); }
-  return runRelay({ interpreterFd: verified.interpreterFd, payload: Buffer.concat([frame(verified.evaluator), frame(verified.schema), frame(raw)]) });
+  return runRelay({ interpreterFd: verified.interpreterFd, unshareFd: verified.unshareFd, payload: Buffer.concat([frame(verified.evaluator), frame(verified.schema), frame(raw)]) });
 }
-function fixture() { const golden = strictJson(stableRead("docs/contracts/mingshuo-project-fact-pack.v1.golden.json")); const item = golden.entries?.find((x) => x?.id === "synthetic-valid"); return item?.wire && item.expectedDecision === "PASS" ? Buffer.from(JSON.stringify(item.wire)) : null; }
+function fixture(goldenBytes) { const golden = strictJson(goldenBytes); const item = golden.entries?.find((x) => x?.id === "synthetic-valid"); return item?.wire && item.expectedDecision === "PASS" ? Buffer.from(JSON.stringify(item.wire)) : null; }
 function stdinBounded() { return new Promise((resolve) => { const chunks = []; let size = 0; let settled = false; const finish = (value) => { if (!settled) { settled = true; resolve(value); } }; process.stdin.on("data", (chunk) => { if (size + chunk.length > LIMITS.stdin) { process.stdin.pause(); process.stdin.destroy(); finish(null); return; } size += chunk.length; chunks.push(chunk); }); process.stdin.on("end", () => finish(Buffer.concat(chunks, size))); process.stdin.on("error", () => finish(null)); }); }
-async function main() { const [arg] = process.argv.slice(2); if ((arg !== "--check" && arg !== "--evaluate-wire") || process.argv.length !== 3) { process.exitCode = 2; return; } if (arg === "--check") { const lineage = verifyCandidateLineage(); if (!lineage.ok) { process.stdout.write(`${JSON.stringify(stop(lineage.error))}\n`); return; } } const raw = arg === "--check" ? fixture() : await stdinBounded(); process.stdout.write(`${JSON.stringify(raw ? await evaluateWire(raw) : stop("INPUT_BYTES_LIMIT"))}\n`); }
+async function main() { const [arg] = process.argv.slice(2); if ((arg !== "--check" && arg !== "--evaluate-wire") || process.argv.length !== 3) { process.exitCode = 2; return; } if (arg === "--check") { let verified; try { verified = verifiedSources(); } catch (error) { process.stdout.write(`${JSON.stringify(stop(error.message?.startsWith("LINEAGE_") ? error.message : "SOURCE_IDENTITY_DRIFT"))}\n`); return; } const raw = fixture(verified.golden); if (!raw) { closeSync(verified.interpreterFd); closeSync(verified.unshareFd); process.stdout.write(`${JSON.stringify(stop("SOURCE_IDENTITY_DRIFT"))}\n`); return; } const payload = Buffer.concat([frame(verified.evaluator), frame(verified.schema), frame(raw)]); process.stdout.write(`${JSON.stringify(await runRelay({ interpreterFd: verified.interpreterFd, unshareFd: verified.unshareFd, payload }))}\n`); return; } const raw = await stdinBounded(); process.stdout.write(`${JSON.stringify(raw ? await evaluateWire(raw) : stop("INPUT_BYTES_LIMIT"))}\n`); }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main().catch(() => { process.stdout.write(`${JSON.stringify(stop("RELAY_EXECUTION_FAILED"))}\n`); });

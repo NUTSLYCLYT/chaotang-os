@@ -554,10 +554,11 @@ def test_shiguan_semantic_validator_rejects_missing_invalid_or_duplicate_state(
         assert validate_registered_schema_connection(connection, entry) is False
 
 
-def test_runtime_data_registry_is_closed_and_includes_all_seven_stores() -> None:
+def test_runtime_data_registry_is_closed_and_includes_all_eight_stores() -> None:
     assert tuple(entry.name for entry in RUNTIME_DATA_ENTRIES) == (
         "decree_jobs.sqlite3",
         "jinyiwei.sqlite3",
+        "mingshuo.sqlite3",
         "junjichu_cases.sqlite3",
         "qintianjian.sqlite3",
         "report_artifacts.sqlite3",

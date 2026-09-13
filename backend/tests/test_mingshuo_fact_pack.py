@@ -2,9 +2,17 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 
-from app.mingshuo.fact_pack import evaluate_json_wire, evaluate_pack
+import pytest
+
+from app.mingshuo.fact_pack import (
+    canonical_fact_pack_bytes,
+    evaluate_json_wire,
+    evaluate_pack,
+    fact_pack_digest,
+)
 
 
 def valid_pack() -> dict:
@@ -205,3 +213,26 @@ def test_result_is_redacted_and_deterministic() -> None:
     second = evaluate_json_wire(json.dumps(pack).encode(), now="2026-09-05T12:00:00Z")
     assert first == second
     assert "Synthetic" not in json.dumps(first)
+
+
+def test_full_pack_canonical_bytes_and_digest_are_single_deterministic_identity() -> None:
+    pack = valid_pack()
+    reordered = {key: pack[key] for key in reversed(pack)}
+    expected = json.dumps(
+        pack,
+        ensure_ascii=False,
+        allow_nan=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+
+    assert canonical_fact_pack_bytes(pack) == expected
+    assert canonical_fact_pack_bytes(reordered) == expected
+    assert fact_pack_digest(pack) == "sha256:" + hashlib.sha256(expected).hexdigest()
+
+
+def test_full_pack_canonical_identity_rejects_non_json_numbers() -> None:
+    pack = valid_pack()
+    pack["facts"][0]["value"] = float("nan")
+    with pytest.raises(ValueError):
+        canonical_fact_pack_bytes(pack)

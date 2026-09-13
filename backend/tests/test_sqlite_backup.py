@@ -22,6 +22,7 @@ from app.agents.runtime_skills.execution_ledger import RuntimeBindingLedger
 from app.decree_jobs.storage import DecreeJobStore
 from app.jinyiwei import db as jinyiwei_db
 from app.junjichu_cases import storage as junjichu_storage
+from app.mingshuo import storage as mingshuo_storage
 from app.operations.runtime_data_registry import (
     RUNTIME_DATA_ENTRIES,
     schema_contract_digest_connection,
@@ -192,6 +193,7 @@ def _create_runtime(root: Path, *, with_artifact: bool = True) -> Path:
     root.mkdir()
     DecreeJobStore(root / "decree_jobs.sqlite3")
     jinyiwei_db.initialize_database(root / "jinyiwei.sqlite3")
+    mingshuo_storage.initialize_database(root / "mingshuo.sqlite3")
     junjichu_connection = junjichu_storage._connect(root / "junjichu_cases.sqlite3")
     junjichu_connection.close()
     previous_qintianjian_path = qintianjian_storage._DEFAULT_DB_PATH
@@ -1220,7 +1222,7 @@ def test_backup_manifest_is_closed_and_deterministically_ordered(tmp_path: Path)
     assert [entry["name"] for entry in manifest["databases"]] == [
         entry.name for entry in DATABASE_REGISTRY
     ]
-    assert len(manifest["databases"]) == 7
+    assert len(manifest["databases"]) == 8
     assert all(entry["presence"] == "PRESENT" for entry in manifest["databases"])
 
 

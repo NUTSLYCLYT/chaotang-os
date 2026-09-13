@@ -31,6 +31,7 @@ from app.api.decrees import router as decrees_router
 from app.api.jinyiwei import register_jinyiwei_exception_handlers
 from app.api.jinyiwei import router as jinyiwei_router
 from app.api.junjichu_cases import router as junjichu_cases_router
+from app.api.mingshuo import router as mingshuo_router
 from app.api.qintianjian import register_qintianjian_exception_handlers
 from app.api.qintianjian import router as qintianjian_router
 from app.api.report_artifacts import router as report_artifacts_router
@@ -139,3 +140,5 @@ app.include_router(auth_router)
 register_auth_exception_handlers(app)
 
 app.include_router(scene_packs_router)
+
+app.include_router(mingshuo_router)

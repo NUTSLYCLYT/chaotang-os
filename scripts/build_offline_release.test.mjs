@@ -151,7 +151,7 @@ function descriptor(artifacts, gitIdentity) {
   return {
     schemaVersion: "chaotang-release-input.v2",
     platform: "linux/amd64",
-    runtimeRegistryDigest: "sha256:014a4d2e5467b70cb2e12b7ab2954771040dc0f6c9f170ae20cf5759d9dcaf52",
+    runtimeRegistryDigest: "sha256:d65cfd339ef9ed352760c25f5291e914ec0bc31d190a45baa9068bd1fc57732e",
     source: { commit, tree, sourceDateEpoch: 1_787_000_000 },
     tools: {
       docker: "29.6.1", buildx: "0.35.0", buildkit: "0.31.1", node: "24.19.0",
@@ -486,7 +486,7 @@ test("governed POST entry re-verifies the bundle and binds the exact PRE receipt
     approvalDigest,
     p09ContractDigest: "sha256:27728301f51c7fe7bd929d99b45de86c76807b4c9c5eba22e7e42b0e18e8acc5",
     p09VerifierDigest: "sha256:f001d50ef4c03bb16aaf51f91531b78651121147cb2ee9e78af9a8a24f8f1e99",
-    runtimeRegistryDigest: "sha256:014a4d2e5467b70cb2e12b7ab2954771040dc0f6c9f170ae20cf5759d9dcaf52",
+    runtimeRegistryDigest: "sha256:d65cfd339ef9ed352760c25f5291e914ec0bc31d190a45baa9068bd1fc57732e",
     releaseManifestDigest: manifestDigest,
     previousReleaseId: null,
     previousBundleDigest: null,

@@ -23,7 +23,7 @@
       "const": "linux/amd64"
     },
     "runtimeRegistryDigest": {
-      "const": "sha256:014a4d2e5467b70cb2e12b7ab2954771040dc0f6c9f170ae20cf5759d9dcaf52"
+      "const": "sha256:d65cfd339ef9ed352760c25f5291e914ec0bc31d190a45baa9068bd1fc57732e"
     },
     "source": {
       "$ref": "#/$defs/source"
