@@ -1,0 +1,171 @@
+{
+  "schemaVersion": "product-authority.m0.approval.v1",
+  "authorityId": "product-authority.m0.v1",
+  "taskId": "MINGSHUO-FIRST-DELIVERY-WORK-PRODUCT-V1-EXACT20-REPLAY-READINESS-LINEAGE-SUCCESSOR-20260914",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "67ce78f164c4b29987ff89ff8a86a437a7a6c96d",
+    "baseTree": "d4ad99650e6c3ed86d11bb0a4bcacdcb34111c1a",
+    "approvalPath": ".harness/approvals/MINGSHUO-FIRST-DELIVERY-WORK-PRODUCT-V1-EXACT20-REPLAY-READINESS-LINEAGE-SUCCESSOR-20260914.json",
+    "approvalCommitPaths": [
+      ".harness/approvals/MINGSHUO-FIRST-DELIVERY-WORK-PRODUCT-V1-EXACT20-REPLAY-READINESS-LINEAGE-SUCCESSOR-20260914.json",
+      "docs/product/tasks/2026-09-14-mingshuo-first-delivery-work-product-v1-exact20-replay-readiness-lineage-successor.md",
+      "docs/superpowers/plans/2026-09-14-mingshuo-first-delivery-work-product-v1-exact20-replay-readiness-lineage-successor.md"
+    ],
+    "productPaths": [
+      "backend/app/accounting_reports/storage.py",
+      "backend/app/api/mingshuo.py",
+      "backend/app/mingshuo/delivery.py",
+      "backend/app/mingshuo/models.py",
+      "backend/app/mingshuo/service.py",
+      "backend/app/mingshuo/storage.py",
+      "backend/app/operations/runtime_data_registry.py",
+      "backend/app/operations/sqlite_backup.py",
+      "backend/tests/test_accounting_work_product_storage.py",
+      "backend/tests/test_mingshuo_delivery.py",
+      "backend/tests/test_mingshuo_vertical.py",
+      "backend/tests/test_readiness.py",
+      "backend/tests/test_sqlite_backup.py",
+      "deploy/release-manifest.schema.json",
+      "scripts/build_offline_release.mjs",
+      "scripts/build_offline_release.test.mjs",
+      "scripts/run_rc1_release_acceptance.mjs",
+      "scripts/run_rc1_release_acceptance.test.mjs",
+      "scripts/verify_offline_release.mjs",
+      "scripts/verify_offline_release.test.mjs"
+    ]
+  },
+  "nonGoals": [
+    "ACCOUNTING_LEDGER_OR_ACCOUNTING_REPORT_SEMANTICS_CHANGE",
+    "ARTIFACT_STORAGE_SCHEMA_OR_LIFECYCLE_STATE_CHANGE",
+    "AUTOMATIC_PRICE_CERTIFICATION_OR_COMMERCIAL_APPROVAL",
+    "DOWNLOAD_PUBLICATION_OR_SHIGUAN_ARCHIVE_IMPLEMENTATION",
+    "EXTERNAL_MODEL_IMA_MCP_NETWORK_OR_REAL_CUSTOMER_DATA",
+    "EXTERNAL_PUBLICATION_PAYMENT_PILOT_RELEASE_OR_DEPLOYMENT",
+    "FRONTEND_BFF_SCENE_BOARD_OR_OTHER_UI_CHANGE",
+    "MINGSHUO_FACT_PACK_EVALUATOR_OR_SOURCE_POLICY_CHANGE",
+    "MULTI_PROCESS_REPLAY_SERIALIZATION_OR_DISTRIBUTED_LOCKING",
+    "NEW_AGENT_SWARM_TRUTH_SOURCE_OR_PARALLEL_TASK_LEDGER",
+    "READINESS_VALIDATOR_OR_COMPATIBILITY_POLICY_CHANGE",
+    "REPORT_ARTIFACT_CONFIRMATION_STATE_MACHINE_CHANGE",
+    "SCENE_RUN_MISSION_OR_OTHER_SCENE_PACK_CHANGE"
+  ],
+  "verification": [
+    {
+      "id": "v01-mingshuo-delivery-focused",
+      "tool": "python3",
+      "args": ["-m", "pytest", "-q", "tests/test_mingshuo_delivery.py", "tests/test_mingshuo_vertical.py", "tests/test_accounting_work_product_storage.py", "tests/test_report_artifacts_api.py", "tests/test_readiness.py", "tests/test_sqlite_backup.py"],
+      "cwd": "backend",
+      "timeoutMs": 240000
+    },
+    {
+      "id": "v02-backend-full-posix-temp",
+      "tool": "node",
+      "args": ["--input-type=module", "--eval", "import{spawnSync}from'node:child_process';const r=spawnSync('python3',['-m','pytest','-q'],{stdio:'inherit',env:{...process.env,TMPDIR:'/tmp',TEMP:'/tmp',TMP:'/tmp'}});process.exit(r.status??1)"],
+      "cwd": "backend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "v03-backend-ruff",
+      "tool": "python3",
+      "args": ["-m", "ruff", "check", "--no-cache", "app/accounting_reports/storage.py", "app/api/mingshuo.py", "app/mingshuo/delivery.py", "app/mingshuo/models.py", "app/mingshuo/service.py", "app/mingshuo/storage.py", "app/operations/runtime_data_registry.py", "app/operations/sqlite_backup.py", "tests/test_accounting_work_product_storage.py", "tests/test_mingshuo_delivery.py", "tests/test_mingshuo_vertical.py", "tests/test_readiness.py", "tests/test_sqlite_backup.py"],
+      "cwd": "backend",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v04-root-harness",
+      "tool": "node",
+      "args": ["scripts/check_harness.mjs"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v05-harness-self-test",
+      "tool": "node",
+      "args": ["scripts/check_harness.mjs", "--self-test"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v06-harness-doctor",
+      "tool": "node",
+      "args": ["scripts/harness-doctor.mjs", "--check"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v07-harness-doctor-tests",
+      "tool": "node",
+      "args": ["--test", "scripts/harness-doctor.test.mjs"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v08-hook-self-test",
+      "tool": "node",
+      "args": [".agents/hooks/check-harness.mjs", "--self-test"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v09-authority-regression-posix-temp",
+      "tool": "node",
+      "args": ["--input-type=module", "--eval", "import{spawnSync}from'node:child_process';const r=spawnSync(process.execPath,['--test','scripts/product-authority.test.mjs'],{stdio:'inherit',env:{...process.env,TMPDIR:'/tmp',TEMP:'/tmp',TMP:'/tmp'}});process.exit(r.status??1)"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v10-v2-check",
+      "tool": "node",
+      "args": ["scripts/ext-full-value-convergence.mjs", "--check"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v11-v2-tests",
+      "tool": "node",
+      "args": ["--test", "scripts/ext-full-value-convergence.test.mjs"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v12-offline-release-build-tests",
+      "tool": "node",
+      "args": ["--test", "scripts/build_offline_release.test.mjs"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v13-offline-release-verifier-tests",
+      "tool": "node",
+      "args": ["--test", "scripts/verify_offline_release.test.mjs"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v14-rc1-release-acceptance-tests",
+      "tool": "node",
+      "args": ["--test", "scripts/run_rc1_release_acceptance.test.mjs"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v15-diff-check",
+      "tool": "node",
+      "args": ["--input-type=module", "--eval", "import{execFileSync}from'node:child_process';execFileSync('/usr/bin/git',['diff','--check'],{stdio:'inherit',env:{PATH:'/usr/bin:/bin',GIT_CONFIG_NOSYSTEM:'1',GIT_CONFIG_GLOBAL:'/dev/null',GIT_NO_REPLACE_OBJECTS:'1',GIT_TERMINAL_PROMPT:'0'}})"],
+      "cwd": ".",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "v16-exact20-frozen-donor-preimage",
+      "tool": "node",
+      "args": ["--input-type=module", "--eval", "import{execFileSync}from'node:child_process';const g=(a)=>execFileSync('/usr/bin/git',a,{encoding:'utf8',env:{PATH:'/usr/bin:/bin',GIT_CONFIG_NOSYSTEM:'1',GIT_CONFIG_GLOBAL:'/dev/null',GIT_NO_REPLACE_OBJECTS:'1',GIT_TERMINAL_PROMPT:'0'}}).trim();const approval=g(['rev-parse','HEAD^']);const base='67ce78f164c4b29987ff89ff8a86a437a7a6c96d';if(g(['rev-parse','HEAD^^'])!==base)throw Error('approval_parent_mismatch');const expected=[['M','backend/app/accounting_reports/storage.py'],['M','backend/app/api/mingshuo.py'],['A','backend/app/mingshuo/delivery.py'],['M','backend/app/mingshuo/models.py'],['M','backend/app/mingshuo/service.py'],['M','backend/app/mingshuo/storage.py'],['M','backend/app/operations/runtime_data_registry.py'],['M','backend/app/operations/sqlite_backup.py'],['M','backend/tests/test_accounting_work_product_storage.py'],['A','backend/tests/test_mingshuo_delivery.py'],['M','backend/tests/test_mingshuo_vertical.py'],['M','backend/tests/test_readiness.py'],['M','backend/tests/test_sqlite_backup.py'],['M','deploy/release-manifest.schema.json'],['M','scripts/build_offline_release.mjs'],['M','scripts/build_offline_release.test.mjs'],['M','scripts/run_rc1_release_acceptance.mjs'],['M','scripts/run_rc1_release_acceptance.test.mjs'],['M','scripts/verify_offline_release.mjs'],['M','scripts/verify_offline_release.test.mjs']];const rows=g(['diff-tree','--no-commit-id','--name-status','--no-renames','-r',approval,'HEAD']).split('\\n').filter(Boolean).map(x=>x.split('\\t'));if(JSON.stringify(rows)!==JSON.stringify(expected))throw Error('exact20_status_paths_mismatch:'+JSON.stringify(rows));const frozen=new Map([['backend/app/accounting_reports/storage.py','431bf1c6a9ef574f5ea03dc8c8a598b4abe7ae00'],['backend/app/api/mingshuo.py','602e38a7bed237963fd36270b2939f3e50fd9003'],['backend/app/mingshuo/delivery.py','56c9e70c12a8ce65de802151b0dcb2ace7db7653'],['backend/app/mingshuo/models.py','20fa34adc470809de3f496d39ede5c8de50f8897'],['backend/app/mingshuo/service.py','bc2589c603fee99b0de322e0cc32e283217530b0'],['backend/app/mingshuo/storage.py','44f515cf5df4f696148c61dae9c17d602cd28fec'],['backend/app/operations/runtime_data_registry.py','2d66b9926849fa069d853d0b2c33fedf24f3c45c'],['backend/app/operations/sqlite_backup.py','0f0305aa1dbd76d15beb58639b1f8129f055fc73'],['backend/tests/test_accounting_work_product_storage.py','6c4ab610418542047557f57bf68d7d557e6d6e6e'],['backend/tests/test_mingshuo_delivery.py','51dce4d1eef4da15b7a5af5dff82044022a92f73'],['backend/tests/test_mingshuo_vertical.py','e85f32ef78c41ca5cfe674e54950c998bff6ad5d'],['backend/tests/test_readiness.py','70c2e9a4eb8eec3daf475985d5a3f9ea4ce2ad8e'],['backend/tests/test_sqlite_backup.py','cb757f81eb044569caab8f779ee17c3d51b9e103'],['deploy/release-manifest.schema.json','a35e555f24432747168699523fe62eba43de8862'],['scripts/build_offline_release.mjs','a302225bffe375615720fd3ded90ca697417d6d7'],['scripts/build_offline_release.test.mjs','baa71f6762296c46cd1e52341f1ab5a61d1e4a51'],['scripts/run_rc1_release_acceptance.mjs','bfa9072e9ebab034c9b2c9c9cd67a16551308b79'],['scripts/run_rc1_release_acceptance.test.mjs','63ebf3cc5e5f401cea0f60ff8399f01e51a5053e'],['scripts/verify_offline_release.mjs','94143cd1396f099f4722b2de5fd2f4ebde48d5f9'],['scripts/verify_offline_release.test.mjs','a63418dcc365c5bb714860251b64d8300cd46972']]);for(const[p,b]of frozen){const line=g(['ls-tree','HEAD','--',p]);if(!line.startsWith('100644 blob ')||!line.endsWith('\\t'+p))throw Error('mode_or_type_mismatch:'+p);if(g(['rev-parse','HEAD:'+p])!==b)throw Error('frozen_donor_blob_mismatch:'+p)}"],
+      "cwd": ".",
+      "timeoutMs": 30000
+    }
+  ],
+  "state": "APPROVED_FOR_ONE_CHILD"
+}
