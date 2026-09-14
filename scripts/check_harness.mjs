@@ -389,7 +389,7 @@ const SIX_MINISTRY_RUNTIME_CONTENT_EXCLUSIONS = Object.freeze([
   "scripts/check_harness.mjs",
 ]);
 const SIX_MINISTRY_SUCCESSOR_CONTENT_PATHS = ["backend/app/accounting_reports/storage.py","backend/tests/test_six_ministry_accounting_evidence_adapter.py"];
-const SIX_MINISTRY_CONTENT_FINGERPRINT_PAIRS = [["sha256:013bfb8272e936be85c2d470033787c3b7f105ad6eae2dfe680373df023b5e69","sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"],["sha256:c95630be3d79f2641ff6e483f4096b0763b9e5071544f1e0ead0d7e24eb1cba5","sha256:268cab13e516d0f716f600819f2bddc8242269312d392eca4ed1be2de05ce051"],["sha256:d330b7f177f5bbb761eb359ffffca6f12250e5bbe90d13d0414d0fdefb78e98a","sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"],["sha256:da31e8098bf76c72ff8d00b073d86e3442b0811223ef3e3bab770af31e89c28e","sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"],["sha256:a6d109de75e877620a89241a4dcabcc716e1a5a1a18a024c9a3cb73e578de80c","sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"],["sha256:cc42339eaa423d71307ef96ff713ec095a89ba2cc4d4f6630ee1b40dec94d34d","sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"],["sha256:eb0d8d214c2dc51ca4eb37ce5a13423e424fd6fdd3b6b8c3dac6a5f5757bd2df","sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"],["sha256:82885fc13cec86318e4436fccfd80c78d7880e4aa25cdb530d0f4d18c9c73fe3","sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"],["sha256:598dd8e735ce98b2d8a5307c3fa8b866d8fe72521c92b0c6ea4ba360d7bc9f79","sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"],["sha256:32ecf613778ddc625567b08ec4526efbf22c0cd29a8c94fc3b9bacbe4e0dd05e","sha256:9d10d2bed258e632c909719f05df50c6b33530d9f40be2458a38dd063fcde3c5"],["sha256:32ecf613778ddc625567b08ec4526efbf22c0cd29a8c94fc3b9bacbe4e0dd05e","sha256:1922b611550d73daa6226d9dd8abf8d9f9691a0501f9f1fd0ea83e8c772829d2"],["sha256:598dd8e735ce98b2d8a5307c3fa8b866d8fe72521c92b0c6ea4ba360d7bc9f79","sha256:43cf0adb1d4312e17fef0ec33ca963dbbc98b30d92d9f558a901f0d3ec0a9fea"]];
+const SIX_MINISTRY_CONTENT_FINGERPRINT_PAIRS = [["sha256:013bfb8272e936be85c2d470033787c3b7f105ad6eae2dfe680373df023b5e69","sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"],["sha256:c95630be3d79f2641ff6e483f4096b0763b9e5071544f1e0ead0d7e24eb1cba5","sha256:268cab13e516d0f716f600819f2bddc8242269312d392eca4ed1be2de05ce051"],["sha256:d330b7f177f5bbb761eb359ffffca6f12250e5bbe90d13d0414d0fdefb78e98a","sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"],["sha256:da31e8098bf76c72ff8d00b073d86e3442b0811223ef3e3bab770af31e89c28e","sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"],["sha256:a6d109de75e877620a89241a4dcabcc716e1a5a1a18a024c9a3cb73e578de80c","sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"],["sha256:cc42339eaa423d71307ef96ff713ec095a89ba2cc4d4f6630ee1b40dec94d34d","sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"],["sha256:eb0d8d214c2dc51ca4eb37ce5a13423e424fd6fdd3b6b8c3dac6a5f5757bd2df","sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"],["sha256:82885fc13cec86318e4436fccfd80c78d7880e4aa25cdb530d0f4d18c9c73fe3","sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"],["sha256:598dd8e735ce98b2d8a5307c3fa8b866d8fe72521c92b0c6ea4ba360d7bc9f79","sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"],["sha256:32ecf613778ddc625567b08ec4526efbf22c0cd29a8c94fc3b9bacbe4e0dd05e","sha256:9d10d2bed258e632c909719f05df50c6b33530d9f40be2458a38dd063fcde3c5"],["sha256:32ecf613778ddc625567b08ec4526efbf22c0cd29a8c94fc3b9bacbe4e0dd05e","sha256:1922b611550d73daa6226d9dd8abf8d9f9691a0501f9f1fd0ea83e8c772829d2"],["sha256:598dd8e735ce98b2d8a5307c3fa8b866d8fe72521c92b0c6ea4ba360d7bc9f79","sha256:43cf0adb1d4312e17fef0ec33ca963dbbc98b30d92d9f558a901f0d3ec0a9fea"],["sha256:598dd8e735ce98b2d8a5307c3fa8b866d8fe72521c92b0c6ea4ba360d7bc9f79","sha256:d4e78e42b89022088bb6687a7ab5cc57bcd908a3017b2b4a2e2611497d04def2"]];
 const SIX_MINISTRY_HISTORICAL_FILE_COUNT = 69;
 const SIX_MINISTRY_RUNTIME_CONTENT_FILE_COUNT = 65;
 const SIX_MINISTRY_REVIEWED_HARNESS_BASELINE_FILES = 133;
@@ -2489,7 +2489,7 @@ Escalation: name observable evidence
           && SIX_MINISTRY_RUNTIME_CONTENT_FILES.length === SIX_MINISTRY_RUNTIME_CONTENT_FILE_COUNT
           && SIX_MINISTRY_RUNTIME_CONTENT_EXCLUSIONS.length === 4
           && SIX_MINISTRY_SUCCESSOR_CONTENT_PATHS.length === 2
-          && SIX_MINISTRY_CONTENT_FINGERPRINT_PAIRS.length === 12
+          && SIX_MINISTRY_CONTENT_FINGERPRINT_PAIRS.length === 13
           && SIX_MINISTRY_CONTENT_FINGERPRINT_PAIRS.every(
             (pair) => Array.isArray(pair) && pair.length === 2,
           )
@@ -2503,7 +2503,7 @@ Escalation: name observable evidence
       true,
     ],
     [
-      "六部 Runtime 指纹门禁只接受十二组精确兼容对并拒绝单边、混搭、篡改与未知状态",
+      "六部 Runtime 指纹门禁只接受十三组精确兼容对并拒绝单边、混搭、篡改与未知状态",
       (() => {
         const unknown = `sha256:${"0".repeat(64)}`;
         const fifthPair = [
@@ -2538,6 +2538,10 @@ Escalation: name observable evidence
           "sha256:598dd8e735ce98b2d8a5307c3fa8b866d8fe72521c92b0c6ea4ba360d7bc9f79",
           "sha256:43cf0adb1d4312e17fef0ec33ca963dbbc98b30d92d9f558a901f0d3ec0a9fea",
         ];
+        const mingshuoReplayCorrectivePair = [
+          "sha256:598dd8e735ce98b2d8a5307c3fa8b866d8fe72521c92b0c6ea4ba360d7bc9f79",
+          "sha256:d4e78e42b89022088bb6687a7ab5cc57bcd908a3017b2b4a2e2611497d04def2",
+        ];
         const expectedPairs = [
           ["sha256:013bfb8272e936be85c2d470033787c3b7f105ad6eae2dfe680373df023b5e69", "sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"],
           ["sha256:c95630be3d79f2641ff6e483f4096b0763b9e5071544f1e0ead0d7e24eb1cba5", "sha256:268cab13e516d0f716f600819f2bddc8242269312d392eca4ed1be2de05ce051"],
@@ -2551,6 +2555,7 @@ Escalation: name observable evidence
           p14GateALifecycleTruthPair,
           p14UserNamespaceStickyPair,
           mingshuoWorkProductPair,
+          mingshuoReplayCorrectivePair,
         ];
         const validPairs = new Set(
           SIX_MINISTRY_CONTENT_FINGERPRINT_PAIRS.map(([runtime, successor]) => (
@@ -2565,16 +2570,16 @@ Escalation: name observable evidence
           ...new Set(SIX_MINISTRY_CONTENT_FINGERPRINT_PAIRS.map(([, successor]) => successor)),
           unknown,
         ];
-        const tamperedRuntime = `${mingshuoWorkProductPair[0].slice(0, -1)}${mingshuoWorkProductPair[0].endsWith("0") ? "1" : "0"}`;
-        const tamperedSuccessor = `${mingshuoWorkProductPair[1].slice(0, -1)}${mingshuoWorkProductPair[1].endsWith("0") ? "1" : "0"}`;
+        const tamperedRuntime = `${mingshuoReplayCorrectivePair[0].slice(0, -1)}${mingshuoReplayCorrectivePair[0].endsWith("0") ? "1" : "0"}`;
+        const tamperedSuccessor = `${mingshuoReplayCorrectivePair[1].slice(0, -1)}${mingshuoReplayCorrectivePair[1].endsWith("0") ? "1" : "0"}`;
         const rejectedPairs = [
-          [mingshuoWorkProductPair[0], unknown],
-          [unknown, mingshuoWorkProductPair[1]],
-          [mingshuoWorkProductPair[0], expectedPairs[1][1]],
-          [expectedPairs[1][0], mingshuoWorkProductPair[1]],
+          [mingshuoReplayCorrectivePair[0], unknown],
+          [unknown, mingshuoReplayCorrectivePair[1]],
+          [mingshuoReplayCorrectivePair[0], expectedPairs[1][1]],
+          [expectedPairs[1][0], mingshuoReplayCorrectivePair[1]],
           [unknown, unknown],
-          [tamperedRuntime, mingshuoWorkProductPair[1]],
-          [mingshuoWorkProductPair[0], tamperedSuccessor],
+          [tamperedRuntime, mingshuoReplayCorrectivePair[1]],
+          [mingshuoReplayCorrectivePair[0], tamperedSuccessor],
         ];
         return JSON.stringify(SIX_MINISTRY_CONTENT_FINGERPRINT_PAIRS) === JSON.stringify(expectedPairs)
           && SIX_MINISTRY_CONTENT_FINGERPRINT_PAIRS.every(
