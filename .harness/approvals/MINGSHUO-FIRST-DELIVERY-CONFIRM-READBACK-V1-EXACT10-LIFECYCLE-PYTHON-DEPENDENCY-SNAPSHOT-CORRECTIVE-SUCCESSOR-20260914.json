@@ -1,0 +1,198 @@
+{
+  "schemaVersion": "product-authority.m0.approval.v1",
+  "authorityId": "product-authority.m0.v1",
+  "taskId": "MINGSHUO-FIRST-DELIVERY-CONFIRM-READBACK-V1-EXACT10-LIFECYCLE-PYTHON-DEPENDENCY-SNAPSHOT-CORRECTIVE-SUCCESSOR-20260914",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "c8b7e4a7e1001f9c5dba336d092f38c659c71aa1",
+    "baseTree": "bac9faffad9d5d900770d50903cca7248b6692c5",
+    "approvalPath": ".harness/approvals/MINGSHUO-FIRST-DELIVERY-CONFIRM-READBACK-V1-EXACT10-LIFECYCLE-PYTHON-DEPENDENCY-SNAPSHOT-CORRECTIVE-SUCCESSOR-20260914.json",
+    "approvalCommitPaths": [
+      ".harness/approvals/MINGSHUO-FIRST-DELIVERY-CONFIRM-READBACK-V1-EXACT10-LIFECYCLE-PYTHON-DEPENDENCY-SNAPSHOT-CORRECTIVE-SUCCESSOR-20260914.json",
+      "docs/product/tasks/2026-09-14-mingshuo-first-delivery-confirm-readback-exact10-lifecycle-python-dependency-snapshot-corrective-successor.md",
+      "docs/superpowers/plans/2026-09-14-mingshuo-first-delivery-confirm-readback-exact10-lifecycle-python-dependency-snapshot-corrective-successor.md"
+    ],
+    "productPaths": [
+      "backend/app/accounting_reports/storage.py",
+      "backend/app/api/mingshuo.py",
+      "backend/app/api/report_artifacts.py",
+      "backend/app/api/shiguan.py",
+      "backend/app/mingshuo/models.py",
+      "backend/app/mingshuo/service.py",
+      "backend/app/shiguan/storage.py",
+      "backend/tests/test_mingshuo_delivery.py",
+      "backend/tests/test_report_artifacts_api.py",
+      "backend/tests/test_shiguan_storage.py"
+    ]
+  },
+  "nonGoals": [
+    "CANDIDATE_COMMIT_OR_PUSH_IN_SHADOW_PHASE",
+    "EXTERNAL_CHANNEL_PUBLICATION_PAYMENT_OR_REAL_CUSTOMER_DATA",
+    "FRONTEND_BFF_V4_SCENE_BOARD_OR_BROWSER_UI_CHANGE",
+    "HOST_HOME_OR_USER_CONFIG_EXPOSURE",
+    "MINGSHUO_FACT_PACK_EVALUATOR_OR_CLAIM_EVIDENCE_POLICY_CHANGE",
+    "NEW_AGENT_SWARM_RUNTIME_OR_PARALLEL_PROJECT_TRUTH_SOURCE",
+    "PRODUCTION_PILOT_RELEASE_OR_DEPLOYMENT",
+    "PROPOSED_MANIFEST_DISCOVERY_AS_AUTHORITY",
+    "PYTHON_DEPENDENCY_INSTALL_OR_NETWORK_RESOLUTION",
+    "READINESS_VALIDATOR_OR_COMPATIBILITY_PAIR_CHANGE",
+    "REANCHOR_OR_REUSE_OF_PREDECESSOR_PRODUCT_AUTHORITY",
+    "SECOND_ARCHIVE_CONFIRMATION_ARTIFACT_OR_TRUTH_STORE",
+    "SYSTEM_USER_GIT_OR_NODE_CONFIG_MUTATION",
+    "UNFROZEN_OR_WRITABLE_PYTHON_DEPENDENCY_EXECUTION",
+    "USE_OF_SHADOW_BYTES_AS_CANDIDATE_OR_PASS_IDENTITY"
+  ],
+  "verification": [
+    {
+      "id": "v00-exact10-scope-and-shape",
+      "tool": "node",
+      "args": ["--input-type=module", "--eval", "import{spawnSync}from'node:child_process';const p=['backend/app/accounting_reports/storage.py','backend/app/api/mingshuo.py','backend/app/api/report_artifacts.py','backend/app/api/shiguan.py','backend/app/mingshuo/models.py','backend/app/mingshuo/service.py','backend/app/shiguan/storage.py','backend/tests/test_mingshuo_delivery.py','backend/tests/test_report_artifacts_api.py','backend/tests/test_shiguan_storage.py'];const env={PATH:'/usr/bin:/bin',GIT_CONFIG_NOSYSTEM:'1',GIT_CONFIG_GLOBAL:'/dev/null',GIT_NO_REPLACE_OBJECTS:'1',GIT_TERMINAL_PROMPT:'0'};const g=a=>{const r=spawnSync('/usr/bin/git',a,{encoding:'utf8',maxBuffer:67108864,env});if(r.status!==0||r.error||r.signal)process.exit(1);return r.stdout};const s=g(['status','--porcelain=v1','-z','--untracked-files=all']).split('\\0').filter(Boolean).sort();if(JSON.stringify(s)!==JSON.stringify(p.map(x=>' M '+x)))process.exit(1);g(['diff','--cached','--quiet']);const n=g(['diff','--name-status','-z','--no-renames']).split('\\0').filter(Boolean);if(JSON.stringify(n)!==JSON.stringify(p.flatMap(x=>['M',x])))process.exit(1);if(g(['diff','--summary'])!=='')process.exit(1);const i=g(['ls-files','-s','--',...p]).trim().split('\\n');if(i.length!==10||i.some((x,j)=>!x.startsWith('100644 ')||!x.includes(' 0\\t')||!x.endsWith('\\t'+p[j])))process.exit(1)"],
+      "cwd": ".",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "v00a-exact10-donor-content",
+      "tool": "node",
+      "args": ["--input-type=module", "--eval", "import{createHash}from'node:crypto';import{readFileSync}from'node:fs';import{spawnSync}from'node:child_process';const e=[['backend/app/accounting_reports/storage.py',79045,'e911d6e59f3d1738b1487620267451af4a7b26ea5ab7dc6d1cee0431f2fe3251','08a1e7180a359f59e9912056a3e1b04e3f5e4218'],['backend/app/api/mingshuo.py',9128,'26ced7093152d892352045340681260bd133c622ac9423dbcf4f0a624fd38eb5','f75eafe4092965a879983bd32d34522eaf0b9762'],['backend/app/api/report_artifacts.py',5853,'98cd4ce528cd8ce974b502e1570c30de2cf4a237769fb221c4fcff37008e7e5e','ff173477233c87caa6161d640543acc35ce4b677'],['backend/app/api/shiguan.py',11702,'3bbf1f5e9cec61e3613d28c243b5a5c8a3c63764d9c8c4209ed9942ad644f048','64aeb17802b75c483434f5fefbc735b022595b32'],['backend/app/mingshuo/models.py',6593,'5477bf803f46445419aad64db54bc201194e9ea8f9e55d10549a0896bdc93fc3','9b40d7551571a6d0ccc4606c10d376eec8a9a756'],['backend/app/mingshuo/service.py',68056,'01c827ecc2a6ab117a2f64135f17caa7d3f2ca4d13a2ebf884fe5e94a4a09453','e1fffd0afe56af481bc0452d67605dea081fac08'],['backend/app/shiguan/storage.py',53780,'a8811f98b6bc53f36cb6fc993cb6faf15d872a41b435a45698ba316aea058cb1','1ed8b397c1470a9558b74d407ad137e8ff0d6722'],['backend/tests/test_mingshuo_delivery.py',44359,'1f9a2923a1c8ab71b17ced589ea4adff09fbf2198c3a7c8b43d568f7a284ca7a','d4452e07e892205158ee5fe30d36789cbac39768'],['backend/tests/test_report_artifacts_api.py',6207,'0caf7046cb0d390ccbb1d08d95d4070482b42d557f5adeaa709664d5290cc8ef','dc843dde4c7da28b95eee993215868fcfcbee9b3'],['backend/tests/test_shiguan_storage.py',52068,'6bd5c955c7ba7f4fda3dfdec3b0cbe900b73122f503a1ed908b1cf4a2862400c','70b1b909ac0cfcb96047fb55a62dd946ce2ac18b']];const rec=[];for(const[p,n,h,o]of e){const b=readFileSync(p),r=createHash('sha256').update(b).digest('hex'),g=createHash('sha1').update(Buffer.concat([Buffer.from('blob '+b.length+'\\0'),b])).digest('hex');if(b.length!==n||r!==h||g!==o)process.exit(1);rec.push({bytes:n,mode:'100644',path:p,rawSha256:'sha256:'+h})}rec.sort((a,b)=>a.path.localeCompare(b.path));if(createHash('sha256').update(JSON.stringify(rec)).digest('hex')!=='44bf93000c04c6ae647e9439e46928536698e31b176e5efd152c504683ed85ee')process.exit(1);const env={PATH:'/usr/bin:/bin',GIT_CONFIG_NOSYSTEM:'1',GIT_CONFIG_GLOBAL:'/dev/null',GIT_NO_REPLACE_OBJECTS:'1',GIT_TERMINAL_PROMPT:'0'},x=spawnSync('/usr/bin/git',['diff','--binary','--full-index','--no-ext-diff','--no-textconv'],{encoding:'utf8',maxBuffer:67108864,env});if(x.status!==0||x.error||x.signal||createHash('sha256').update(x.stdout).digest('hex')!=='6d3465289eb9c517e79a38747ea21164b4e6fbf6b867e9ad79b2320437d25d37')process.exit(1)"],
+      "cwd": ".",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "v00b-approval-head-lineage",
+      "tool": "node",
+      "args": ["--input-type=module", "--eval", "import{spawnSync}from'node:child_process';const b='c8b7e4a7e1001f9c5dba336d092f38c659c71aa1',t='bac9faffad9d5d900770d50903cca7248b6692c5',p=['.harness/approvals/MINGSHUO-FIRST-DELIVERY-CONFIRM-READBACK-V1-EXACT10-LIFECYCLE-PYTHON-DEPENDENCY-SNAPSHOT-CORRECTIVE-SUCCESSOR-20260914.json','docs/product/tasks/2026-09-14-mingshuo-first-delivery-confirm-readback-exact10-lifecycle-python-dependency-snapshot-corrective-successor.md','docs/superpowers/plans/2026-09-14-mingshuo-first-delivery-confirm-readback-exact10-lifecycle-python-dependency-snapshot-corrective-successor.md'];const env={PATH:'/usr/bin:/bin',GIT_CONFIG_NOSYSTEM:'1',GIT_CONFIG_GLOBAL:'/dev/null',GIT_NO_REPLACE_OBJECTS:'1',GIT_TERMINAL_PROMPT:'0'},g=a=>{const r=spawnSync('/usr/bin/git',a,{encoding:'utf8',maxBuffer:67108864,env});if(r.status!==0||r.error||r.signal)process.exit(1);return r.stdout};const q=g(['rev-list','--parents','-n','1','HEAD']).trim().split(' ');if(q.length!==2||q[1]!==b||g(['rev-parse',b+'^{tree}']).trim()!==t)process.exit(1);const d=g(['diff-tree','--no-commit-id','--name-status','-r','-z',b,'HEAD']).split('\\0').filter(Boolean);if(JSON.stringify(d)!==JSON.stringify(p.flatMap(x=>['A',x])))process.exit(1);const l=g(['ls-tree','-z','HEAD','--',...p]).split('\\0').filter(Boolean);if(l.length!==3||l.some((x,i)=>!x.startsWith('100644 blob ')||!x.endsWith('\\t'+p[i])))process.exit(1)"],
+      "cwd": ".",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "v00c-live-remote-approval-head",
+      "tool": "node",
+      "args": ["--input-type=module", "--eval", "import{spawnSync}from'node:child_process';const env={PATH:'/usr/bin:/bin',GIT_CONFIG_NOSYSTEM:'1',GIT_CONFIG_GLOBAL:'/dev/null',GIT_NO_REPLACE_OBJECTS:'1',GIT_TERMINAL_PROMPT:'0'},g=a=>{const r=spawnSync('/usr/bin/git',a,{encoding:'utf8',maxBuffer:67108864,timeout:30000,env});if(r.status!==0||r.error||r.signal)process.exit(1);return r.stdout.trim()};const h=g(['rev-parse','HEAD']),r=g(['ls-remote','--heads','origin','ext-dev']);if(r!==h+'\\trefs/heads/ext-dev')process.exit(1)"],
+      "cwd": ".",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "v00d-python-dependency-snapshot-contract",
+      "tool": "python3",
+      "args": ["-c", "import hashlib,importlib.metadata as md,inspect,os,pathlib,site,socket,stat,subprocess,sys,tempfile;root=os.environ.get('PYTHONPATH','');home=os.environ.get('HOME','');assert root.startswith('/tmp/chaotang-mingshuo-verification-home-') and root.endswith('/python-site') and os.path.realpath(root)==root;assert home==root.removesuffix('/python-site') and os.getpid()==1 and tempfile.gettempdir()=='/tmp' and site.ENABLE_USER_SITE is False;assert os.environ.get('PYTHONNOUSERSITE')=='1' and os.environ.get('PYTEST_DISABLE_PLUGIN_AUTOLOAD')=='1' and os.environ.get('PYTEST_PLUGINS')=='anyio.pytest_plugin' and 'PYTEST_ADDOPTS' not in os.environ;assert os.environ.get('PIP_CONFIG_FILE')=='/dev/null' and os.environ.get('PIP_NO_INDEX')=='1' and os.environ.get('PIP_DISABLE_PIP_VERSION_CHECK')=='1' and os.environ.get('NPM_CONFIG_USERCONFIG')=='/dev/null' and os.environ.get('GIT_CONFIG_GLOBAL')=='/dev/null' and os.environ.get('CHAOTANG_PATH_BINDING_SELF_TEST_DIGEST')=='sha256:8390a2e851f60406c49e7956121b11bf553526753579a791052ae646c67780d5';assert stat.S_IMODE(os.stat(home,follow_symlinks=False).st_mode)==0o700;hf=os.fstat(int(os.environ['CHAOTANG_HOME_FD']));hs=os.stat(home,follow_symlinks=False);tf=os.fstat(int(os.environ['CHAOTANG_TARGET_FD']));ts=os.stat(root,follow_symlinks=False);assert stat.S_ISDIR(hs.st_mode) and stat.S_ISDIR(ts.st_mode) and (hf.st_dev,hf.st_ino)==(hs.st_dev,hs.st_ino) and (tf.st_dev,tf.st_ino)==(ts.st_dev,ts.st_ino);line=next(x for x in pathlib.Path('/proc/self/mountinfo').read_text().splitlines() if x.split()[4]==root);mount_options=set(line.split()[5].split(','));super_options=set(line.split(' - ',1)[1].split()[2].split(','));assert {'ro','nosuid','nodev'} <= mount_options|super_options;routes=pathlib.Path('/proc/net/route').read_text().splitlines()[1:];assert not any(len(x.split())>3 and x.split()[1]=='00000000' and int(x.split()[3],16)&1 for x in routes);s=socket.socket();s.settimeout(0.2);assert s.connect_ex(('198.51.100.1',443))!=0;s.close();p=subprocess.run([sys.executable,'-m','pip','install','--dry-run','--no-input','chaotang-offline-probe-does-not-exist-20260914'],capture_output=True,text=True,timeout=15);assert p.returncode!=0;import pytest,fastapi,pydantic;assert pytest.__version__=='9.1.1' and md.version('anyio')=='4.14.2' and fastapi.__version__=='0.141.1' and pydantic.__version__=='2.13.4';assert hashlib.sha256(pathlib.Path('backend/tests/conftest.py').read_bytes()).hexdigest()=='d11ae7b6e7618e37aead57e1cbfb88f7b0be907bbb44309ae7009c971c32f6c5';exec(\"class Audit:\\n def pytest_collection_finish(self,session):\\n  seen=False; conf=[]; bad=[]\\n  for name,plugin in session.config.pluginmanager.list_name_plugin():\\n   if plugin is None: continue\\n   module=inspect.getmodule(plugin); f=getattr(module,'__file__',None) or getattr(plugin,'__file__',None)\\n   if not f: continue\\n   rp=os.path.realpath(f)\\n   if rp.startswith(root+'/_pytest/'): continue\\n   if rp==root+'/anyio/pytest_plugin.py': seen=True; continue\\n   if rp.endswith('/backend/tests/conftest.py'): conf.append(rp); continue\\n   bad.append((name,rp))\\n  assert seen and conf==[os.path.realpath('backend/tests/conftest.py')] and not bad\");assert pytest.main(['--collect-only','-q','backend/tests/test_mingshuo_delivery.py'],plugins=[Audit()])==0"],
+      "cwd": ".",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "v01-mingshuo-finalization-focused",
+      "tool": "python3",
+      "args": ["-m", "pytest", "-q", "tests/test_mingshuo_delivery.py", "tests/test_report_artifacts_api.py", "tests/test_shiguan_storage.py", "tests/test_mingshuo_vertical.py", "tests/test_accounting_work_product_storage.py", "tests/test_shiguan_api.py"],
+      "cwd": "backend",
+      "timeoutMs": 240000
+    },
+    {
+      "id": "v02-backend-full-exact-two-readiness-failures",
+      "tool": "python3",
+      "args": ["-c", "import os,re,subprocess,sys,tempfile,xml.etree.ElementTree as ET;expected=['tests/test_six_ministry_readiness_report.py::test_readiness_evidence_is_bound_to_current_implementation','tests/test_six_ministry_readiness_report.py::test_successor_content_rejects_third_state_drift'];d=tempfile.TemporaryDirectory(dir='/tmp',prefix='ct-pytest-');x=d.name+'/result.xml';env={**os.environ,'TMPDIR':'/tmp','TEMP':'/tmp','TMP':'/tmp'};r=subprocess.run(['python3','-m','pytest','-q','--junitxml='+x],capture_output=True,text=True,env=env,timeout=285);o=(r.stdout or '')+(r.stderr or '');sys.stdout.write(o);root=ET.parse(x).getroot();s=root if root.tag=='testsuite' else root.find('testsuite');cases=root.findall('.//testcase');fail=[c for c in cases if c.find('failure') is not None];err=[c for c in cases if c.find('error') is not None];skip=[c for c in cases if c.find('skipped') is not None];nodes=['tests/test_six_ministry_readiness_report.py::'+c.attrib.get('name','') for c in fail];reports=[(c.find('failure').text or '')+' '+c.find('failure').attrib.get('message','') for c in fail];summary=[z for z in o.splitlines() if re.fullmatch(r'2 failed, 5164 passed, 4 skipped, 5 warnings in [0-9.]+s(?: [(][0-9:]+[)])?',z)];listed=re.findall(r'^FAILED ([^ ]+)(?: - .*)?$',o,re.M);ok=r.returncode==1 and s is not None and s.attrib.get('tests')=='5170' and s.attrib.get('failures')=='2' and s.attrib.get('errors')=='0' and s.attrib.get('skipped')=='4' and len(cases)==5170 and len(err)==0 and len(skip)==4 and nodes==expected and listed==expected and len(summary)==1 and all(c.attrib.get('classname','').endswith('test_six_ministry_readiness_report') for c in fail) and 'assert (current, successor) in _CONTENT_FINGERPRINT_PAIRS' in reports[0] and 'assert _content_fingerprint(tmp_path, _SUCCESSOR_CONTENT_PATHS) in successor_fingerprints' in reports[1];d.cleanup();sys.exit(0 if ok else 1)"],
+      "cwd": "backend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "v03-exact10-ruff",
+      "tool": "python3",
+      "args": ["-m", "ruff", "check", "--no-cache", "app/accounting_reports/storage.py", "app/api/mingshuo.py", "app/api/report_artifacts.py", "app/api/shiguan.py", "app/mingshuo/models.py", "app/mingshuo/service.py", "app/shiguan/storage.py", "tests/test_mingshuo_delivery.py", "tests/test_report_artifacts_api.py", "tests/test_shiguan_storage.py"],
+      "cwd": "backend",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v04-harness-single-readiness-diagnostic",
+      "tool": "node",
+      "args": ["--input-type=module", "--eval", "import{spawnSync}from'node:child_process';const r=spawnSync(process.execPath,['scripts/check_harness.mjs'],{encoding:'utf8',maxBuffer:67108864});const out=(r.stdout??'').trim().split(/\\r?\\n/u).filter(Boolean);const err=(r.stderr??'').trim().split(/\\r?\\n/u).filter(Boolean);for(const line of out)console.log(line);for(const line of err)console.error(line);const expected=['agentic-check: 失败','  - 六部 Runtime 就绪证据未绑定当前实现、服务端解析器或独立复审'];if(r.status!==1||r.error||out.length!==0||JSON.stringify(err)!==JSON.stringify(expected))process.exit(1)"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v05-harness-self-test",
+      "tool": "node",
+      "args": ["scripts/check_harness.mjs", "--self-test"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v06-harness-doctor-check",
+      "tool": "node",
+      "args": ["scripts/harness-doctor.mjs", "--check"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v07-harness-doctor-tests",
+      "tool": "node",
+      "args": ["--test", "scripts/harness-doctor.test.mjs"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v08-hook-self-test",
+      "tool": "node",
+      "args": [".agents/hooks/check-harness.mjs", "--self-test"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v09-authority-regression-posix-temp",
+      "tool": "node",
+      "args": ["--input-type=module", "--eval", "import{spawnSync}from'node:child_process';const r=spawnSync(process.execPath,['--test','scripts/product-authority.test.mjs'],{stdio:'inherit',env:{...process.env,TMPDIR:'/tmp',TEMP:'/tmp',TMP:'/tmp'}});process.exit(r.status??1)"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v10-v2-check",
+      "tool": "node",
+      "args": ["scripts/ext-full-value-convergence.mjs", "--check"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v11-v2-tests",
+      "tool": "node",
+      "args": ["--test", "scripts/ext-full-value-convergence.test.mjs"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v12-diff-check",
+      "tool": "node",
+      "args": ["--input-type=module", "--eval", "import{execFileSync}from'node:child_process';execFileSync('/usr/bin/git',['diff','--check'],{stdio:'inherit',env:{PATH:'/usr/bin:/bin',GIT_CONFIG_NOSYSTEM:'1',GIT_CONFIG_GLOBAL:'/dev/null',GIT_NO_REPLACE_OBJECTS:'1',GIT_TERMINAL_PROMPT:'0'}})"],
+      "cwd": ".",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "v12a-final-exact10-scope-and-shape",
+      "tool": "node",
+      "args": ["--input-type=module", "--eval", "import{spawnSync}from'node:child_process';const p=['backend/app/accounting_reports/storage.py','backend/app/api/mingshuo.py','backend/app/api/report_artifacts.py','backend/app/api/shiguan.py','backend/app/mingshuo/models.py','backend/app/mingshuo/service.py','backend/app/shiguan/storage.py','backend/tests/test_mingshuo_delivery.py','backend/tests/test_report_artifacts_api.py','backend/tests/test_shiguan_storage.py'];const env={PATH:'/usr/bin:/bin',GIT_CONFIG_NOSYSTEM:'1',GIT_CONFIG_GLOBAL:'/dev/null',GIT_NO_REPLACE_OBJECTS:'1',GIT_TERMINAL_PROMPT:'0'};const g=a=>{const r=spawnSync('/usr/bin/git',a,{encoding:'utf8',maxBuffer:67108864,env});if(r.status!==0||r.error||r.signal)process.exit(1);return r.stdout};const s=g(['status','--porcelain=v1','-z','--untracked-files=all']).split('\\0').filter(Boolean).sort();if(JSON.stringify(s)!==JSON.stringify(p.map(x=>' M '+x)))process.exit(1);g(['diff','--cached','--quiet']);const n=g(['diff','--name-status','-z','--no-renames']).split('\\0').filter(Boolean);if(JSON.stringify(n)!==JSON.stringify(p.flatMap(x=>['M',x])))process.exit(1);if(g(['diff','--summary'])!=='')process.exit(1);const i=g(['ls-files','-s','--',...p]).trim().split('\\n');if(i.length!==10||i.some((x,j)=>!x.startsWith('100644 ')||!x.includes(' 0\\t')||!x.endsWith('\\t'+p[j])))process.exit(1)"],
+      "cwd": ".",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "v12b-final-exact10-donor-content",
+      "tool": "node",
+      "args": ["--input-type=module", "--eval", "import{createHash}from'node:crypto';import{readFileSync}from'node:fs';import{spawnSync}from'node:child_process';const e=[['backend/app/accounting_reports/storage.py',79045,'e911d6e59f3d1738b1487620267451af4a7b26ea5ab7dc6d1cee0431f2fe3251','08a1e7180a359f59e9912056a3e1b04e3f5e4218'],['backend/app/api/mingshuo.py',9128,'26ced7093152d892352045340681260bd133c622ac9423dbcf4f0a624fd38eb5','f75eafe4092965a879983bd32d34522eaf0b9762'],['backend/app/api/report_artifacts.py',5853,'98cd4ce528cd8ce974b502e1570c30de2cf4a237769fb221c4fcff37008e7e5e','ff173477233c87caa6161d640543acc35ce4b677'],['backend/app/api/shiguan.py',11702,'3bbf1f5e9cec61e3613d28c243b5a5c8a3c63764d9c8c4209ed9942ad644f048','64aeb17802b75c483434f5fefbc735b022595b32'],['backend/app/mingshuo/models.py',6593,'5477bf803f46445419aad64db54bc201194e9ea8f9e55d10549a0896bdc93fc3','9b40d7551571a6d0ccc4606c10d376eec8a9a756'],['backend/app/mingshuo/service.py',68056,'01c827ecc2a6ab117a2f64135f17caa7d3f2ca4d13a2ebf884fe5e94a4a09453','e1fffd0afe56af481bc0452d67605dea081fac08'],['backend/app/shiguan/storage.py',53780,'a8811f98b6bc53f36cb6fc993cb6faf15d872a41b435a45698ba316aea058cb1','1ed8b397c1470a9558b74d407ad137e8ff0d6722'],['backend/tests/test_mingshuo_delivery.py',44359,'1f9a2923a1c8ab71b17ced589ea4adff09fbf2198c3a7c8b43d568f7a284ca7a','d4452e07e892205158ee5fe30d36789cbac39768'],['backend/tests/test_report_artifacts_api.py',6207,'0caf7046cb0d390ccbb1d08d95d4070482b42d557f5adeaa709664d5290cc8ef','dc843dde4c7da28b95eee993215868fcfcbee9b3'],['backend/tests/test_shiguan_storage.py',52068,'6bd5c955c7ba7f4fda3dfdec3b0cbe900b73122f503a1ed908b1cf4a2862400c','70b1b909ac0cfcb96047fb55a62dd946ce2ac18b']];const rec=[];for(const[p,n,h,o]of e){const b=readFileSync(p),r=createHash('sha256').update(b).digest('hex'),g=createHash('sha1').update(Buffer.concat([Buffer.from('blob '+b.length+'\\0'),b])).digest('hex');if(b.length!==n||r!==h||g!==o)process.exit(1);rec.push({bytes:n,mode:'100644',path:p,rawSha256:'sha256:'+h})}rec.sort((a,b)=>a.path.localeCompare(b.path));if(createHash('sha256').update(JSON.stringify(rec)).digest('hex')!=='44bf93000c04c6ae647e9439e46928536698e31b176e5efd152c504683ed85ee')process.exit(1);const env={PATH:'/usr/bin:/bin',GIT_CONFIG_NOSYSTEM:'1',GIT_CONFIG_GLOBAL:'/dev/null',GIT_NO_REPLACE_OBJECTS:'1',GIT_TERMINAL_PROMPT:'0'},x=spawnSync('/usr/bin/git',['diff','--binary','--full-index','--no-ext-diff','--no-textconv'],{encoding:'utf8',maxBuffer:67108864,env});if(x.status!==0||x.error||x.signal||createHash('sha256').update(x.stdout).digest('hex')!=='6d3465289eb9c517e79a38747ea21164b4e6fbf6b867e9ad79b2320437d25d37')process.exit(1)"],
+      "cwd": ".",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "v12c-final-approval-head-lineage",
+      "tool": "node",
+      "args": ["--input-type=module", "--eval", "import{spawnSync}from'node:child_process';const b='c8b7e4a7e1001f9c5dba336d092f38c659c71aa1',t='bac9faffad9d5d900770d50903cca7248b6692c5',p=['.harness/approvals/MINGSHUO-FIRST-DELIVERY-CONFIRM-READBACK-V1-EXACT10-LIFECYCLE-PYTHON-DEPENDENCY-SNAPSHOT-CORRECTIVE-SUCCESSOR-20260914.json','docs/product/tasks/2026-09-14-mingshuo-first-delivery-confirm-readback-exact10-lifecycle-python-dependency-snapshot-corrective-successor.md','docs/superpowers/plans/2026-09-14-mingshuo-first-delivery-confirm-readback-exact10-lifecycle-python-dependency-snapshot-corrective-successor.md'];const env={PATH:'/usr/bin:/bin',GIT_CONFIG_NOSYSTEM:'1',GIT_CONFIG_GLOBAL:'/dev/null',GIT_NO_REPLACE_OBJECTS:'1',GIT_TERMINAL_PROMPT:'0'},g=a=>{const r=spawnSync('/usr/bin/git',a,{encoding:'utf8',maxBuffer:67108864,env});if(r.status!==0||r.error||r.signal)process.exit(1);return r.stdout};const q=g(['rev-list','--parents','-n','1','HEAD']).trim().split(' ');if(q.length!==2||q[1]!==b||g(['rev-parse',b+'^{tree}']).trim()!==t)process.exit(1);const d=g(['diff-tree','--no-commit-id','--name-status','-r','-z',b,'HEAD']).split('\\0').filter(Boolean);if(JSON.stringify(d)!==JSON.stringify(p.flatMap(x=>['A',x])))process.exit(1);const l=g(['ls-tree','-z','HEAD','--',...p]).split('\\0').filter(Boolean);if(l.length!==3||l.some((x,i)=>!x.startsWith('100644 blob ')||!x.endsWith('\\t'+p[i])))process.exit(1)"],
+      "cwd": ".",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "v12d-final-live-remote-approval-head",
+      "tool": "node",
+      "args": ["--input-type=module", "--eval", "import{spawnSync}from'node:child_process';const env={PATH:'/usr/bin:/bin',GIT_CONFIG_NOSYSTEM:'1',GIT_CONFIG_GLOBAL:'/dev/null',GIT_NO_REPLACE_OBJECTS:'1',GIT_TERMINAL_PROMPT:'0'},g=a=>{const r=spawnSync('/usr/bin/git',a,{encoding:'utf8',maxBuffer:67108864,timeout:30000,env});if(r.status!==0||r.error||r.signal)process.exit(1);return r.stdout.trim()};const h=g(['rev-parse','HEAD']),r=g(['ls-remote','--heads','origin','ext-dev']);if(r!==h+'\\trefs/heads/ext-dev')process.exit(1)"],
+      "cwd": ".",
+      "timeoutMs": 30000
+    }
+  ],
+  "state": "APPROVED_FOR_ONE_CHILD"
+}
