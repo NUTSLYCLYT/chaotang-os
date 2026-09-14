@@ -4,22 +4,36 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import sqlite3
+import threading
 import uuid
 from collections.abc import Callable
 from datetime import UTC, date, datetime
 from typing import Any
 
+from app.accounting_reports.models import ReportPeriod
+from app.accounting_reports.storage import (
+    ArtifactNotFound,
+    ArtifactStorage,
+    ArtifactStorageError,
+)
 from app.auth.models import AuthenticatedPrincipal
-from app.mingshuo import fact_pack, storage
+from app.mingshuo import delivery, fact_pack, storage
 from app.mingshuo.models import CreateProjectRequest, DraftRequest, RevisionRequest
+from app.work_products import WorkProductEnvelope, semantic_digest
 
 EVALUATOR_POLICY_VERSION = "mingshuo.fact-pack.validation.v1"
 REQUEST_STATE_CONTRACT_VERSION = "mingshuo.request-state.v1"
+_DELIVERY_LOCKS = tuple(threading.Lock() for _ in range(64))
 
 
 class MingshuoValidationError(RuntimeError):
     """A validated request could not form an accepted domain projection."""
+
+
+def _artifact_storage() -> ArtifactStorage:
+    return ArtifactStorage()
 
 
 def _utc_day() -> date:
@@ -709,10 +723,395 @@ def _draft_json(row: sqlite3.Row) -> dict[str, Any]:
     }
 
 
+def _delivery_response(
+    product: delivery.DeliveryArtifact,
+    *,
+    fact_pack_version: int,
+    fact_pack_digest: str,
+    created: bool,
+) -> dict[str, Any]:
+    return {
+        "created": created,
+        "artifactId": product.artifact_id,
+        "workProductId": product.work_product_id,
+        "factPackVersion": fact_pack_version,
+        "factPackDigest": fact_pack_digest,
+        "workStatus": product.envelope.work_status.value,
+        "confirmationStatus": product.envelope.confirmation_status.value,
+        "artifactState": product.envelope.artifact_state.value,
+        "nonAuthorizing": True,
+    }
+
+
+def _delivery_response_from_envelope(
+    *,
+    artifact_id: str,
+    envelope: WorkProductEnvelope,
+    fact_pack_version: int,
+    fact_pack_digest: str,
+    created: bool,
+) -> dict[str, Any]:
+    return {
+        "created": created,
+        "artifactId": artifact_id,
+        "workProductId": envelope.work_product_id,
+        "factPackVersion": fact_pack_version,
+        "factPackDigest": fact_pack_digest,
+        "workStatus": envelope.work_status.value,
+        "confirmationStatus": envelope.confirmation_status.value,
+        "artifactState": envelope.artifact_state.value,
+        "nonAuthorizing": True,
+    }
+
+
+def _expected_replay_envelope(
+    product: delivery.DeliveryArtifact, frozen_artifact_sha256: str
+) -> WorkProductEnvelope:
+    frozen_hex = frozen_artifact_sha256.removeprefix("sha256:")
+    if len(frozen_hex) != 64 or any(value not in "0123456789abcdef" for value in frozen_hex):
+        raise storage.MingshuoConflictError("conflict")
+    manifest = tuple(
+        item.model_copy(update={"content_digest": frozen_hex})
+        if item.kind == "mingshuo_solution_quote_xlsx"
+        else item
+        for item in product.envelope.artifact_manifest
+    )
+    draft = product.envelope.model_copy(
+        update={"artifact_manifest": manifest, "content_digest": "0" * 64}
+    )
+    return draft.model_copy(update={"content_digest": semantic_digest(draft.model_dump())})
+
+
+def _delivery_lock(
+    principal: AuthenticatedPrincipal, project_id: str, draft_request_id: str
+) -> threading.Lock:
+    identity = f"{principal.tenant_id}\0{principal.id}\0{project_id}\0{draft_request_id}"
+    index = int(hashlib.sha256(identity.encode()).hexdigest(), 16) % len(_DELIVERY_LOCKS)
+    return _DELIVERY_LOCKS[index]
+
+
+def _secure_pending_file(store: ArtifactStorage, content: bytes, expected_sha256: str):
+    name = f".{uuid.uuid4().hex}.xlsx"
+    path = store.artifact_dir / name
+    flags = os.O_RDWR | os.O_CREAT | os.O_EXCL
+    flags |= getattr(os, "O_NOFOLLOW", 0)
+    descriptor = os.open(path, flags, 0o600)
+    try:
+        view = memoryview(content)
+        offset = 0
+        while offset < len(view):
+            offset += os.write(descriptor, view[offset:])
+        os.fsync(descriptor)
+        os.lseek(descriptor, 0, os.SEEK_SET)
+        digest = hashlib.sha256()
+        while chunk := os.read(descriptor, 1024 * 1024):
+            digest.update(chunk)
+        if digest.hexdigest() != expected_sha256:
+            raise storage.MingshuoStorageError("unavailable")
+    except Exception:
+        os.close(descriptor)
+        path.unlink(missing_ok=True)
+        raise
+    os.close(descriptor)
+    return path
+
+
+def _transition_delivery_intent(
+    principal: AuthenticatedPrincipal,
+    draft_request_id: str,
+    old_state: str,
+    new_state: str,
+) -> None:
+    try:
+        with storage.write_transaction() as connection:
+            row = connection.execute(
+                "SELECT state,updated_at FROM mingshuo_delivery_intents "
+                "WHERE tenant_id=? AND owner_user_id=? AND draft_request_id=?",
+                (principal.tenant_id, principal.id, draft_request_id),
+            ).fetchone()
+            if row is None:
+                raise storage.MingshuoStorageError("unavailable")
+            state_order = {
+                "PREPARED": 0,
+                "ARTIFACT_PENDING": 1,
+                "WORK_PRODUCT_BOUND": 2,
+            }
+            if state_order.get(str(row["state"]), -1) >= state_order[new_state]:
+                return
+            if row["state"] != old_state:
+                raise storage.MingshuoConflictError("conflict")
+            timestamp = _now_iso()
+            if timestamp <= row["updated_at"]:
+                raise storage.MingshuoStorageError("unavailable")
+            changed = connection.execute(
+                "UPDATE mingshuo_delivery_intents SET state=?,updated_at=? "
+                "WHERE tenant_id=? AND owner_user_id=? AND draft_request_id=? AND state=?",
+                (
+                    new_state,
+                    timestamp,
+                    principal.tenant_id,
+                    principal.id,
+                    draft_request_id,
+                    old_state,
+                ),
+            ).rowcount
+            if changed != 1:
+                raise storage.MingshuoConflictError("conflict")
+    except (storage.MingshuoConflictError, storage.MingshuoStorageError):
+        raise
+    except (sqlite3.Error, OSError, TypeError, ValueError) as exc:
+        raise storage.MingshuoStorageError("unavailable") from exc
+
+
+def _create_work_product_unlocked(
+    project_id: str,
+    draft_request_id: str,
+    principal: AuthenticatedPrincipal,
+    *,
+    serialize: Callable[[dict[str, Any]], dict[str, Any]],
+) -> tuple[dict[str, Any], bool]:
+    """Create or exactly replay one private-bound, non-authorizing delivery."""
+
+    try:
+        with storage.write_transaction() as connection:
+            row = connection.execute(
+                """
+                SELECT d.*,f.canonical_bytes,f.decision,f.errors_json,
+                       f.hold_reasons_json,f.block_reasons_json,f.evidence_digest,
+                       f.fact_digest,f.claim_digest,f.evaluated_utc_day,
+                       f.evaluator_policy_version,f.schema_policy_version,
+                       r.requirements_text
+                FROM mingshuo_draft_requests AS d
+                JOIN mingshuo_fact_pack_revisions AS f
+                  ON f.tenant_id=d.tenant_id AND f.owner_user_id=d.owner_user_id
+                 AND f.project_id=d.project_id AND f.version=d.fact_pack_version
+                JOIN mingshuo_requirement_revisions AS r
+                  ON r.tenant_id=f.tenant_id AND r.owner_user_id=f.owner_user_id
+                 AND r.project_id=f.project_id
+                 AND r.requirements_revision_id=f.requirements_revision_id
+                WHERE d.tenant_id=? AND d.owner_user_id=?
+                  AND d.project_id=? AND d.draft_request_id=?
+                """,
+                (principal.tenant_id, principal.id, project_id, draft_request_id),
+            ).fetchone()
+            project = _project_row(connection, principal, project_id)
+            if row is None or project is None:
+                raise storage.MingshuoNotFoundError("not found")
+            if int(project["current_revision"]) != int(row["fact_pack_version"]):
+                raise storage.MingshuoConflictError("stale fact pack")
+            pack, stored_result = _verified_revision(row)
+            day = _utc_day()
+            evaluated_day = date.fromisoformat(row["evaluated_utc_day"])
+            if day < evaluated_day:
+                raise storage.MingshuoConflictError("clock rollback")
+            current_result = fact_pack.evaluate_pack(pack, now=day.isoformat())
+            stable = ("evidenceDigest", "factDigest", "claimDigest")
+            if (
+                row["status"] != "NON_AUTHORIZING"
+                or row["fact_pack_digest"] != fact_pack.fact_pack_digest(pack)
+                or stored_result["decision"] != "PASS"
+                or current_result["decision"] != "PASS"
+                or any(current_result[key] != stored_result[key] for key in stable)
+            ):
+                raise storage.MingshuoConflictError("fact pack unavailable")
+            product = delivery.build_delivery_artifact(
+                pack=pack,
+                evaluation=current_result,
+                requirements_text=str(row["requirements_text"]),
+                tenant_id=principal.tenant_id,
+                owner_user_id=principal.id,
+                project_id=project_id,
+                draft_request_id=draft_request_id,
+                fact_pack_version=int(row["fact_pack_version"]),
+                fact_pack_digest=str(row["fact_pack_digest"]),
+                created_at=datetime.fromisoformat(str(row["created_at"])),
+            )
+            frozen = {
+                "tenant_id": principal.tenant_id,
+                "owner_user_id": principal.id,
+                "project_id": project_id,
+                "fact_pack_version": int(row["fact_pack_version"]),
+                "fact_pack_digest": str(row["fact_pack_digest"]),
+                "binding_json": product.binding_json,
+                "binding_digest": product.binding_digest,
+                "cell_projection_digest": product.cell_projection_digest,
+                "artifact_id": product.artifact_id,
+                "work_product_id": product.work_product_id,
+                "artifact_sha256": product.workbook_sha256,
+                "work_product_digest": product.envelope.content_digest,
+            }
+            existing = connection.execute(
+                "SELECT * FROM mingshuo_delivery_intents "
+                "WHERE tenant_id=? AND owner_user_id=? AND project_id=? "
+                "AND draft_request_id=?",
+                (principal.tenant_id, principal.id, project_id, draft_request_id),
+            ).fetchone()
+            created = existing is None
+            if existing is None:
+                timestamp = _now_iso()
+                connection.execute(
+                    """
+                    INSERT INTO mingshuo_delivery_intents (
+                        draft_request_id,tenant_id,owner_user_id,project_id,
+                        fact_pack_version,fact_pack_digest,binding_json,binding_digest,
+                        cell_projection_digest,artifact_id,work_product_id,
+                        artifact_sha256,work_product_digest,state,created_at,updated_at
+                    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,'PREPARED',?,?)
+                    """,
+                    (
+                        draft_request_id,
+                        *frozen.values(),
+                        timestamp,
+                        timestamp,
+                    ),
+                )
+            else:
+                stable_keys = (
+                    "tenant_id",
+                    "owner_user_id",
+                    "project_id",
+                    "fact_pack_version",
+                    "fact_pack_digest",
+                    "binding_json",
+                    "binding_digest",
+                    "cell_projection_digest",
+                    "artifact_id",
+                    "work_product_id",
+                )
+                if any(existing[key] != frozen[key] for key in stable_keys):
+                    raise storage.MingshuoConflictError("conflict")
+
+        report_store = _artifact_storage()
+        source_hashes = (
+            str(row["fact_pack_digest"]).removeprefix("sha256:"),
+            str(row["evidence_digest"]).removeprefix("sha256:"),
+            str(row["fact_digest"]).removeprefix("sha256:"),
+            str(row["claim_digest"]).removeprefix("sha256:"),
+        )
+        period = ReportPeriod(day.year, day.year)
+        if not created:
+            expected_envelope = _expected_replay_envelope(
+                product, str(existing["artifact_sha256"])
+            )
+            if (
+                expected_envelope.content_digest != existing["work_product_digest"]
+                or expected_envelope.work_product_id != existing["work_product_id"]
+            ):
+                raise storage.MingshuoConflictError("conflict")
+            report_store.verify_pending_identity(
+                artifact_id=str(existing["artifact_id"]),
+                owner_user_id=principal.id,
+                run_id=draft_request_id,
+                report_type=delivery.REPORT_TYPE,
+                display_name=delivery.DISPLAY_NAME,
+                period=period,
+                source_hashes=source_hashes,
+                file_sha256=str(existing["artifact_sha256"]).removeprefix("sha256:"),
+            )
+            stored_envelope = report_store.get_work_product_for_artifact(
+                principal.id, str(existing["artifact_id"])
+            )
+            if stored_envelope != expected_envelope:
+                raise storage.MingshuoConflictError("conflict")
+            report_store.create_or_verify_work_product(
+                principal.id, str(existing["artifact_id"]), expected_envelope
+            )
+            state = str(existing["state"])
+            if state == "PREPARED":
+                _transition_delivery_intent(
+                    principal, draft_request_id, "PREPARED", "ARTIFACT_PENDING"
+                )
+                state = "ARTIFACT_PENDING"
+            if state == "ARTIFACT_PENDING":
+                _transition_delivery_intent(
+                    principal,
+                    draft_request_id,
+                    "ARTIFACT_PENDING",
+                    "WORK_PRODUCT_BOUND",
+                )
+            elif state != "WORK_PRODUCT_BOUND":
+                raise storage.MingshuoConflictError("conflict")
+            response = _delivery_response_from_envelope(
+                artifact_id=str(existing["artifact_id"]),
+                envelope=expected_envelope,
+                fact_pack_version=int(row["fact_pack_version"]),
+                fact_pack_digest=str(row["fact_pack_digest"]),
+                created=False,
+            )
+            return serialize(response), False
+
+        pending_path = _secure_pending_file(
+            report_store,
+            product.workbook_bytes,
+            product.workbook_sha256.removeprefix("sha256:"),
+        )
+        try:
+            report_store.create_or_verify_pending(
+                artifact_id=product.artifact_id,
+                owner_user_id=principal.id,
+                run_id=draft_request_id,
+                report_type=delivery.REPORT_TYPE,
+                display_name=delivery.DISPLAY_NAME,
+                period=period,
+                source_hashes=source_hashes,
+                file_sha256=product.workbook_sha256.removeprefix("sha256:"),
+                pending_path=pending_path,
+            )
+        finally:
+            pending_path.unlink(missing_ok=True)
+        _transition_delivery_intent(
+            principal, draft_request_id, "PREPARED", "ARTIFACT_PENDING"
+        )
+        report_store.create_or_verify_work_product(
+            principal.id, product.artifact_id, product.envelope
+        )
+        _transition_delivery_intent(
+            principal, draft_request_id, "ARTIFACT_PENDING", "WORK_PRODUCT_BOUND"
+        )
+        response = _delivery_response(
+            product,
+            fact_pack_version=int(row["fact_pack_version"]),
+            fact_pack_digest=str(row["fact_pack_digest"]),
+            created=created,
+        )
+        return serialize(response), created
+    except (storage.MingshuoConflictError, storage.MingshuoNotFoundError):
+        raise
+    except ArtifactNotFound as exc:
+        raise storage.MingshuoConflictError("conflict") from exc
+    except ArtifactStorageError as exc:
+        if str(exc) == "artifact_conflict":
+            raise storage.MingshuoConflictError("conflict") from exc
+        raise storage.MingshuoStorageError("unavailable") from exc
+    except delivery.DeliveryValidationError as exc:
+        raise storage.MingshuoConflictError("conflict") from exc
+    except (sqlite3.Error, OSError, TypeError, ValueError) as exc:
+        raise storage.MingshuoStorageError("unavailable") from exc
+
+
+def create_work_product(
+    project_id: str,
+    draft_request_id: str,
+    principal: AuthenticatedPrincipal,
+    *,
+    serialize: Callable[[dict[str, Any]], dict[str, Any]],
+) -> tuple[dict[str, Any], bool]:
+    """Serialize one delivery identity and create or exactly replay it."""
+
+    with _delivery_lock(principal, project_id, draft_request_id):
+        return _create_work_product_unlocked(
+            project_id,
+            draft_request_id,
+            principal,
+            serialize=serialize,
+        )
+
+
 __all__ = [
     "MingshuoValidationError",
     "append_revision",
     "create_draft_request",
     "create_project",
+    "create_work_product",
     "get_project",
 ]

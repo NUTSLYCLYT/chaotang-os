@@ -2806,7 +2806,7 @@ async function materializeReleaseInputs(options, work, policy, tools) {
   const descriptor = {
     schemaVersion: "chaotang-release-input.v2",
     platform: policy.platform,
-    runtimeRegistryDigest: "sha256:d65cfd339ef9ed352760c25f5291e914ec0bc31d190a45baa9068bd1fc57732e",
+    runtimeRegistryDigest: "sha256:7caed69599c964b7fc908229d86795008a0956fdae90628a904f8e4ec87dcabe",
     source: { commit: options.candidateCommit, tree: options.candidateTree, sourceDateEpoch: options.sourceDateEpoch },
     tools,
     artifacts,

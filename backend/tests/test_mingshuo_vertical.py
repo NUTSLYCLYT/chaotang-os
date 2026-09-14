@@ -8,6 +8,7 @@ import json
 import sqlite3
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date
+from pathlib import Path
 
 import pytest
 from fastapi import FastAPI, Request
@@ -137,6 +138,32 @@ def test_create_read_draft_and_exact_replay_are_owner_scoped(client: TestClient)
         ).status_code
         == 200
     )
+
+
+def test_schema_v1_forward_migration_preserves_existing_fact_pack_rows(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    database = tmp_path / "mingshuo.sqlite3"
+    monkeypatch.setattr(storage, "_DEFAULT_DB_PATH", database)
+    application = FastAPI()
+    application.include_router(mingshuo_api.router)
+    register_auth_exception_handlers(application)
+    application.dependency_overrides[require_current_user] = _owner
+    client = TestClient(application)
+    created = client.post("/api/v1/mingshuo/projects", json=_payload()).json()["project"]
+    with sqlite3.connect(database) as connection:
+        connection.execute("DROP TRIGGER mingshuo_delivery_intents_guard_update")
+        connection.execute("DROP TRIGGER mingshuo_delivery_intents_no_delete")
+        connection.execute("DROP TABLE mingshuo_delivery_intents")
+        connection.execute("PRAGMA user_version = 1")
+    storage.initialize_database()
+    with sqlite3.connect(database) as connection:
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 2
+        assert connection.execute("SELECT COUNT(*) FROM mingshuo_projects").fetchone()[0] == 1
+        assert connection.execute(
+            "SELECT COUNT(*) FROM mingshuo_fact_pack_revisions"
+        ).fetchone()[0] == 1
+    assert client.get(f"/api/v1/mingshuo/projects/{created['projectId']}").status_code == 200
 
 
 def test_unauthenticated_access_is_generic_401() -> None:
@@ -409,7 +436,7 @@ def test_schema_has_append_only_guards_and_exact_user_version(tmp_path, monkeypa
     monkeypatch.setattr(storage, "_DEFAULT_DB_PATH", tmp_path / "schema.sqlite3")
     storage.initialize_database()
     with sqlite3.connect(storage._DEFAULT_DB_PATH) as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 1
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 2
         names = {
             row[0]
             for row in connection.execute("SELECT name FROM sqlite_master WHERE type='trigger'")

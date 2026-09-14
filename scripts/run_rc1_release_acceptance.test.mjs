@@ -206,7 +206,7 @@ function options(evidenceDir, overrides = {}) {
     approvalDigest: `sha256:${"1".repeat(64)}`,
     p09ContractDigest: "sha256:27728301f51c7fe7bd929d99b45de86c76807b4c9c5eba22e7e42b0e18e8acc5",
     p09VerifierDigest: "sha256:f001d50ef4c03bb16aaf51f91531b78651121147cb2ee9e78af9a8a24f8f1e99",
-    runtimeRegistryDigest: "sha256:d65cfd339ef9ed352760c25f5291e914ec0bc31d190a45baa9068bd1fc57732e",
+    runtimeRegistryDigest: "sha256:7caed69599c964b7fc908229d86795008a0956fdae90628a904f8e4ec87dcabe",
     releaseManifestDigest: `sha256:${"2".repeat(64)}`,
     previousReleaseId: null,
     previousBundleDigest: null,

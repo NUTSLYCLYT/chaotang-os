@@ -25,6 +25,7 @@ _ARTIFACT_ID_PATTERN = re.compile(r"[0-9a-f]{32}")
 _CREATE_TEMP_PATTERN = re.compile(r"\.[0-9a-f]{32}\.xlsx")
 _ORPHAN_VERSION = 1
 _ORPHAN_KIND = "create_pending_recovery"
+_MINGSHUO_REPORT_TYPE = "MINGSHUO_SOLUTION_QUOTATION_DRAFT_V1"
 
 
 class ArtifactNotFound(LookupError):
@@ -318,6 +319,63 @@ class ArtifactStorage:
                 connection.rollback()
                 raise ArtifactStorageError("artifact_unavailable") from None
         return payload
+
+    def create_or_verify_work_product(
+        self,
+        owner_user_id: str,
+        artifact_id: str,
+        payload: WorkProductEnvelope,
+    ) -> tuple[WorkProductEnvelope, bool]:
+        """Create one immutable product or verify its exact pending replay."""
+
+        owner_user_id = _required(owner_user_id, "owner_user_id")
+        artifact_id = _required(artifact_id, "artifact_id")
+        try:
+            return self.create_work_product(owner_user_id, artifact_id, payload), True
+        except ArtifactStorageError:
+            pass
+        try:
+            connection = self._connect()
+        except (OSError, sqlite3.Error):
+            raise ArtifactStorageError("artifact_unavailable") from None
+        with closing(connection):
+            try:
+                row = connection.execute(
+                    "SELECT * FROM work_products WHERE work_product_id=?",
+                    (payload.work_product_id,),
+                ).fetchone()
+                bindings = connection.execute(
+                    "SELECT artifact_id FROM work_product_artifacts "
+                    "WHERE work_product_id=? ORDER BY artifact_id",
+                    (payload.work_product_id,),
+                ).fetchall()
+                artifact = connection.execute(
+                    "SELECT * FROM report_artifacts WHERE artifact_id=?",
+                    (artifact_id,),
+                ).fetchone()
+                if (
+                    row is None
+                    or artifact is None
+                    or len(bindings) != 1
+                    or bindings[0]["artifact_id"] != artifact_id
+                    or row["owner_user_id"] != owner_user_id
+                    or row["run_id"] != payload.run_id
+                    or row["capability_id"] != payload.capability_id
+                    or int(row["version"]) != payload.version
+                    or row["work_status"] != payload.work_status.value
+                    or row["confirmation_status"]
+                    != payload.confirmation_status.value
+                    or row["payload_json"] != payload.model_dump_json()
+                    or artifact["owner_user_id"] != owner_user_id
+                    or artifact["run_id"] != payload.run_id
+                    or artifact["state"] != "PENDING"
+                ):
+                    raise ArtifactStorageError("artifact_conflict")
+                return self._work_product_from_row(row), False
+            except ArtifactStorageError:
+                raise
+            except (KeyError, sqlite3.Error, TypeError, ValueError):
+                raise ArtifactStorageError("artifact_unavailable") from None
 
     def get_work_product(
         self, owner_user_id: str, work_product_id: str
@@ -729,6 +787,216 @@ class ArtifactStorage:
             file_path=canonical_path,
         )
 
+    def create_or_verify_pending(
+        self,
+        *,
+        artifact_id: str,
+        owner_user_id: str,
+        run_id: str,
+        report_type: str,
+        display_name: str,
+        period: ReportPeriod,
+        source_hashes: tuple[str, ...],
+        file_sha256: str,
+        pending_path: Path,
+    ) -> tuple[PendingReportArtifact, bool]:
+        """Create a deterministic pending artifact or verify an exact replay."""
+
+        if _ARTIFACT_ID_PATTERN.fullmatch(artifact_id) is None:
+            raise ValueError("artifact_id is invalid")
+        owner_user_id = _required(owner_user_id, "owner_user_id")
+        run_id = _required(run_id, "run_id")
+        report_type = _required(report_type, "report_type")
+        display_name = Path(_required(display_name, "display_name")).name
+        file_sha256 = _required(file_sha256, "file_sha256")
+        if not isinstance(period, ReportPeriod):
+            raise TypeError("period is required")
+        if not source_hashes or any(not str(value).strip() for value in source_hashes):
+            raise ValueError("source_hashes are required")
+        if _CREATE_TEMP_PATTERN.fullmatch(Path(pending_path).name) is None:
+            raise ArtifactStorageError("artifact_unavailable")
+        incoming = self._contained(Path(pending_path))
+        if _sha256(incoming) != file_sha256:
+            raise ArtifactStorageError("artifact_hash_mismatch")
+        canonical = self._contained(
+            self.artifact_dir / f"{artifact_id}.pending.xlsx", must_exist=False
+        )
+        encoded_hashes = json.dumps(
+            tuple(sorted(set(source_hashes))),
+            ensure_ascii=True,
+            separators=(",", ":"),
+        )
+        with closing(self._connect()) as connection:
+            try:
+                connection.execute("BEGIN IMMEDIATE")
+                rows = connection.execute(
+                    "SELECT * FROM report_artifacts "
+                    "WHERE artifact_id=? OR (owner_user_id=? AND run_id=?) "
+                    "ORDER BY artifact_id",
+                    (artifact_id, owner_user_id, run_id),
+                ).fetchall()
+                if rows:
+                    if len(rows) != 1:
+                        raise ArtifactStorageError("artifact_conflict")
+                    row = rows[0]
+                    if (
+                        row["artifact_id"] != artifact_id
+                        or row["owner_user_id"] != owner_user_id
+                        or row["run_id"] != run_id
+                        or row["report_type"] != report_type
+                        or row["display_name"] != display_name
+                        or int(row["period_start"]) != period.start_year
+                        or int(row["period_end"]) != period.end_year
+                        or row["source_hashes_json"] != encoded_hashes
+                        or row["file_sha256"] != file_sha256
+                        or row["state"] != "PENDING"
+                        or not canonical.is_file()
+                        or _sha256(canonical) != file_sha256
+                    ):
+                        raise ArtifactStorageError("artifact_conflict")
+                    incoming.unlink()
+                    connection.commit()
+                    return (
+                        PendingReportArtifact(
+                            artifact_id=artifact_id,
+                            owner_user_id=owner_user_id,
+                            run_id=run_id,
+                            report_type=report_type,
+                            period=period,
+                            source_sha256=_source_digest(tuple(json.loads(encoded_hashes))),
+                            file_sha256=file_sha256,
+                            display_name=display_name,
+                            file_path=canonical,
+                        ),
+                        False,
+                    )
+                if canonical.exists():
+                    raise ArtifactStorageError("artifact_conflict")
+                incoming.replace(canonical)
+                connection.execute(
+                    """
+                    INSERT INTO report_artifacts (
+                        artifact_id,owner_user_id,run_id,reply_id,report_type,
+                        display_name,period_start,period_end,source_hashes_json,
+                        file_sha256,state,created_at,published_at
+                    ) VALUES (?,?,?,NULL,?,?,?,?,?,?,'PENDING',?,NULL)
+                    """,
+                    (
+                        artifact_id,
+                        owner_user_id,
+                        run_id,
+                        report_type,
+                        display_name,
+                        period.start_year,
+                        period.end_year,
+                        encoded_hashes,
+                        file_sha256,
+                        datetime.now(UTC).isoformat(),
+                    ),
+                )
+                connection.commit()
+            except ArtifactStorageError:
+                connection.rollback()
+                raise
+            except Exception:
+                connection.rollback()
+                try:
+                    if canonical.exists() and not incoming.exists():
+                        canonical.replace(incoming)
+                except OSError:
+                    pass
+                raise ArtifactStorageError("artifact_unavailable") from None
+        return (
+            PendingReportArtifact(
+                artifact_id=artifact_id,
+                owner_user_id=owner_user_id,
+                run_id=run_id,
+                report_type=report_type,
+                period=period,
+                source_sha256=_source_digest(tuple(json.loads(encoded_hashes))),
+                file_sha256=file_sha256,
+                display_name=display_name,
+                file_path=canonical,
+            ),
+            True,
+        )
+
+    def verify_pending_identity(
+        self,
+        *,
+        artifact_id: str,
+        owner_user_id: str,
+        run_id: str,
+        report_type: str,
+        display_name: str,
+        period: ReportPeriod,
+        source_hashes: tuple[str, ...],
+        file_sha256: str,
+    ) -> PendingReportArtifact:
+        """Read and verify one immutable pending artifact without regenerating it."""
+
+        if _ARTIFACT_ID_PATTERN.fullmatch(artifact_id) is None:
+            raise ValueError("artifact_id is invalid")
+        owner_user_id = _required(owner_user_id, "owner_user_id")
+        run_id = _required(run_id, "run_id")
+        report_type = _required(report_type, "report_type")
+        display_name = Path(_required(display_name, "display_name")).name
+        file_sha256 = _required(file_sha256, "file_sha256")
+        if not isinstance(period, ReportPeriod):
+            raise TypeError("period is required")
+        if not source_hashes or any(not str(value).strip() for value in source_hashes):
+            raise ValueError("source_hashes are required")
+        encoded_hashes = json.dumps(
+            tuple(sorted(set(source_hashes))),
+            ensure_ascii=True,
+            separators=(",", ":"),
+        )
+        try:
+            canonical = self._contained(
+                self.artifact_dir / f"{artifact_id}.pending.xlsx"
+            )
+            with closing(self._connect()) as connection:
+                connection.execute("PRAGMA query_only = ON")
+                rows = connection.execute(
+                    "SELECT * FROM report_artifacts "
+                    "WHERE artifact_id=? OR (owner_user_id=? AND run_id=?) "
+                    "ORDER BY artifact_id",
+                    (artifact_id, owner_user_id, run_id),
+                ).fetchall()
+            if len(rows) != 1:
+                raise ArtifactStorageError("artifact_unavailable")
+            row = rows[0]
+            if (
+                row["artifact_id"] != artifact_id
+                or row["owner_user_id"] != owner_user_id
+                or row["run_id"] != run_id
+                or row["report_type"] != report_type
+                or row["display_name"] != display_name
+                or int(row["period_start"]) != period.start_year
+                or int(row["period_end"]) != period.end_year
+                or row["source_hashes_json"] != encoded_hashes
+                or row["file_sha256"] != file_sha256
+                or row["state"] != "PENDING"
+                or not canonical.is_file()
+                or _sha256(canonical) != file_sha256
+            ):
+                raise ArtifactStorageError("artifact_unavailable")
+            return PendingReportArtifact(
+                artifact_id=artifact_id,
+                owner_user_id=owner_user_id,
+                run_id=run_id,
+                report_type=report_type,
+                period=period,
+                source_sha256=_source_digest(tuple(json.loads(encoded_hashes))),
+                file_sha256=file_sha256,
+                display_name=display_name,
+                file_path=canonical,
+            )
+        except ArtifactStorageError:
+            raise
+        except (KeyError, OSError, sqlite3.Error, TypeError, ValueError):
+            raise ArtifactStorageError("artifact_unavailable") from None
+
     def _artifact_from_row(
         self, row: sqlite3.Row, final_path: Path
     ) -> PublishedReportArtifact:
@@ -820,6 +1088,8 @@ class ArtifactStorage:
                     """,
                     (owner_user_id, run_id),
                 ).fetchall()
+                if any(row["report_type"] == _MINGSHUO_REPORT_TYPE for row in run_rows):
+                    raise ArtifactStorageError("artifact_unavailable")
                 for row in run_rows:
                     self._reconcile_terminal_row(row)
                 existing = connection.execute(

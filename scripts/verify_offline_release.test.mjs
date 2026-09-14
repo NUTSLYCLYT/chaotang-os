@@ -264,7 +264,7 @@ async function createReleaseFixture(source) {
     descriptor: {
       schemaVersion: "chaotang-release-input.v2",
       platform: "linux/amd64",
-      runtimeRegistryDigest: "sha256:d65cfd339ef9ed352760c25f5291e914ec0bc31d190a45baa9068bd1fc57732e",
+      runtimeRegistryDigest: "sha256:7caed69599c964b7fc908229d86795008a0956fdae90628a904f8e4ec87dcabe",
       source: { commit, tree, sourceDateEpoch },
       tools: { docker: "29.6.1+8900f1d", buildx: "v0.35.0+a319e5b15052cf6557ceb666eb8ff6e32380b782", buildkit: "v0.31.1", node: "24.19.0", python: "3.12.14", caddy: "2.11.4", syft: "1.51.0", grype: "0.117.0" },
       artifacts,

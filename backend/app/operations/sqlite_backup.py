@@ -38,7 +38,7 @@ _ONLINE_MODE = "ONLINE_PER_DATABASE"
 _COLD_MODE = "COLD_RELEASE"
 _BACKUP_MODES = {_ONLINE_MODE, _COLD_MODE}
 _TRUSTED_RUNNER_SHA256 = (
-    "sha256:98cdd5e95b0dce4621d578a6a5f1f95885ef4afbdda90122465b1ce642b05d1d"
+    "sha256:938beaa21a86f69e9449276fb2bd9d4eddf91de76e4b954d8a78c024800e0c2a"
 )
 _UUID_PATTERN = re.compile(
     r"^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"

@@ -12,7 +12,12 @@ from pydantic import BaseModel, ValidationError
 
 from app.api.auth import CurrentUser
 from app.mingshuo import fact_pack, service, storage
-from app.mingshuo.models import CreateProjectRequest, DraftRequest, RevisionRequest
+from app.mingshuo.models import (
+    CreateProjectRequest,
+    DraftRequest,
+    RevisionRequest,
+    WorkProductRequest,
+)
 
 router = APIRouter(prefix="/api/v1/mingshuo", tags=["mingshuo"])
 _PROJECT_ID = re.compile(r"^[0-9a-f]{32}$")
@@ -34,6 +39,10 @@ def _serialize_payload(value: object) -> dict[str, Any]:
 
 
 async def _parse(request: Request, model: type[_Model]) -> _Model:
+    if request.headers.get("content-type", "").partition(";")[0].strip().casefold() != (
+        "application/json"
+    ):
+        raise ValueError("JSON_CONTENT_TYPE_REQUIRED")
     content_length = request.headers.get("content-length")
     if content_length is not None:
         try:
@@ -56,6 +65,10 @@ async def _parse(request: Request, model: type[_Model]) -> _Model:
 
 def _project_id_or_404(project_id: str) -> bool:
     return bool(_PROJECT_ID.fullmatch(project_id))
+
+
+def _identity_or_422(value: str) -> bool:
+    return bool(_PROJECT_ID.fullmatch(value))
 
 
 @router.post("/projects", response_model=None)
@@ -114,6 +127,37 @@ async def create_draft_request(project_id: str, request: Request, current_user: 
         payload = await _parse(request, DraftRequest)
         response, created = service.create_draft_request(
             project_id, payload, current_user, serialize=_serialize_payload
+        )
+        return JSONResponse(status_code=201 if created else 200, content=response)
+    except (ValueError, ValidationError, service.MingshuoValidationError):
+        return _error(422, "validation")
+    except storage.MingshuoNotFoundError:
+        return _error(404, "not_found")
+    except storage.MingshuoConflictError:
+        return _error(409, "conflict")
+    except storage.MingshuoStorageError:
+        return _error(503, "unavailable")
+
+
+@router.post(
+    "/projects/{project_id}/draft-requests/{draft_request_id}/work-product",
+    response_model=None,
+)
+async def create_work_product(
+    project_id: str,
+    draft_request_id: str,
+    request: Request,
+    current_user: CurrentUser,
+):
+    if not _identity_or_422(project_id) or not _identity_or_422(draft_request_id):
+        return _error(422, "validation")
+    try:
+        await _parse(request, WorkProductRequest)
+        response, created = service.create_work_product(
+            project_id,
+            draft_request_id,
+            current_user,
+            serialize=_serialize_payload,
         )
         return JSONResponse(status_code=201 if created else 200, content=response)
     except (ValueError, ValidationError, service.MingshuoValidationError):

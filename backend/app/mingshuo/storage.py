@@ -9,7 +9,7 @@ from pathlib import Path
 
 _DEFAULT_DB_PATH = Path(__file__).resolve().parents[2] / "data" / "mingshuo.sqlite3"
 BUSY_TIMEOUT_MS = 5_000
-USER_VERSION = 1
+USER_VERSION = 2
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS mingshuo_projects (
@@ -106,6 +106,35 @@ CREATE TABLE IF NOT EXISTS mingshuo_idempotency_keys (
         REFERENCES mingshuo_projects (tenant_id, owner_user_id, project_id)
 );
 
+CREATE TABLE IF NOT EXISTS mingshuo_delivery_intents (
+    draft_request_id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    owner_user_id TEXT NOT NULL,
+    project_id TEXT NOT NULL,
+    fact_pack_version INTEGER NOT NULL CHECK (fact_pack_version BETWEEN 1 AND 64),
+    fact_pack_digest TEXT NOT NULL,
+    binding_json TEXT NOT NULL,
+    binding_digest TEXT NOT NULL,
+    cell_projection_digest TEXT NOT NULL,
+    artifact_id TEXT NOT NULL,
+    work_product_id TEXT NOT NULL,
+    artifact_sha256 TEXT NOT NULL,
+    work_product_digest TEXT NOT NULL,
+    state TEXT NOT NULL CHECK (
+        state IN ('PREPARED','ARTIFACT_PENDING','WORK_PRODUCT_BOUND')
+    ),
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE (tenant_id, owner_user_id, project_id, draft_request_id),
+    UNIQUE (artifact_id),
+    UNIQUE (work_product_id),
+    FOREIGN KEY (tenant_id, owner_user_id, project_id, draft_request_id)
+        REFERENCES mingshuo_draft_requests
+            (tenant_id, owner_user_id, project_id, draft_request_id),
+    FOREIGN KEY (tenant_id, owner_user_id, project_id)
+        REFERENCES mingshuo_projects (tenant_id, owner_user_id, project_id)
+);
+
 CREATE TRIGGER IF NOT EXISTS mingshuo_projects_no_delete
 BEFORE DELETE ON mingshuo_projects
 BEGIN SELECT RAISE(ABORT, 'immutable project'); END;
@@ -154,6 +183,33 @@ BEGIN SELECT RAISE(ABORT, 'immutable idempotency key'); END;
 CREATE TRIGGER IF NOT EXISTS mingshuo_idempotency_keys_no_delete
 BEFORE DELETE ON mingshuo_idempotency_keys
 BEGIN SELECT RAISE(ABORT, 'immutable idempotency key'); END;
+
+CREATE TRIGGER IF NOT EXISTS mingshuo_delivery_intents_no_delete
+BEFORE DELETE ON mingshuo_delivery_intents
+BEGIN SELECT RAISE(ABORT, 'immutable delivery intent'); END;
+
+CREATE TRIGGER IF NOT EXISTS mingshuo_delivery_intents_guard_update
+BEFORE UPDATE ON mingshuo_delivery_intents
+WHEN NEW.draft_request_id IS NOT OLD.draft_request_id
+  OR NEW.tenant_id IS NOT OLD.tenant_id
+  OR NEW.owner_user_id IS NOT OLD.owner_user_id
+  OR NEW.project_id IS NOT OLD.project_id
+  OR NEW.fact_pack_version IS NOT OLD.fact_pack_version
+  OR NEW.fact_pack_digest IS NOT OLD.fact_pack_digest
+  OR NEW.binding_json IS NOT OLD.binding_json
+  OR NEW.binding_digest IS NOT OLD.binding_digest
+  OR NEW.cell_projection_digest IS NOT OLD.cell_projection_digest
+  OR NEW.artifact_id IS NOT OLD.artifact_id
+  OR NEW.work_product_id IS NOT OLD.work_product_id
+  OR NEW.artifact_sha256 IS NOT OLD.artifact_sha256
+  OR NEW.work_product_digest IS NOT OLD.work_product_digest
+  OR NEW.created_at IS NOT OLD.created_at
+  OR NEW.updated_at <= OLD.updated_at
+  OR NOT (
+      (OLD.state = 'PREPARED' AND NEW.state = 'ARTIFACT_PENDING')
+      OR (OLD.state = 'ARTIFACT_PENDING' AND NEW.state = 'WORK_PRODUCT_BOUND')
+  )
+BEGIN SELECT RAISE(ABORT, 'invalid delivery intent transition'); END;
 """
 
 
@@ -184,6 +240,16 @@ def _connect(path: Path | None = None) -> sqlite3.Connection:
         connection.execute(f"PRAGMA busy_timeout = {BUSY_TIMEOUT_MS}")
         connection.execute("PRAGMA journal_mode = WAL")
         connection.execute("PRAGMA synchronous = FULL")
+        version = int(connection.execute("PRAGMA user_version").fetchone()[0])
+        existing_tables = {
+            str(row[0])
+            for row in connection.execute(
+                "SELECT name FROM sqlite_master "
+                "WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+            )
+        }
+        if version not in {0, 1, USER_VERSION} or (version == 0 and existing_tables):
+            raise MingshuoStorageError("unsupported schema")
         connection.executescript(_SCHEMA)
         connection.execute(f"PRAGMA user_version = {USER_VERSION}")
     except Exception:
@@ -228,6 +294,7 @@ def count_rows(table: str, path: Path | None = None) -> int:
         "mingshuo_fact_pack_revisions",
         "mingshuo_draft_requests",
         "mingshuo_idempotency_keys",
+        "mingshuo_delivery_intents",
     }
     if table not in allowed:
         raise ValueError("unknown table")

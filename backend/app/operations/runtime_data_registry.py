@@ -374,8 +374,9 @@ RUNTIME_DATA_ENTRIES = (
     RuntimeDataEntry(
         "mingshuo.sqlite3",
         "mingshuo.sqlite3",
-        1,
+        2,
         (
+            "mingshuo_delivery_intents",
             "mingshuo_draft_requests",
             "mingshuo_fact_pack_revisions",
             "mingshuo_idempotency_keys",
@@ -383,6 +384,8 @@ RUNTIME_DATA_ENTRIES = (
             "mingshuo_requirement_revisions",
         ),
         (
+            "mingshuo_delivery_intents_guard_update",
+            "mingshuo_delivery_intents_no_delete",
             "mingshuo_draft_requests_no_delete",
             "mingshuo_draft_requests_no_update",
             "mingshuo_fact_pack_revisions_no_delete",
@@ -394,7 +397,7 @@ RUNTIME_DATA_ENTRIES = (
             "mingshuo_requirement_revisions_no_delete",
             "mingshuo_requirement_revisions_no_update",
         ),
-        ("sha256:788c495d5462a5fba20b9288c8fe8f2c736dc75d94db5df441632d359f1f5978",),
+        ("sha256:0ea6c0b2528739ec9a0d60efb469617d10d9257a196e9efe196b09d74197b9dd",),
     ),
     RuntimeDataEntry(
         "junjichu_cases.sqlite3",

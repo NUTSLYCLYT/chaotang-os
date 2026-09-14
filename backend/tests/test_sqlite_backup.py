@@ -408,6 +408,113 @@ def test_backup_verify_and_rehearse_closed_runtime(tmp_path: Path) -> None:
     )
 
 
+def test_backup_and_restore_preserve_mingshuo_delivery_intent(tmp_path: Path) -> None:
+    source = _create_runtime(tmp_path / "source")
+    with sqlite3.connect(source / "mingshuo.sqlite3") as connection:
+        connection.execute("PRAGMA foreign_keys = ON")
+        connection.execute(
+            "INSERT INTO mingshuo_projects VALUES (?,?,?,?,?,?,?,?,?,?)",
+            (
+                "b" * 32,
+                "tenant-a",
+                "owner-a",
+                "Synthetic project",
+                "[]",
+                "[]",
+                "[]",
+                1,
+                "2026-09-13T00:00:00Z",
+                "2026-09-13T00:00:00Z",
+            ),
+        )
+        connection.execute(
+            "INSERT INTO mingshuo_requirement_revisions VALUES "
+            "(?,?,?,?,?,?,?,?)",
+            (
+                "4" * 32,
+                "tenant-a",
+                "owner-a",
+                "b" * 32,
+                1,
+                "Synthetic requirements",
+                "sha256:" + "5" * 64,
+                "2026-09-13T00:00:00Z",
+            ),
+        )
+        connection.execute(
+            "INSERT INTO mingshuo_fact_pack_revisions VALUES "
+            "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (
+                "6" * 32,
+                "tenant-a",
+                "owner-a",
+                "b" * 32,
+                1,
+                "4" * 32,
+                b"{}",
+                "sha256:" + "c" * 64,
+                "PASS",
+                "[]",
+                "[]",
+                "[]",
+                "sha256:" + "7" * 64,
+                "sha256:" + "8" * 64,
+                "sha256:" + "9" * 64,
+                "2026-09-13",
+                "mingshuo.fact-pack.evaluator.v1",
+                "mingshuo.project-fact-pack.v1",
+                "2026-09-13T00:00:00Z",
+            ),
+        )
+        connection.execute(
+            "INSERT INTO mingshuo_draft_requests VALUES (?,?,?,?,?,?,?,?,?,?)",
+            (
+                "a" * 32,
+                "tenant-a",
+                "owner-a",
+                "b" * 32,
+                "synthetic-request",
+                "sha256:" + "a" * 64,
+                1,
+                "sha256:" + "c" * 64,
+                "NON_AUTHORIZING",
+                "2026-09-13T00:00:00Z",
+            ),
+        )
+        connection.execute(
+            "INSERT INTO mingshuo_delivery_intents VALUES "
+            "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (
+                "a" * 32,
+                "tenant-a",
+                "owner-a",
+                "b" * 32,
+                1,
+                "sha256:" + "c" * 64,
+                '{"schemaVersion":"mingshuo.delivery-binding.v1"}',
+                "sha256:" + "d" * 64,
+                "sha256:" + "e" * 64,
+                "f" * 32,
+                "1" * 32,
+                "sha256:" + "2" * 64,
+                "3" * 64,
+                "WORK_PRODUCT_BOUND",
+                "2026-09-13T00:00:00Z",
+                "2026-09-13T00:00:02Z",
+            ),
+        )
+    backup = tmp_path / "backup"
+    restored = tmp_path / "restored"
+    backup_runtime(source, backup)
+    rehearse_restore(backup, restored)
+    with sqlite3.connect(restored / "mingshuo.sqlite3") as connection:
+        row = connection.execute(
+            "SELECT draft_request_id,state,binding_digest "
+            "FROM mingshuo_delivery_intents"
+        ).fetchone()
+    assert row == ("a" * 32, "WORK_PRODUCT_BOUND", "sha256:" + "d" * 64)
+
+
 @pytest.mark.parametrize("canonical_new", [False, True])
 def test_backup_manifest_binds_the_actual_allowed_decree_schema(
     tmp_path: Path, canonical_new: bool

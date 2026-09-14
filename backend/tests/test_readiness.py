@@ -569,6 +569,13 @@ def test_runtime_data_registry_is_closed_and_includes_all_eight_stores() -> None
     assert RUNTIME_DATA_REGISTRY["registryDigest"] == RUNTIME_DATA_REGISTRY_DIGEST
     assert RUNTIME_DATA_REGISTRY_DIGEST.startswith("sha256:")
     assert len(RUNTIME_DATA_REGISTRY_DIGEST) == 71
+    mingshuo = next(entry for entry in RUNTIME_DATA_ENTRIES if entry.name == "mingshuo.sqlite3")
+    assert mingshuo.user_version == 2
+    assert "mingshuo_delivery_intents" in mingshuo.required_tables
+    assert set(mingshuo.required_triggers) >= {
+        "mingshuo_delivery_intents_guard_update",
+        "mingshuo_delivery_intents_no_delete",
+    }
 
 
 def test_readiness_accepts_exact_runtime_binding_schema(tmp_path: Path) -> None:

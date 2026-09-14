@@ -162,4 +162,13 @@ class DraftRequest(_ClosedModel):
     fact_pack_digest: Digest = Field(alias="factPackDigest")
 
 
-__all__ = ["CreateProjectRequest", "DraftRequest", "RevisionRequest"]
+class WorkProductRequest(_ClosedModel):
+    """Closed marker body for creating the bound non-authorizing draft."""
+
+
+__all__ = [
+    "CreateProjectRequest",
+    "DraftRequest",
+    "RevisionRequest",
+    "WorkProductRequest",
+]

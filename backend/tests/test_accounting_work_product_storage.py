@@ -103,6 +103,168 @@ def _seeded_work_product(
     return storage, artifact_id, payload
 
 
+def test_mingshuo_pending_artifact_and_work_product_replay_are_exact_and_unpublished(
+    tmp_path: Path,
+) -> None:
+    storage = _storage(tmp_path)
+    content = b"synthetic mingshuo workbook"
+    digest = hashlib.sha256(content).hexdigest()
+    artifact_id = "a" * 32
+
+    def incoming() -> Path:
+        path = storage.artifact_dir / f".{uuid4().hex}.xlsx"
+        path.write_bytes(content)
+        return path
+
+    arguments = {
+        "artifact_id": artifact_id,
+        "owner_user_id": "owner-a",
+        "run_id": "b" * 32,
+        "report_type": "MINGSHUO_SOLUTION_QUOTATION_DRAFT_V1",
+        "display_name": "mingshuo-solution-quotation-draft.xlsx",
+        "period": ReportPeriod(2026, 2026),
+        "source_hashes": ("c" * 64,),
+        "file_sha256": digest,
+    }
+    created, created_now = storage.create_or_verify_pending(
+        **arguments, pending_path=incoming()
+    )
+    replayed, replayed_now = storage.create_or_verify_pending(
+        **arguments, pending_path=incoming()
+    )
+    assert created.artifact_id == replayed.artifact_id == artifact_id
+    assert (created_now, replayed_now) == (True, False)
+
+    envelope = _ready_envelope(
+        work_product_id="d" * 32,
+    ).model_copy(
+        update={
+            "run_id": "b" * 32,
+            "reply_id": None,
+            "capability_id": "mingshuo.first-delivery.work-product.v1",
+            "artifact_state": "PENDING",
+        }
+    )
+    first_product, first_created = storage.create_or_verify_work_product(
+        "owner-a", artifact_id, envelope
+    )
+    second_product, second_created = storage.create_or_verify_work_product(
+        "owner-a", artifact_id, envelope
+    )
+    assert first_product == second_product == envelope
+    assert (first_created, second_created) == (True, False)
+
+    with pytest.raises(ArtifactStorageError, match="artifact_unavailable"):
+        storage.publish_run("owner-a", "b" * 32, "reply-a")
+    assert created.file_path.is_file()
+    assert storage.get_work_product_for_artifact("owner-a", artifact_id).artifact_state.value == (
+        "PENDING"
+    )
+
+
+def test_verify_pending_identity_is_read_only_and_binds_the_stored_file(
+    tmp_path: Path,
+) -> None:
+    storage = _storage(tmp_path)
+    content = b"synthetic immutable mingshuo workbook"
+    digest = hashlib.sha256(content).hexdigest()
+    artifact_id = "a" * 32
+    incoming = storage.artifact_dir / f".{uuid4().hex}.xlsx"
+    incoming.write_bytes(content)
+    arguments = {
+        "artifact_id": artifact_id,
+        "owner_user_id": "owner-a",
+        "run_id": "b" * 32,
+        "report_type": "MINGSHUO_SOLUTION_QUOTATION_DRAFT_V1",
+        "display_name": "mingshuo-solution-quotation-draft.xlsx",
+        "period": ReportPeriod(2026, 2026),
+        "source_hashes": ("c" * 64,),
+        "file_sha256": digest,
+    }
+    created, _ = storage.create_or_verify_pending(**arguments, pending_path=incoming)
+    before = created.file_path.stat()
+
+    verified = storage.verify_pending_identity(**arguments)
+
+    after = created.file_path.stat()
+    assert verified == created
+    assert (after.st_size, after.st_mtime_ns) == (before.st_size, before.st_mtime_ns)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("owner_user_id", "owner-b"),
+        ("run_id", "different-run"),
+        ("report_type", "DIFFERENT_REPORT"),
+        ("display_name", "different.xlsx"),
+        ("period", ReportPeriod(2025, 2026)),
+        ("source_hashes", ("d" * 64,)),
+        ("file_sha256", "e" * 64),
+    ],
+)
+def test_verify_pending_identity_fails_closed_on_identity_drift(
+    tmp_path: Path, field: str, value: object
+) -> None:
+    storage = _storage(tmp_path)
+    content = b"synthetic immutable mingshuo workbook"
+    digest = hashlib.sha256(content).hexdigest()
+    artifact_id = "a" * 32
+    incoming = storage.artifact_dir / f".{uuid4().hex}.xlsx"
+    incoming.write_bytes(content)
+    arguments: dict[str, object] = {
+        "artifact_id": artifact_id,
+        "owner_user_id": "owner-a",
+        "run_id": "b" * 32,
+        "report_type": "MINGSHUO_SOLUTION_QUOTATION_DRAFT_V1",
+        "display_name": "mingshuo-solution-quotation-draft.xlsx",
+        "period": ReportPeriod(2026, 2026),
+        "source_hashes": ("c" * 64,),
+        "file_sha256": digest,
+    }
+    storage.create_or_verify_pending(**arguments, pending_path=incoming)
+    arguments[field] = value
+
+    with pytest.raises(ArtifactStorageError, match="^artifact_unavailable$"):
+        storage.verify_pending_identity(**arguments)
+
+
+@pytest.mark.parametrize("tamper", ["database_sha", "file_bytes", "missing_file"])
+def test_verify_pending_identity_fails_closed_on_durable_artifact_tampering(
+    tmp_path: Path, tamper: str
+) -> None:
+    storage = _storage(tmp_path)
+    content = b"synthetic immutable mingshuo workbook"
+    digest = hashlib.sha256(content).hexdigest()
+    artifact_id = "a" * 32
+    incoming = storage.artifact_dir / f".{uuid4().hex}.xlsx"
+    incoming.write_bytes(content)
+    arguments = {
+        "artifact_id": artifact_id,
+        "owner_user_id": "owner-a",
+        "run_id": "b" * 32,
+        "report_type": "MINGSHUO_SOLUTION_QUOTATION_DRAFT_V1",
+        "display_name": "mingshuo-solution-quotation-draft.xlsx",
+        "period": ReportPeriod(2026, 2026),
+        "source_hashes": ("c" * 64,),
+        "file_sha256": digest,
+    }
+    created, _ = storage.create_or_verify_pending(**arguments, pending_path=incoming)
+    if tamper == "database_sha":
+        with sqlite3.connect(storage.db_path) as connection:
+            connection.execute(
+                "UPDATE report_artifacts SET file_sha256=? WHERE artifact_id=?",
+                ("e" * 64, artifact_id),
+            )
+    elif tamper == "file_bytes":
+        created.file_path.write_bytes(b"tampered")
+    else:
+        created.file_path.unlink()
+
+    with pytest.raises(ArtifactStorageError, match="^artifact_unavailable$"):
+        storage.verify_pending_identity(**arguments)
+
+
 @pytest.mark.parametrize(
     ("assignment", "value"),
     [

@@ -27,7 +27,7 @@ import {
 
 const SHA_PATTERN = /^[0-9a-f]{40}$/;
 const DIGEST_PATTERN = /^sha256:[0-9a-f]{64}$/;
-const RUNTIME_REGISTRY_DIGEST = "sha256:d65cfd339ef9ed352760c25f5291e914ec0bc31d190a45baa9068bd1fc57732e";
+const RUNTIME_REGISTRY_DIGEST = "sha256:7caed69599c964b7fc908229d86795008a0956fdae90628a904f8e4ec87dcabe";
 const MAX_ENTRY_BYTES = 8 * 1024 * 1024 * 1024;
 const MAX_BUNDLE_BYTES = 32 * 1024 * 1024 * 1024;
 const RESERVED_BUNDLE_PATHS = new Set(["manifest.json", "manifest.sha256"]);
