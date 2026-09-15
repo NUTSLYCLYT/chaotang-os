@@ -1,0 +1,599 @@
+{
+  "schemaVersion": "governance-repair.packet.v1",
+  "taskId": "PRODUCT-AUTHORITY-M0-PRE-AUTHORITY-RECEIPT-GATE-PREREQUISITE-SUCCESSOR-20260915",
+  "state": "DRAFT",
+  "authorizationState": "NON_AUTHORIZING",
+  "reviewState": "READY_FOR_OWNER_CONFIRMATION",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "453d7b741fba25bd2dc18270114c24eb984f6a84",
+    "baseTree": "5c1dfc7e7817f293f17379023343d64b06f54d55",
+    "approvalCommitPaths": [
+      "docs/product/tasks/2026-09-15-product-authority-m0-pre-authority-receipt-gate-prerequisite-successor.md",
+      "docs/product/tasks/2026-09-15-product-authority-m0-pre-authority-receipt-gate-prerequisite-successor.packet.json",
+      "docs/superpowers/plans/2026-09-15-product-authority-m0-pre-authority-receipt-gate-prerequisite-successor.md"
+    ],
+    "candidatePaths": [
+      ".harness/agents/project-owner.md",
+      ".harness/contracts/product-approval.schema.json",
+      ".harness/rules/project-boundaries.md",
+      "docs/product/tasks/2026-08-16-m0-solo-owner-product-authority.md",
+      "docs/superpowers/plans/2026-08-16-m0-solo-owner-product-authority.md",
+      "scripts/product-authority.mjs",
+      "scripts/product-authority.test.mjs"
+    ]
+  },
+  "predecessor": {
+    "blockedTaskId": "MINGSHUO-FIRST-DELIVERY-CONFIRM-READBACK-V1-EXACT10-READINESS-LINEAGE-SUCCESSOR-20260915",
+    "disposition": "NO_GO_EVIDENCE_ONLY / DO_NOT_MATERIALIZE / NO_REANCHOR",
+    "reason": "PRE_AUTHORITY_RECEIPT_GATE_MISSING",
+    "productBytesMutable": false
+  },
+  "bootstrapInstallation": {
+    "classification": "OWNER_AUTHORIZED_PROTECTED_PATH_GOVERNANCE_REPAIR",
+    "reason": "CURRENT_V1_REJECTS_V2_SCHEMA_AND_ALL_EXACT7_PROTECTED_PATHS",
+    "ordinaryProductAuthorityApplicable": false,
+    "selfAuthorizationAllowed": false,
+    "productGoProduced": false,
+    "oneChildAuthorityConsumed": false,
+    "ownerAuthorizationRequiredAfterGovernanceFreeze": true,
+    "forwardOnly": true,
+    "directSingleParentRequired": true,
+    "exactCandidatePathCount": 7,
+    "fullVerificationAndThreeReviewsRequired": true,
+    "ordinaryFastForwardOnly": true,
+    "futureV2AuthorityUsableOnlyAfterExact7Landing": true
+  },
+  "contract": {
+    "authorityId": "product-authority.m0.v1",
+    "canonicalPublicEntry": "scripts/product-authority.mjs --authorize",
+    "canonicalDecisionProcess": "PUBLIC_PRODUCT_AUTHORITY_PROCESS",
+    "processTopology": "SOLE_AUTHORITY_DECISION_PROCESS_SPAWNS_FIXED_PYTHON_PREFLIGHT_WORKER",
+    "legacyApprovalSchema": "product-authority.m0.approval.v1",
+    "receiptGatedApprovalSchema": "product-authority.m0.approval.v2",
+    "policyField": "preAuthorizationReceipt",
+    "transport": "AUTHORITY_INTERNAL_AF_UNIX_SOCK_SEQPACKET_CHALLENGE_RESPONSE",
+    "persistentAuthorizationStateAllowed": false,
+    "externalReceiptPathAllowed": false,
+    "externalLauncherAllowed": false,
+    "secondAuthorityAllowed": false,
+    "policySchema": {
+      "schemaVersion": "product-authority.m0.pre-authorization-policy.v1",
+      "closed": true,
+      "requiredFields": [
+        "controllerIdentity",
+        "controllerVerificationId",
+        "maxChallengeBytes",
+        "maxReceiptBytes",
+        "pathBinding",
+        "schemaVersion",
+        "ttlMs",
+        "verifierIdentity",
+        "verifierVerificationId"
+      ],
+      "controllerVerificationEntryShape": {
+        "tool": "node",
+        "argsPrefix": ["--input-type=module", "--eval"],
+        "argsCount": 3,
+        "cwd": ".",
+        "timeoutMsRange": [1000, 300000]
+      },
+      "verifierVerificationEntryShape": {
+        "tool": "python3",
+        "argsPrefix": ["-I", "-c"],
+        "argsCount": 3,
+        "cwd": ".",
+        "timeoutMsRange": [1000, 300000]
+      },
+      "ttlMsRange": [1000, 300000],
+      "maxChallengeBytes": 16384,
+      "maxReceiptBytes": 65536,
+      "helperRequestMaxBytes": 1048576
+    },
+    "fdAbi": [
+      {
+        "fd": 3,
+        "role": "AF_UNIX_SOCK_SEQPACKET_CHALLENGE_RECEIPT",
+        "direction": "AUTHORITY_TO_VERIFIER_CHALLENGE_AND_VERIFIER_TO_AUTHORITY_RECEIPT",
+        "framing": "ONE_RFC8785_UTF8_JSON_DATAGRAM_EACH_DIRECTION"
+      },
+      {
+        "fd": 4,
+        "role": "SEALED_CONTROLLER_MEMFD",
+        "direction": "READ_ONLY_HASH_AND_EXECUTION_SOURCE",
+        "requiredSeals": ["F_SEAL_GROW", "F_SEAL_SEAL", "F_SEAL_SHRINK", "F_SEAL_WRITE"]
+      },
+      {
+        "fd": 5,
+        "role": "SEALED_VERIFIER_MEMFD",
+        "direction": "READ_ONLY_HASH_AND_EXECUTION_SOURCE",
+        "requiredSeals": ["F_SEAL_GROW", "F_SEAL_SEAL", "F_SEAL_SHRINK", "F_SEAL_WRITE"]
+      },
+      {
+        "fd": 6,
+        "role": "CANONICAL_REPOSITORY_ROOT_DIRECTORY",
+        "direction": "READ_ONLY_IDENTITY_ANCHOR",
+        "openFlags": ["O_CLOEXEC", "O_DIRECTORY", "O_NOFOLLOW", "O_RDONLY"]
+      }
+    ],
+    "descriptorLifecycle": {
+      "helperDefault": "CLOEXEC",
+      "inheritance": "ONLY_EXPLICIT_PASS_FDS_TO_CONTROLLER_OR_VERIFIER_CHILD",
+      "closeOnAllSuccessAndFailurePaths": true,
+      "callerSuppliedDescriptorsAllowed": false
+    },
+    "identitySchema": {
+      "closed": true,
+      "requiredFields": ["bytes", "gitBlobSha1", "mode", "rawSha256"],
+      "mode": "100644",
+      "rawSha256Pattern": "^sha256:[0-9a-f]{64}$",
+      "gitBlobSha1Pattern": "^[0-9a-f]{40}$",
+      "gitBlobFormula": "sha1('blob '+decimal(bytes)+'\\0'+rawBytes)"
+    },
+    "rootFdIdentitySchema": {
+      "closed": true,
+      "requiredFields": ["realpath", "stDev", "stGid", "stIno", "stMode", "stUid"],
+      "source": "FIXED_HELPER_COMPONENT_WISE_OPENAT_O_NOFOLLOW_ROOT_FD",
+      "recheckBoundaries": [
+        "BEFORE_AND_AFTER_EACH_GIT_CHECK",
+        "BEFORE_CHALLENGE",
+        "AFTER_RECEIPT",
+        "BEFORE_GO"
+      ]
+    },
+    "gitMetadataIdentitySchema": {
+      "closed": true,
+      "receiptGatedHeadMode": "DETACHED_ONLY",
+      "requiredFields": [
+        "configIdentity",
+        "dotGitIdentity",
+        "gitCommonDirIdentity",
+        "gitDirIdentity",
+        "headIdentity",
+        "objectsDirIdentity"
+      ],
+      "statTupleFields": ["realpath", "stDev", "stGid", "stIno", "stMode", "stUid"],
+      "dotGitIdentity": {
+        "allowedKinds": ["DIRECTORY", "GITFILE"],
+        "gitfileGrammar": "^gitdir: (/[^\\r\\n\\u0000]+)\\n$",
+        "gitfileEncoding": "STRICT_UTF8_NO_BOM_NUL_OR_CR",
+        "gitfileMaxBytes": 4096,
+        "targetMustEqualCanonicalGitDir": true,
+        "symlinkSegmentsAllowed": false
+      },
+      "gitDirIdentity": {
+        "kind": "DIRECTORY",
+        "canonicalRealpathRequired": true,
+        "symlinkSegmentsAllowed": false
+      },
+      "gitCommonDirIdentity": {
+        "kind": "DIRECTORY",
+        "canonicalRealpathRequired": true,
+        "symlinkSegmentsAllowed": false
+      },
+      "objectsDirIdentity": {
+        "kind": "DIRECTORY",
+        "canonicalRealpathRequired": true,
+        "mustBeChildOfGitCommonDir": true,
+        "symlinkSegmentsAllowed": false
+      },
+      "headIdentity": {
+        "kind": "REGULAR_FILE",
+        "bytes": 41,
+        "grammar": "^[0-9a-f]{40}\\n$",
+        "commitMustEqualApprovalCommit": true,
+        "symbolicRefAllowed": false
+      },
+      "configIdentity": {
+        "kind": "ORDERED_CLOSED_CONFIG_SOURCE_SET",
+        "allowedSources": ["gitCommonDir/config", "gitDir/config.worktree"],
+        "commonConfigRequired": true,
+        "worktreeConfigAllowedOnlyWhenExtensionEnabled": true,
+        "includeAndIncludeIfAllowed": false,
+        "syntheticProjectionAllowedKeys": [
+          "core.bare",
+          "core.filemode",
+          "core.repositoryformatversion",
+          "extensions.worktreeconfig",
+          "remote.origin.url"
+        ],
+        "unselectedOriginalKeysMayRemainInert": true,
+        "originalRepositoryConfigLoadedByGit": false,
+        "unselectedKeyCopiedLoadedOrBehaviorallyEffectiveIsStop": true,
+        "syntheticProjectionRejectedFamilies": [
+          "core.gitProxy",
+          "core.sshCommand",
+          "credential.*",
+          "diff.*.command",
+          "filter.*",
+          "http.*",
+          "include.*",
+          "includeIf.*",
+          "protocol.*",
+          "remote.*.uploadpack",
+          "textconv.*",
+          "url.*.insteadOf",
+          "url.*.pushInsteadOf"
+        ],
+        "rawSha256AndStatTupleRequiredPerSource": true,
+        "symlinkAllowed": false,
+        "remoteOriginUrlMustEqualRepositoryIdentity": true
+      },
+      "snapshotRecheckBoundaries": [
+        "BEFORE_AND_AFTER_EACH_GIT_COMMAND",
+        "BEFORE_CHALLENGE",
+        "AFTER_RECEIPT",
+        "BEFORE_GO"
+      ]
+    },
+    "metadataDescriptorSet": {
+      "owner": "FIXED_LONG_LIVED_PREFLIGHT_HELPER",
+      "openedBy": "COMPONENT_WISE_OPENAT_O_NOFOLLOW_O_CLOEXEC",
+      "requiredObjects": [
+        "repositoryRoot",
+        "gitDir",
+        "gitCommonDir",
+        "objectsDir",
+        "headFile",
+        "indexFile",
+        "orderedAllowedConfigSources"
+      ],
+      "callerOrOuterAuthoritySuppliedDescriptorsAllowed": false,
+      "pathnameRediscoveryAllowed": false,
+      "bindingEquality": [
+        "HELPER_ENVELOPE_OBSERVATION",
+        "CANONICAL_RECEIPT_OBSERVATION"
+      ],
+      "outerAuthorityValidation": "REBUILD_FULL_CHALLENGE_FROM_BASE_REQUEST_NONCE_AND_CLOSED_HELPER_OBSERVATION_THEN_VERIFY_RECEIPT_AND_DIGESTS",
+      "outerAuthorityClaimsSameOpenFileDescription": false
+    },
+    "immutableVerificationView": {
+      "owner": "FIXED_LONG_LIVED_PREFLIGHT_HELPER",
+      "directoryMode": "0700",
+      "persistent": false,
+      "source": "ROOT_AND_GIT_METADATA_FDS_ONLY",
+      "recursiveInotifyRequiredBeforeTrackedRead": true,
+      "watchSetupEventOrOverflowIsStop": true,
+      "newDirectoryEventIsStop": true,
+      "trackedBytesReadWithOpenatNoFollow": true,
+      "indexFromBoundDescriptor": true,
+      "gitContext": "SYNTHETIC_GIT_DIR_WITH_EMPTY_CONFIG_AND_FD_BOUND_WORKTREE_OBJECTS_INDEX",
+      "originalRepositoryConfigLoadedByGit": false,
+      "cleanupRequiredOnAllPaths": true,
+      "replaceAndRestoreAbaMustStop": true
+    },
+    "gitExecutionContract": {
+      "executable": "/usr/bin/git",
+      "fixedArgsPrefix": ["--no-replace-objects"],
+      "executor": "FIXED_LONG_LIVED_PREFLIGHT_HELPER",
+      "context": "FD_ANCHORED_IMMUTABLE_SYNTHETIC_GIT_VIEW",
+      "workTreeSource": "BOUND_REPOSITORY_ROOT_VIEW",
+      "gitDirSource": "HELPER_OWNED_SYNTHETIC_GIT_DIR",
+      "objectsSource": "BOUND_OBJECTS_DESCRIPTOR",
+      "indexSource": "BOUND_INDEX_DESCRIPTOR_EXACT_BYTES",
+      "remoteInvocation": "EXPLICIT_NORMALIZED_APPROVAL_BOUND_ORIGIN_URL_NO_REMOTE_NAME_LOOKUP",
+      "originalRepositoryConfigLoaded": false,
+      "syntheticConfigProjectionOnly": true,
+      "authenticationMode": "ANONYMOUS_HTTPS_READ_ONLY_OR_REMOTE_HEAD_UNVERIFIED",
+      "ambientProxyOrCredentialFallbackAllowed": false,
+      "environmentMode": "ENV_I_ALLOWLIST",
+      "environment": {
+        "GIT_CONFIG_GLOBAL": "/dev/null",
+        "GIT_CONFIG_NOSYSTEM": "1",
+        "GIT_NO_REPLACE_OBJECTS": "1",
+        "GIT_TERMINAL_PROMPT": "0",
+        "HOME": "/nonexistent",
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "PATH": "/usr/bin:/bin"
+      },
+      "rejectedAmbientFamilies": [
+        "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+        "GIT_ASKPASS",
+        "GIT_CEILING_DIRECTORIES",
+        "GIT_COMMON_DIR",
+        "GIT_CONFIG_COUNT_OR_KEY_VALUE",
+        "GIT_CONFIG_SYSTEM",
+        "GIT_DIR",
+        "GIT_INDEX_FILE",
+        "GIT_OBJECT_DIRECTORY",
+        "GIT_PROXY_COMMAND",
+        "GIT_SSH",
+        "GIT_SSH_COMMAND",
+        "GIT_WORK_TREE",
+        "SSH_ASKPASS"
+      ],
+      "repositoryConfigProhibitions": [
+        "core.gitProxy",
+        "core.sshCommand",
+        "credential.*",
+        "diff.*.command",
+        "filter.*",
+        "http.*",
+        "include.*",
+        "includeIf.*",
+        "protocol.*",
+        "remote.*.uploadpack",
+        "remote.*.vcs",
+        "textconv.*",
+        "url.*.insteadOf",
+        "url.*.pushInsteadOf"
+      ],
+      "ambientOverrideHandling": "NOT_INHERITED_BY_ENV_I",
+      "explicitPolicyOrHelperRequestOverrideHandling": "REJECT_AND_STOP"
+    },
+    "receiptSchema": {
+      "schemaVersion": "product-authority.m0.pre-authority-receipt.v1",
+      "closed": true,
+      "duplicateKeysRejected": true,
+      "trailingBytesRejected": true,
+      "requiredFields": [
+        "approvalCanonicalDigest",
+        "approvalCommit",
+        "approvalTree",
+        "challengeDigest",
+        "controllerIdentity",
+        "expiresMonotonicMs",
+        "gitMetadataIdentity",
+        "issuedMonotonicMs",
+        "nonce",
+        "pathBinding",
+        "remoteHead",
+        "rootFdIdentity",
+        "schemaVersion",
+        "status",
+        "taskId",
+        "verifierIdentity"
+      ],
+      "status": "PASS",
+      "sha1Pattern": "^[0-9a-f]{40}$",
+      "sha256Pattern": "^sha256:[0-9a-f]{64}$",
+      "noncePattern": "^[0-9a-f]{64}$",
+      "singleDatagram": true,
+      "utf8Only": true,
+      "bomNulAndTrailingBytesRejected": true
+    },
+    "challenge": {
+      "nonceBits": 256,
+      "freshPerAuthorizeInvocation": true,
+      "clock": "MONOTONIC",
+      "singleReceiptConsumption": true,
+      "construction": "OUTER_AUTHORITY_BASE_REQUEST_PLUS_HELPER_FD_OBSERVATION_THEN_OUTER_CANONICAL_REBUILD",
+      "baseRequestClosedFields": [
+        "approvalCanonicalDigest",
+        "approvalCommit",
+        "approvalTree",
+        "controllerIdentity",
+        "expiresMonotonicMs",
+        "issuedMonotonicMs",
+        "nonce",
+        "pathBindingPolicyDigest",
+        "schemaVersion",
+        "taskId",
+        "verifierIdentity"
+      ],
+      "closedFields": [
+        "approvalCanonicalDigest",
+        "approvalCommit",
+        "approvalTree",
+        "controllerIdentity",
+        "expiresMonotonicMs",
+        "gitMetadataIdentity",
+        "issuedMonotonicMs",
+        "nonce",
+        "pathBindingPolicyDigest",
+        "remoteHead",
+        "rootFdIdentity",
+        "schemaVersion",
+        "taskId",
+        "verifierIdentity"
+      ],
+      "schemaVersion": "product-authority.m0.pre-authority-challenge.v1",
+      "digest": "SHA256_OF_RFC8785_CANONICAL_CHALLENGE_BYTES"
+    },
+    "pathBindingPolicyDigest": "SHA256_OF_RFC8785_CANONICAL_CONTRACT_PATH_BINDING_OBJECT",
+    "requiredBindings": [
+      "approvalCanonicalDigest",
+      "approvalCommit",
+      "approvalTree",
+      "challengeDigest",
+      "controllerIdentity",
+      "expiresMonotonicMs",
+      "gitMetadataIdentity",
+      "issuedMonotonicMs",
+      "nonce",
+      "orderedCaseResults",
+      "pathBindingRecordDigest",
+      "pathBindingSchemaDigest",
+      "remoteHead",
+      "rootFdIdentity",
+      "taskId",
+      "verifierIdentity"
+    ],
+    "pathBinding": {
+      "schemaVersion": "chaotang.path-binding-self-test.attestation.v1",
+      "recordBytes": 4123,
+      "recordDigest": "sha256:7ba1eeb23769551d2be58f136c1038e8897f5141755f5a34ac2cf0c39fa0c572",
+      "schemaBytes": 8475,
+      "schemaDigest": "sha256:9afc472beb987bfe1c233e61f3247a5f509d52aa37d375f124cb451a3ccdf049",
+      "caseCount": 18,
+      "orderedCases": [
+        {"id":"mkdir.home-ancestor.rename-directory-replacement","stage":"mkdir","target":"home-ancestor","attack":"rename-directory-replacement","observedStop":"VERIFICATION_PATH_IDENTITY_DRIFT","cleanup":"PASS","externalSentinel":"UNCHANGED"},
+        {"id":"mkdir.home-ancestor.symlink-replacement","stage":"mkdir","target":"home-ancestor","attack":"symlink-replacement","observedStop":"VERIFICATION_PATH_IDENTITY_DRIFT","cleanup":"PASS","externalSentinel":"UNCHANGED"},
+        {"id":"mount.home-ancestor.rename-directory-replacement","stage":"mount","target":"home-ancestor","attack":"rename-directory-replacement","observedStop":"VERIFICATION_PATH_IDENTITY_DRIFT","cleanup":"PASS","externalSentinel":"UNCHANGED"},
+        {"id":"mount.home-ancestor.symlink-replacement","stage":"mount","target":"home-ancestor","attack":"symlink-replacement","observedStop":"VERIFICATION_PATH_IDENTITY_DRIFT","cleanup":"PASS","externalSentinel":"UNCHANGED"},
+        {"id":"mount.target.rename-directory-replacement","stage":"mount","target":"target","attack":"rename-directory-replacement","observedStop":"VERIFICATION_PATH_IDENTITY_DRIFT","cleanup":"PASS","externalSentinel":"UNCHANGED"},
+        {"id":"mount.target.symlink-replacement","stage":"mount","target":"target","attack":"symlink-replacement","observedStop":"VERIFICATION_PATH_IDENTITY_DRIFT","cleanup":"PASS","externalSentinel":"UNCHANGED"},
+        {"id":"copy.home-ancestor.rename-directory-replacement","stage":"copy","target":"home-ancestor","attack":"rename-directory-replacement","observedStop":"VERIFICATION_PATH_IDENTITY_DRIFT","cleanup":"PASS","externalSentinel":"UNCHANGED"},
+        {"id":"copy.home-ancestor.symlink-replacement","stage":"copy","target":"home-ancestor","attack":"symlink-replacement","observedStop":"VERIFICATION_PATH_IDENTITY_DRIFT","cleanup":"PASS","externalSentinel":"UNCHANGED"},
+        {"id":"copy.target.rename-directory-replacement","stage":"copy","target":"target","attack":"rename-directory-replacement","observedStop":"VERIFICATION_PATH_IDENTITY_DRIFT","cleanup":"PASS","externalSentinel":"UNCHANGED"},
+        {"id":"copy.target.symlink-replacement","stage":"copy","target":"target","attack":"symlink-replacement","observedStop":"VERIFICATION_PATH_IDENTITY_DRIFT","cleanup":"PASS","externalSentinel":"UNCHANGED"},
+        {"id":"remount.home-ancestor.rename-directory-replacement","stage":"remount","target":"home-ancestor","attack":"rename-directory-replacement","observedStop":"VERIFICATION_PATH_IDENTITY_DRIFT","cleanup":"PASS","externalSentinel":"UNCHANGED"},
+        {"id":"remount.home-ancestor.symlink-replacement","stage":"remount","target":"home-ancestor","attack":"symlink-replacement","observedStop":"VERIFICATION_PATH_IDENTITY_DRIFT","cleanup":"PASS","externalSentinel":"UNCHANGED"},
+        {"id":"remount.target.rename-directory-replacement","stage":"remount","target":"target","attack":"rename-directory-replacement","observedStop":"VERIFICATION_PATH_IDENTITY_DRIFT","cleanup":"PASS","externalSentinel":"UNCHANGED"},
+        {"id":"remount.target.symlink-replacement","stage":"remount","target":"target","attack":"symlink-replacement","observedStop":"VERIFICATION_PATH_IDENTITY_DRIFT","cleanup":"PASS","externalSentinel":"UNCHANGED"},
+        {"id":"cleanup.home-ancestor.rename-directory-replacement","stage":"cleanup","target":"home-ancestor","attack":"rename-directory-replacement","observedStop":"VERIFICATION_PATH_IDENTITY_DRIFT","cleanup":"PASS","externalSentinel":"UNCHANGED"},
+        {"id":"cleanup.home-ancestor.symlink-replacement","stage":"cleanup","target":"home-ancestor","attack":"symlink-replacement","observedStop":"VERIFICATION_PATH_IDENTITY_DRIFT","cleanup":"PASS","externalSentinel":"UNCHANGED"},
+        {"id":"cleanup.target.rename-directory-replacement","stage":"cleanup","target":"target","attack":"rename-directory-replacement","observedStop":"VERIFICATION_PATH_IDENTITY_DRIFT","cleanup":"PASS","externalSentinel":"UNCHANGED"},
+        {"id":"cleanup.target.symlink-replacement","stage":"cleanup","target":"target","attack":"symlink-replacement","observedStop":"VERIFICATION_PATH_IDENTITY_DRIFT","cleanup":"PASS","externalSentinel":"UNCHANGED"}
+      ]
+    },
+    "identitySource": "AUTHORITY_RECOMPUTES_SOURCE_AND_SEALED_MEMFD_BYTES",
+    "sealedFdInspector": {
+      "executable": "/usr/bin/python3",
+      "argsPrefix": ["-I", "-c"],
+      "inlineHelperFrozenIn": "scripts/product-authority.mjs",
+      "role": "BOUNDED_PREFLIGHT_WORKER_AND_CONTROLLER_VERIFIER_PARENT",
+      "helperResponseSchemaVersion": "product-authority.m0.preflight-helper-envelope.v1",
+      "helperResponseClosedFields": ["fdObservation", "gitMetadataIdentity", "receiptBytesBase64", "schemaVersion"],
+      "helperResponseMaxBytes": 262144,
+      "helperResponseEncoding": "SINGLE_RFC8785_CANONICAL_UTF8_JSON_STDOUT_NO_TRAILING_BYTES",
+      "receiptBytesBase64": {
+        "encoding": "RFC4648_CANONICAL_BASE64",
+        "decodedMaxBytes": 65536,
+        "decodedBytesMustBeCanonicalReceipt": true
+      },
+      "fdObservationSchema": {
+        "closed": true,
+        "requiredFields": [
+          "channelType",
+          "controllerIdentity",
+          "controllerSeals",
+          "descriptorNumbers",
+          "rootFdIdentity",
+          "verifierIdentity",
+          "verifierSeals"
+        ],
+        "channelType": "AF_UNIX_SOCK_SEQPACKET",
+        "descriptorNumbers": [3, 4, 5, 6],
+        "controllerSeals": ["F_SEAL_GROW", "F_SEAL_SEAL", "F_SEAL_SHRINK", "F_SEAL_WRITE"],
+        "verifierSeals": ["F_SEAL_GROW", "F_SEAL_SEAL", "F_SEAL_SHRINK", "F_SEAL_WRITE"]
+      },
+      "gitObservationAuthority": {
+        "helperOwnsAllCriticalGitChecks": true,
+        "helperIsSoleFdIdentityObserver": true,
+        "helperEnvelopeAndReceiptMustEchoSameIdentity": true,
+        "helperReceiptFieldEqualityRequired": true,
+        "outerAuthorityRebuildsChallengeAndValidatesCanonicalValues": true,
+        "outerAuthorityMayClaimSameOpenFileDescriptions": false,
+        "mutablePathSnapshotMayAuthorize": false,
+        "transientAbaEventMayAuthorize": false
+      },
+      "sealedExecution": {
+        "controller": "/usr/bin/node --input-type=module --eval <strict-UTF8-bytes-pread-from-FD4>",
+        "verifier": "/usr/bin/python3 -I -c <strict-UTF8-bytes-pread-from-FD5>",
+        "verifierPassFds": [3, 4, 6],
+        "verifierOwnsCaseFixturesAndLaunchesControllerFromFd4": true,
+        "pathnameExecutionAllowed": false
+      },
+      "helperMayConstructAuthorityResult": false,
+      "soleAuthorityMayConstructV2GoResultOnlyAfterIndependentReceiptValidation": true,
+      "shell": false,
+      "fixedEnvironment": true,
+      "stderrExposed": false,
+      "failureMode": "STOP"
+    },
+    "resultEvidence": {
+      "resultSchemaVersion": "product-authority.m0.result.v1",
+      "newResultFieldsAllowed": false,
+      "evidenceRecordSchemaVersion": "product-authority.m0.pre-authorization-evidence.v1",
+      "fields": [
+        "approvalCanonicalDigest",
+        "approvalCommit",
+        "approvalTree",
+        "challengeDigest",
+        "controllerGitBlobSha1",
+        "controllerRawSha256",
+        "pathBindingRecordDigest",
+        "pathBindingSchemaDigest",
+        "receiptDigest",
+        "remoteHead",
+        "schemaVersion",
+        "verifierGitBlobSha1",
+        "verifierRawSha256"
+      ],
+      "output": "LOW_SENSITIVITY_CANONICAL_DIGEST_ONLY"
+    }
+  },
+  "legacyCompatibility": {
+    "formalApprovalCountObserved": 94,
+    "allObservedSchemaVersion": "product-authority.m0.approval.v1",
+    "oldApprovalBytesMayChange": false,
+    "oldCanonicalDigestsMayChange": false,
+    "oldDecisionSemanticsMayChange": false,
+    "oldApprovalsImplicitlyReceiptGated": false
+  },
+  "pythonVerificationEnvironment": {
+    "scope": [
+      "focused",
+      "backend-full"
+    ],
+    "processEnvironment": {
+      "TEMP": "/tmp",
+      "TMP": "/tmp",
+      "TMPDIR": "/tmp"
+    },
+    "persistentConfigurationAllowed": false,
+    "preflightAssertions": [
+      "tempfile.gettempdir() == /tmp",
+      "create/write/read/truncate/delete succeeds",
+      "POSIX mode semantics succeed"
+    ]
+  },
+  "negativeMatrix": [
+    "APPROVAL_BINDING_MISMATCH",
+    "BOOTSTRAP_SELF_AUTHORIZATION_OR_PRODUCT_GO",
+    "CASE_COUNT_OR_ORDER_INVALID",
+    "CHALLENGE_OR_RECEIPT_TRAILING_BYTES",
+    "CONTROLLER_IDENTITY_MISMATCH",
+    "DIRECT_AUTHORIZE_INTERNAL_PREFLIGHT_BYPASS",
+    "DUPLICATE_JSON_KEY",
+    "FD_TYPE_OR_SEAL_INVALID",
+    "GIT_OR_ROOT_PATH_IDENTITY_DRIFT",
+    "GIT_REPOSITORY_CONFIG_NOT_CLOSED_OR_TRANSPORT_INJECTED",
+    "HEAD_MOVED_DURING_PREFLIGHT",
+    "HELPER_OUTPUT_OR_RUNTIME_INVALID",
+    "HELPER_RECEIPT_FD_OBSERVATION_MISMATCH",
+    "LEGACY_APPROVAL_REGRESSION",
+    "NONCE_MISMATCH_OR_REPLAY",
+    "RECEIPT_EXPIRED",
+    "RECEIPT_MISSING_OR_EMPTY",
+    "REMOTE_HEAD_MOVED_OR_UNVERIFIED",
+    "ROOT_FD_IDENTITY_MISMATCH",
+    "TRANSIENT_REPLACE_AND_RESTORE_ABA",
+    "UNKNOWN_RECEIPT_OR_POLICY_FIELD",
+    "VERIFIER_IDENTITY_MISMATCH",
+    "WORKTREE_DIRTY_DURING_PREFLIGHT"
+  ],
+  "verificationMatrix": [
+    "TMPDIR=/tmp TEMP=/tmp TMP=/tmp node --test scripts/product-authority.test.mjs",
+    "node scripts/check_harness.mjs",
+    "node scripts/check_harness.mjs --self-test",
+    "node scripts/harness-doctor.mjs --check",
+    "node --test scripts/harness-doctor.test.mjs",
+    "node .agents/hooks/check-harness.mjs --self-test",
+    "node scripts/ext-full-value-convergence.mjs --check",
+    "node --test scripts/ext-full-value-convergence.test.mjs",
+    "git diff --check"
+  ],
+  "independentReviews": [
+    "Architecture Review",
+    "Governance Review",
+    "Security Review"
+  ],
+  "stopConditions": [
+    "BOOTSTRAP_NOT_EXPLICIT_OWNER_PROTECTED_PATH_REPAIR",
+    "CANDIDATE_PATH_COUNT_EXCEEDS_SEVEN",
+    "DIRECT_AUTHORIZE_BYPASS",
+    "LEGACY_APPROVAL_IDENTITY_OR_BEHAVIOR_DRIFT",
+    "MACHINE_OR_VALIDATION_FAILURE",
+    "P0_P1_OR_P2_REVIEW_FINDING",
+    "PERSISTENT_ALLOW_STATE_OR_SECOND_AUTHORITY",
+    "PRODUCT_BYTES_TOUCHED",
+    "REMOTE_BASE_DRIFT"
+  ],
+  "productionDeploymentAllowed": false
+}
