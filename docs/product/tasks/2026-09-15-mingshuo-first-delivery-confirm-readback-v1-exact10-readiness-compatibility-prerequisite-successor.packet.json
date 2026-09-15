@@ -1,0 +1,292 @@
+{
+  "schemaVersion": "governance-repair.packet.v1",
+  "taskId": "MINGSHUO-FIRST-DELIVERY-CONFIRM-READBACK-V1-EXACT10-READINESS-COMPATIBILITY-PREREQUISITE-SUCCESSOR-20260915",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "547673fe623cc619a028d48bb4ec806300bc7b4a",
+    "baseTree": "13259f170048357f778f88efdb94658f80c485e8",
+    "approvalCommitPaths": [
+      "docs/product/tasks/2026-09-15-mingshuo-first-delivery-confirm-readback-v1-exact10-readiness-compatibility-prerequisite-successor.md",
+      "docs/product/tasks/2026-09-15-mingshuo-first-delivery-confirm-readback-v1-exact10-readiness-compatibility-prerequisite-successor.packet.json",
+      "docs/superpowers/plans/2026-09-15-mingshuo-first-delivery-confirm-readback-v1-exact10-readiness-compatibility-prerequisite-successor.md"
+    ],
+    "candidatePaths": [
+      "backend/tests/test_six_ministry_readiness_report.py",
+      "scripts/check_harness.mjs"
+    ]
+  },
+  "predecessorProductAuthority": {
+    "taskId": "MINGSHUO-FIRST-DELIVERY-CONFIRM-READBACK-V1-EXACT10-V00D-PYTEST-HOOK-SIGNATURE-CORRECTIVE-SUCCESSOR-20260914",
+    "approvalCommit": "547673fe623cc619a028d48bb4ec806300bc7b4a",
+    "approvalTree": "13259f170048357f778f88efdb94658f80c485e8",
+    "approvalCanonicalDigest": "sha256:32345d21e06b3a173bd9d70a5be9abbc2dc20ae49ccde0aff281e70b6dffbf0e",
+    "machineDecision": "GO / APPROVED_FOR_ONE_CHILD",
+    "candidateCommit": null,
+    "candidatePushed": false,
+    "candidateVerified": false,
+    "productAttemptState": "STOP / APPROVAL_VERIFICATION_TOPOLOGY_CONTRADICTION / UNCOMMITTED_BYTE_EVIDENCE_ONLY",
+    "disposition": "CONSUMED_BY_STOPPED_SHADOW_ATTEMPT / NO_REANCHOR"
+  },
+  "exact10ByteDonor": {
+    "worktree": "/home/ubuntu/Projects/chaotang-os/.worktrees/mingshuo-confirm-readback-v00d-hook-signature-corrective-shadow-exact10-20260915",
+    "head": "547673fe623cc619a028d48bb4ec806300bc7b4a",
+    "headTree": "13259f170048357f778f88efdb94658f80c485e8",
+    "disposition": "UNCOMMITTED_BYTE_EVIDENCE_ONLY / BYTE_DONOR_ONLY / NO_CANDIDATE_IDENTITY / NO_VERIFICATION_INHERITANCE",
+    "pathCount": 10,
+    "structure": "10 MODIFY / ALL 100644",
+    "bundleDigest": "sha256:44bf93000c04c6ae647e9439e46928536698e31b176e5efd152c504683ed85ee",
+    "combinedFullIndexDiffSha256": "sha256:6d3465289eb9c517e79a38747ea21164b4e6fbf6b867e9ad79b2320437d25d37",
+    "redGreenSummary": {
+      "red": "3 failed: missing finalize endpoint, missing append_mingshuo_confirmation_exact, readback could not finalize",
+      "green": "3 passed, 1 warning"
+    },
+    "verificationSummary": {
+      "focused": "234 passed, 2 warnings",
+      "ruff": "PASS",
+      "backendFull": "5164 passed, 4 skipped, 5 warnings, 2 failed",
+      "remainingFailures": [
+        "backend/tests/test_six_ministry_readiness_report.py::test_readiness_evidence_is_bound_to_current_implementation",
+        "backend/tests/test_six_ministry_readiness_report.py::test_successor_content_rejects_third_state_drift"
+      ],
+      "harnessDiagnostic": "EXPECTED_SINGLE_READINESS_FAILURE",
+      "harnessSelfTest": "FAILED_ON_SAME_LIVE_READINESS_CONTRACT",
+      "terminalState": "STOPPED_BEFORE_V06_V12_AND_INDEPENDENT_PRODUCT_REVIEWS"
+    }
+  },
+  "verificationTopologyContradiction": {
+    "status": "PROVEN",
+    "approvalV04": "requires scripts/check_harness.mjs to fail only for the missing ordered pair",
+    "approvalV05": "requires scripts/check_harness.mjs --self-test to pass while its readiness self-test evaluates the same live repository root",
+    "sharedRoot": "dirname(scripts/check_harness.mjs)/..",
+    "resolution": "LAND_EXACT2_COMPATIBILITY_PREREQUISITE_THEN_REISSUE_EXACT10_WITH_ALL_GREEN_MATRIX",
+    "productRegression": false,
+    "testSkippingAllowed": false,
+    "gateWeakeningAllowed": false
+  },
+  "compatibilityPolicy": {
+    "mode": "EXACT_ORDERED_PAIR_APPEND_ONLY",
+    "fingerprintAlgorithm": "sha256-path-null-content-null-v1",
+    "existingPairCount": 13,
+    "requiredPostAppendPairCount": 14,
+    "requiredPairSetDelta": "+1/-0",
+    "runtimeContentFileCount": 65,
+    "runtimeFingerprint": "sha256:9e8729a88bc797c01d59818fb67d852025a9c679fdd7eb6e8fe63f26cbc8d365",
+    "successorContentFileCount": 2,
+    "successorFingerprint": "sha256:6b9521165b821729a3548f3535b90c30aab9b874c81b1b1b437bb5af64d06e34",
+    "proposedFourteenthPair": [
+      "sha256:9e8729a88bc797c01d59818fb67d852025a9c679fdd7eb6e8fe63f26cbc8d365",
+      "sha256:6b9521165b821729a3548f3535b90c30aab9b874c81b1b1b437bb5af64d06e34"
+    ],
+    "historicalFileCount": 69,
+    "historicalReviewStatus": "approved-with-notes",
+    "historicalReviewedFingerprint": "sha256:a6c2de2ca7f15069a6d997ce2cccb9498ddd4dd1269d539c192993e85a265190",
+    "excludedPaths": [
+      "backend/app/accounting_reports/storage.py",
+      "backend/tests/test_six_ministry_accounting_evidence_adapter.py",
+      "backend/tests/test_six_ministry_readiness_report.py",
+      "scripts/check_harness.mjs"
+    ],
+    "successorContentPaths": [
+      "backend/app/accounting_reports/storage.py",
+      "backend/tests/test_six_ministry_accounting_evidence_adapter.py"
+    ],
+    "existingAllowedPairs": [
+      [
+        "sha256:013bfb8272e936be85c2d470033787c3b7f105ad6eae2dfe680373df023b5e69",
+        "sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"
+      ],
+      [
+        "sha256:c95630be3d79f2641ff6e483f4096b0763b9e5071544f1e0ead0d7e24eb1cba5",
+        "sha256:268cab13e516d0f716f600819f2bddc8242269312d392eca4ed1be2de05ce051"
+      ],
+      [
+        "sha256:d330b7f177f5bbb761eb359ffffca6f12250e5bbe90d13d0414d0fdefb78e98a",
+        "sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"
+      ],
+      [
+        "sha256:da31e8098bf76c72ff8d00b073d86e3442b0811223ef3e3bab770af31e89c28e",
+        "sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"
+      ],
+      [
+        "sha256:a6d109de75e877620a89241a4dcabcc716e1a5a1a18a024c9a3cb73e578de80c",
+        "sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"
+      ],
+      [
+        "sha256:cc42339eaa423d71307ef96ff713ec095a89ba2cc4d4f6630ee1b40dec94d34d",
+        "sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"
+      ],
+      [
+        "sha256:eb0d8d214c2dc51ca4eb37ce5a13423e424fd6fdd3b6b8c3dac6a5f5757bd2df",
+        "sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"
+      ],
+      [
+        "sha256:82885fc13cec86318e4436fccfd80c78d7880e4aa25cdb530d0f4d18c9c73fe3",
+        "sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"
+      ],
+      [
+        "sha256:598dd8e735ce98b2d8a5307c3fa8b866d8fe72521c92b0c6ea4ba360d7bc9f79",
+        "sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"
+      ],
+      [
+        "sha256:32ecf613778ddc625567b08ec4526efbf22c0cd29a8c94fc3b9bacbe4e0dd05e",
+        "sha256:9d10d2bed258e632c909719f05df50c6b33530d9f40be2458a38dd063fcde3c5"
+      ],
+      [
+        "sha256:32ecf613778ddc625567b08ec4526efbf22c0cd29a8c94fc3b9bacbe4e0dd05e",
+        "sha256:1922b611550d73daa6226d9dd8abf8d9f9691a0501f9f1fd0ea83e8c772829d2"
+      ],
+      [
+        "sha256:598dd8e735ce98b2d8a5307c3fa8b866d8fe72521c92b0c6ea4ba360d7bc9f79",
+        "sha256:43cf0adb1d4312e17fef0ec33ca963dbbc98b30d92d9f558a901f0d3ec0a9fea"
+      ],
+      [
+        "sha256:598dd8e735ce98b2d8a5307c3fa8b866d8fe72521c92b0c6ea4ba360d7bc9f79",
+        "sha256:d4e78e42b89022088bb6687a7ab5cc57bcd908a3017b2b4a2e2611497d04def2"
+      ]
+    ],
+    "separateAllowlistsAllowed": false,
+    "cartesianProductAllowed": false,
+    "unapprovedFifteenthPairAllowed": false,
+    "unapprovedFifthExclusionAllowed": false,
+    "singleSidedFingerprintAllowed": false,
+    "validatorPolicyDivergenceAllowed": false
+  },
+  "verificationContract": {
+    "enforcement": "DECLARATIVE_OWNER_CONTROLLED / NOT_PRODUCT_AUTHORITY_EXECUTED",
+    "notes": "The repository has no governance-repair.packet.v1 machine runner. The unique ext-dev controller must execute and record the closed matrix without representing it as product-authority verification.",
+    "requiredChecks": [
+      "live remote and direct single-parent governance/candidate lineage",
+      "exact two M/100644 candidate paths and clean tree",
+      "old13 plus new14 ordered pair delta +1/-0",
+      "single-sided, cross-pair, swapped, unknown, tampered, fifteenth-pair, fifth-exclusion and Python/Node divergence fail closed",
+      "readiness focused, exact2 Ruff and backend full with process-local POSIX temp",
+      "Harness, self-test, Doctor, Doctor tests, hook, authority regression, V2 check/tests and diff check",
+      "independent Governance, Python and Security reviews"
+    ]
+  },
+  "verification": [
+    {
+      "id": "readiness-focused",
+      "tool": "python3",
+      "args": ["-m", "pytest", "-q", "tests/test_six_ministry_readiness_report.py"],
+      "cwd": "backend",
+      "timeoutMs": 240000
+    },
+    {
+      "id": "exact2-ruff",
+      "tool": "python3",
+      "args": ["-m", "ruff", "check", "--no-cache", "tests/test_six_ministry_readiness_report.py"],
+      "cwd": "backend",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "backend-full",
+      "tool": "python3",
+      "args": ["-m", "pytest", "-q"],
+      "cwd": "backend",
+      "timeoutMs": 600000,
+      "environment": {
+        "TMPDIR": "/tmp",
+        "TEMP": "/tmp",
+        "TMP": "/tmp"
+      }
+    },
+    {
+      "id": "root-harness",
+      "tool": "node",
+      "args": ["scripts/check_harness.mjs"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "harness-self-test",
+      "tool": "node",
+      "args": ["scripts/check_harness.mjs", "--self-test"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "harness-doctor",
+      "tool": "node",
+      "args": ["scripts/harness-doctor.mjs", "--check"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "harness-doctor-tests",
+      "tool": "node",
+      "args": ["--test", "scripts/harness-doctor.test.mjs"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "hook-self-test",
+      "tool": "node",
+      "args": [".agents/hooks/check-harness.mjs", "--self-test"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "authority-regression",
+      "tool": "node",
+      "args": ["--test", "scripts/product-authority.test.mjs"],
+      "cwd": ".",
+      "timeoutMs": 180000,
+      "environment": {
+        "TMPDIR": "/tmp",
+        "TEMP": "/tmp",
+        "TMP": "/tmp"
+      }
+    },
+    {
+      "id": "v2-check",
+      "tool": "node",
+      "args": ["scripts/ext-full-value-convergence.mjs", "--check"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "v2-tests",
+      "tool": "node",
+      "args": ["--test", "scripts/ext-full-value-convergence.test.mjs"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "diff-check",
+      "tool": "git",
+      "args": ["diff", "--check"],
+      "cwd": ".",
+      "timeoutMs": 30000
+    }
+  ],
+  "futureExact10Reissue": {
+    "required": true,
+    "base": "LATEST_EXT_DEV_AFTER_PREREQUISITE_CANDIDATE",
+    "byteSource": "CURRENT_EXACT10_SHADOW_BYTE_DONOR_ONLY",
+    "identityInheritanceAllowed": false,
+    "requiredSequence": [
+      "freeze and land prerequisite governance",
+      "implement, verify, review and land exact2 validator candidate",
+      "create fresh exact10 Product Successor on latest ext-dev",
+      "run fresh product authority for that successor",
+      "rematerialize ten paths from donor and regenerate RED/GREEN",
+      "run all-green backend and Harness matrix plus independent Governance/Python/Security reviews",
+      "run machine candidate verification before any ordinary fast-forward"
+    ]
+  },
+  "policy": {
+    "forwardOnly": true,
+    "forcePushAllowed": false,
+    "fetchOrPullAllowed": false,
+    "reviewersReadOnly": true,
+    "deploymentAllowed": false,
+    "failureMode": "FAIL_CLOSED_STOP"
+  },
+  "state": "DRAFT",
+  "ownerConfirmationState": "READY_FOR_OWNER_CONFIRMATION",
+  "authorizationState": "NON_AUTHORIZING"
+}
