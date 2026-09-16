@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { chmod, mkdir, mkdtemp, open, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -38,6 +39,11 @@ const APPROVAL_SCHEMA_PATH = path.join(
   "product-approval.schema.json",
 );
 const TASK_ID = "H1-HUBU-RICH-MEMORIAL-20260816";
+const INSTALLED_ACCEPTANCE_ENABLED = process.env.CHAOTANG_INSTALLED_PREAUTH_ACCEPTANCE === "1";
+const EXACT2_PATHS = [
+  "scripts/product-authority.test.mjs",
+  "scripts/reference/test_chaotang_product_verifier_broker.py",
+];
 
 function git(cwd, args, encoding = "utf8") {
   return execFileSync("/usr/bin/git", ["--no-replace-objects", ...args], {
@@ -46,6 +52,19 @@ function git(cwd, args, encoding = "utf8") {
     env: { PATH: "/usr/bin:/bin", GIT_CONFIG_NOSYSTEM: "1", GIT_TERMINAL_PROMPT: "0" },
     stdio: ["ignore", "pipe", "pipe"],
   }).trim();
+}
+
+function gitBytes(cwd, args) {
+  return execFileSync("/usr/bin/git", ["--no-replace-objects", ...args], {
+    cwd,
+    env: {
+      HOME: "/nonexistent", PATH: "/usr/bin:/bin", LANG: "C", LC_ALL: "C",
+      GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: "/dev/null",
+      GIT_CONFIG_SYSTEM: "/dev/null", GIT_TERMINAL_PROMPT: "0",
+      GIT_NO_REPLACE_OBJECTS: "1", GIT_OPTIONAL_LOCKS: "0",
+    },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
 }
 
 async function initializeRepository(t, { productFile = false } = {}) {
@@ -109,24 +128,131 @@ function sourceIdentity(source) {
   };
 }
 
+function domainDigest(domain, value) {
+  return `sha256:${createHash("sha256")
+    .update(Buffer.from(domain, "utf8"))
+    .update(Buffer.from(canonicalizeRfc8785(value), "utf8"))
+    .digest("hex")}`;
+}
+
+function frozenSourceRecord({ commit, tree, relativePath }) {
+  assert.equal(git(REPOSITORY_ROOT, ["rev-parse", `${commit}^{tree}`]), tree);
+  const record = git(REPOSITORY_ROOT, ["ls-tree", commit, "--", relativePath]);
+  const match = /^100644 blob ([0-9a-f]{40})\t(.+)$/u.exec(record);
+  assert.ok(match, `FROZEN_SOURCE_RECORD_INVALID:${relativePath}`);
+  assert.equal(match[2], relativePath);
+  const payload = gitBytes(REPOSITORY_ROOT, ["cat-file", "blob", `${commit}:${relativePath}`]);
+  assert.deepEqual(readFileSync(path.join(REPOSITORY_ROOT, relativePath)), payload);
+  return {
+    path: relativePath,
+    sourceCommit: commit,
+    sourceTree: tree,
+    mode: "100644",
+    bytes: payload.length,
+    rawSha256: `sha256:${createHash("sha256").update(payload).digest("hex")}`,
+    gitBlobOid: match[1],
+  };
+}
+
+function verifyReadonlyExact2Tree(installation) {
+  const commit = process.env.CHAOTANG_EXACT2_COMMIT ?? "";
+  const tree = process.env.CHAOTANG_EXACT2_TREE ?? "";
+  assert.match(commit, /^[0-9a-f]{40}$/);
+  assert.match(tree, /^[0-9a-f]{40}$/);
+  assert.equal(git(REPOSITORY_ROOT, ["rev-parse", "HEAD"]), commit);
+  assert.equal(git(REPOSITORY_ROOT, ["rev-parse", "HEAD^{tree}"]), tree);
+  assert.equal(git(REPOSITORY_ROOT, ["status", "--porcelain=v1", "--untracked-files=all"]), "");
+  assert.match(installation.exact4Commit, /^[0-9a-f]{40}$/);
+  assert.match(installation.exact4Tree, /^[0-9a-f]{40}$/);
+  const ancestry = spawnSync("/usr/bin/git", [
+    "--no-replace-objects", "merge-base", "--is-ancestor", installation.exact4Commit, commit,
+  ], {
+    cwd: REPOSITORY_ROOT, stdio: "ignore", shell: false,
+    env: {
+      HOME: "/nonexistent", PATH: "/usr/bin:/bin", LANG: "C", LC_ALL: "C",
+      GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: "/dev/null",
+      GIT_CONFIG_SYSTEM: "/dev/null", GIT_NO_REPLACE_OBJECTS: "1",
+    },
+  });
+  assert.equal(ancestry.status, 0, "EXACT9_NOT_ANCESTOR_OF_EXACT2");
+  const readonly = spawnSync("/usr/bin/python3", [
+    "-I", "-c",
+    "import os,sys;raise SystemExit(0 if os.statvfs(sys.argv[1]).f_flag & os.ST_RDONLY else 1)",
+    REPOSITORY_ROOT,
+  ], {
+    env: { PATH: "/usr/bin:/bin", LANG: "C.UTF-8", LC_ALL: "C.UTF-8" },
+    stdio: "ignore", timeout: 5000, shell: false,
+  });
+  assert.equal(readonly.status, 0, "EXACT2_TREE_NOT_READ_ONLY");
+  const records = [
+    frozenSourceRecord({
+      commit: installation.exact4Commit,
+      tree: installation.exact4Tree,
+      relativePath: "scripts/product-authority.mjs",
+    }),
+    ...EXACT2_PATHS.map((relativePath) => frozenSourceRecord({ commit, tree, relativePath })),
+  ].sort((left, right) => Buffer.from(left.path).compare(Buffer.from(right.path)));
+  const provenancePath = process.env.CHAOTANG_EXACT2_PROVENANCE ?? "";
+  const expectedDigest = process.env.CHAOTANG_EXACT2_PROVENANCE_DIGEST ?? "";
+  assert.ok(path.isAbsolute(provenancePath), "EXACT2_PROVENANCE_PATH_INVALID");
+  assert.match(expectedDigest, /^sha256:[0-9a-f]{64}$/);
+  const provenance = parseJsonStrict(readFileSync(provenancePath, "utf8"));
+  assert.deepEqual(Object.keys(provenance).sort(), [
+    "digest", "exact2Commit", "exact2Tree", "exact9Commit", "exact9Tree",
+    "records", "schemaVersion",
+  ]);
+  assert.equal(provenance.schemaVersion, "chaotang-product-authority-installed-acceptance-provenance.v1");
+  assert.equal(provenance.exact2Commit, commit);
+  assert.equal(provenance.exact2Tree, tree);
+  assert.equal(provenance.exact9Commit, installation.exact4Commit);
+  assert.equal(provenance.exact9Tree, installation.exact4Tree);
+  assert.deepEqual(provenance.records, records);
+  const payload = { ...provenance };
+  delete payload.digest;
+  assert.equal(
+    provenance.digest,
+    domainDigest("chaotang-product-authority-installed-acceptance-provenance-v1\0", payload),
+  );
+  assert.equal(provenance.digest, expectedDigest);
+  return provenance;
+}
+
+function dedicatedControllerManifestDigest(installation) {
+  return domainDigest("chaotang-dedicated-controller-manifest-v1\0", {
+    schemaVersion: "chaotang-dedicated-controller-manifest.v1",
+    installationManifestDigest: installation.digest,
+    controllerUid: installation.identities.controllerUid,
+    controllerGid: installation.identities.controllerGid,
+    socket: installation.socket,
+  });
+}
+
 function receiptGatedManifest({ baseCommit, baseTree } = {}) {
-  const controllerSource = `
-// CONTROLLER_SEALED_SOURCE_MARKER
+  const controllerPayload = `
 import crypto from "node:crypto";
 import fs from "node:fs";
 const buffer = Buffer.alloc(16385);
 const count = fs.readSync(3, buffer, 0, buffer.length, null);
 const challenge = buffer.subarray(0, count);
 const sealedSource = fs.readFileSync(4, "utf8");
-if (!sealedSource.startsWith("// CONTROLLER_SEALED_SOURCE_MARKER\\n")) process.exit(31);
+if (!sealedSource.startsWith("/*CONTROLLER_SEALED_SOURCE_MARKER*/")) process.exit(31);
+const CONTROLLER_EXPECTED_INHERITED_FDS = new Set([0, 1, 2, 3, 4, 6]);
+for (const fd of [...CONTROLLER_EXPECTED_INHERITED_FDS].filter((value) => value > 2)) fs.fstatSync(fd);
 for (const fd of fs.readdirSync("/proc/self/fd")) {
-  try { if (fs.readlinkSync("/proc/self/fd/" + fd).endsWith("/ambient-secret")) process.exit(32); } catch {}
+  try {
+    const target = fs.readlinkSync("/proc/self/fd/" + fd);
+    if (target.endsWith("/ambient-secret")) process.exit(32);
+    if (Number(fd) === 5 && [4, 6].some((sourceFd) => {
+      const candidate = fs.fstatSync(5); const source = fs.fstatSync(sourceFd);
+      return candidate.dev === source.dev && candidate.ino === source.ino;
+    })) process.exit(33);
+  } catch {}
 }
 const ack = JSON.stringify({challengeDigest:"sha256:"+crypto.createHash("sha256").update(challenge).digest("hex"),status:"CONTROLLER_EXECUTED"});
 fs.writeSync(3, ack);
 `.trim();
-  const verifierSource = `
-# VERIFIER_SEALED_SOURCE_MARKER
+  const controllerSource = `/*CONTROLLER_SEALED_SOURCE_MARKER*/await import("data:text/javascript;base64,${Buffer.from(controllerPayload, "utf8").toString("base64")}");`;
+  const verifierPayload = `
 import hashlib, json, os, socket
 def canonical(value):
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
@@ -134,12 +260,22 @@ channel = socket.socket(fileno=3)
 challenge_bytes = channel.recv(16385)
 challenge = json.loads(challenge_bytes.decode("utf-8"))
 sealed_source = os.read(4, 1 << 20).decode("utf-8", "strict")
-if not sealed_source.startswith("# VERIFIER_SEALED_SOURCE_MARKER\\n"):
+if not sealed_source.startswith('"VERIFIER_SEALED_SOURCE_MARKER";'):
     raise SystemExit(31)
+VERIFIER_EXPECTED_INHERITED_FDS = {0, 1, 2, 3, 4, 6}
+for fd in sorted(VERIFIER_EXPECTED_INHERITED_FDS - {0, 1, 2}):
+    os.fstat(fd)
 for fd in os.listdir("/proc/self/fd"):
     try:
-        if os.readlink("/proc/self/fd/" + fd).endswith("/ambient-secret"):
+        target = os.readlink("/proc/self/fd/" + fd)
+        if target.endswith("/ambient-secret"):
             raise SystemExit(32)
+        if int(fd) == 5 and any(
+            (os.fstat(5).st_dev, os.fstat(5).st_ino) ==
+            (os.fstat(source_fd).st_dev, os.fstat(source_fd).st_ino)
+            for source_fd in (4, 6)
+        ):
+            raise SystemExit(33)
     except OSError:
         pass
 receipt = {
@@ -167,6 +303,7 @@ receipt = {
 channel.send(canonical(receipt))
 channel.close()
 `.trim();
+  const verifierSource = `"VERIFIER_SEALED_SOURCE_MARKER";import base64;exec(compile(base64.b64decode(b'${Buffer.from(verifierPayload, "utf8").toString("base64")}'),'<installed-preauthorization-verifier>','exec'))`;
   return {
     ...approvalManifest({ baseCommit, baseTree, verification: [
       { id: "candidate", tool: "node", args: ["-e", "process.exit(0)"], cwd: ".", timeoutMs: 5000 },
@@ -490,6 +627,8 @@ test("the frozen runner executes controller and verifier with their distinct sea
   const runnerConfig = parseJsonStrict(Buffer.from(request.args.at(-1), "base64").toString("utf8"));
   assert.deepEqual(sourceIdentity(runnerConfig.controllerSource), runnerConfig.controllerIdentity);
   assert.deepEqual(sourceIdentity(runnerConfig.verifierSource), runnerConfig.verifierIdentity);
+  assert.ok(!/[\u0000-\u001f\u007f]/u.test(runnerConfig.controllerSource));
+  assert.ok(!/[\u0000-\u001f\u007f]/u.test(runnerConfig.verifierSource));
   const hostRunner = PREAUTH_RUNNER_SOURCE
     .replaceAll("/runtime/bin/node", process.execPath)
     .replaceAll("/runtime/bin/python3", "/usr/bin/python3");
@@ -563,6 +702,40 @@ test("outer broker receipt is closed and binds kernel peer, service cgroup and i
   };
   const validated = validatePreAuthorizationBrokerReceipt({ receipt, request, nowMonotonicMs: 2000 });
   assert.deepEqual(validated.innerReceiptBytes, inner);
+  assert.throws(
+    () => validatePreAuthorizationBrokerReceipt({
+      receipt, request, nowMonotonicMs: request.expiresMonotonicMs + 1,
+    }),
+    /PREAUTH_BROKER_RECEIPT_INVALID/,
+  );
+  const reboundRequest = buildPreAuthorizationBrokerRequest({
+    approval, pack: Buffer.from("PACK"),
+    sourceObjectManifestDigest: request.sourceObjectManifestDigest,
+    nonce: "2".repeat(64), issuedMonotonicMs: 1000,
+  });
+  assert.throws(
+    () => validatePreAuthorizationBrokerReceipt({
+      receipt, request: reboundRequest, nowMonotonicMs: 2000,
+    }),
+    /PREAUTH_BROKER_RECEIPT_INVALID/,
+  );
+  for (const field of [
+    "approvalCommit", "remoteHead", "sourceObjectManifestDigest",
+    "runtimeProfileDigest", "installationManifestDigest",
+    "dedicatedControllerManifestDigest", "pathBindingRecordDigest",
+    "pathBindingSchemaDigest",
+  ]) {
+    const changed = structuredClone(receipt);
+    changed[field] = field.endsWith("Commit") || field === "remoteHead"
+      ? "0".repeat(40) : `sha256:${"0".repeat(64)}`;
+    assert.throws(
+      () => validatePreAuthorizationBrokerReceipt({
+        receipt: changed, request, nowMonotonicMs: 2000,
+      }),
+      /PREAUTH_BROKER_RECEIPT_INVALID/,
+      field,
+    );
+  }
   for (const field of ["decision", "canExecuteProductWork", "approvalState"]) {
     const changed = structuredClone(receipt);
     changed[field] = "GO";
@@ -591,6 +764,54 @@ test("outer broker receipt is closed and binds kernel peer, service cgroup and i
       /PREAUTH_BROKER_RECEIPT_INVALID/,
     );
   }
+});
+
+test("installed preauthorization acceptance reaches the real CLI and broker", {
+  skip: !INSTALLED_ACCEPTANCE_ENABLED,
+}, async (t) => {
+  const installationPath = process.env.CHAOTANG_INSTALLATION_MANIFEST
+    ?? "/run/chaotang-installation/config/installation.json";
+  const installation = parseJsonStrict(await readFile(installationPath, "utf8"));
+  verifyReadonlyExact2Tree(installation);
+  const controller = installation.identities?.controllerUid;
+  const controllerGroup = installation.identities?.controllerGid;
+  assert.equal(process.getuid?.(), controller);
+  assert.equal(process.getgid?.(), controllerGroup);
+  assert.deepEqual([...new Set(process.getgroups?.() ?? [])], [controllerGroup]);
+  const profiles = installation.gateProfiles.filter(
+    (profile) => profile.profileId === "node-preauthorization-v1",
+  );
+  assert.equal(profiles.length, 1);
+
+  const repository = await initializeRepository(t);
+  const manifest = receiptGatedManifest(repository);
+  manifest.preAuthorizationReceipt.broker.runtimeProfileDigest = profiles[0].profileDigest;
+  manifest.preAuthorizationReceipt.broker.installationManifestDigest = installation.digest;
+  manifest.preAuthorizationReceipt.broker.dedicatedControllerManifestDigest = (
+    dedicatedControllerManifestDigest(installation)
+  );
+  await publishApproval(t, repository, manifest);
+  const completed = spawnSync(process.execPath, [
+    AUTHORITY_PATH, "--authorize", "--task", TASK_ID,
+  ], {
+    cwd: repository.root,
+    encoding: "utf8",
+    env: {
+      HOME: "/nonexistent", PATH: "/usr/bin:/bin", LANG: "C.UTF-8", LC_ALL: "C.UTF-8",
+      TMPDIR: "/tmp", TEMP: "/tmp", TMP: "/tmp",
+      GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: "/dev/null",
+      GIT_CONFIG_SYSTEM: "/dev/null", GIT_TERMINAL_PROMPT: "0",
+      GIT_NO_REPLACE_OBJECTS: "1", GIT_OPTIONAL_LOCKS: "0",
+    },
+    timeout: 120_000,
+    shell: false,
+  });
+  assert.equal(completed.status, 0, completed.stderr);
+  const result = parseJsonStrict(completed.stdout.trim());
+  assert.equal(result.decision, "GO");
+  assert.equal(result.canExecuteProductWork, true);
+  assert.equal(result.reason, "APPROVED_FOR_ONE_CHILD");
+  assert.match(result.evidenceDigest, /^sha256:[0-9a-f]{64}$/);
 });
 
 test("v2 direct authorization has no same-uid helper fallback", async (t) => {

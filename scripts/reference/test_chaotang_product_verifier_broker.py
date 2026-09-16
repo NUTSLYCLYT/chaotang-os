@@ -296,6 +296,301 @@ def installed_request(manifest: dict, script: str, *, timeout_ms: int = 10_000) 
     return header, pack
 
 
+def installed_preauthorization_sources() -> tuple[str, str]:
+    controller_payload = r'''
+import crypto from "node:crypto";
+import fs from "node:fs";
+const challenge = Buffer.alloc(16385);
+const count = fs.readSync(3, challenge, 0, challenge.length, null);
+const payload = challenge.subarray(0, count);
+const sealed = fs.readFileSync(4, "utf8");
+if (!sealed.startsWith("/*INSTALLED_ACCEPTANCE_CONTROLLER_SOURCE*/")) process.exit(31);
+for (const fd of [3, 4, 6]) fs.fstatSync(fd);
+for (const fd of fs.readdirSync("/proc/self/fd")) {
+  try { if (fs.readlinkSync("/proc/self/fd/" + fd).includes("git-credentials")) process.exit(32); } catch {}
+}
+const ack = JSON.stringify({challengeDigest:"sha256:"+crypto.createHash("sha256").update(payload).digest("hex"),status:"CONTROLLER_EXECUTED"});
+fs.writeSync(3, ack);
+'''.strip()
+    controller = (
+        "/*INSTALLED_ACCEPTANCE_CONTROLLER_SOURCE*/"
+        "await import(\"data:text/javascript;base64," +
+        base64.b64encode(controller_payload.encode("utf-8")).decode("ascii") +
+        "\");"
+    )
+    verifier_payload = r'''
+import hashlib, json, os, socket
+def canonical(value):
+    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+channel = socket.socket(fileno=3)
+challenge_bytes = channel.recv(16385)
+challenge = json.loads(challenge_bytes.decode("utf-8"))
+sealed = os.read(4, 1 << 20).decode("utf-8", "strict")
+if not sealed.startswith('"INSTALLED_ACCEPTANCE_VERIFIER_SOURCE";'):
+    raise SystemExit(31)
+for fd in (3, 4, 6):
+    os.fstat(fd)
+for fd in os.listdir("/proc/self/fd"):
+    try:
+        if "git-credentials" in os.readlink("/proc/self/fd/" + fd):
+            raise SystemExit(32)
+    except OSError:
+        pass
+receipt = {
+    "schemaVersion": "product-authority.m0.pre-authority-receipt.v2",
+    "status": "PASS",
+    "taskId": challenge["taskId"],
+    "approvalCommit": challenge["approvalCommit"],
+    "approvalTree": challenge["approvalTree"],
+    "approvalCanonicalDigest": challenge["approvalCanonicalDigest"],
+    "sourceObjectManifestDigest": challenge["sourceObjectManifestDigest"],
+    "nonce": challenge["nonce"],
+    "issuedMonotonicMs": challenge["issuedMonotonicMs"],
+    "expiresMonotonicMs": challenge["expiresMonotonicMs"],
+    "challengeDigest": "sha256:" + hashlib.sha256(challenge_bytes).hexdigest(),
+    "controllerExecutionDigest": challenge["controllerExecutionDigest"],
+    "controllerIdentity": challenge["controllerIdentity"],
+    "verifierIdentity": challenge["verifierIdentity"],
+    "approvalSourceRootIdentity": challenge["approvalSourceRootIdentity"],
+    "pathBinding": {
+        "orderedCaseResults": challenge["pathBindingResults"],
+        "recordDigest": "sha256:7ba1eeb23769551d2be58f136c1038e8897f5141755f5a34ac2cf0c39fa0c572",
+        "schemaDigest": "sha256:9afc472beb987bfe1c233e61f3247a5f509d52aa37d375f124cb451a3ccdf049",
+    },
+}
+channel.send(canonical(receipt))
+channel.close()
+'''.strip()
+    verifier = (
+        '"INSTALLED_ACCEPTANCE_VERIFIER_SOURCE";import base64;exec(compile('
+        "base64.b64decode(b'" +
+        base64.b64encode(verifier_payload.encode("utf-8")).decode("ascii") +
+        "'),'<installed-preauthorization-verifier>','exec'))"
+    )
+    return controller, verifier
+
+
+def installed_preauthorization_request(
+    manifest: dict, *, issued_monotonic_ms: int | None = None,
+    runner_source: str | None = None,
+) -> tuple[dict, bytes]:
+    """Build one approval-source-only request for the installed Node gate.
+
+    This helper deliberately selects the profile by its frozen identifier.  It
+    never relies on profile order and therefore fails closed if the installation
+    omits or duplicates the preauthorization runtime.
+    """
+
+    matching = [
+        profile for profile in manifest.get("gateProfiles", [])
+        if profile.get("profileId") == "node-preauthorization-v1"
+    ]
+    if len(matching) != 1:
+        raise AssertionError("NODE_PREAUTHORIZATION_PROFILE_INVALID")
+    profile = matching[0]
+    objects, _approval, _tree, _base = minimal_preauthorization_graph()
+    pack = git_pack(objects)
+    header = valid_preauthorization_header(pack)
+    issued = (
+        time.monotonic_ns() // 1_000_000
+        if issued_monotonic_ms is None else issued_monotonic_ms
+    )
+    expires = issued + 30_000
+    if runner_source is None:
+        runner_source = header["args"][3]
+    controller_source, verifier_source = installed_preauthorization_sources()
+    controller_identity = broker._source_identity(controller_source.encode("utf-8", "strict"))
+    verifier_identity = broker._source_identity(verifier_source.encode("utf-8", "strict"))
+    config = broker.parse_json_strict(
+        base64.b64decode(header["args"][4].encode("ascii"), validate=True)
+    )
+    config["baseChallenge"]["issuedMonotonicMs"] = issued
+    config["baseChallenge"]["expiresMonotonicMs"] = expires
+    config["baseChallenge"]["controllerIdentity"] = controller_identity
+    config["baseChallenge"]["verifierIdentity"] = verifier_identity
+    config["controllerIdentity"] = controller_identity
+    config["controllerSource"] = controller_source
+    config["verifierIdentity"] = verifier_identity
+    config["verifierSource"] = verifier_source
+    encoded_config = base64.b64encode(broker.canonicalize(config)).decode("ascii")
+    header.update({
+        "runtimeProfileDigest": profile["profileDigest"],
+        "installationManifestDigest": manifest["digest"],
+        "dedicatedControllerManifestDigest": (
+            broker.dedicated_controller_manifest_digest(manifest)
+        ),
+        "executionProfileIdentity": broker._source_identity(
+            runner_source.encode("utf-8", "strict")
+        ),
+        "controllerIdentity": controller_identity,
+        "verifierIdentity": verifier_identity,
+        "issuedMonotonicMs": issued,
+        "expiresMonotonicMs": expires,
+        "args": ["-I", "-B", "-c", runner_source, encoded_config],
+    })
+    header["argsDigest"] = broker.domain_digest(
+        b"chaotang-product-verifier-args-v1\0", header["args"]
+    )
+    header["requestDigest"] = broker.preauthorization_request_digest(header)
+    broker.validate_request(header, pack)
+    return header, pack
+
+
+def _exact2_git(repo_root: Path, args: list[str]) -> bytes:
+    completed = subprocess.run(
+        ["/usr/bin/git", "--no-replace-objects", *args],
+        cwd=repo_root, check=False, stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30,
+        env={
+            "HOME": "/nonexistent", "PATH": "/usr/bin:/bin", "LANG": "C",
+            "LC_ALL": "C", "GIT_CONFIG_NOSYSTEM": "1",
+            "GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_SYSTEM": "/dev/null",
+            "GIT_TERMINAL_PROMPT": "0", "GIT_NO_REPLACE_OBJECTS": "1",
+            "GIT_OPTIONAL_LOCKS": "0",
+        },
+    )
+    if completed.returncode != 0:
+        raise AssertionError("EXACT2_PROVENANCE_GIT_FAILED")
+    return completed.stdout
+
+
+def verify_installed_exact2_provenance(
+    repo_root: str, commit: str, tree: str, manifest: dict,
+    provenance_path: str, expected_provenance_digest: str,
+) -> dict:
+    root = Path(repo_root).resolve(strict=True)
+    if not re.fullmatch(r"[0-9a-f]{40}", commit) or not re.fullmatch(r"[0-9a-f]{40}", tree):
+        raise AssertionError("EXACT2_PROVENANCE_IDENTITY_INVALID")
+    if _exact2_git(root, ["rev-parse", "HEAD"]).strip().decode("ascii") != commit:
+        raise AssertionError("EXACT2_PROVENANCE_HEAD_INVALID")
+    if _exact2_git(root, ["rev-parse", "HEAD^{tree}"]).strip().decode("ascii") != tree:
+        raise AssertionError("EXACT2_PROVENANCE_TREE_INVALID")
+    if _exact2_git(root, ["status", "--porcelain=v1", "--untracked-files=all"]):
+        raise AssertionError("EXACT2_PROVENANCE_WORKTREE_DIRTY")
+    if not os.statvfs(root).f_flag & os.ST_RDONLY:
+        raise AssertionError("EXACT2_PROVENANCE_WORKTREE_NOT_READ_ONLY")
+    exact9_commit = manifest["exact4Commit"]
+    exact9_tree = manifest["exact4Tree"]
+    if _exact2_git(root, ["rev-parse", f"{exact9_commit}^{{tree}}"]).strip().decode("ascii") != exact9_tree:
+        raise AssertionError("EXACT9_PROVENANCE_TREE_INVALID")
+    ancestry = subprocess.run(
+        [
+            "/usr/bin/git", "--no-replace-objects", "merge-base", "--is-ancestor",
+            exact9_commit, commit,
+        ],
+        cwd=root, check=False, stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=30,
+        env={
+            "HOME": "/nonexistent", "PATH": "/usr/bin:/bin", "LANG": "C",
+            "LC_ALL": "C", "GIT_CONFIG_NOSYSTEM": "1",
+            "GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_SYSTEM": "/dev/null",
+            "GIT_NO_REPLACE_OBJECTS": "1",
+        },
+    )
+    if ancestry.returncode != 0:
+        raise AssertionError("EXACT9_NOT_ANCESTOR_OF_EXACT2")
+
+    def source_record(source_commit: str, source_tree: str, relative: str) -> dict:
+        record_raw = _exact2_git(
+            root, ["ls-tree", source_commit, "--", relative]
+        ).decode("utf-8").strip()
+        match = re.fullmatch(
+            r"100644 blob ([0-9a-f]{40})\t" + re.escape(relative), record_raw,
+        )
+        if match is None:
+            raise AssertionError("EXACT2_PROVENANCE_RECORD_INVALID")
+        payload = _exact2_git(root, ["cat-file", "blob", f"{source_commit}:{relative}"])
+        if (root / relative).read_bytes() != payload:
+            raise AssertionError("EXACT2_PROVENANCE_OPENED_FILE_MISMATCH")
+        return {
+            "path": relative, "sourceCommit": source_commit, "sourceTree": source_tree,
+            "mode": "100644", "bytes": len(payload),
+            "rawSha256": broker.sha256_digest(payload), "gitBlobOid": match.group(1),
+        }
+
+    records = sorted([
+        source_record(exact9_commit, exact9_tree, "scripts/product-authority.mjs"),
+        source_record(commit, tree, "scripts/product-authority.test.mjs"),
+        source_record(commit, tree, "scripts/reference/test_chaotang_product_verifier_broker.py"),
+    ], key=lambda item: item["path"].encode("utf-8"))
+    provenance = broker._secure_read_json(provenance_path)
+    if set(provenance) != {
+        "schemaVersion", "exact2Commit", "exact2Tree", "exact9Commit",
+        "exact9Tree", "records", "digest",
+    }:
+        raise AssertionError("EXACT2_PROVENANCE_FIELDS_INVALID")
+    if provenance != {
+        "schemaVersion": "chaotang-product-authority-installed-acceptance-provenance.v1",
+        "exact2Commit": commit, "exact2Tree": tree,
+        "exact9Commit": exact9_commit, "exact9Tree": exact9_tree,
+        "records": records, "digest": provenance.get("digest"),
+    }:
+        raise AssertionError("EXACT2_PROVENANCE_CONTENT_INVALID")
+    payload = dict(provenance)
+    payload.pop("digest")
+    observed_digest = broker.domain_digest(
+        b"chaotang-product-authority-installed-acceptance-provenance-v1\0", payload,
+    )
+    if (
+        not re.fullmatch(r"sha256:[0-9a-f]{64}", expected_provenance_digest) or
+        provenance["digest"] != observed_digest or
+        provenance["digest"] != expected_provenance_digest
+    ):
+        raise AssertionError("EXACT2_PROVENANCE_DIGEST_INVALID")
+    installed_record = next(
+        (item for item in manifest["files"] if item["role"] == "INSTALLED_ACCEPTANCE_TEST"),
+        None,
+    )
+    test_record = next(
+        item for item in records
+        if item["path"] == "scripts/reference/test_chaotang_product_verifier_broker.py"
+    )
+    if installed_record is None or (
+        installed_record["projectedPath"] != str(THIS_FILE) or
+        installed_record["gitBlobOid"] != test_record["gitBlobOid"] or
+        installed_record["bytes"] != test_record["bytes"] or
+        installed_record["rawSha256"] != test_record["rawSha256"]
+    ):
+        raise AssertionError("EXACT2_PROVENANCE_MANIFEST_MISMATCH")
+    return provenance
+
+
+def load_frozen_preauthorization_runner(repo_root: str, provenance: dict) -> str:
+    authority_path = (Path(repo_root).resolve(strict=True) / "scripts/product-authority.mjs")
+    if not authority_path.is_file():
+        raise AssertionError("EXACT2_AUTHORITY_SOURCE_MISSING")
+    authority_record = next(
+        item for item in provenance["records"]
+        if item["path"] == "scripts/product-authority.mjs"
+    )
+    before = authority_path.read_bytes()
+    if (
+        len(before) != authority_record["bytes"] or
+        broker.sha256_digest(before) != authority_record["rawSha256"] or
+        git_oid("blob", before) != authority_record["gitBlobOid"]
+    ):
+        raise AssertionError("EXACT9_AUTHORITY_OPENED_FILE_MISMATCH")
+    module_url = authority_path.as_uri()
+    program = (
+        f"import {{ PREAUTH_RUNNER_SOURCE }} from {json.dumps(module_url)};"
+        "process.stdout.write(PREAUTH_RUNNER_SOURCE);"
+    )
+    completed = subprocess.run(
+        ["/usr/bin/node", "--input-type=module", "--eval", program],
+        check=False, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE, timeout=30,
+        env={
+            "HOME": "/nonexistent", "PATH": "/usr/bin:/bin", "LANG": "C.UTF-8",
+            "LC_ALL": "C.UTF-8", "TMPDIR": "/tmp", "TEMP": "/tmp", "TMP": "/tmp",
+        },
+    )
+    if completed.returncode != 0 or not completed.stdout or len(completed.stdout) > 262_144:
+        raise AssertionError("EXACT2_AUTHORITY_RUNNER_SOURCE_INVALID")
+    if authority_path.read_bytes() != before:
+        raise AssertionError("EXACT9_AUTHORITY_CHANGED_DURING_IMPORT")
+    return completed.stdout.decode("utf-8", "strict")
+
+
 DIAGNOSTIC_GIT_ENVIRONMENT = {
     "HOME": "/nonexistent",
     "PATH": "/usr/bin:/bin",
@@ -582,6 +877,57 @@ def _finish_identity_exchange(pid: int, output_read: int) -> dict:
     result = broker.parse_json_strict(b"".join(chunks))
     if not os.WIFEXITED(status) or os.WEXITSTATUS(status) != 0:
         raise AssertionError(f"IDENTITY_EXCHANGE_FAILED:{result}")
+    return result
+
+
+def _supplementary_group_exchange(
+    socket_path: str, frame: bytes, uid: int, gid: int, supplementary_gid: int,
+) -> dict:
+    output_read, output_write = os.pipe2(os.O_CLOEXEC)
+    pid = os.fork()
+    if pid == 0:  # pragma: no cover - installed real-host acceptance only
+        try:
+            os.close(output_read)
+            os.setgroups([supplementary_gid])
+            os.setresgid(gid, gid, gid)
+            os.setresuid(uid, uid, uid)
+            if os.getgroups() != [supplementary_gid]:
+                raise AssertionError("SUPPLEMENTARY_GROUP_SETUP_INVALID")
+            client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            client.settimeout(30)
+            client.connect(socket_path)
+            client.sendall(frame)
+            client.shutdown(socket.SHUT_WR)
+            chunks = []
+            while True:
+                chunk = client.recv(65536)
+                if not chunk:
+                    break
+                chunks.append(chunk)
+            client.close()
+            response = broker.decode_response_frame(io.BytesIO(b"".join(chunks)))
+            os.write(output_write, broker.canonicalize(response))
+            os._exit(0)
+        except BaseException as exc:
+            try:
+                os.write(output_write, broker.canonicalize({
+                    "error": f"{type(exc).__name__}:{exc}",
+                }))
+            except BaseException:
+                pass
+            os._exit(125)
+    os.close(output_write)
+    chunks = []
+    while True:
+        chunk = os.read(output_read, 65536)
+        if not chunk:
+            break
+        chunks.append(chunk)
+    os.close(output_read)
+    _, status = os.waitpid(pid, 0)
+    result = broker.parse_json_strict(b"".join(chunks))
+    if not os.WIFEXITED(status) or os.WEXITSTATUS(status) != 0:
+        raise AssertionError(f"SUPPLEMENTARY_GROUP_EXCHANGE_FAILED:{result}")
     return result
 
 
@@ -1445,6 +1791,81 @@ class ManifestContractTests(unittest.TestCase):
         for mutation in [alias, drift, unknown]:
             with self.subTest(mutation=mutation), self.assertRaises(broker.ContractError):
                 broker.validate_installation_manifest(mutation)
+
+
+class InstalledPreauthorizationRequestContractTests(unittest.TestCase):
+    def test_installed_controller_and_verifier_sources_compile_for_frozen_runtimes(self):
+        controller, verifier = installed_preauthorization_sources()
+        node = subprocess.run(
+            ["/usr/bin/node", "--input-type=module", "--check"],
+            input=controller.encode("utf-8"), capture_output=True, check=False,
+            timeout=10,
+        )
+        self.assertEqual(node.returncode, 0, node.stderr.decode("utf-8", "replace"))
+        compile(verifier, "<installed-preauthorization-verifier>", "exec")
+
+    def test_installed_preauthorization_request_binds_unique_node_profile_and_manifest(self):
+        manifest = ManifestContractTests().installation_manifest()
+        profile = manifest["gateProfiles"][0]
+        profile["profileId"] = "node-preauthorization-v1"
+        profile["hostManifestPath"] = (
+            "/var/lib/chaotang-product-verifier/runtime-profiles/"
+            "node-preauthorization-v1/manifest.json"
+        )
+        profile["hostRootPath"] = (
+            "/var/lib/chaotang-product-verifier/runtime-profiles/"
+            "node-preauthorization-v1/rootfs"
+        )
+        profile["projectedManifestPath"] = (
+            "/profiles/node-preauthorization-v1/manifest.json"
+        )
+        profile["projectedRootPath"] = "/profiles/node-preauthorization-v1/rootfs"
+        manifest["digest"] = broker.installation_manifest_digest(manifest)
+
+        header, pack = installed_preauthorization_request(
+            manifest, issued_monotonic_ms=1_000,
+        )
+
+        self.assertEqual(header["runtimeProfileId"], "node-preauthorization-v1")
+        self.assertEqual(header["runtimeProfileDigest"], profile["profileDigest"])
+        self.assertEqual(header["installationManifestDigest"], manifest["digest"])
+        self.assertEqual(
+            header["dedicatedControllerManifestDigest"],
+            broker.dedicated_controller_manifest_digest(manifest),
+        )
+        self.assertEqual(header["issuedMonotonicMs"], 1_000)
+        self.assertEqual(header["expiresMonotonicMs"], 31_000)
+        self.assertEqual(
+            broker.validate_preauthorization_request_header(header), header,
+        )
+        self.assertEqual(
+            header["snapshotPackSha256"], broker.sha256_digest(pack),
+        )
+        config = broker.parse_json_strict(
+            base64.b64decode(header["args"][4].encode("ascii"), validate=True)
+        )
+        self.assertTrue(config["controllerSource"].startswith(
+            "/*INSTALLED_ACCEPTANCE_CONTROLLER_SOURCE*/"
+        ))
+        self.assertTrue(config["verifierSource"].startswith(
+            '"INSTALLED_ACCEPTANCE_VERIFIER_SOURCE";'
+        ))
+
+        duplicate = json.loads(json.dumps(manifest))
+        duplicate["gateProfiles"].append(dict(duplicate["gateProfiles"][0]))
+        duplicate["digest"] = broker.installation_manifest_digest(duplicate)
+        with self.assertRaisesRegex(AssertionError, "NODE_PREAUTHORIZATION_PROFILE_INVALID"):
+            installed_preauthorization_request(duplicate, issued_monotonic_ms=1_000)
+
+    def test_installed_only_options_are_rejected_without_explicit_acceptance_mode(self):
+        for option in (
+            "--socket", "--manifest", "--exact2-repo-root", "--exact2-commit",
+            "--exact2-tree", "--exact2-provenance", "--exact2-provenance-digest",
+        ):
+            with self.subTest(option=option), mock.patch.object(
+                sys, "argv", [str(THIS_FILE), option, "value"],
+            ):
+                self.assertEqual(main(), 64)
 
     def test_profile_scan_rejects_symlink_directory_and_directory_acl_xattr(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -2411,6 +2832,11 @@ class InstalledAcceptance(unittest.TestCase):
 
     socket_path: str | None = None
     manifest_path: str = "/run/chaotang-installation/config/installation.json"
+    exact2_repo_root: str | None = None
+    exact2_commit: str | None = None
+    exact2_tree: str | None = None
+    exact2_provenance_path: str | None = None
+    exact2_provenance_digest: str | None = None
 
     @classmethod
     def setUpClass(cls):
@@ -2420,6 +2846,18 @@ class InstalledAcceptance(unittest.TestCase):
             raise AssertionError("INSTALLED_ACCEPTANCE_SOCKET_REQUIRED")
         cls.metadata = broker.inspect_installed_environment(cls.socket_path, cls.manifest_path)
         cls.manifest = broker.load_installed_manifest(cls.manifest_path)
+        if None in (
+            cls.exact2_repo_root, cls.exact2_commit, cls.exact2_tree,
+            cls.exact2_provenance_path, cls.exact2_provenance_digest,
+        ):
+            raise AssertionError("INSTALLED_ACCEPTANCE_EXACT2_PROVENANCE_REQUIRED")
+        cls.exact2_provenance = verify_installed_exact2_provenance(
+            cls.exact2_repo_root, cls.exact2_commit, cls.exact2_tree, cls.manifest,
+            cls.exact2_provenance_path, cls.exact2_provenance_digest,
+        )
+        cls.preauthorization_runner_source = load_frozen_preauthorization_runner(
+            cls.exact2_repo_root, cls.exact2_provenance,
+        )
         cls.effective_socket = _assert_effective_socket_unit()
 
     def _exchange(self, script: str, *, timeout_ms: int = 10_000, probe_proc: bool = False) -> dict:
@@ -2452,6 +2890,77 @@ class InstalledAcceptance(unittest.TestCase):
         self.assertEqual(response["peerGid"], identities["controllerGid"])
         return response
 
+    def _send_preauthorization(self, header: dict, pack: bytes) -> dict:
+        identities = self.manifest["identities"]
+        pid, output_fd = _start_identity_exchange(
+            self.socket_path, broker.encode_request_frame(header, pack),
+            identities["controllerUid"], identities["controllerGid"],
+        )
+        result = _finish_identity_exchange(pid, output_fd)
+        self.assertIn(result["peer"][1], (0, 65534))
+        return result["response"]
+
+    def _exchange_preauthorization(self) -> tuple[dict, dict]:
+        header, pack = installed_preauthorization_request(
+            self.manifest, runner_source=self.preauthorization_runner_source,
+        )
+        response = self._send_preauthorization(header, pack)
+        self.assertEqual(set(response), set(broker.PREAUTH_RECEIPT_FIELDS))
+        self.assertEqual(response["schemaVersion"], broker.PREAUTH_RECEIPT_SCHEMA)
+        self.assertEqual(response["requestDigest"], header["requestDigest"])
+        self.assertEqual(response["nonce"], header["nonce"])
+        self.assertEqual(response["approvalCommit"], header["approvalCommit"])
+        self.assertEqual(response["remoteHead"], header["remoteHead"])
+        self.assertEqual(
+            response["sourceObjectManifestDigest"],
+            header["sourceObjectManifestDigest"],
+        )
+        self.assertEqual(
+            response["installationManifestDigest"], self.manifest["digest"],
+        )
+        self.assertEqual(
+            response["dedicatedControllerManifestDigest"],
+            broker.dedicated_controller_manifest_digest(self.manifest),
+        )
+        self.assertEqual(
+            (response["peerPrimaryUid"], response["peerPrimaryGid"]),
+            (
+                self.manifest["identities"]["controllerUid"],
+                self.manifest["identities"]["controllerGid"],
+            ),
+        )
+        self.assertTrue(response["serviceCgroupOnlyBrokerBeforeReceipt"])
+        self.assertEqual(response["exitKind"], "EXITED")
+        self.assertEqual(response["exitCode"], 0)
+        self.assertFalse(response["timedOut"])
+        self.assertEqual(response["infrastructureCode"], "NONE")
+        output = response["innerReceipt"]
+        inner_bytes = base64.b64decode(output["data"].encode("ascii"), validate=True)
+        self.assertEqual(output["bytes"], len(inner_bytes))
+        self.assertEqual(output["sha256"], broker.sha256_digest(inner_bytes))
+        self.assertEqual(response["innerPreauthorizationReceiptDigest"], output["sha256"])
+        inner = broker.parse_json_strict(inner_bytes)
+        self.assertEqual(broker.canonicalize(inner), inner_bytes)
+        self.assertEqual(inner["schemaVersion"], "product-authority.m0.pre-authority-receipt.v2")
+        self.assertEqual(inner["status"], "PASS")
+        for field in (
+            "taskId", "approvalCommit", "approvalTree", "approvalCanonicalDigest",
+            "sourceObjectManifestDigest", "nonce", "issuedMonotonicMs",
+            "expiresMonotonicMs", "controllerIdentity", "verifierIdentity",
+        ):
+            self.assertEqual(inner[field], header[field], field)
+        self.assertEqual(
+            inner["pathBinding"]["orderedCaseResults"],
+            [{"id": item, "status": "PASS"} for item in broker.PATH_BINDING_ORDERED_CASES],
+        )
+        self.assertEqual(
+            inner["pathBinding"]["recordDigest"], broker.PATH_BINDING_RECORD_DIGEST,
+        )
+        self.assertEqual(
+            inner["pathBinding"]["schemaDigest"], broker.PATH_BINDING_SCHEMA_DIGEST,
+        )
+        return response, inner
+
     def test_installed_acceptance_requires_root_owned_exact_install(self):
         self.assertEqual(
             self.metadata["state"], "INSTALLED_METADATA_VERIFIED_REAL_ACCEPTANCE_REQUIRED"
@@ -2459,6 +2968,28 @@ class InstalledAcceptance(unittest.TestCase):
         self.assertTrue(self.metadata["exactTestIdentityVerified"])
         self.assertFalse(self.metadata["credentialBoundaryReady"])
         self.assertEqual(self.effective_socket["Accept"], "yes")
+        self.assertEqual(self.exact2_provenance["exact2Commit"], self.exact2_commit)
+        self.assertEqual(self.exact2_provenance["exact2Tree"], self.exact2_tree)
+
+    def test_real_preauthorization_socket_chain_is_closed_and_bound(self):
+        response, inner = self._exchange_preauthorization()
+        self.assertEqual(response["taskId"], inner["taskId"])
+        self.assertEqual(response["approvalCommit"], inner["approvalCommit"])
+        self.assertEqual(
+            response["innerPreauthorizationReceiptDigest"],
+            broker.sha256_digest(broker.canonicalize(inner)),
+        )
+
+    def test_expired_preauthorization_is_rejected_and_next_connection_recovers(self):
+        issued = time.monotonic_ns() // 1_000_000 - 30_001
+        header, pack = installed_preauthorization_request(
+            self.manifest, issued_monotonic_ms=issued,
+            runner_source=self.preauthorization_runner_source,
+        )
+        response = self._send_preauthorization(header, pack)
+        self.assertEqual(response, broker.protocol_error("PREAUTH_REQUEST_EXPIRED"))
+        next_response, _inner = self._exchange_preauthorization()
+        self.assertEqual(next_response["exitCode"], 0)
 
     def test_only_controller_identity_can_reach_or_authenticate_socket(self):
         identities = self.manifest["identities"]
@@ -2475,6 +3006,20 @@ class InstalledAcceptance(unittest.TestCase):
         pid, output_fd = _start_identity_exchange(self.socket_path, broker.encode_request_frame(header, pack), 0, 0)
         result = _finish_identity_exchange(pid, output_fd)
         self.assertEqual(result["response"], broker.protocol_error("PEER_CREDENTIAL_REJECTED"))
+
+        other_uid = max(
+            identities["controllerUid"], identities["ingestUid"], identities["workerUid"],
+        ) + 1001
+        other_gid = max(
+            identities["controllerGid"], identities["ingestGid"], identities["workerGid"],
+        ) + 1001
+        supplementary = _supplementary_group_exchange(
+            self.socket_path, broker.encode_request_frame(header, pack),
+            other_uid, other_gid, identities["controllerGid"],
+        )
+        self.assertEqual(
+            supplementary, broker.protocol_error("PEER_CREDENTIAL_REJECTED"),
+        )
 
     def test_real_gate_closes_syscalls_network_fds_paths_and_proc_sibling_attack(self):
         tcp_listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -2610,6 +3155,11 @@ def main() -> int:
     parser.add_argument("--verify-repository-candidate", action="store_true")
     parser.add_argument("--socket")
     parser.add_argument("--manifest", default="/run/chaotang-installation/config/installation.json")
+    parser.add_argument("--exact2-repo-root")
+    parser.add_argument("--exact2-commit")
+    parser.add_argument("--exact2-tree")
+    parser.add_argument("--exact2-provenance")
+    parser.add_argument("--exact2-provenance-digest")
     parser.add_argument("--repo-root")
     parser.add_argument("--task-id")
     known, remaining = parser.parse_known_args()
@@ -2620,9 +3170,18 @@ def main() -> int:
         return 64
     if known.installed_acceptance and known.verify_repository_candidate:
         return 64
+    installed_only_options = (
+        "--socket", "--manifest", "--exact2-repo-root", "--exact2-commit",
+        "--exact2-tree", "--exact2-provenance", "--exact2-provenance-digest",
+    )
+    if not known.installed_acceptance and any(
+        argument == option or argument.startswith(option + "=")
+        for option in installed_only_options for argument in raw_argv
+    ):
+        return 64
     if known.verify_repository_candidate:
         required = ("--verify-repository-candidate", "--repo-root", "--task-id")
-        forbidden = ("--installed-acceptance", "--socket", "--manifest")
+        forbidden = ("--installed-acceptance", *installed_only_options)
         if (
             remaining or None in (known.repo_root, known.task_id) or
             any(raw_argv.count(option) != 1 for option in required) or
@@ -2637,10 +3196,35 @@ def main() -> int:
         sys.stdout.buffer.write(broker.canonicalize(evidence) + b"\n")
         return 0
     if known.installed_acceptance:
+        required_installed = (
+            "--installed-acceptance", "--socket", "--exact2-repo-root",
+            "--exact2-commit", "--exact2-tree", "--exact2-provenance",
+            "--exact2-provenance-digest",
+        )
+        if (
+            remaining or None in (
+                known.socket, known.exact2_repo_root, known.exact2_commit,
+                known.exact2_tree, known.exact2_provenance,
+                known.exact2_provenance_digest,
+            ) or
+            any(raw_argv.count(option) != 1 for option in required_installed) or
+            any(
+                argument.startswith(option + "=")
+                for option in required_installed for argument in raw_argv
+            ) or raw_argv.count("--manifest") > 1 or any(
+                argument.startswith("--manifest=") for argument in raw_argv
+            )
+        ):
+            return 64
         InstalledAcceptance.__unittest_skip__ = False
         InstalledAcceptance.__unittest_skip_why__ = ""
         InstalledAcceptance.socket_path = known.socket
         InstalledAcceptance.manifest_path = known.manifest
+        InstalledAcceptance.exact2_repo_root = known.exact2_repo_root
+        InstalledAcceptance.exact2_commit = known.exact2_commit
+        InstalledAcceptance.exact2_tree = known.exact2_tree
+        InstalledAcceptance.exact2_provenance_path = known.exact2_provenance
+        InstalledAcceptance.exact2_provenance_digest = known.exact2_provenance_digest
         suite = unittest.defaultTestLoader.loadTestsFromTestCase(InstalledAcceptance)
         details = io.StringIO()
         result = unittest.TextTestRunner(stream=details, verbosity=2).run(suite)
