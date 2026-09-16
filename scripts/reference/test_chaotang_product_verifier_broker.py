@@ -143,6 +143,116 @@ def valid_header(pack: bytes = b"PACK") -> dict:
     return header
 
 
+def minimal_preauthorization_graph():
+    objects, _candidate, tree_oid, approval_oid, base_oid = minimal_graph()
+    objects = {
+        oid: value for oid, value in objects.items()
+        if oid != _candidate
+    }
+    return objects, approval_oid, tree_oid, base_oid
+
+
+def valid_preauthorization_header(pack: bytes | None = None) -> dict:
+    objects, approval_oid, tree_oid, base_oid = minimal_preauthorization_graph()
+    if pack is None:
+        pack = git_pack(objects)
+    graph = broker.verify_preauthorization_source_graph(
+        objects, approval_oid, tree_oid, base_oid,
+    )
+    def source_identity(source: str) -> dict:
+        payload = source.encode("utf-8")
+        return {
+            "bytes": len(payload),
+            "gitBlobSha1": git_oid("blob", payload),
+            "mode": "100644",
+            "rawSha256": broker.sha256_digest(payload),
+        }
+    controller_source = "print('controller')"
+    verifier_source = "print('verifier')"
+    runner_source = "print('runner')"
+    controller_identity = source_identity(controller_source)
+    verifier_identity = source_identity(verifier_source)
+    runner_identity = source_identity(runner_source)
+    environment = dict(broker.EXACT_GATE_ENVIRONMENT)
+    issued = 1000
+    expires = 31000
+    path_binding_policy = {
+        "schemaVersion": "chaotang.path-binding-self-test.attestation.v1",
+        "recordBytes": 4123,
+        "recordDigest": broker.PATH_BINDING_RECORD_DIGEST,
+        "schemaBytes": 8475,
+        "schemaDigest": broker.PATH_BINDING_SCHEMA_DIGEST,
+        "caseCount": 18,
+        "orderedCases": broker._path_binding_case_records(),
+    }
+    base_challenge = {
+        "approvalCanonicalDigest": "sha256:" + "3" * 64,
+        "approvalCommit": approval_oid,
+        "approvalTree": tree_oid,
+        "controllerIdentity": controller_identity,
+        "expiresMonotonicMs": expires,
+        "issuedMonotonicMs": issued,
+        "nonce": "22" * 32,
+        "pathBindingPolicyDigest": broker.domain_digest(b"", path_binding_policy),
+        "schemaVersion": "product-authority.m0.pre-authority-challenge.v2",
+        "sourceObjectManifestDigest": graph["sourceObjectManifestDigest"],
+        "taskId": "TEST-PREAUTH-20260915",
+        "verifierIdentity": verifier_identity,
+    }
+    config = {
+        "baseChallenge": base_challenge,
+        "controllerIdentity": controller_identity,
+        "controllerSource": controller_source,
+        "maxChallengeBytes": 16384,
+        "maxReceiptBytes": 65536,
+        "timeoutMs": 30000,
+        "verifierIdentity": verifier_identity,
+        "verifierSource": verifier_source,
+    }
+    encoded_config = base64.b64encode(broker.canonicalize(config)).decode("ascii")
+    args = ["-I", "-B", "-c", runner_source, encoded_config]
+    header = {
+        "schemaVersion": broker.PREAUTH_REQUEST_SCHEMA,
+        "sourceKind": "PRE_AUTHORIZATION_SOURCE",
+        "nonce": "22" * 32,
+        "requestDigest": "",
+        "taskId": "TEST-PREAUTH-20260915",
+        "approvalCommit": approval_oid,
+        "approvalTree": tree_oid,
+        "directBaseCommit": base_oid,
+        "directBaseTree": tree_oid,
+        "approvalCanonicalDigest": "sha256:" + "3" * 64,
+        "remoteHead": approval_oid,
+        "sourceObjectManifestDigest": graph["sourceObjectManifestDigest"],
+        "snapshotPackSha256": broker.sha256_digest(pack),
+        "snapshotPackBytes": len(pack),
+        "runtimeProfileId": "node-preauthorization-v1",
+        "runtimeProfileDigest": "sha256:" + "4" * 64,
+        "installationManifestDigest": "sha256:" + "5" * 64,
+        "dedicatedControllerManifestDigest": "sha256:" + "6" * 64,
+        "controllerIdentity": controller_identity,
+        "verifierIdentity": verifier_identity,
+        "executionProfileIdentity": runner_identity,
+        "pathBindingRecordDigest": broker.PATH_BINDING_RECORD_DIGEST,
+        "pathBindingSchemaDigest": broker.PATH_BINDING_SCHEMA_DIGEST,
+        "issuedMonotonicMs": issued,
+        "expiresMonotonicMs": expires,
+        "gateId": "preauthorization-receipt",
+        "tool": "/runtime/bin/python3",
+        "args": args,
+        "argsDigest": broker.domain_digest(b"chaotang-product-verifier-args-v1\0", args),
+        "cwd": ".",
+        "workspaceMode": "READ_ONLY_APPROVAL_SOURCE",
+        "environment": environment,
+        "environmentDigest": broker.domain_digest(
+            b"chaotang-product-verifier-environment-v1\0", environment,
+        ),
+        "timeoutMs": 30000,
+    }
+    header["requestDigest"] = broker.preauthorization_request_digest(header)
+    return header
+
+
 def installed_script_launcher(script: str) -> str:
     source = script.encode("utf-8", "strict")
     if len(source) > 65_536:
@@ -1077,6 +1187,199 @@ class GitObjectGraphTests(unittest.TestCase):
             (root / "pack" / "unexpected.pack").write_bytes(b"PACK")
             with self.assertRaises(broker.ContractError):
                 broker.load_loose_git_objects(str(root))
+
+
+class PreauthorizationSourceProtocolTests(unittest.TestCase):
+    def test_preauthorization_request_is_additive_closed_and_v1_unchanged(self):
+        original_v1_fields = tuple(broker.REQUEST_FIELDS)
+        header = valid_preauthorization_header()
+        self.assertEqual(broker.validate_request_header(header), header)
+        self.assertEqual(tuple(broker.REQUEST_FIELDS), original_v1_fields)
+        self.assertEqual(broker.REQUEST_SCHEMA, "chaotang-product-verifier-request.v1")
+        self.assertNotIn("candidateCommit", header)
+        self.assertNotIn("candidateTree", header)
+
+        for mutation in ("missing", "unknown", "wrong-source", "bad-digest"):
+            changed = dict(header)
+            if mutation == "missing":
+                del changed["approvalTree"]
+            elif mutation == "unknown":
+                changed["shell"] = True
+            elif mutation == "wrong-source":
+                changed["sourceKind"] = "CANDIDATE"
+            else:
+                changed["requestDigest"] = "sha256:" + "0" * 64
+            with self.assertRaises(broker.ContractError):
+                broker.validate_request_header(changed)
+
+    def test_preauthorization_graph_is_approval_plus_direct_base_only(self):
+        objects, approval, tree, base = minimal_preauthorization_graph()
+        graph = broker.verify_preauthorization_source_graph(objects, approval, tree, base)
+        self.assertEqual(graph["lineageCommits"], [approval, base])
+        self.assertEqual(graph["records"][0]["path"], "safe.txt")
+        self.assertRegex(graph["sourceObjectManifestDigest"], r"^sha256:[0-9a-f]{64}$")
+
+        extra = dict(objects)
+        extra[git_oid("blob", b"extra")] = ("blob", b"extra")
+        with self.assertRaisesRegex(broker.ContractError, "OBJECT_SET_NOT_EXACT"):
+            broker.verify_preauthorization_source_graph(extra, approval, tree, base)
+
+        wrong_parent_body = objects[approval][1].replace(
+            f"parent {base}".encode(), b"parent " + b"f" * 40,
+        )
+        wrong_approval = git_oid("commit", wrong_parent_body)
+        changed = dict(objects)
+        del changed[approval]
+        changed[wrong_approval] = ("commit", wrong_parent_body)
+        with self.assertRaisesRegex(broker.ContractError, "LINEAGE_PARENT_INVALID"):
+            broker.verify_preauthorization_source_graph(changed, wrong_approval, tree, base)
+
+    def test_preauthorization_request_binds_pack_and_source_manifest(self):
+        objects, _approval, _tree, _base = minimal_preauthorization_graph()
+        pack = git_pack(objects)
+        header = valid_preauthorization_header(pack)
+        self.assertEqual(broker.validate_request(header, pack), header)
+        tampered = dict(header)
+        tampered["sourceObjectManifestDigest"] = "sha256:" + "f" * 64
+        tampered["requestDigest"] = broker.preauthorization_request_digest(tampered)
+        with self.assertRaisesRegex(
+            broker.ContractError, "PREAUTH_RUNNER_CONFIG_INVALID|SOURCE_MANIFEST_DIGEST_MISMATCH",
+        ):
+            broker.validate_preauthorization_graph_binding(tampered, objects)
+
+    def test_preauthorization_worker_mount_and_seccomp_are_protocol_scoped(self):
+        header = valid_preauthorization_header()
+        command = broker.build_worker_bwrap_command(
+            header=header,
+            candidate_root="/source",
+            runtime_root="/runtime",
+            work_root="/work",
+            tmp_root="/tmp-root",
+            seccomp_fd=9,
+        )
+        self.assertIn("/approval-source", command)
+        self.assertNotIn("/candidate", command)
+        self.assertEqual(command[command.index("--chdir") + 1], "/approval-source")
+        legacy = broker.seccomp_contract("worker")
+        preauth = broker.seccomp_contract("worker", allow_local_ipc=True)
+        self.assertIn("socketpair", legacy["deny"])
+        self.assertNotIn("socketpair", preauth["deny"])
+        self.assertIn(socket.AF_UNIX, preauth["socketFamilyAllowlist"])
+
+    def test_inner_receipt_is_canonical_and_bound_to_materialized_source(self):
+        header = valid_preauthorization_header()
+        config = json.loads(base64.b64decode(header["args"][4], validate=True))
+        with tempfile.TemporaryDirectory() as temporary:
+            os.chmod(temporary, 0o555)
+            info = os.stat(temporary, follow_symlinks=False)
+            root = {
+                "device": str(info.st_dev),
+                "inode": str(info.st_ino),
+                "mode": stat.S_IMODE(info.st_mode),
+                "mountId": "7",
+                "sourceManifestDigest": header["sourceObjectManifestDigest"],
+            }
+            results = [{"id": item, "status": "PASS"} for item in broker.PATH_BINDING_ORDERED_CASES]
+            controller_challenge = {
+                **config["baseChallenge"],
+                "approvalSourceRootIdentity": root,
+                "pathBindingResults": results,
+            }
+            acknowledgement = {
+                "challengeDigest": broker.sha256_digest(broker.canonicalize(controller_challenge)),
+                "status": "CONTROLLER_EXECUTED",
+            }
+            verifier_challenge = {
+                **controller_challenge,
+                "controllerExecutionDigest": broker.sha256_digest(broker.canonicalize(acknowledgement)),
+            }
+            receipt = {
+                "schemaVersion": "product-authority.m0.pre-authority-receipt.v2",
+                "status": "PASS",
+                "taskId": header["taskId"],
+                "approvalCommit": header["approvalCommit"],
+                "approvalTree": header["approvalTree"],
+                "approvalCanonicalDigest": header["approvalCanonicalDigest"],
+                "sourceObjectManifestDigest": header["sourceObjectManifestDigest"],
+                "nonce": header["nonce"],
+                "issuedMonotonicMs": header["issuedMonotonicMs"],
+                "expiresMonotonicMs": header["expiresMonotonicMs"],
+                "challengeDigest": broker.sha256_digest(broker.canonicalize(verifier_challenge)),
+                "controllerExecutionDigest": verifier_challenge["controllerExecutionDigest"],
+                "controllerIdentity": header["controllerIdentity"],
+                "verifierIdentity": header["verifierIdentity"],
+                "approvalSourceRootIdentity": root,
+                "pathBinding": {
+                    "orderedCaseResults": results,
+                    "recordDigest": header["pathBindingRecordDigest"],
+                    "schemaDigest": header["pathBindingSchemaDigest"],
+                },
+            }
+            payload = broker.canonicalize(receipt)
+            self.assertEqual(
+                broker.validate_inner_preauthorization_receipt(
+                    payload, header=header, source_root=temporary,
+                ),
+                receipt,
+            )
+            tampered = json.loads(payload)
+            tampered["pathBinding"]["orderedCaseResults"].pop()
+            with self.assertRaisesRegex(broker.ContractError, "PREAUTH_INNER_RECEIPT_INVALID"):
+                broker.validate_inner_preauthorization_receipt(
+                    broker.canonicalize(tampered), header=header, source_root=temporary,
+                )
+
+    def test_outer_receipt_binds_kernel_peer_service_cgroup_and_inner_receipt(self):
+        header = valid_preauthorization_header()
+        receipt = broker.make_preauthorization_receipt(
+            header=header,
+            peer_identity={
+                "peerPrimaryUid": 1001,
+                "peerPrimaryGid": 1002,
+                "peerKernelPid": 4321,
+                "peerProcStarttime": "88",
+                "peerUserNamespaceDeviceInode": "1:2",
+                "peerCgroupPath": "/user.slice/controller.scope",
+            },
+            worker=(2001, 2002),
+            service_identity={
+                "socketUnitName": "chaotang-product-verifier.socket",
+                "workerServiceUnitName": "chaotang-product-verifier@9.service",
+                "systemdInvocationId": "a" * 32,
+                "serviceCgroupPath": "/system.slice/chaotang-product-verifier@9.service",
+                "serviceCgroupInode": "123",
+                "serviceCgroupOnlyBrokerBeforeReceipt": True,
+            },
+            started_ns=10,
+            finished_ns=20,
+            exit_kind="EXITED",
+            exit_code=0,
+            signal_number=None,
+            timed_out=False,
+            infrastructure_code="NONE",
+            inner_receipt=b'{"status":"PASS"}',
+        )
+        self.assertEqual(set(receipt), set(broker.PREAUTH_RECEIPT_FIELDS))
+        self.assertEqual(receipt["innerPreauthorizationReceiptDigest"], broker.sha256_digest(b'{"status":"PASS"}'))
+        self.assertTrue(receipt["serviceCgroupOnlyBrokerBeforeReceipt"])
+        self.assertNotIn("decision", receipt)
+        self.assertNotIn("canExecuteProductWork", receipt)
+
+    def test_peer_identity_is_bound_before_request_and_rechecked(self):
+        with mock.patch.object(broker, "_peer_credentials", return_value=(4321, 1001, 1002)), \
+             mock.patch.object(broker, "_peer_process_identity", return_value={
+                 "peerProcStarttime": "88",
+                 "peerUserNamespaceDeviceInode": "1:2",
+                 "peerCgroupPath": "/user.slice/controller.scope",
+             }):
+            identity = broker.authenticate_controller_peer(
+                0, expected_uid=1001, expected_gid=1002,
+            )
+            self.assertEqual(identity["peerKernelPid"], 4321)
+            broker.recheck_controller_peer(0, identity)
+        with mock.patch.object(broker, "_peer_credentials", return_value=(4321, 1001, 9999)), \
+             self.assertRaisesRegex(broker.ContractError, "PEER_CREDENTIAL_REJECTED"):
+            broker.authenticate_controller_peer(0, expected_uid=1001, expected_gid=1002)
 
 
 class ManifestContractTests(unittest.TestCase):

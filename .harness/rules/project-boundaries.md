@@ -30,3 +30,19 @@ Outcome ledger 或第四套 Harness 事实源。
   单亲子，且不得修改 `.harness/`、authority、Harness、根入口、CI 或 ADR 0028。
 - 远端一旦离开 approval commit，该批准即失效或已消费；不新增数据库、lease、HSM、私钥或第二 ledger。
 - Consumer 的 PASS/GO 不能代替 Owner 对最终 candidate SHA/tree 和 commit/push/merge/deploy 的确认。
+
+## M0 pre-authority receipt boundary
+
+- v2 approval 只能通过现有 `scripts/product-authority.mjs --authorize` 进入；外部 receipt 文件、caller supplied
+  FD、same-UID inline helper/fallback、持久 nonce/lease/ledger 和第二 GO builder 均被禁止。
+- authority 先后只读确认实时 remote，并只打包 approval commit、直接 base commit、approval root tree、全部
+  recursive subtree/blob 的 exact closure；replace refs、仓库 config 和额外对象不进入 broker 信任边界。
+- credential-separated broker 必须由 root-owned socket 接受连接，先用 `SO_PEERCRED` 及 `/proc` starttime、
+  user namespace、cgroup 绑定 dedicated controller，再读取请求。approval-source 只读物化，不存在 candidate 身份。
+- controller/verifier/runner 源字节必须绑定 raw SHA-256、Git blob SHA-1、mode 与 bytes；worker 只在独立 UID、
+  PID/network namespace 和 per-connection cgroup 中运行，FD ABI 精确为 `3/4/6`，FD5 不可见。
+- inner/outer receipt 必须绑定 approval/base/remote/source manifest、controller/verifier/runner、18-case、nonce/TTL、
+  live peer、systemd invocation 与 service cgroup。任何成功、失败、超时或调用者断开最终都由
+  `KillMode=control-group` 收口；authority 只在同一 service inactive 且 cgroup empty 后输出低敏 evidence digest。
+- 仓库 source 不能证明已安装主机环境。current exact bytes、runtime profile、installation manifest、socket/unit
+  和 installed acceptance 未独立冻结并安装时，v2 fail closed；本 contract 不授权安装、启用或启动服务。

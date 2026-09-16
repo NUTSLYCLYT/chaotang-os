@@ -45,6 +45,8 @@ from typing import BinaryIO
 
 REQUEST_SCHEMA = "chaotang-product-verifier-request.v1"
 RECEIPT_SCHEMA = "chaotang-product-verifier-receipt.v1"
+PREAUTH_REQUEST_SCHEMA = "chaotang-product-verifier-preauthorization-request.v1"
+PREAUTH_RECEIPT_SCHEMA = "chaotang-product-verifier-preauthorization-receipt.v1"
 PROTOCOL_ERROR_SCHEMA = "chaotang-product-verifier-protocol-error.v1"
 RUNTIME_PROFILE_SCHEMA = "chaotang-product-verifier-runtime-profile.v1"
 INSTALLATION_SCHEMA = "chaotang-product-verifier-installation.v1"
@@ -128,6 +130,82 @@ RECEIPT_FIELDS = (
     "startedMonotonicNs", "finishedMonotonicNs", "exitKind", "exitCode", "signal",
     "timedOut", "infrastructureCode", "stdout", "stderr",
 )
+
+PREAUTH_REQUEST_FIELDS = (
+    "schemaVersion", "sourceKind", "nonce", "requestDigest", "taskId",
+    "approvalCommit", "approvalTree", "directBaseCommit", "directBaseTree",
+    "approvalCanonicalDigest", "remoteHead", "sourceObjectManifestDigest",
+    "snapshotPackSha256", "snapshotPackBytes", "runtimeProfileId",
+    "runtimeProfileDigest", "installationManifestDigest",
+    "dedicatedControllerManifestDigest", "controllerIdentity", "verifierIdentity",
+    "executionProfileIdentity", "pathBindingRecordDigest", "pathBindingSchemaDigest",
+    "issuedMonotonicMs", "expiresMonotonicMs", "gateId", "tool", "args",
+    "argsDigest", "cwd", "workspaceMode", "environment", "environmentDigest",
+    "timeoutMs",
+)
+
+PREAUTH_RECEIPT_FIELDS = (
+    "schemaVersion", "nonce", "requestDigest", "taskId", "approvalCommit",
+    "approvalTree", "directBaseCommit", "approvalCanonicalDigest", "remoteHead",
+    "sourceObjectManifestDigest", "runtimeProfileId", "runtimeProfileDigest",
+    "installationManifestDigest", "dedicatedControllerManifestDigest",
+    "controllerIdentity", "verifierIdentity", "executionProfileIdentity",
+    "pathBindingRecordDigest", "pathBindingSchemaDigest", "issuedMonotonicMs",
+    "expiresMonotonicMs", "innerPreauthorizationReceiptDigest", "innerReceipt",
+    "peerPrimaryUid", "peerPrimaryGid", "peerKernelPid", "peerProcStarttime",
+    "peerUserNamespaceDeviceInode", "peerCgroupPath", "workerUid", "workerGid",
+    "socketUnitName", "workerServiceUnitName", "systemdInvocationId",
+    "serviceCgroupPath", "serviceCgroupInode", "serviceCgroupOnlyBrokerBeforeReceipt",
+    "startedMonotonicNs", "finishedMonotonicNs", "exitKind", "exitCode", "signal",
+    "timedOut", "infrastructureCode",
+)
+
+PREAUTH_INNER_RECEIPT_FIELDS = (
+    "schemaVersion", "status", "taskId", "approvalCommit", "approvalTree",
+    "approvalCanonicalDigest", "sourceObjectManifestDigest", "nonce",
+    "issuedMonotonicMs", "expiresMonotonicMs", "challengeDigest",
+    "controllerExecutionDigest", "controllerIdentity", "verifierIdentity",
+    "approvalSourceRootIdentity", "pathBinding",
+)
+
+PATH_BINDING_ORDERED_CASES = (
+    "mkdir.home-ancestor.rename-directory-replacement",
+    "mkdir.home-ancestor.symlink-replacement",
+    "mount.home-ancestor.rename-directory-replacement",
+    "mount.home-ancestor.symlink-replacement",
+    "mount.target.rename-directory-replacement",
+    "mount.target.symlink-replacement",
+    "copy.home-ancestor.rename-directory-replacement",
+    "copy.home-ancestor.symlink-replacement",
+    "copy.target.rename-directory-replacement",
+    "copy.target.symlink-replacement",
+    "remount.home-ancestor.rename-directory-replacement",
+    "remount.home-ancestor.symlink-replacement",
+    "remount.target.rename-directory-replacement",
+    "remount.target.symlink-replacement",
+    "cleanup.home-ancestor.rename-directory-replacement",
+    "cleanup.home-ancestor.symlink-replacement",
+    "cleanup.target.rename-directory-replacement",
+    "cleanup.target.symlink-replacement",
+)
+PATH_BINDING_RECORD_DIGEST = "sha256:7ba1eeb23769551d2be58f136c1038e8897f5141755f5a34ac2cf0c39fa0c572"
+PATH_BINDING_SCHEMA_DIGEST = "sha256:9afc472beb987bfe1c233e61f3247a5f509d52aa37d375f124cb451a3ccdf049"
+
+
+def _path_binding_case_records() -> list[dict]:
+    records = []
+    for identifier in PATH_BINDING_ORDERED_CASES:
+        stage, target, attack = identifier.split(".")
+        records.append({
+            "id": identifier,
+            "stage": stage,
+            "target": target,
+            "attack": attack,
+            "observedStop": "VERIFICATION_PATH_IDENTITY_DRIFT",
+            "cleanup": "PASS",
+            "externalSentinel": "UNCHANGED",
+        })
+    return records
 
 RUNTIME_PROFILE_FIELDS = {
     "schemaVersion", "profileId", "profileRole", "sourceProvenance", "records", "profileDigest"
@@ -303,7 +381,15 @@ def domain_digest(domain: bytes, value) -> str:
 def request_digest(header: Mapping) -> str:
     payload = dict(header)
     payload.pop("requestDigest", None)
+    if payload.get("schemaVersion") == PREAUTH_REQUEST_SCHEMA:
+        return domain_digest(b"chaotang-product-verifier-preauthorization-request-v1\0", payload)
     return domain_digest(b"chaotang-product-verifier-request-v1\0", payload)
+
+
+def preauthorization_request_digest(header: Mapping) -> str:
+    if header.get("schemaVersion") != PREAUTH_REQUEST_SCHEMA:
+        _fail("PREAUTH_REQUEST_SCHEMA_INVALID")
+    return request_digest(header)
 
 
 def runtime_profile_digest(document: Mapping) -> str:
@@ -316,6 +402,17 @@ def installation_manifest_digest(document: Mapping) -> str:
     payload = dict(document)
     payload.pop("digest", None)
     return domain_digest(b"chaotang-product-verifier-installation-v1\0", payload)
+
+
+def dedicated_controller_manifest_digest(document: Mapping) -> str:
+    value = validate_installation_manifest(document)
+    return domain_digest(b"chaotang-dedicated-controller-manifest-v1\0", {
+        "schemaVersion": "chaotang-dedicated-controller-manifest.v1",
+        "installationManifestDigest": value["digest"],
+        "controllerUid": value["identities"]["controllerUid"],
+        "controllerGid": value["identities"]["controllerGid"],
+        "socket": value["socket"],
+    })
 
 
 def _read_exact(
@@ -462,7 +559,165 @@ def _is_int(value) -> bool:
     return isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= MAX_SAFE_INTEGER
 
 
+def _validate_source_identity(value: Mapping) -> None:
+    _exact_keys(
+        value, {"bytes", "gitBlobSha1", "mode", "rawSha256"},
+        "PREAUTH_SOURCE_IDENTITY_INVALID",
+    )
+    if (
+        not _is_int(value["bytes"]) or value["bytes"] < 1 or
+        value["mode"] != "100644" or
+        not isinstance(value["gitBlobSha1"], str) or
+        not SHA1_PATTERN.fullmatch(value["gitBlobSha1"]) or
+        not isinstance(value["rawSha256"], str) or
+        not SHA256_PATTERN.fullmatch(value["rawSha256"])
+    ):
+        _fail("PREAUTH_SOURCE_IDENTITY_INVALID")
+
+
+def _source_identity(payload: bytes) -> dict:
+    if not isinstance(payload, bytes) or not payload:
+        _fail("PREAUTH_SOURCE_IDENTITY_INVALID")
+    return {
+        "bytes": len(payload),
+        "gitBlobSha1": git_object_oid("blob", payload),
+        "mode": "100644",
+        "rawSha256": sha256_digest(payload),
+    }
+
+
+def _validate_preauthorization_runner_args(value: Mapping) -> None:
+    args = value["args"]
+    if len(args) != 5 or args[:3] != ["-I", "-B", "-c"]:
+        _fail("PREAUTH_ARGUMENTS_INVALID")
+    try:
+        runner = args[3].encode("utf-8", "strict")
+        encoded = args[4].encode("ascii", "strict")
+        config_raw = base64.b64decode(encoded, validate=True)
+    except (UnicodeError, ValueError, binascii.Error) as exc:
+        raise ContractError("PREAUTH_ARGUMENTS_INVALID") from exc
+    if base64.b64encode(config_raw) != encoded or _source_identity(runner) != value["executionProfileIdentity"]:
+        _fail("PREAUTH_EXECUTION_PROFILE_IDENTITY_MISMATCH")
+    config = parse_json_strict(config_raw)
+    _exact_keys(config, {
+        "baseChallenge", "controllerIdentity", "controllerSource", "maxChallengeBytes",
+        "maxReceiptBytes", "timeoutMs", "verifierIdentity", "verifierSource",
+    }, "PREAUTH_RUNNER_CONFIG_INVALID")
+    if canonicalize(config) != config_raw:
+        _fail("PREAUTH_RUNNER_CONFIG_INVALID")
+    for source_key, identity_key in (
+        ("controllerSource", "controllerIdentity"),
+        ("verifierSource", "verifierIdentity"),
+    ):
+        if not isinstance(config[source_key], str):
+            _fail("PREAUTH_RUNNER_CONFIG_INVALID")
+        payload = config[source_key].encode("utf-8", "strict")
+        if config[identity_key] != value[identity_key] or _source_identity(payload) != value[identity_key]:
+            _fail("PREAUTH_SOURCE_IDENTITY_INVALID")
+    path_binding_policy = {
+        "schemaVersion": "chaotang.path-binding-self-test.attestation.v1",
+        "recordBytes": 4123,
+        "recordDigest": PATH_BINDING_RECORD_DIGEST,
+        "schemaBytes": 8475,
+        "schemaDigest": PATH_BINDING_SCHEMA_DIGEST,
+        "caseCount": 18,
+        "orderedCases": _path_binding_case_records(),
+    }
+    expected_challenge = {
+        "approvalCanonicalDigest": value["approvalCanonicalDigest"],
+        "approvalCommit": value["approvalCommit"],
+        "approvalTree": value["approvalTree"],
+        "controllerIdentity": value["controllerIdentity"],
+        "expiresMonotonicMs": value["expiresMonotonicMs"],
+        "issuedMonotonicMs": value["issuedMonotonicMs"],
+        "nonce": value["nonce"],
+        "pathBindingPolicyDigest": domain_digest(b"", path_binding_policy),
+        "schemaVersion": "product-authority.m0.pre-authority-challenge.v2",
+        "sourceObjectManifestDigest": value["sourceObjectManifestDigest"],
+        "taskId": value["taskId"],
+        "verifierIdentity": value["verifierIdentity"],
+    }
+    if (
+        config["baseChallenge"] != expected_challenge or
+        config["maxChallengeBytes"] != 16_384 or config["maxReceiptBytes"] != 65_536 or
+        config["timeoutMs"] != value["timeoutMs"]
+    ):
+        _fail("PREAUTH_RUNNER_CONFIG_INVALID")
+
+
+def validate_preauthorization_request_header(header: Mapping) -> dict:
+    _exact_keys(header, PREAUTH_REQUEST_FIELDS, "PREAUTH_REQUEST_FIELDS_INVALID")
+    value = dict(header)
+    if value["schemaVersion"] != PREAUTH_REQUEST_SCHEMA:
+        _fail("PREAUTH_REQUEST_SCHEMA_INVALID")
+    if value["sourceKind"] != "PRE_AUTHORIZATION_SOURCE":
+        _fail("PREAUTH_SOURCE_KIND_INVALID")
+    if not isinstance(value["taskId"], str) or not IDENTIFIER_PATTERN.fullmatch(value["taskId"].lower()):
+        _fail("PREAUTH_TASK_ID_INVALID")
+    for key in ("approvalCommit", "approvalTree", "directBaseCommit", "directBaseTree", "remoteHead"):
+        if not isinstance(value[key], str) or not SHA1_PATTERN.fullmatch(value[key]):
+            _fail("PREAUTH_GIT_IDENTITY_INVALID")
+    if value["remoteHead"] != value["approvalCommit"]:
+        _fail("PREAUTH_REMOTE_BINDING_INVALID")
+    for key in (
+        "approvalCanonicalDigest", "sourceObjectManifestDigest", "snapshotPackSha256",
+        "runtimeProfileDigest", "installationManifestDigest",
+        "dedicatedControllerManifestDigest", "pathBindingRecordDigest",
+        "pathBindingSchemaDigest", "argsDigest", "environmentDigest", "requestDigest",
+    ):
+        if not isinstance(value[key], str) or not SHA256_PATTERN.fullmatch(value[key]):
+            _fail("PREAUTH_DIGEST_INVALID")
+    if (
+        value["pathBindingRecordDigest"] != PATH_BINDING_RECORD_DIGEST or
+        value["pathBindingSchemaDigest"] != PATH_BINDING_SCHEMA_DIGEST
+    ):
+        _fail("PREAUTH_PATH_BINDING_IDENTITY_INVALID")
+    if not isinstance(value["nonce"], str) or not NONCE_PATTERN.fullmatch(value["nonce"]):
+        _fail("PREAUTH_NONCE_INVALID")
+    if not _is_int(value["issuedMonotonicMs"]) or not _is_int(value["expiresMonotonicMs"]):
+        _fail("PREAUTH_TTL_INVALID")
+    if not value["issuedMonotonicMs"] < value["expiresMonotonicMs"] <= value["issuedMonotonicMs"] + 300_000:
+        _fail("PREAUTH_TTL_INVALID")
+    for key in ("runtimeProfileId", "gateId"):
+        if not isinstance(value[key], str) or not IDENTIFIER_PATTERN.fullmatch(value[key]):
+            _fail("PREAUTH_IDENTIFIER_INVALID")
+    for key in ("controllerIdentity", "verifierIdentity", "executionProfileIdentity"):
+        if not isinstance(value[key], dict):
+            _fail("PREAUTH_SOURCE_IDENTITY_INVALID")
+        _validate_source_identity(value[key])
+    if value["tool"] != "/runtime/bin/python3":
+        _fail("PREAUTH_TOOL_INVALID")
+    args = value["args"]
+    if not isinstance(args, list) or len(args) > ARGUMENT_MAX_COUNT or any(not isinstance(arg, str) for arg in args):
+        _fail("PREAUTH_ARGUMENTS_INVALID")
+    encoded_args = [arg.encode("utf-8", "strict") for arg in args]
+    if any(len(arg) > SINGLE_ARGUMENT_MAX_BYTES for arg in encoded_args) or sum(map(len, encoded_args)) > TOTAL_ARGUMENT_MAX_BYTES:
+        _fail("PREAUTH_ARGUMENTS_INVALID")
+    validate_relative_path(value["cwd"], allow_dot=True)
+    if value["workspaceMode"] != "READ_ONLY_APPROVAL_SOURCE":
+        _fail("PREAUTH_WORKSPACE_MODE_INVALID")
+    if value["environment"] != EXACT_GATE_ENVIRONMENT:
+        _fail("PREAUTH_ENVIRONMENT_INVALID")
+    timeout = value["timeoutMs"]
+    if not _is_int(timeout) or not MINIMUM_GATE_TIMEOUT_MS <= timeout <= MAXIMUM_GATE_TIMEOUT_MS:
+        _fail("PREAUTH_TIMEOUT_INVALID")
+    if not _is_int(value["snapshotPackBytes"]) or value["snapshotPackBytes"] > SNAPSHOT_PACK_MAX_BYTES:
+        _fail("PREAUTH_PACK_LENGTH_INVALID")
+    if value["argsDigest"] != domain_digest(b"chaotang-product-verifier-args-v1\0", args):
+        _fail("PREAUTH_ARGUMENT_DIGEST_INVALID")
+    if value["environmentDigest"] != domain_digest(
+        b"chaotang-product-verifier-environment-v1\0", value["environment"],
+    ):
+        _fail("PREAUTH_ENVIRONMENT_DIGEST_INVALID")
+    if value["requestDigest"] != preauthorization_request_digest(value):
+        _fail("PREAUTH_REQUEST_DIGEST_MISMATCH")
+    _validate_preauthorization_runner_args(value)
+    return value
+
+
 def validate_request_header(header: Mapping) -> dict:
+    if isinstance(header, dict) and header.get("schemaVersion") == PREAUTH_REQUEST_SCHEMA:
+        return validate_preauthorization_request_header(header)
     _exact_keys(header, REQUEST_FIELDS, "REQUEST_FIELDS_INVALID")
     value = dict(header)
     if value["schemaVersion"] != REQUEST_SCHEMA:
@@ -725,6 +980,151 @@ def verify_object_graph(
         "snapshotIdentityDigest": snapshot_digest(candidate_records),
         "files": candidate_files,
     }
+
+
+def _validate_git_object_records(objects: Mapping[str, tuple[str, bytes]]) -> None:
+    if len(objects) > OBJECT_MAX_COUNT:
+        _fail("OBJECT_COUNT_LIMIT_EXCEEDED")
+    unpacked = 0
+    for oid, value in objects.items():
+        if not SHA1_PATTERN.fullmatch(oid) or not isinstance(value, tuple) or len(value) != 2:
+            _fail("OBJECT_RECORD_INVALID")
+        kind, body = value
+        if kind not in ("blob", "tree", "commit") or not isinstance(body, bytes):
+            _fail("OBJECT_RECORD_INVALID")
+        unpacked += len(body)
+        if unpacked > UNPACKED_OBJECT_MAX_BYTES or git_object_oid(kind, body) != oid:
+            _fail("OBJECT_IDENTITY_INVALID")
+        if kind == "blob" and len(body) > SINGLE_BLOB_MAX_BYTES:
+            _fail("BLOB_LIMIT_EXCEEDED")
+
+
+def _preauthorization_source_manifest_digest(records: Sequence[Mapping]) -> str:
+    normalized = [dict(record) for record in records]
+    normalized.sort(key=lambda record: (
+        record["kind"].encode("ascii"),
+        record.get("path", "").encode("utf-8"),
+        record["oid"].encode("ascii"),
+    ))
+    return domain_digest(b"chaotang-preauthorization-source-manifest-v1\0", normalized)
+
+
+def verify_preauthorization_source_graph(
+    objects: Mapping[str, tuple[str, bytes]],
+    approval_commit: str,
+    approval_tree: str,
+    direct_base_commit: str,
+) -> dict:
+    """Verify an exact approval-source graph without inventing candidate lineage."""
+
+    acceptance_checkpoint("ROOT_GRAPH_VERIFY")
+    _validate_git_object_records(objects)
+    if approval_commit not in objects or objects[approval_commit][0] != "commit":
+        _fail("LINEAGE_COMMIT_MISSING")
+    if direct_base_commit not in objects or objects[direct_base_commit][0] != "commit":
+        _fail("LINEAGE_COMMIT_MISSING")
+    parsed_approval = parse_commit(objects[approval_commit][1])
+    parsed_base = parse_commit(objects[direct_base_commit][1])
+    if parsed_approval[1] != [direct_base_commit]:
+        _fail("LINEAGE_PARENT_INVALID")
+    if parsed_approval[0] != approval_tree:
+        _fail("APPROVAL_TREE_INVALID")
+
+    closure = {approval_commit, direct_base_commit}
+    files: dict[str, bytes] = {}
+    records: list[dict] = []
+    manifest_records: list[dict] = [
+        {
+            "kind": "COMMIT", "oid": approval_commit, "type": "commit",
+            "bytes": len(objects[approval_commit][1]),
+            "rawSha256": sha256_digest(objects[approval_commit][1]),
+        },
+        {
+            "kind": "COMMIT", "oid": direct_base_commit, "type": "commit",
+            "bytes": len(objects[direct_base_commit][1]),
+            "rawSha256": sha256_digest(objects[direct_base_commit][1]),
+        },
+    ]
+    counted_trees: set[str] = set()
+    total_entries = 0
+    source_bytes = 0
+
+    def walk(tree_oid: str, prefix: str, ancestry: set[str]) -> None:
+        nonlocal total_entries, source_bytes
+        if tree_oid in ancestry:
+            _fail("TREE_CYCLE")
+        if tree_oid not in objects or objects[tree_oid][0] != "tree":
+            _fail("TREE_OBJECT_MISSING")
+        closure.add(tree_oid)
+        tree_path = prefix or "."
+        manifest_records.append({
+            "kind": "TREE", "path": tree_path, "mode": "040000",
+            "oid": tree_oid, "type": "tree", "bytes": len(objects[tree_oid][1]),
+            "rawSha256": sha256_digest(objects[tree_oid][1]),
+        })
+        count_this_tree = tree_oid not in counted_trees
+        counted_trees.add(tree_oid)
+        for mode, name, oid in parse_tree(objects[tree_oid][1]):
+            if count_this_tree:
+                total_entries += 1
+                if total_entries > TREE_ENTRY_MAX_COUNT:
+                    _fail("TREE_ENTRY_LIMIT_EXCEEDED")
+            repository_path = f"{prefix}/{name}" if prefix else name
+            validate_relative_path(repository_path)
+            if mode == "40000":
+                walk(oid, repository_path, ancestry | {tree_oid})
+                continue
+            if mode not in ("100644", "100755") or oid not in objects or objects[oid][0] != "blob":
+                _fail("TREE_ENTRY_MODE_INVALID")
+            closure.add(oid)
+            payload = objects[oid][1]
+            source_bytes += len(payload)
+            if source_bytes > MATERIALIZED_SOURCE_MAX_BYTES:
+                _fail("SOURCE_LIMIT_EXCEEDED")
+            record = {
+                "path": repository_path, "mode": mode, "bytes": len(payload),
+                "blobOid": oid, "rawSha256": sha256_digest(payload),
+            }
+            records.append(record)
+            files[repository_path] = payload
+            manifest_records.append({
+                "kind": "BLOB", "path": repository_path, "mode": mode,
+                "oid": oid, "type": "blob", "bytes": len(payload),
+                "rawSha256": sha256_digest(payload),
+            })
+
+    walk(approval_tree, "", set())
+    if set(objects) != closure:
+        _fail("OBJECT_SET_NOT_EXACT")
+    records.sort(key=lambda record: record["path"].encode("utf-8"))
+    if len(records) != len({record["path"] for record in records}):
+        _fail("SNAPSHOT_PATH_DUPLICATE")
+    manifest_records.sort(key=lambda record: (
+        record["kind"].encode("ascii"),
+        record.get("path", "").encode("utf-8"),
+        record["oid"].encode("ascii"),
+    ))
+    return {
+        "lineageCommits": [approval_commit, direct_base_commit],
+        "directBaseTree": parsed_base[0],
+        "records": records,
+        "snapshotIdentityDigest": snapshot_digest(records),
+        "sourceObjectManifest": manifest_records,
+        "sourceObjectManifestDigest": _preauthorization_source_manifest_digest(manifest_records),
+        "files": files,
+    }
+
+
+def validate_preauthorization_graph_binding(header: Mapping, objects: Mapping) -> dict:
+    value = validate_preauthorization_request_header(header)
+    graph = verify_preauthorization_source_graph(
+        objects, value["approvalCommit"], value["approvalTree"], value["directBaseCommit"],
+    )
+    if graph["directBaseTree"] != value["directBaseTree"]:
+        _fail("DIRECT_BASE_TREE_INVALID")
+    if graph["sourceObjectManifestDigest"] != value["sourceObjectManifestDigest"]:
+        _fail("SOURCE_MANIFEST_DIGEST_MISMATCH")
+    return graph
 
 
 def load_loose_git_objects(object_root: str) -> dict[str, tuple[str, bytes]]:
@@ -1210,6 +1610,7 @@ def private_launcher_contract() -> dict:
 
 def seccomp_contract(
     role: str = "worker", *, protected_message_fds: Sequence[int] = (),
+    allow_local_ipc: bool = False,
 ) -> dict:
     if role not in {"supervisor", "ingest", "worker"}:
         _fail("SECCOMP_ROLE_INVALID")
@@ -1224,7 +1625,7 @@ def seccomp_contract(
     ]
     if role in {"supervisor", "ingest"}:
         deny.extend(("socket", "socketpair", "connect", "bind", "listen", "sendto", "sendmmsg"))
-    else:
+    elif not allow_local_ipc:
         deny.append("socketpair")
     if role == "supervisor":
         deny.append("close_range")
@@ -1236,7 +1637,11 @@ def seccomp_contract(
         "messageFdAllowlist": protected if role == "supervisor" else [],
         "protectedFdsNonCloseable": protected if role == "supervisor" else [],
         "protectedFdsNonDuplicable": protected if role == "supervisor" else [],
-        "socketFamilyAllowlist": [socket.AF_INET, socket.AF_INET6] if role == "worker" else [],
+        "socketFamilyAllowlist": (
+            [socket.AF_UNIX, socket.AF_INET, socket.AF_INET6]
+            if role == "worker" and allow_local_ipc else
+            [socket.AF_INET, socket.AF_INET6] if role == "worker" else []
+        ),
     }
 
 
@@ -1251,6 +1656,7 @@ class _ScmpArgCmp(ctypes.Structure):
 
 def _new_seccomp_context(
     role: str, protected_message_fds: Sequence[int], *, transport_only: bool = False,
+    allow_local_ipc: bool = False,
 ) -> tuple[ctypes.CDLL, ctypes.c_void_p]:
     library = ctypes.CDLL("libseccomp.so.2", use_errno=True)
     library.seccomp_init.argtypes = [ctypes.c_uint32]
@@ -1275,7 +1681,10 @@ def _new_seccomp_context(
         _fail("SECCOMP_INIT_FAILED")
     action_errno = 0x00050000 | errno.EPERM
     try:
-        contract = seccomp_contract(role, protected_message_fds=protected_message_fds)
+        contract = seccomp_contract(
+            role, protected_message_fds=protected_message_fds,
+            allow_local_ipc=allow_local_ipc,
+        )
         if transport_only:
             if role != "ingest":
                 _fail("SECCOMP_TRANSPORT_ROLE_INVALID")
@@ -1310,7 +1719,7 @@ def _new_seccomp_context(
             socket_number = library.seccomp_syscall_resolve_name(b"socket")
             if socket_number < 0:
                 _fail("SECCOMP_RULE_FAILED")
-            denied_families = set(range(SOCKET_FAMILY_MAX + 1)) - {socket.AF_INET, socket.AF_INET6}
+            denied_families = set(range(SOCKET_FAMILY_MAX + 1)) - set(contract["socketFamilyAllowlist"])
             for family in sorted(denied_families):
                 comparison = _ScmpArgCmp(0, 4, family, 0)  # SCMP_CMP_EQ
                 if library.seccomp_rule_add_array(
@@ -1370,10 +1779,13 @@ def _new_seccomp_context(
 
 def export_seccomp_bpf(
     role: str = "worker", *, protected_message_fds: Sequence[int] = (),
+    allow_local_ipc: bool = False,
 ) -> int:
     """Export a default-allow, closed-dangerous-syscall filter for bwrap."""
 
-    library, context = _new_seccomp_context(role, protected_message_fds)
+    library, context = _new_seccomp_context(
+        role, protected_message_fds, allow_local_ipc=allow_local_ipc,
+    )
     fd = -1
     try:
         fd = os.memfd_create("chaotang-verifier-seccomp", os.MFD_ALLOW_SEALING | os.MFD_CLOEXEC)
@@ -1442,12 +1854,18 @@ def build_worker_bwrap_command(
     tmp_root: str, seccomp_fd: int,
 ) -> list[str]:
     validate_request_header(header)
-    execution_root = "/candidate" if header["workspaceMode"] == "READ_ONLY_CANDIDATE" else "/work/candidate"
+    if header["workspaceMode"] == "READ_ONLY_APPROVAL_SOURCE":
+        execution_root = "/approval-source"
+    elif header["workspaceMode"] == "READ_ONLY_CANDIDATE":
+        execution_root = "/candidate"
+    else:
+        execution_root = "/work/candidate"
     cwd = execution_root if header["cwd"] == "." else f"{execution_root}/{header['cwd']}"
+    source_mount = "/approval-source" if header["workspaceMode"] == "READ_ONLY_APPROVAL_SOURCE" else "/candidate"
     command = [
         PRIVILEGED_BWRAP, "--unshare-user", "--unshare-pid", "--die-with-parent",
         "--new-session", "--clearenv", "--uid", "0", "--gid", "0", "--cap-drop", "ALL",
-        "--ro-bind", runtime_root, "/", "--ro-bind", candidate_root, "/candidate",
+        "--ro-bind", runtime_root, "/", "--ro-bind", candidate_root, source_mount,
         "--bind", work_root, "/work", "--bind", tmp_root, "/tmp", "--proc", "/proc", "--dev", "/dev",
         "--seccomp", str(seccomp_fd), "--chdir", cwd,
     ]
@@ -1585,6 +2003,125 @@ def make_receipt(
     }
     _exact_keys(receipt, RECEIPT_FIELDS, "RECEIPT_FIELDS_INVALID")
     return receipt
+
+
+def make_preauthorization_receipt(
+    *, header: Mapping, peer_identity: Mapping, worker: tuple[int, int],
+    service_identity: Mapping, started_ns: int, finished_ns: int,
+    exit_kind: str, exit_code: int | None, signal_number: int | None,
+    timed_out: bool, infrastructure_code: str, inner_receipt: bytes,
+) -> dict:
+    validate_preauthorization_request_header(header)
+    _exact_keys(peer_identity, {
+        "peerPrimaryUid", "peerPrimaryGid", "peerKernelPid", "peerProcStarttime",
+        "peerUserNamespaceDeviceInode", "peerCgroupPath",
+    }, "PEER_IDENTITY_FIELDS_INVALID")
+    _exact_keys(service_identity, {
+        "socketUnitName", "workerServiceUnitName", "systemdInvocationId",
+        "serviceCgroupPath", "serviceCgroupInode", "serviceCgroupOnlyBrokerBeforeReceipt",
+    }, "SERVICE_IDENTITY_FIELDS_INVALID")
+    if not isinstance(inner_receipt, bytes) or len(inner_receipt) > RESPONSE_MAX_BYTES:
+        _fail("PREAUTH_INNER_RECEIPT_INVALID")
+    receipt = {
+        "schemaVersion": PREAUTH_RECEIPT_SCHEMA,
+        "nonce": header["nonce"],
+        "requestDigest": header["requestDigest"],
+        "taskId": header["taskId"],
+        "approvalCommit": header["approvalCommit"],
+        "approvalTree": header["approvalTree"],
+        "directBaseCommit": header["directBaseCommit"],
+        "approvalCanonicalDigest": header["approvalCanonicalDigest"],
+        "remoteHead": header["remoteHead"],
+        "sourceObjectManifestDigest": header["sourceObjectManifestDigest"],
+        "runtimeProfileId": header["runtimeProfileId"],
+        "runtimeProfileDigest": header["runtimeProfileDigest"],
+        "installationManifestDigest": header["installationManifestDigest"],
+        "dedicatedControllerManifestDigest": header["dedicatedControllerManifestDigest"],
+        "controllerIdentity": header["controllerIdentity"],
+        "verifierIdentity": header["verifierIdentity"],
+        "executionProfileIdentity": header["executionProfileIdentity"],
+        "pathBindingRecordDigest": header["pathBindingRecordDigest"],
+        "pathBindingSchemaDigest": header["pathBindingSchemaDigest"],
+        "issuedMonotonicMs": header["issuedMonotonicMs"],
+        "expiresMonotonicMs": header["expiresMonotonicMs"],
+        "innerPreauthorizationReceiptDigest": sha256_digest(inner_receipt),
+        "innerReceipt": _output_record(inner_receipt),
+        **dict(peer_identity),
+        "workerUid": worker[0], "workerGid": worker[1],
+        **dict(service_identity),
+        "startedMonotonicNs": started_ns, "finishedMonotonicNs": finished_ns,
+        "exitKind": exit_kind, "exitCode": exit_code, "signal": signal_number,
+        "timedOut": timed_out, "infrastructureCode": infrastructure_code,
+    }
+    _exact_keys(receipt, PREAUTH_RECEIPT_FIELDS, "PREAUTH_RECEIPT_FIELDS_INVALID")
+    return receipt
+
+
+def validate_inner_preauthorization_receipt(
+    payload: bytes, *, header: Mapping, source_root: str,
+) -> dict:
+    if not payload or len(payload) > RESPONSE_MAX_BYTES:
+        _fail("PREAUTH_INNER_RECEIPT_INVALID")
+    value = parse_json_strict(payload)
+    if not isinstance(value, dict) or canonicalize(value) != payload:
+        _fail("PREAUTH_INNER_RECEIPT_INVALID")
+    _exact_keys(value, PREAUTH_INNER_RECEIPT_FIELDS, "PREAUTH_INNER_RECEIPT_FIELDS_INVALID")
+    root = value["approvalSourceRootIdentity"]
+    _exact_keys(
+        root, {"device", "inode", "mode", "mountId", "sourceManifestDigest"},
+        "PREAUTH_ROOT_FD_IDENTITY_INVALID",
+    )
+    source_info = os.stat(source_root, follow_symlinks=False)
+    if root != {
+        "device": str(source_info.st_dev),
+        "inode": str(source_info.st_ino),
+        "mode": stat.S_IMODE(source_info.st_mode),
+        "mountId": root.get("mountId"),
+        "sourceManifestDigest": header["sourceObjectManifestDigest"],
+    } or not isinstance(root["mountId"], str) or not root["mountId"].isdigit():
+        _fail("PREAUTH_ROOT_FD_IDENTITY_INVALID")
+    path_binding_results = [{"id": item, "status": "PASS"} for item in PATH_BINDING_ORDERED_CASES]
+    path_binding = {
+        "orderedCaseResults": path_binding_results,
+        "recordDigest": header["pathBindingRecordDigest"],
+        "schemaDigest": header["pathBindingSchemaDigest"],
+    }
+    config_raw = base64.b64decode(header["args"][4].encode("ascii"), validate=True)
+    config = parse_json_strict(config_raw)
+    controller_challenge = {
+        **config["baseChallenge"],
+        "approvalSourceRootIdentity": root,
+        "pathBindingResults": path_binding_results,
+    }
+    acknowledgement = {
+        "challengeDigest": sha256_digest(canonicalize(controller_challenge)),
+        "status": "CONTROLLER_EXECUTED",
+    }
+    verifier_challenge = {
+        **controller_challenge,
+        "controllerExecutionDigest": sha256_digest(canonicalize(acknowledgement)),
+    }
+    expected = {
+        "schemaVersion": "product-authority.m0.pre-authority-receipt.v2",
+        "status": "PASS",
+        "taskId": header["taskId"],
+        "approvalCommit": header["approvalCommit"],
+        "approvalTree": header["approvalTree"],
+        "approvalCanonicalDigest": header["approvalCanonicalDigest"],
+        "sourceObjectManifestDigest": header["sourceObjectManifestDigest"],
+        "nonce": header["nonce"],
+        "issuedMonotonicMs": header["issuedMonotonicMs"],
+        "expiresMonotonicMs": header["expiresMonotonicMs"],
+        "challengeDigest": sha256_digest(canonicalize(verifier_challenge)),
+        "controllerExecutionDigest": verifier_challenge["controllerExecutionDigest"],
+        "controllerIdentity": header["controllerIdentity"],
+        "verifierIdentity": header["verifierIdentity"],
+        "approvalSourceRootIdentity": root,
+        "pathBinding": path_binding,
+    }
+    if value != expected:
+        _fail("PREAUTH_INNER_RECEIPT_INVALID")
+    return value
 
 
 def protocol_error(code: str) -> dict:
@@ -2043,6 +2580,55 @@ def _peer_credentials(fd: int) -> tuple[int, int, int]:
         peer.close()
 
 
+def _peer_process_identity(pid: int) -> dict:
+    if not isinstance(pid, int) or pid <= 0:
+        _fail("PEER_PROCESS_IDENTITY_INVALID")
+    proc = Path("/proc") / str(pid)
+    try:
+        stat_text = (proc / "stat").read_text(encoding="ascii")
+        close = stat_text.rfind(")")
+        fields = stat_text[close + 2:].split()
+        if close < 0 or len(fields) < 20:
+            _fail("PEER_PROCESS_IDENTITY_INVALID")
+        starttime = fields[19]
+        cgroup_lines = (proc / "cgroup").read_text(encoding="ascii").splitlines()
+        unified = [line.split(":", 2)[2] for line in cgroup_lines if line.startswith("0::")]
+        if len(unified) != 1 or not unified[0].startswith("/") or ".." in PurePosixPath(unified[0]).parts:
+            _fail("PEER_PROCESS_IDENTITY_INVALID")
+        userns = os.stat(proc / "ns" / "user", follow_symlinks=True)
+    except (OSError, UnicodeError, ValueError) as exc:
+        raise ContractError("PEER_PROCESS_IDENTITY_INVALID") from exc
+    return {
+        "peerProcStarttime": starttime,
+        "peerUserNamespaceDeviceInode": f"{userns.st_dev}:{userns.st_ino}",
+        "peerCgroupPath": unified[0],
+    }
+
+
+def authenticate_controller_peer(fd: int, *, expected_uid: int, expected_gid: int) -> dict:
+    pid, uid, gid = _peer_credentials(fd)
+    if uid != expected_uid or gid != expected_gid:
+        _fail("PEER_CREDENTIAL_REJECTED")
+    return {
+        "peerPrimaryUid": uid,
+        "peerPrimaryGid": gid,
+        "peerKernelPid": pid,
+        **_peer_process_identity(pid),
+    }
+
+
+def recheck_controller_peer(fd: int, expected: Mapping) -> None:
+    _exact_keys(expected, {
+        "peerPrimaryUid", "peerPrimaryGid", "peerKernelPid", "peerProcStarttime",
+        "peerUserNamespaceDeviceInode", "peerCgroupPath",
+    }, "PEER_IDENTITY_FIELDS_INVALID")
+    current = authenticate_controller_peer(
+        fd, expected_uid=expected["peerPrimaryUid"], expected_gid=expected["peerPrimaryGid"],
+    )
+    if dict(expected) != current:
+        _fail("PEER_PROCESS_IDENTITY_DRIFT")
+
+
 def _set_socket_timeout(fd: int, option: int, seconds: float) -> None:
     seconds = max(seconds, 0)
     whole = int(seconds)
@@ -2076,6 +2662,32 @@ def assert_service_cgroup_quiescent() -> None:
     pids = {int(value) for value in procs_path.read_text(encoding="ascii").split()}
     if pids != {os.getpid()}:
         _fail("SERVICE_CGROUP_NOT_QUIESCENT")
+
+
+def _service_identity() -> dict:
+    invocation = _service_instance()
+    if invocation == "0" * 32:
+        _fail("SYSTEMD_INVOCATION_ID_MISSING")
+    cgroup_path = _service_cgroup_path()
+    unit_name = PurePosixPath(cgroup_path).name
+    if not re.fullmatch(r"chaotang-product-verifier@[^/]+\.service", unit_name):
+        _fail("SERVICE_UNIT_IDENTITY_INVALID")
+    cgroup_root = Path("/sys/fs/cgroup") / cgroup_path.lstrip("/")
+    try:
+        info = os.stat(cgroup_root, follow_symlinks=False)
+    except OSError as exc:
+        raise ContractError("SERVICE_CGROUP_IDENTITY_INVALID") from exc
+    if not stat.S_ISDIR(info.st_mode):
+        _fail("SERVICE_CGROUP_IDENTITY_INVALID")
+    assert_service_cgroup_quiescent()
+    return {
+        "socketUnitName": "chaotang-product-verifier.socket",
+        "workerServiceUnitName": unit_name,
+        "systemdInvocationId": invocation,
+        "serviceCgroupPath": cgroup_path,
+        "serviceCgroupInode": str(info.st_ino),
+        "serviceCgroupOnlyBrokerBeforeReceipt": True,
+    }
 
 
 def _drop_credentials(uid: int, gid: int) -> None:
@@ -2444,7 +3056,9 @@ def _worker_result_from_config(config: Mapping, source_fds: Mapping[str, int]) -
     header = config["header"]
     if tuple(source_fds) != WORKER_SOURCE_NAMES:
         _fail("LAUNCHER_SOURCE_FD_SET_INVALID")
-    seccomp_fd = export_seccomp_bpf("worker")
+    seccomp_fd = export_seccomp_bpf(
+        "worker", allow_local_ipc=header["schemaVersion"] == PREAUTH_REQUEST_SCHEMA,
+    )
     try:
         result = run_bounded_process(
             build_worker_bwrap_command(
@@ -3360,12 +3974,18 @@ def snapshot_stage_run(args: argparse.Namespace) -> int:
 
     header = parse_json_strict(base64.urlsafe_b64decode(args.stage_header.encode("ascii")))
     validate_request_header(header)
-    graph = verify_object_graph(
-        load_loose_git_objects(args.object_root), header["candidateCommit"], header["candidateTree"],
-        header["approvalCommit"], header["baseCommit"],
-    )
-    if graph["snapshotIdentityDigest"] != header["snapshotIdentityDigest"]:
-        _fail("SNAPSHOT_IDENTITY_MISMATCH")
+    objects = load_loose_git_objects(args.object_root)
+    if header["schemaVersion"] == PREAUTH_REQUEST_SCHEMA:
+        graph = validate_preauthorization_graph_binding(header, objects)
+        result_schema = "chaotang-product-verifier-preauthorization-snapshot-stage-result.v1"
+    else:
+        graph = verify_object_graph(
+            objects, header["candidateCommit"], header["candidateTree"],
+            header["approvalCommit"], header["baseCommit"],
+        )
+        if graph["snapshotIdentityDigest"] != header["snapshotIdentityDigest"]:
+            _fail("SNAPSHOT_IDENTITY_MISMATCH")
+        result_schema = "chaotang-product-verifier-snapshot-stage-result.v1"
     materialize_snapshot(graph, args.candidate_root)
     os.mkdir(args.work_root, 0o700)
     os.mkdir(args.tmp_root, 0o700)
@@ -3375,11 +3995,14 @@ def snapshot_stage_run(args: argparse.Namespace) -> int:
         copy_root = os.path.join(args.work_root, "candidate")
         copy_snapshot_to_work(args.candidate_root, copy_root, header["snapshotIdentityDigest"])
         _make_worker_writable(copy_root, args.worker_uid, args.worker_gid)
-    os.write(1, canonicalize({
-        "schemaVersion": "chaotang-product-verifier-snapshot-stage-result.v1",
+    result = {
+        "schemaVersion": result_schema,
         "lineageCommits": graph["lineageCommits"],
         "snapshotIdentityDigest": graph["snapshotIdentityDigest"],
-    }))
+    }
+    if header["schemaVersion"] == PREAUTH_REQUEST_SCHEMA:
+        result["sourceObjectManifestDigest"] = graph["sourceObjectManifestDigest"]
+    os.write(1, canonicalize(result))
     return 0
 
 
@@ -3418,7 +4041,17 @@ def run_supervised_snapshot_stage(
         pid, stdout_read, stderr_read, timeout_ms=timeout_ms,
         stdout_limit=1 << 20, stderr_limit=STDERR_MAX_BYTES, disconnect_fd=disconnect_fd,
     )
-    return _parse_helper_json(result, "chaotang-product-verifier-snapshot-stage-result.v1")
+    expected_schema = (
+        "chaotang-product-verifier-preauthorization-snapshot-stage-result.v1"
+        if header["schemaVersion"] == PREAUTH_REQUEST_SCHEMA else
+        "chaotang-product-verifier-snapshot-stage-result.v1"
+    )
+    parsed = _parse_helper_json(result, expected_schema)
+    expected_fields = {"schemaVersion", "lineageCommits", "snapshotIdentityDigest"}
+    if header["schemaVersion"] == PREAUTH_REQUEST_SCHEMA:
+        expected_fields.add("sourceObjectManifestDigest")
+    _exact_keys(parsed, expected_fields, "SNAPSHOT_STAGE_RESULT_FIELDS_INVALID")
+    return parsed
 
 
 def cleanup_stage_run(args: argparse.Namespace) -> int:
@@ -3477,6 +4110,7 @@ def serve_stdio() -> int:
         raise ContractError("ROOT_SUPERVISOR_REQUIRED")
     header = None
     peer = (0, 0, 0)
+    peer_identity = None
     manifest = None
     authenticated = False
     started = time.monotonic_ns()
@@ -3490,8 +4124,14 @@ def serve_stdio() -> int:
             _protocol_fail("REQUEST_SETUP_TIMEOUT")
         peer = _peer_credentials(0)
         identities = manifest["identities"]
-        if peer[1:] != (identities["controllerUid"], identities["controllerGid"]):
-            raise ContractError("PEER_CREDENTIAL_REJECTED")
+        peer_identity = authenticate_controller_peer(
+            0, expected_uid=identities["controllerUid"], expected_gid=identities["controllerGid"],
+        )
+        if peer != (
+            peer_identity["peerKernelPid"], peer_identity["peerPrimaryUid"],
+            peer_identity["peerPrimaryGid"],
+        ):
+            _fail("PEER_PROCESS_IDENTITY_DRIFT")
         # Prove the private worker namespace before consuming any request byte.
         launcher = start_private_network_launcher(identities["workerUid"], identities["workerGid"])
         runtime_directory = os.environ.get("RUNTIME_DIRECTORY", "")
@@ -3528,11 +4168,21 @@ def serve_stdio() -> int:
         )
         _set_socket_timeout(0, socket.SO_RCVTIMEO, 0)
         validate_request(header, pack)
+        if header["schemaVersion"] == PREAUTH_REQUEST_SCHEMA:
+            now_ms = time.monotonic_ns() // 1_000_000
+            if not header["issuedMonotonicMs"] <= now_ms <= header["expiresMonotonicMs"]:
+                _fail("PREAUTH_REQUEST_EXPIRED")
         if header["installationManifestDigest"] != manifest["digest"]:
             raise ContractError("INSTALLATION_BINDING_MISMATCH")
+        if (
+            header["schemaVersion"] == PREAUTH_REQUEST_SCHEMA and
+            header["dedicatedControllerManifestDigest"] != dedicated_controller_manifest_digest(manifest)
+        ):
+            _fail("DEDICATED_CONTROLLER_MANIFEST_MISMATCH")
         gate_binding = next((item for item in manifest["gateProfiles"] if item["profileId"] == header["runtimeProfileId"]), None)
         if gate_binding is None or gate_binding["profileDigest"] != header["runtimeProfileDigest"]:
             raise ContractError("RUNTIME_PROFILE_BINDING_MISMATCH")
+        recheck_controller_peer(0, peer_identity)
         authenticated = True
         ingest_result = run_prefilter_ingest_helper(
             ingest_helper, pack=pack,
@@ -3558,22 +4208,43 @@ def serve_stdio() -> int:
             launcher, worker_config, timeout_ms=header["timeoutMs"] + 30_000, disconnect_fd=0,
         )
         launcher = None
+        worker_stdout = base64.b64decode(worker["stdout"], validate=True)
+        if header["schemaVersion"] == PREAUTH_REQUEST_SCHEMA:
+            validate_inner_preauthorization_receipt(
+                worker_stdout, header=header, source_root=candidate_root,
+            )
         run_supervised_cleanup_stage(scratch, timeout_ms=30_000, disconnect_fd=0)
         scratch = None
-        assert_service_cgroup_quiescent()
+        service_identity = _service_identity()
         acceptance_checkpoint("RECEIPT", disconnect_fd=0)
-        receipt = make_receipt(
-            header=header, expected_tree=header["candidateTree"], lineage=graph["lineageCommits"], peer=peer,
-            ingest=(identities["ingestUid"], identities["ingestGid"]),
-            worker=(identities["workerUid"], identities["workerGid"]), service_instance=_service_instance(),
-            started_ns=worker["startedMonotonicNs"], finished_ns=worker["finishedMonotonicNs"],
-            exit_kind=worker["exitKind"], exit_code=worker["exitCode"], signal_number=worker["signal"],
-            timed_out=worker["timedOut"], infrastructure_code=worker["infrastructureCode"],
-            stdout=base64.b64decode(worker["stdout"], validate=True),
-            stderr=base64.b64decode(worker["stderr"], validate=True),
-            execution_root="/candidate" if header["workspaceMode"] == "READ_ONLY_CANDIDATE" else "/work/candidate",
-            workspace_initial_identity_digest=header["snapshotIdentityDigest"],
-        )
+        recheck_controller_peer(0, peer_identity)
+        if (
+            header["schemaVersion"] == PREAUTH_REQUEST_SCHEMA and
+            time.monotonic_ns() // 1_000_000 > header["expiresMonotonicMs"]
+        ):
+            _fail("PREAUTH_REQUEST_EXPIRED")
+        if header["schemaVersion"] == PREAUTH_REQUEST_SCHEMA:
+            receipt = make_preauthorization_receipt(
+                header=header, peer_identity=peer_identity,
+                worker=(identities["workerUid"], identities["workerGid"]),
+                service_identity=service_identity,
+                started_ns=worker["startedMonotonicNs"], finished_ns=worker["finishedMonotonicNs"],
+                exit_kind=worker["exitKind"], exit_code=worker["exitCode"],
+                signal_number=worker["signal"], timed_out=worker["timedOut"],
+                infrastructure_code=worker["infrastructureCode"], inner_receipt=worker_stdout,
+            )
+        else:
+            receipt = make_receipt(
+                header=header, expected_tree=header["candidateTree"], lineage=graph["lineageCommits"], peer=peer,
+                ingest=(identities["ingestUid"], identities["ingestGid"]),
+                worker=(identities["workerUid"], identities["workerGid"]), service_instance=_service_instance(),
+                started_ns=worker["startedMonotonicNs"], finished_ns=worker["finishedMonotonicNs"],
+                exit_kind=worker["exitKind"], exit_code=worker["exitCode"], signal_number=worker["signal"],
+                timed_out=worker["timedOut"], infrastructure_code=worker["infrastructureCode"],
+                stdout=worker_stdout, stderr=base64.b64decode(worker["stderr"], validate=True),
+                execution_root="/candidate" if header["workspaceMode"] == "READ_ONLY_CANDIDATE" else "/work/candidate",
+                workspace_initial_identity_digest=header["snapshotIdentityDigest"],
+            )
         write_response_frame(1, receipt, deadline=time.monotonic() + 5)
         return 0
     except (ContractError, OSError, ValueError, subprocess.SubprocessError) as error:
@@ -3603,7 +4274,10 @@ def serve_stdio() -> int:
                 scratch = None
             except (ContractError, OSError):
                 failure_code = "CLEANUP_STAGE_FAILED"
-        if authenticated and header is not None and manifest is not None:
+        if (
+            authenticated and header is not None and manifest is not None and
+            header.get("schemaVersion") != PREAUTH_REQUEST_SCHEMA
+        ):
             identities = manifest["identities"]
             receipt = make_receipt(
                 header=header, expected_tree=header["candidateTree"],

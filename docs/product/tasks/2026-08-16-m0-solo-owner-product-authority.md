@@ -118,3 +118,23 @@ Implemented
 - 已有证据：RED→GREEN、CLI 本机 bare-remote 纵切、schema、既有 Harness 与旧 authority 回归全绿。
 - 待完成：对本文件不再变更后的冻结 fingerprint 连续执行 10 轮，并报告本地候选身份；commit/push
   仍需后续精确授权。
+
+## 2026-09-15 Protected-path Governance Repair
+
+- 状态：`IMPLEMENTED_BY_OWNER_AUTHORIZED_PROTECTED_PATH_GOVERNANCE_REPAIR`；本段不追溯改写 2026-08-16
+  的历史候选结论，也不为本次 exact9 自行生成 product authority。
+- 同一 `product-authority.m0.v1` 新增 opt-in `product-authority.m0.approval.v2`。历史 v1 approval 保持兼容；
+  v2 必须携带 closed `preAuthorizationReceipt`，并在任何 GO 前完成自动 receipt gate。
+- receipt gate 不再允许 same-UID helper。现有 authority 只构造 closed approval-source request；root-owned
+  credential-separated broker 用 `SO_PEERCRED` 绑定 dedicated controller，在独立 UID、namespace 与
+  per-connection cgroup 内执行 sealed runner/controller/verifier，并返回 closed inner/outer receipt。
+- source graph 精确为 approval commit、直接 base commit、approval root tree、全部 recursive subtree/blob；
+  base tree 只由 base commit body 机械核验，不物化，不允许额外 object、replace ref 或仓库配置覆盖。
+- 固定 path-binding record/schema digest 分别为
+  `sha256:7ba1eeb23769551d2be58f136c1038e8897f5141755f5a34ac2cf0c39fa0c572` 与
+  `sha256:9afc472beb987bfe1c233e61f3247a5f509d52aa37d375f124cb451a3ccdf049`；18 项结果缺失、重复或重排均 STOP。
+- v2 GO 的 `evidenceDigest` 绑定 approval、source manifest、challenge、双层 receipt、live peer、service cgroup、
+  controller/verifier/runner、remote 与 path-binding；authority 还须确认 worker service inactive、同 cgroup empty。
+  stdout 不包含 helper stderr、配置、路径内容、credential、proxy 或 controller/verifier 源码。
+- 明确非承诺：不防已控制的 Owner、OS owner、Gitee owner 或整个 runner；不新增第二 authority、第二 Harness、
+  HSM、私钥或持久授权状态。仓库实现不等于 installed acceptance；本轮不安装、不启用、不启动服务。

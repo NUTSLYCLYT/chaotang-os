@@ -67,3 +67,18 @@ M0 status STOP, root NOT_READY and ext authority STOP. Any candidate byte change
 - Main session performs code and security review; no independent reviewer is claimed under current quota.
 - Candidate verdict is at most `CONDITIONAL PASS / NO INDEPENDENT REVIEW`.
 - Commit and Gitee fast-forward push require separate exact Owner authorization after candidate identity exists.
+
+## 7. Credential-separated receipt-gated v2 additive plan (2026-09-15)
+
+1. 保持 v1 parser/schema/94 个历史 approval 的字节与行为回归；v2 只在 manifest 显式声明时启用。
+2. RED：缺失/空/未知 policy、重复 verification ID、tool/args/cwd/source identity 漂移、非法 18-case。
+3. GREEN：closed v2 schema 与运行时 validator 将 controller/verifier verification entry 绑定 raw/blob/mode/bytes。
+4. RED：缺 receipt、过期、重放、跨 approval、错 remote/digest/FD、case 缺失/重排、直接 CLI 绕过。
+5. GREEN：authority 构造 exact approval-source object closure；root-owned broker 以 `SO_PEERCRED`、独立 UID、
+   PID/network namespace、sealed FD 与 per-connection systemd cgroup 生成双层 canonical receipt。
+6. authority 重建完整 challenge，核验 source manifest、live peer、service invocation，并在回复后确认同一 service
+   inactive、同 cgroup empty；same-UID helper/fallback 和 broker GO builder 都不存在。
+7. 回归：product-authority focused、broker static、schema、Harness、doctor、hook、V2；focused/backend-full 进程使用
+   `TMPDIR=/tmp TEMP=/tmp TMP=/tmp`，不持久修改系统、用户、Git、Python 或 Node 配置。
+8. 独立 Governance/Architecture/Code/Security review 任一 P0–P2 即 STOP；exact9 本轮只冻结未提交 candidate
+   evidence，不创建 candidate commit、不推送、不安装、不启动服务。installed acceptance 必须另行治理。
