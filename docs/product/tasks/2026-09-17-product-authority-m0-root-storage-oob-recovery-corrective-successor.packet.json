@@ -1,0 +1,2867 @@
+{
+  "action": "FREEZE_ROOT_OWNED_FULL_PREIMAGE_STAGE_CONTRACT_ONLY",
+  "boundaries": {
+    "authorityRun": false,
+    "commitCreated": false,
+    "deployed": false,
+    "installed": false,
+    "productionDeployment": false,
+    "rootStageCreated": false,
+    "serviceStarted": false,
+    "systemPathsWritten": false
+  },
+  "frozenPreimage": {
+    "baseCommit": "a26b76723f516e5b2b679cea1e6486febccee466",
+    "baseTree": "6c1924520ffa59c93136676bbbdc2486b4f086f6",
+    "bundleDigest": "sha256:ee0f581be575ccd352c918f52503590e6fe6e026342c4574e28a11766073e0e5",
+    "exact2ProvenanceDigest": "sha256:84e671374c559057ece0a6909908805edd54bbeabdd66f575b7b2969c2bf94a2",
+    "freezeDigest": "sha256:a548edd3d0b1daf211ef1539e570c0d7d28e3bba2b258a71bf04a34a71fc8fad",
+    "installationManifestDigest": "sha256:9cbc52ecff9440cf41b7f45c73c68064e2c6ceaa76a9bfeddaf807b8ff928e31",
+    "oldInstallationBackupInventoryDigest": "sha256:74ff3fad4c9b6893299ff77e0db2debfce9d9be19abcf71196cedc60d0c006e2",
+    "profileDigests": {
+      "node-preauthorization-v1": "sha256:c073e229ae5c313cc4bb3b0a06ba895807b39702adefb9ef8706fa71917eb193",
+      "privileged-supervisor-ingest-v1": "sha256:17435c3683a868dfc5da4aeb7716ce3bd44253a4ee443a82d0d490a0863a5df0"
+    },
+    "sourceAttestationRawSha256": "sha256:fdc2160704ea4a1e07fa9c9cccd129867c7b419479c5e0f149fb40e38b632ffd"
+  },
+  "payload": {
+    "algorithm": "sha256(UTF8('chaotang-product-verifier-root-stage-payload-v1\\0') || RFC8785(payload.records))",
+    "digest": "sha256:860b2debf95afaef097670ca3b2da087bc66add75c89f94675553eaa08ac6f96",
+    "directoryCount": 139,
+    "fileCount": 253,
+    "recordCount": 392,
+    "totalFileBytes": 335965043,
+    "ordering": "path UTF-8 bytewise ascending",
+    "recordSchema": {
+      "directory": [
+        "path",
+        "type=directory",
+        "mode"
+      ],
+      "file": [
+        "path",
+        "type=file",
+        "mode",
+        "bytes",
+        "rawSha256"
+      ]
+    },
+    "records": [
+      {
+        "path": "__pycache__",
+        "type": "directory",
+        "mode": "0755"
+      },
+      {
+        "path": "__pycache__/build_preimage.cpython-312.pyc",
+        "type": "file",
+        "mode": "0644",
+        "bytes": 34632,
+        "rawSha256": "sha256:bf319a8cc59303f507369c378ab0b1cbd17a934d0c3965ae28db469fbfac3d35"
+      },
+      {
+        "path": "__pycache__/root_acceptance_orchestrator.cpython-312.pyc",
+        "type": "file",
+        "mode": "0644",
+        "bytes": 38196,
+        "rawSha256": "sha256:7cc2856ffc910bca04de184978a9f5e204e1ce1e27336f1292c20798723afc6c"
+      },
+      {
+        "path": "artifacts",
+        "type": "directory",
+        "mode": "0755"
+      },
+      {
+        "path": "artifacts/bundle-index.json",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 2945,
+        "rawSha256": "sha256:3ee731344587fa54ec026258ccd3f0c518a26222a9a564f4550063eaedd02d13"
+      },
+      {
+        "path": "artifacts/exact2-provenance.json",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 1421,
+        "rawSha256": "sha256:844da9afaaa6d3375da0e1c304c2c0b1cd559436a88abf4f3efc655d8752b2e8"
+      },
+      {
+        "path": "artifacts/installation-files",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/installation-files/broker.py",
+        "type": "file",
+        "mode": "0555",
+        "bytes": 191472,
+        "rawSha256": "sha256:4e6d7d9b4ab4935cb2482ddcf7671c9f83ece297bb59994b451141d3661da10a"
+      },
+      {
+        "path": "artifacts/installation-files/chaotang-product-verifier.socket",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 489,
+        "rawSha256": "sha256:d6e51d369089612ce30cfdb099cac797ad3bd2457f4c264e4e6c4e6c50cfd060"
+      },
+      {
+        "path": "artifacts/installation-files/chaotang-product-verifier@.service",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 2532,
+        "rawSha256": "sha256:4533218ea486ce563c589a83897924e3d0ebb3b5e3a5d2eb07bba21a629c97b6"
+      },
+      {
+        "path": "artifacts/installation-files/installed-acceptance-test.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 160940,
+        "rawSha256": "sha256:c44f66843bdc78abccc2bf697859ce34eb552ffbbf7518d75a24e38ea8cee4d2"
+      },
+      {
+        "path": "artifacts/installation.json",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 3011,
+        "rawSha256": "sha256:5dbb9d61906d75a38fe6849a96a7b89f3d2271ed3c2d9e208e396f6d13cf29d3"
+      },
+      {
+        "path": "artifacts/old-installation-backup-inventory.json",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 2755,
+        "rawSha256": "sha256:2b24813cc49c0f199ca18a471eab01d3b992ab777ecd6f01b719491e16b95aef"
+      },
+      {
+        "path": "artifacts/profiles",
+        "type": "directory",
+        "mode": "0755"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1",
+        "type": "directory",
+        "mode": "0755"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/manifest.json",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 29643,
+        "rawSha256": "sha256:86af71aa039833b4b3b6f7bf9fd03464681c78f9f51a355ff9d10d4539909ca2"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/dev",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/lib",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/lib/x86_64-linux-gnu",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2",
+        "type": "file",
+        "mode": "0555",
+        "bytes": 236616,
+        "rawSha256": "sha256:c20a2dc8917c755f02b94049356320fe1f62ac7d9f8994731f807d9df39302da"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/lib/x86_64-linux-gnu/libblkid.so.1",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 236592,
+        "rawSha256": "sha256:9c3860ffab5422410ff9e073d3e82267f00bc68ff1248cbb191640ee2ff045bc"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/lib/x86_64-linux-gnu/libbz2.so.1.0",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 78944,
+        "rawSha256": "sha256:cc08c9f50a8009ffd6391e0116a100369b11ca9238fa52392c019e6645b122a1"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/lib/x86_64-linux-gnu/libc.so.6",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 2129424,
+        "rawSha256": "sha256:3a15d66867d83762c7f2f1e37359cb8f6c5743edb369c65285cb0b1c4f7498bf"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/lib/x86_64-linux-gnu/libcap.so.2",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 51536,
+        "rawSha256": "sha256:6ac6abc86ac891c6e13486470e26f1d939f47fda9e6b5d5508a7f5ec881adc84"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/lib/x86_64-linux-gnu/libcrypt.so.1",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 198664,
+        "rawSha256": "sha256:1502636e3be8232c9cf801dfb533694aea985d449904f3e1295db26d7b348946"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/lib/x86_64-linux-gnu/libcrypto.so.3",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 5309400,
+        "rawSha256": "sha256:6a66c3ba6b3749aacc9497973fff00f6ba61c703ba7015d0d7ab3fd9510974b6"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/lib/x86_64-linux-gnu/libdb-5.3.so",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 1769040,
+        "rawSha256": "sha256:1812047c39ea3c26ee5b2b585abbafc18cd158dfcd84e5368c998cc6178e815b"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/lib/x86_64-linux-gnu/libdl.so.2",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 14408,
+        "rawSha256": "sha256:c2994527172cc23b7fb0f7d611b71e00a37da27af12c2e5e9e0dc1a742886c96"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/lib/x86_64-linux-gnu/libexpat.so.1",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 174336,
+        "rawSha256": "sha256:c42ff317838b4b4639e2ea801905f0317177c6df7e31b2f0d0240e3c3ac0cfde"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/lib/x86_64-linux-gnu/libffi.so.8",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 47672,
+        "rawSha256": "sha256:00f593fe192f2851b8ce23b25cec2488d769beb5a8f63e8c9e563071e1075153"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/lib/x86_64-linux-gnu/libgcc_s.so.1",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 183024,
+        "rawSha256": "sha256:d93224d2b0dab4247598be683adca02f5cf00586f99c187579cd7e92058fb7cb"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/lib/x86_64-linux-gnu/libgcrypt.so.20",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 1345072,
+        "rawSha256": "sha256:6ad6d7007ee1ad8319eb18ba9a512cf09dda49396a303774c68b47477020bad4"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/lib/x86_64-linux-gnu/libgdbm.so.6",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 71864,
+        "rawSha256": "sha256:9d4eee22c3cdfc96d92d1dd56e09114c74203a6208b98ebd724b434047e4e070"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/lib/x86_64-linux-gnu/libgpg-error.so.0",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 149760,
+        "rawSha256": "sha256:6cb18a007bfcb623029f4528a36b46578fea7dc34c2b505b8e6e0d99e6348cd1"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/lib/x86_64-linux-gnu/liblz4.so.1",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 137440,
+        "rawSha256": "sha256:40bffd0a098387368b16b992abd5f7cf43c0fa2f05cabe5a6d483719554adfda"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/lib/x86_64-linux-gnu/liblzma.so.5",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 202904,
+        "rawSha256": "sha256:696e868dd0700a19a6d65fc01608ec2d70d3cb91f65710e89180cd2e688f30cb"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/lib/x86_64-linux-gnu/libm.so.6",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 952616,
+        "rawSha256": "sha256:fce00b6f25f459cf4ae0b7fae4257909a1a8a86f9149e7c029a5d617baf1ccd0"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/lib/x86_64-linux-gnu/libmount.so.1",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 309960,
+        "rawSha256": "sha256:7472255ae5799059b37ddd544788f5665dbd3e1cb78259f52180293039efc2a5"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/lib/x86_64-linux-gnu/libncursesw.so.6",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 239848,
+        "rawSha256": "sha256:b552c698f9f5c7ff8a6f7c11d8595a0d3e6dc3eaf483843895ec76f418080dfb"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/lib/x86_64-linux-gnu/libpanelw.so.6",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 22688,
+        "rawSha256": "sha256:8eccca53962e74575da4b649dbafdfd24a450bafdc73d871bc5346824a1e7abd"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/lib/x86_64-linux-gnu/libpcre2-8.so.0",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 625344,
+        "rawSha256": "sha256:e00576d71d81d3ba0cfa4903c835a44a8723aac96f72f79ff75200b4cff9071b"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/lib/x86_64-linux-gnu/libpthread.so.0",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 14408,
+        "rawSha256": "sha256:90491a21ce44efcf3bd4b65ec82501c091d7ebe7f8d9b341dd01d721001d9ecd"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/lib/x86_64-linux-gnu/libreadline.so.8",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 344096,
+        "rawSha256": "sha256:0a079f958147699f7bb5bf228406a5d878dc2387fe9cdc5cce6f3e35e20380fc"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/lib/x86_64-linux-gnu/libselinux.so.1",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 174472,
+        "rawSha256": "sha256:0ec0843463f90e227b0e138e1f379774f50b5514bd7f5dbd4c8a87aca0aa6670"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/lib/x86_64-linux-gnu/libsqlite3.so.0",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 1468440,
+        "rawSha256": "sha256:f2cd05de8b6f71ea9d0495a6f9ff9cae844b15d9c45b7ef49ee0af0f81658cc7"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/lib/x86_64-linux-gnu/libssl.so.3",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 696512,
+        "rawSha256": "sha256:8e49cebd373d90b55f3626da71dd97fe8e95c68dc4c064d8962b27907690736e"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/lib/x86_64-linux-gnu/libstdc++.so.6",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 2592224,
+        "rawSha256": "sha256:1fd75fe70354a416d75aef22bcae68c47bd25d20e2d0568c30b1a9838cf62f11"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/lib/x86_64-linux-gnu/libtinfo.so.6",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 208328,
+        "rawSha256": "sha256:e6089d7bb95eee5b545f3770dd69095b0bca47d26701cad145af429561d16306"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/lib/x86_64-linux-gnu/libz.so.1",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 113000,
+        "rawSha256": "sha256:86200da370f20476a2507e9097a789b5ef97269b4ca8d5e164ad82dab9d99892"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/lib/x86_64-linux-gnu/libzstd.so.1",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 755864,
+        "rawSha256": "sha256:0a2128bc10841fb29e76d08d945864dfb0b6a66da5df6df5d8299197439e54bb"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/lib64",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/lib64/ld-linux-x86-64.so.2",
+        "type": "file",
+        "mode": "0555",
+        "bytes": 236616,
+        "rawSha256": "sha256:c20a2dc8917c755f02b94049356320fe1f62ac7d9f8994731f807d9df39302da"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/opt",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/opt/chaotang-product-verifier",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/proc",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/run",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/run/chaotang-installation",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/run/chaotang-installation/config",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/run/chaotang-product-verifier",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/run/systemd",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/bin",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/bin/node",
+        "type": "file",
+        "mode": "0555",
+        "bytes": 124835376,
+        "rawSha256": "sha256:93956de2e59480474a7b46571da1651180b1a050cdf32641ebec4ce6e478e068"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/bin/python3",
+        "type": "file",
+        "mode": "0555",
+        "bytes": 8020928,
+        "rawSha256": "sha256:e50d468e8b0adfb05733f5b87b3cff34829c4a8c1aea50c865aa8bdfe4bb150f"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/__phello__",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/_collections_abc.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 32082,
+        "rawSha256": "sha256:90324ee3e1c4ca5319f7242d4b7c1e90eb8418b3f999d07c853aa488356282e6"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/_compression.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 5681,
+        "rawSha256": "sha256:3ad5d60627477a60939ee44fc1bb3a05dbe8fb52f0f75039b8f5d8f1a278b981"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/_sitebuiltins.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 3128,
+        "rawSha256": "sha256:b9388bc1d6d12ed6be12da420ab1feca40f99c0e33ec315d92b1e01cb69b25bc"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/_weakrefset.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 5893,
+        "rawSha256": "sha256:91895a451d06e9f521a1171b31b9b19bc9740f35af00d4fa106338ab7167c9ac"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/abc.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 6538,
+        "rawSha256": "sha256:e558702a95cdce3febd289da021715d2b92bc43995b8a1bc58dfa1c3d8010287"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/asyncio",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/base64.py",
+        "type": "file",
+        "mode": "0555",
+        "bytes": 20602,
+        "rawSha256": "sha256:65c70b5b6361c6f7a71ecc2df0f55315474b669221dd8d81d7c1ae8d56748ada"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/bisect.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 3423,
+        "rawSha256": "sha256:f1cf7b85fc36b5da249813fc5ab97d9464f8cc1bc817f7146206fa2713e35999"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/bz2.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 11847,
+        "rawSha256": "sha256:76ab3252924e71e859d7d90e8d3db13b6554975cfcac0fdadced4de7f8779330"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/codecs.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 36870,
+        "rawSha256": "sha256:7b7839e53a77961153240aecfe11edc8054d05b1dedd83894450dae21ec05785"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/collections",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/collections/__init__.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 52378,
+        "rawSha256": "sha256:0af967cd58036507b3d0fbc33b7a996c61dbb52a94b0b738c8bef12cd4cc7dd4"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/collections/abc.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 119,
+        "rawSha256": "sha256:9cb4208f99128a0489b6c8e6c61637617dd7d4250c59e065491957eda084dd10"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/concurrent",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/concurrent/futures",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/config-3.12-x86_64-linux-gnu",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/contextlib.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 27637,
+        "rawSha256": "sha256:8b7a477f978a8532852fd81e241c78182516bc4975d672d580a5848a76e11eb6"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/copyreg.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 7614,
+        "rawSha256": "sha256:c8eda41f05c6bf95a4da4726a530409d2485ae060b8d019b3a8034389a15d3e9"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/ctypes",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/curses",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/dbm",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/email",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/email/mime",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/encodings",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/encodings/__init__.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 5884,
+        "rawSha256": "sha256:78c4744d407690f321565488710b5aaf6486b5afa8d185637aa1e7633ab59cd8"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/encodings/aliases.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 15677,
+        "rawSha256": "sha256:6fdcc49ba23a0203ae6cf28e608f8e6297d7c4d77d52e651db3cb49b9564c6d2"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/encodings/ascii.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 1248,
+        "rawSha256": "sha256:578aa1173f7cc60dad2895071287fe6182bd14787b3fbf47a6c7983dfe3675e3"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/encodings/utf_8.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 1005,
+        "rawSha256": "sha256:ba0cac060269583523ca9506473a755203037c57d466a11aa89a30a5f6756f3d"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/enum.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 81636,
+        "rawSha256": "sha256:c8ead615c159598370295649eb296819ad4b40d50b200c4fec2d4269bf7af9ae"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/fnmatch.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 5999,
+        "rawSha256": "sha256:6683da36e47af523f3f41e18ad244d837783e19e98911cc0b7415dea81494ebc"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/functools.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 38126,
+        "rawSha256": "sha256:cca971c456e1bec8b751aecdf41466f34dbf72321ee0840627280ba2ccf9d033"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/genericpath.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 5572,
+        "rawSha256": "sha256:2b0b35d2206778af4081cf81dd9b513876e72c35a55bec941402e1fa62b1f1aa"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/hashlib.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 9349,
+        "rawSha256": "sha256:6dbdebf270868b391080e21dc9687eddfaf321c965ad979f68d3f5c423c613ab"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/html",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/http",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/importlib",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/importlib/__init__.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 4774,
+        "rawSha256": "sha256:c9e1b3dbc619ac31e7017ac43668a20200872c1c0e79ae379c0dab6ed399b730"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/importlib/_abc.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 1354,
+        "rawSha256": "sha256:80aab7931dc999dee581c8b8b56fcd973fe156335a96ceeaf6acfc03cebf10e8"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/importlib/_bootstrap.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 57056,
+        "rawSha256": "sha256:9653944363a4773cc32bbb34426024597a9d2ee4cd42e7912b4daf8cadfb53ed"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/importlib/_bootstrap_external.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 69197,
+        "rawSha256": "sha256:97c6211750d63067712ad2cd74d50be33337f1fb1cd2c769022ced9b401edd92"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/importlib/machinery.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 880,
+        "rawSha256": "sha256:d045cd7ecf2a12b6ecbfbef79eb114e87ef2ebd756f5b705f73e6f3266e3dede"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/importlib/metadata",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/importlib/resources",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/importlib/util.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 10840,
+        "rawSha256": "sha256:ca54e6458dbe521d591e5b8d9bb651ef929bfae946706c98470cdd569041a64f"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/io.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 3582,
+        "rawSha256": "sha256:7cec3cb8ac004058dd0a5af246e6d950fb59c7ddd0058fda48bcb3fcb98d8822"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/json",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/json/__init__.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 14020,
+        "rawSha256": "sha256:d5d41e2c29049515d295d81a6d40b4890fbec8d8482cfb401630f8ef2f77e4d5"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/json/decoder.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 12473,
+        "rawSha256": "sha256:9f02654649816145bc76f8c210a5fe3ba1de142d4d97a1c93105732e747c285b"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/json/encoder.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 16070,
+        "rawSha256": "sha256:af7bd40a0d0d0a3e726a9b4b3a2a543019f6ab97a340d0162a9c29ca9da97869"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/json/scanner.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 2425,
+        "rawSha256": "sha256:8604d9d03786d0d509abb49e9f069337278ea988c244069ae8ca2c89acc2cb08"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/keyword.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 1073,
+        "rawSha256": "sha256:18c2be738c04ad20ad375f6a71db34b3823c7f40b0340f5294d0e89f3c9b093b"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/lib-dynload",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/lib-dynload/_bz2.cpython-312-x86_64-linux-gnu.so",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 32112,
+        "rawSha256": "sha256:eff8df23cdc54d38ce9ca600d07c21ccfd7f22bd52a0720e599e6828d3e2eb76"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/lib-dynload/_hashlib.cpython-312-x86_64-linux-gnu.so",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 64368,
+        "rawSha256": "sha256:8dc6cda6dd9495b95a2bfb5b26e8cf06b72f36dc0213d958b9277a958287f0fe"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/lib-dynload/_json.cpython-312-x86_64-linux-gnu.so",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 48952,
+        "rawSha256": "sha256:ca8e35c58f7bc8e27258c4af43651c941413bc6318903621253485b0395758a3"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/lib-dynload/_lzma.cpython-312-x86_64-linux-gnu.so",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 49256,
+        "rawSha256": "sha256:cb298120e40f064dc047e638d911f8b3b0abf625bf1d6bd07902b46efd820fd7"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/locale.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 78562,
+        "rawSha256": "sha256:d1134b7212bad37b7b81339061dc37a19a194aa183ec2cb60412cf365993b151"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/logging",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/lzma.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 13277,
+        "rawSha256": "sha256:58fb9d2fdc8a8af7b25e218f17ea3b51bdfa53bdf40f440ab33c605974ca5c2e"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/multiprocessing",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/multiprocessing/dummy",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/operator.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 10965,
+        "rawSha256": "sha256:b2af20f67667203c1730e686cc5d0427becc94db4c97f1d3efe3ed2158473f6a"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/os.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 39786,
+        "rawSha256": "sha256:316d1b7307fd851bded3423c9d437e0a383c725d993f0fcff2e8b749fe560b62"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/posixpath.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 17623,
+        "rawSha256": "sha256:c443d7b8afad1717e7060ce49b3e04423058de56cd4246ee6bcc1ac962eb5c2b"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/pydoc_data",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/random.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 34683,
+        "rawSha256": "sha256:0693d4ded36916f5b07d6c395cc331dbf1011bb70e90daaa29eaa32490a09425"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/re",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/re/__init__.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 16315,
+        "rawSha256": "sha256:8ff3c37c63b917fcf8dc8d50993a502292a3dc159e41de4f4018c72a53d1c07b"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/re/_casefix.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 5446,
+        "rawSha256": "sha256:41572ac50cf96b04496e676d8a6708898bb8e752e06dad34ed4c50c5d8f1fe40"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/re/_compiler.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 26089,
+        "rawSha256": "sha256:c05067f8bfa4c13cbbf1eedc4d5cafc9b621bcb6ebc5771ba0518a18095af15a"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/re/_constants.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 5930,
+        "rawSha256": "sha256:fa4fdb200f238f9e7817b63892b0d69833d8165134801e775e10cc113348a375"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/re/_parser.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 41201,
+        "rawSha256": "sha256:a51a85b37cf3f44ba7ff25754da5f31306e4ccfa6eb3c017f9d37bdf4e770840"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/reprlib.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 6569,
+        "rawSha256": "sha256:8da31054076803065758311f54b18b8a616824941977d907dc3ee729228e9015"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/selectors.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 19671,
+        "rawSha256": "sha256:1eeb102373e18c96311203f30c516e785bd8642275aa0bd66e43a284c9692385"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/shutil.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 58120,
+        "rawSha256": "sha256:819e518cb7a539d09b2526138015541b34d2646afb9c2f6ae4ffd476d6a0fcf4"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/signal.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 2495,
+        "rawSha256": "sha256:0363c964c90ac0b3e515de5749205e6e6454051a1211058375d84d91eab6071a"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/site.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 23903,
+        "rawSha256": "sha256:619436355cbe91c3b29681ab486ee63f5f2e0a7d6274dfae747bdb94e60bca55"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/socket.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 37411,
+        "rawSha256": "sha256:b59366f7c35583a274c8031351c146d9c64c4e680adf45d99a3335536a20a6cc"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/sqlite3",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/stat.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 5485,
+        "rawSha256": "sha256:052af0327eae6941b69b05c088b3e748f79995635f80ac4cc7125eb333eb4c77"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/struct.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 257,
+        "rawSha256": "sha256:9c231f9497caf513a22dee8f790b07f969b0e45854a0bdd6dd84b492e08c2856"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/subprocess.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 88725,
+        "rawSha256": "sha256:baa9f9138d8d20df6284f67e7d2e790f847f65e2c5370de322d54cccd737f2d9"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/tempfile.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 37334,
+        "rawSha256": "sha256:8c8033ed1426ace79e07a6608887d2a1694d817d63d61b04c3d59339f24b4269"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/threading.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 60123,
+        "rawSha256": "sha256:8273b4cf5b6f274b4993f5cae08634dd272c6952af9867ff9aa13ed446f1549b"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/tomllib",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/types.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 10993,
+        "rawSha256": "sha256:345474ef027a1273f353da9bdc1f7c18f65335e72e681bcc0376774cc51f2405"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/urllib",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/venv",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/venv/scripts",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/venv/scripts/common",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/venv/scripts/posix",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/warnings.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 21760,
+        "rawSha256": "sha256:8eb1bb88d0beb82ebecfe7ee5cf54ed9b77b4a7acee1989e392a65de42017c49"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/weakref.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 21513,
+        "rawSha256": "sha256:56f8d313fb74019e53eb9287400702fbce788b7fe30e097b0b6e06296f3f080c"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/wsgiref",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/xml",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/xml/dom",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/xml/etree",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/xml/parsers",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/xml/sax",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/xmlrpc",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/zipfile",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/zipfile/_path",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/zipimport.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 28132,
+        "rawSha256": "sha256:4ac94d92219c2e1c0d67ad3fff3753ec3a3756af62a36a2f696f02cd12d518f0"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/runtime/lib/python3.12/zoneinfo",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/sys",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/tmp",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/usr",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/usr/bin",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/usr/bin/systemctl",
+        "type": "file",
+        "mode": "0555",
+        "bytes": 1501304,
+        "rawSha256": "sha256:e0d3d0e9444da1b2b58c792c3f5028b69f049b77d5ca17b3ec0d09f89117225b"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/usr/lib",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/usr/lib/locale",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/usr/lib/locale/C.utf8",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/usr/lib/locale/C.utf8/LC_ADDRESS",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 127,
+        "rawSha256": "sha256:26e2800affab801cb36d4ff9625a95c3abceeda2b6553a7aecd0cfcf34c98099"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/usr/lib/locale/C.utf8/LC_COLLATE",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 1406,
+        "rawSha256": "sha256:47a5f5359a8f324abc39d69a7f6241a2ac0e2fbbeae5b9c3a756e682b75d087b"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/usr/lib/locale/C.utf8/LC_CTYPE",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 360460,
+        "rawSha256": "sha256:59015993b1b671273461ef1167d7a9ad76dc090d521c91102e962217ed6b6dba"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/usr/lib/locale/C.utf8/LC_IDENTIFICATION",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 258,
+        "rawSha256": "sha256:38a1d8e5271c86f48910d9c684f64271955335736e71cec35eeac942f90eb091"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/usr/lib/locale/C.utf8/LC_MEASUREMENT",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 23,
+        "rawSha256": "sha256:bb14a6f2cbd5092a755e8f272079822d3e842620dd4542a8dfa1e5e72fc6115b"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/usr/lib/locale/C.utf8/LC_MESSAGES",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/usr/lib/locale/C.utf8/LC_MESSAGES/SYS_LC_MESSAGES",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 48,
+        "rawSha256": "sha256:f9ad02f1d8eba721d4cbd50c365b5c681c39aec008f90bfc2be2dc80bfbaddcb"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/usr/lib/locale/C.utf8/LC_MONETARY",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 270,
+        "rawSha256": "sha256:bfd9e9975443b834582493fe9a8d7aefcd989376789c17470a1e548aee76fd55"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/usr/lib/locale/C.utf8/LC_NAME",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 62,
+        "rawSha256": "sha256:14507aad9f806112e464b9ca94c93b2e4d759ddc612b5f87922d7cac7170697d"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/usr/lib/locale/C.utf8/LC_NUMERIC",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 50,
+        "rawSha256": "sha256:f5976e6b3e6b24dfe03caad6a5b98d894d8110d8bd15507e690fd60fd3e04ab2"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/usr/lib/locale/C.utf8/LC_PAPER",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 34,
+        "rawSha256": "sha256:cde048b81e2a026517cc707c906aebbd50f5ee3957b6f0c1c04699dffcb7c015"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/usr/lib/locale/C.utf8/LC_TELEPHONE",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 47,
+        "rawSha256": "sha256:f4caf0d12844219b65ba42edc7ec2f5ac1b2fc36a3c88c28887457275daca1ee"
+      },
+      {
+        "path": "artifacts/profiles/node-preauthorization-v1/rootfs/usr/lib/locale/C.utf8/LC_TIME",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 3360,
+        "rawSha256": "sha256:0910b595d1d5d4e52cc0f415bbb1ff07c015d6860d34aae02505dd9973a63154"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1",
+        "type": "directory",
+        "mode": "0755"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/manifest.json",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 33001,
+        "rawSha256": "sha256:cb7d022294d076fce5ef5d8fbd4517e58cc9e2eed6655187d16ba4c773b4fa77"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/dev",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/lib",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/lib/x86_64-linux-gnu",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2",
+        "type": "file",
+        "mode": "0555",
+        "bytes": 236616,
+        "rawSha256": "sha256:c20a2dc8917c755f02b94049356320fe1f62ac7d9f8994731f807d9df39302da"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/lib/x86_64-linux-gnu/libbz2.so.1.0",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 78944,
+        "rawSha256": "sha256:cc08c9f50a8009ffd6391e0116a100369b11ca9238fa52392c019e6645b122a1"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/lib/x86_64-linux-gnu/libc.so.6",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 2129424,
+        "rawSha256": "sha256:3a15d66867d83762c7f2f1e37359cb8f6c5743edb369c65285cb0b1c4f7498bf"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/lib/x86_64-linux-gnu/libcap.so.2",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 51536,
+        "rawSha256": "sha256:6ac6abc86ac891c6e13486470e26f1d939f47fda9e6b5d5508a7f5ec881adc84"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/lib/x86_64-linux-gnu/libcrypt.so.1",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 198664,
+        "rawSha256": "sha256:1502636e3be8232c9cf801dfb533694aea985d449904f3e1295db26d7b348946"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/lib/x86_64-linux-gnu/libcrypto.so.3",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 5309400,
+        "rawSha256": "sha256:6a66c3ba6b3749aacc9497973fff00f6ba61c703ba7015d0d7ab3fd9510974b6"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/lib/x86_64-linux-gnu/libdb-5.3.so",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 1769040,
+        "rawSha256": "sha256:1812047c39ea3c26ee5b2b585abbafc18cd158dfcd84e5368c998cc6178e815b"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/lib/x86_64-linux-gnu/libdl.so.2",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 14408,
+        "rawSha256": "sha256:c2994527172cc23b7fb0f7d611b71e00a37da27af12c2e5e9e0dc1a742886c96"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/lib/x86_64-linux-gnu/libexpat.so.1",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 174336,
+        "rawSha256": "sha256:c42ff317838b4b4639e2ea801905f0317177c6df7e31b2f0d0240e3c3ac0cfde"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/lib/x86_64-linux-gnu/libffi.so.8",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 47672,
+        "rawSha256": "sha256:00f593fe192f2851b8ce23b25cec2488d769beb5a8f63e8c9e563071e1075153"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/lib/x86_64-linux-gnu/libgcc_s.so.1",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 183024,
+        "rawSha256": "sha256:d93224d2b0dab4247598be683adca02f5cf00586f99c187579cd7e92058fb7cb"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/lib/x86_64-linux-gnu/libgdbm.so.6",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 71864,
+        "rawSha256": "sha256:9d4eee22c3cdfc96d92d1dd56e09114c74203a6208b98ebd724b434047e4e070"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/lib/x86_64-linux-gnu/liblzma.so.5",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 202904,
+        "rawSha256": "sha256:696e868dd0700a19a6d65fc01608ec2d70d3cb91f65710e89180cd2e688f30cb"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/lib/x86_64-linux-gnu/libm.so.6",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 952616,
+        "rawSha256": "sha256:fce00b6f25f459cf4ae0b7fae4257909a1a8a86f9149e7c029a5d617baf1ccd0"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/lib/x86_64-linux-gnu/libncursesw.so.6",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 239848,
+        "rawSha256": "sha256:b552c698f9f5c7ff8a6f7c11d8595a0d3e6dc3eaf483843895ec76f418080dfb"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/lib/x86_64-linux-gnu/libpanelw.so.6",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 22688,
+        "rawSha256": "sha256:8eccca53962e74575da4b649dbafdfd24a450bafdc73d871bc5346824a1e7abd"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/lib/x86_64-linux-gnu/libpcre2-8.so.0",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 625344,
+        "rawSha256": "sha256:e00576d71d81d3ba0cfa4903c835a44a8723aac96f72f79ff75200b4cff9071b"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/lib/x86_64-linux-gnu/libpthread.so.0",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 14408,
+        "rawSha256": "sha256:90491a21ce44efcf3bd4b65ec82501c091d7ebe7f8d9b341dd01d721001d9ecd"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/lib/x86_64-linux-gnu/libreadline.so.8",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 344096,
+        "rawSha256": "sha256:0a079f958147699f7bb5bf228406a5d878dc2387fe9cdc5cce6f3e35e20380fc"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/lib/x86_64-linux-gnu/libseccomp.so.2",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 125360,
+        "rawSha256": "sha256:b4d9140a7797ccf3ac14f5d9d579b64f157111662940cb8330c632b11a8cea8e"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/lib/x86_64-linux-gnu/libselinux.so.1",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 174472,
+        "rawSha256": "sha256:0ec0843463f90e227b0e138e1f379774f50b5514bd7f5dbd4c8a87aca0aa6670"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/lib/x86_64-linux-gnu/libsqlite3.so.0",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 1468440,
+        "rawSha256": "sha256:f2cd05de8b6f71ea9d0495a6f9ff9cae844b15d9c45b7ef49ee0af0f81658cc7"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/lib/x86_64-linux-gnu/libssl.so.3",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 696512,
+        "rawSha256": "sha256:8e49cebd373d90b55f3626da71dd97fe8e95c68dc4c064d8962b27907690736e"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/lib/x86_64-linux-gnu/libstdc++.so.6",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 2592224,
+        "rawSha256": "sha256:1fd75fe70354a416d75aef22bcae68c47bd25d20e2d0568c30b1a9838cf62f11"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/lib/x86_64-linux-gnu/libtinfo.so.6",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 208328,
+        "rawSha256": "sha256:e6089d7bb95eee5b545f3770dd69095b0bca47d26701cad145af429561d16306"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/lib/x86_64-linux-gnu/libz.so.1",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 113000,
+        "rawSha256": "sha256:86200da370f20476a2507e9097a789b5ef97269b4ca8d5e164ad82dab9d99892"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/lib64",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/lib64/ld-linux-x86-64.so.2",
+        "type": "file",
+        "mode": "0555",
+        "bytes": 236616,
+        "rawSha256": "sha256:c20a2dc8917c755f02b94049356320fe1f62ac7d9f8994731f807d9df39302da"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/opt",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/opt/chaotang-product-verifier",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/proc",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/profiles",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/run",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/run/chaotang-installation",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/run/chaotang-product-verifier",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/bin",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/bin/bwrap",
+        "type": "file",
+        "mode": "0555",
+        "bytes": 72160,
+        "rawSha256": "sha256:52231e1caf55bcbc667b269f49c63599a6f7db4767ae6a039580d0ff853db712"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/bin/git",
+        "type": "file",
+        "mode": "0555",
+        "bytes": 4066232,
+        "rawSha256": "sha256:2a8c18fbf43da9f692d75474c72bea9dfd796c260b0f3dfe456376abc3bbd668"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/bin/node",
+        "type": "file",
+        "mode": "0555",
+        "bytes": 124835376,
+        "rawSha256": "sha256:93956de2e59480474a7b46571da1651180b1a050cdf32641ebec4ce6e478e068"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/bin/python3",
+        "type": "file",
+        "mode": "0555",
+        "bytes": 8020928,
+        "rawSha256": "sha256:e50d468e8b0adfb05733f5b87b3cff34829c4a8c1aea50c865aa8bdfe4bb150f"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/__future__.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 5218,
+        "rawSha256": "sha256:981d4c398849f9ebcab72300d9c1fe288fd6d7f28957b3b3fa3a493a5836d95c"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/__phello__",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/_collections_abc.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 32082,
+        "rawSha256": "sha256:90324ee3e1c4ca5319f7242d4b7c1e90eb8418b3f999d07c853aa488356282e6"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/_compression.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 5681,
+        "rawSha256": "sha256:3ad5d60627477a60939ee44fc1bb3a05dbe8fb52f0f75039b8f5d8f1a278b981"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/_sitebuiltins.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 3128,
+        "rawSha256": "sha256:b9388bc1d6d12ed6be12da420ab1feca40f99c0e33ec315d92b1e01cb69b25bc"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/_weakrefset.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 5893,
+        "rawSha256": "sha256:91895a451d06e9f521a1171b31b9b19bc9740f35af00d4fa106338ab7167c9ac"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/abc.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 6538,
+        "rawSha256": "sha256:e558702a95cdce3febd289da021715d2b92bc43995b8a1bc58dfa1c3d8010287"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/argparse.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 101750,
+        "rawSha256": "sha256:29395feb61bc376ca4ff9d44069af8d914ec2a1f25a4bd7978f6e2afef5bc07f"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/asyncio",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/base64.py",
+        "type": "file",
+        "mode": "0555",
+        "bytes": 20602,
+        "rawSha256": "sha256:65c70b5b6361c6f7a71ecc2df0f55315474b669221dd8d81d7c1ae8d56748ada"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/bisect.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 3423,
+        "rawSha256": "sha256:f1cf7b85fc36b5da249813fc5ab97d9464f8cc1bc817f7146206fa2713e35999"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/bz2.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 11847,
+        "rawSha256": "sha256:76ab3252924e71e859d7d90e8d3db13b6554975cfcac0fdadced4de7f8779330"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/codecs.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 36870,
+        "rawSha256": "sha256:7b7839e53a77961153240aecfe11edc8054d05b1dedd83894450dae21ec05785"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/collections",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/collections/__init__.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 52378,
+        "rawSha256": "sha256:0af967cd58036507b3d0fbc33b7a996c61dbb52a94b0b738c8bef12cd4cc7dd4"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/collections/abc.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 119,
+        "rawSha256": "sha256:9cb4208f99128a0489b6c8e6c61637617dd7d4250c59e065491957eda084dd10"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/concurrent",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/concurrent/futures",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/config-3.12-x86_64-linux-gnu",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/contextlib.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 27637,
+        "rawSha256": "sha256:8b7a477f978a8532852fd81e241c78182516bc4975d672d580a5848a76e11eb6"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/copyreg.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 7614,
+        "rawSha256": "sha256:c8eda41f05c6bf95a4da4726a530409d2485ae060b8d019b3a8034389a15d3e9"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/ctypes",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/ctypes/__init__.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 18182,
+        "rawSha256": "sha256:0782592567ad71097198a3afe985ac3e2ea0b9b5e75452402c9460c89a86318a"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/ctypes/_endian.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 2535,
+        "rawSha256": "sha256:c5d692bdce10dfee242752620061bab684633bc72445a3def484961ef1bdbf3a"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/curses",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/dbm",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/email",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/email/mime",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/encodings",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/encodings/__init__.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 5884,
+        "rawSha256": "sha256:78c4744d407690f321565488710b5aaf6486b5afa8d185637aa1e7633ab59cd8"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/encodings/aliases.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 15677,
+        "rawSha256": "sha256:6fdcc49ba23a0203ae6cf28e608f8e6297d7c4d77d52e651db3cb49b9564c6d2"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/encodings/ascii.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 1248,
+        "rawSha256": "sha256:578aa1173f7cc60dad2895071287fe6182bd14787b3fbf47a6c7983dfe3675e3"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/encodings/utf_8.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 1005,
+        "rawSha256": "sha256:ba0cac060269583523ca9506473a755203037c57d466a11aa89a30a5f6756f3d"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/enum.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 81636,
+        "rawSha256": "sha256:c8ead615c159598370295649eb296819ad4b40d50b200c4fec2d4269bf7af9ae"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/fnmatch.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 5999,
+        "rawSha256": "sha256:6683da36e47af523f3f41e18ad244d837783e19e98911cc0b7415dea81494ebc"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/functools.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 38126,
+        "rawSha256": "sha256:cca971c456e1bec8b751aecdf41466f34dbf72321ee0840627280ba2ccf9d033"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/genericpath.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 5572,
+        "rawSha256": "sha256:2b0b35d2206778af4081cf81dd9b513876e72c35a55bec941402e1fa62b1f1aa"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/gettext.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 21747,
+        "rawSha256": "sha256:1cc6fd33bdce3bb29c0c37ec9a2f5bf15a315e9776b329247e6675c028a8af39"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/hashlib.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 9349,
+        "rawSha256": "sha256:6dbdebf270868b391080e21dc9687eddfaf321c965ad979f68d3f5c423c613ab"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/html",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/http",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/importlib",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/importlib/__init__.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 4774,
+        "rawSha256": "sha256:c9e1b3dbc619ac31e7017ac43668a20200872c1c0e79ae379c0dab6ed399b730"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/importlib/_abc.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 1354,
+        "rawSha256": "sha256:80aab7931dc999dee581c8b8b56fcd973fe156335a96ceeaf6acfc03cebf10e8"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/importlib/_bootstrap.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 57056,
+        "rawSha256": "sha256:9653944363a4773cc32bbb34426024597a9d2ee4cd42e7912b4daf8cadfb53ed"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/importlib/_bootstrap_external.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 69197,
+        "rawSha256": "sha256:97c6211750d63067712ad2cd74d50be33337f1fb1cd2c769022ced9b401edd92"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/importlib/machinery.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 880,
+        "rawSha256": "sha256:d045cd7ecf2a12b6ecbfbef79eb114e87ef2ebd756f5b705f73e6f3266e3dede"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/importlib/metadata",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/importlib/resources",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/importlib/util.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 10840,
+        "rawSha256": "sha256:ca54e6458dbe521d591e5b8d9bb651ef929bfae946706c98470cdd569041a64f"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/io.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 3582,
+        "rawSha256": "sha256:7cec3cb8ac004058dd0a5af246e6d950fb59c7ddd0058fda48bcb3fcb98d8822"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/ipaddress.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 78294,
+        "rawSha256": "sha256:cc9831e239bd81c1480a12733bded744002d93815fd0d083c77aea348c956e67"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/json",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/json/__init__.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 14020,
+        "rawSha256": "sha256:d5d41e2c29049515d295d81a6d40b4890fbec8d8482cfb401630f8ef2f77e4d5"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/json/decoder.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 12473,
+        "rawSha256": "sha256:9f02654649816145bc76f8c210a5fe3ba1de142d4d97a1c93105732e747c285b"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/json/encoder.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 16070,
+        "rawSha256": "sha256:af7bd40a0d0d0a3e726a9b4b3a2a543019f6ab97a340d0162a9c29ca9da97869"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/json/scanner.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 2425,
+        "rawSha256": "sha256:8604d9d03786d0d509abb49e9f069337278ea988c244069ae8ca2c89acc2cb08"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/keyword.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 1073,
+        "rawSha256": "sha256:18c2be738c04ad20ad375f6a71db34b3823c7f40b0340f5294d0e89f3c9b093b"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/lib-dynload",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/lib-dynload/_bz2.cpython-312-x86_64-linux-gnu.so",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 32112,
+        "rawSha256": "sha256:eff8df23cdc54d38ce9ca600d07c21ccfd7f22bd52a0720e599e6828d3e2eb76"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/lib-dynload/_ctypes.cpython-312-x86_64-linux-gnu.so",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 137968,
+        "rawSha256": "sha256:aad3e24f186e6c0a1c7efa8f16004f951f527db86f6451d30118657384a456c1"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/lib-dynload/_hashlib.cpython-312-x86_64-linux-gnu.so",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 64368,
+        "rawSha256": "sha256:8dc6cda6dd9495b95a2bfb5b26e8cf06b72f36dc0213d958b9277a958287f0fe"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/lib-dynload/_json.cpython-312-x86_64-linux-gnu.so",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 48952,
+        "rawSha256": "sha256:ca8e35c58f7bc8e27258c4af43651c941413bc6318903621253485b0395758a3"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/lib-dynload/_lzma.cpython-312-x86_64-linux-gnu.so",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 49256,
+        "rawSha256": "sha256:cb298120e40f064dc047e638d911f8b3b0abf625bf1d6bd07902b46efd820fd7"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/lib-dynload/resource.cpython-312-x86_64-linux-gnu.so",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 19432,
+        "rawSha256": "sha256:c8cc35580b497bf128cf8bb0e25efc36573a4f21a1c6877a91737fcd52e24907"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/locale.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 78562,
+        "rawSha256": "sha256:d1134b7212bad37b7b81339061dc37a19a194aa183ec2cb60412cf365993b151"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/logging",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/lzma.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 13277,
+        "rawSha256": "sha256:58fb9d2fdc8a8af7b25e218f17ea3b51bdfa53bdf40f440ab33c605974ca5c2e"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/multiprocessing",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/multiprocessing/dummy",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/ntpath.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 30027,
+        "rawSha256": "sha256:c4dd79bf103677daaad873952b89fc1f973425e7b250006cc35af4c164181da8"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/operator.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 10965,
+        "rawSha256": "sha256:b2af20f67667203c1730e686cc5d0427becc94db4c97f1d3efe3ed2158473f6a"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/os.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 39786,
+        "rawSha256": "sha256:316d1b7307fd851bded3423c9d437e0a383c725d993f0fcff2e8b749fe560b62"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/pathlib.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 51153,
+        "rawSha256": "sha256:b43e134bf7479759838b4ecec3d78e0e67fdfde2d671c5c2d7886a47da93885d"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/pkgutil.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 18281,
+        "rawSha256": "sha256:44300bc77f6f52ef2ad74d26e5053309c04f49eaa91c099356eb61426cde504f"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/posixpath.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 17623,
+        "rawSha256": "sha256:c443d7b8afad1717e7060ce49b3e04423058de56cd4246ee6bcc1ac962eb5c2b"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/pydoc_data",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/random.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 34683,
+        "rawSha256": "sha256:0693d4ded36916f5b07d6c395cc331dbf1011bb70e90daaa29eaa32490a09425"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/re",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/re/__init__.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 16315,
+        "rawSha256": "sha256:8ff3c37c63b917fcf8dc8d50993a502292a3dc159e41de4f4018c72a53d1c07b"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/re/_casefix.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 5446,
+        "rawSha256": "sha256:41572ac50cf96b04496e676d8a6708898bb8e752e06dad34ed4c50c5d8f1fe40"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/re/_compiler.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 26089,
+        "rawSha256": "sha256:c05067f8bfa4c13cbbf1eedc4d5cafc9b621bcb6ebc5771ba0518a18095af15a"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/re/_constants.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 5930,
+        "rawSha256": "sha256:fa4fdb200f238f9e7817b63892b0d69833d8165134801e775e10cc113348a375"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/re/_parser.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 41201,
+        "rawSha256": "sha256:a51a85b37cf3f44ba7ff25754da5f31306e4ccfa6eb3c017f9d37bdf4e770840"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/reprlib.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 6569,
+        "rawSha256": "sha256:8da31054076803065758311f54b18b8a616824941977d907dc3ee729228e9015"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/runpy.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 12898,
+        "rawSha256": "sha256:b1f47f717848022b83b511c74e0f862f58d1e11afa768910e87a49fccf0be2ff"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/selectors.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 19671,
+        "rawSha256": "sha256:1eeb102373e18c96311203f30c516e785bd8642275aa0bd66e43a284c9692385"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/shutil.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 58120,
+        "rawSha256": "sha256:819e518cb7a539d09b2526138015541b34d2646afb9c2f6ae4ffd476d6a0fcf4"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/signal.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 2495,
+        "rawSha256": "sha256:0363c964c90ac0b3e515de5749205e6e6454051a1211058375d84d91eab6071a"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/site.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 23903,
+        "rawSha256": "sha256:619436355cbe91c3b29681ab486ee63f5f2e0a7d6274dfae747bdb94e60bca55"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/socket.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 37411,
+        "rawSha256": "sha256:b59366f7c35583a274c8031351c146d9c64c4e680adf45d99a3335536a20a6cc"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/sqlite3",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/stat.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 5485,
+        "rawSha256": "sha256:052af0327eae6941b69b05c088b3e748f79995635f80ac4cc7125eb333eb4c77"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/struct.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 257,
+        "rawSha256": "sha256:9c231f9497caf513a22dee8f790b07f969b0e45854a0bdd6dd84b492e08c2856"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/subprocess.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 88725,
+        "rawSha256": "sha256:baa9f9138d8d20df6284f67e7d2e790f847f65e2c5370de322d54cccd737f2d9"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/tempfile.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 37334,
+        "rawSha256": "sha256:8c8033ed1426ace79e07a6608887d2a1694d817d63d61b04c3d59339f24b4269"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/threading.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 60123,
+        "rawSha256": "sha256:8273b4cf5b6f274b4993f5cae08634dd272c6952af9867ff9aa13ed446f1549b"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/tomllib",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/types.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 10993,
+        "rawSha256": "sha256:345474ef027a1273f353da9bdc1f7c18f65335e72e681bcc0376774cc51f2405"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/typing.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 117428,
+        "rawSha256": "sha256:c45d935c17234b1d6ae42d2d5499d3e03b4e2548fae0c4fce15477e23502214d"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/urllib",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/urllib/__init__.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 0,
+        "rawSha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/urllib/parse.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 45591,
+        "rawSha256": "sha256:a67b5694763137dbac085adbf0c22821d435ec8ca22d3bd3786d2c9f4ee748d5"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/venv",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/venv/scripts",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/venv/scripts/common",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/venv/scripts/posix",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/warnings.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 21760,
+        "rawSha256": "sha256:8eb1bb88d0beb82ebecfe7ee5cf54ed9b77b4a7acee1989e392a65de42017c49"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/weakref.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 21513,
+        "rawSha256": "sha256:56f8d313fb74019e53eb9287400702fbce788b7fe30e097b0b6e06296f3f080c"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/wsgiref",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/xml",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/xml/dom",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/xml/etree",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/xml/parsers",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/xml/sax",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/xmlrpc",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/zipfile",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/zipfile/_path",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/zipimport.py",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 28132,
+        "rawSha256": "sha256:4ac94d92219c2e1c0d67ad3fff3753ec3a3756af62a36a2f696f02cd12d518f0"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/runtime/lib/python3.12/zoneinfo",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/sys",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/tmp",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/usr",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/usr/lib",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/usr/lib/git-core",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/usr/lib/git-core/git-index-pack",
+        "type": "file",
+        "mode": "0555",
+        "bytes": 4066232,
+        "rawSha256": "sha256:2a8c18fbf43da9f692d75474c72bea9dfd796c260b0f3dfe456376abc3bbd668"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/usr/lib/git-core/git-init",
+        "type": "file",
+        "mode": "0555",
+        "bytes": 4066232,
+        "rawSha256": "sha256:2a8c18fbf43da9f692d75474c72bea9dfd796c260b0f3dfe456376abc3bbd668"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/usr/lib/git-core/git-init-db",
+        "type": "file",
+        "mode": "0555",
+        "bytes": 4066232,
+        "rawSha256": "sha256:2a8c18fbf43da9f692d75474c72bea9dfd796c260b0f3dfe456376abc3bbd668"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/usr/lib/git-core/git-unpack-objects",
+        "type": "file",
+        "mode": "0555",
+        "bytes": 4066232,
+        "rawSha256": "sha256:2a8c18fbf43da9f692d75474c72bea9dfd796c260b0f3dfe456376abc3bbd668"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/usr/lib/git-core/git-verify-pack",
+        "type": "file",
+        "mode": "0555",
+        "bytes": 4066232,
+        "rawSha256": "sha256:2a8c18fbf43da9f692d75474c72bea9dfd796c260b0f3dfe456376abc3bbd668"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/usr/lib/locale",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/usr/lib/locale/C.utf8",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/usr/lib/locale/C.utf8/LC_ADDRESS",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 127,
+        "rawSha256": "sha256:26e2800affab801cb36d4ff9625a95c3abceeda2b6553a7aecd0cfcf34c98099"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/usr/lib/locale/C.utf8/LC_COLLATE",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 1406,
+        "rawSha256": "sha256:47a5f5359a8f324abc39d69a7f6241a2ac0e2fbbeae5b9c3a756e682b75d087b"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/usr/lib/locale/C.utf8/LC_CTYPE",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 360460,
+        "rawSha256": "sha256:59015993b1b671273461ef1167d7a9ad76dc090d521c91102e962217ed6b6dba"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/usr/lib/locale/C.utf8/LC_IDENTIFICATION",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 258,
+        "rawSha256": "sha256:38a1d8e5271c86f48910d9c684f64271955335736e71cec35eeac942f90eb091"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/usr/lib/locale/C.utf8/LC_MEASUREMENT",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 23,
+        "rawSha256": "sha256:bb14a6f2cbd5092a755e8f272079822d3e842620dd4542a8dfa1e5e72fc6115b"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/usr/lib/locale/C.utf8/LC_MESSAGES",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/usr/lib/locale/C.utf8/LC_MESSAGES/SYS_LC_MESSAGES",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 48,
+        "rawSha256": "sha256:f9ad02f1d8eba721d4cbd50c365b5c681c39aec008f90bfc2be2dc80bfbaddcb"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/usr/lib/locale/C.utf8/LC_MONETARY",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 270,
+        "rawSha256": "sha256:bfd9e9975443b834582493fe9a8d7aefcd989376789c17470a1e548aee76fd55"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/usr/lib/locale/C.utf8/LC_NAME",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 62,
+        "rawSha256": "sha256:14507aad9f806112e464b9ca94c93b2e4d759ddc612b5f87922d7cac7170697d"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/usr/lib/locale/C.utf8/LC_NUMERIC",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 50,
+        "rawSha256": "sha256:f5976e6b3e6b24dfe03caad6a5b98d894d8110d8bd15507e690fd60fd3e04ab2"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/usr/lib/locale/C.utf8/LC_PAPER",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 34,
+        "rawSha256": "sha256:cde048b81e2a026517cc707c906aebbd50f5ee3957b6f0c1c04699dffcb7c015"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/usr/lib/locale/C.utf8/LC_TELEPHONE",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 47,
+        "rawSha256": "sha256:f4caf0d12844219b65ba42edc7ec2f5ac1b2fc36a3c88c28887457275daca1ee"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/usr/lib/locale/C.utf8/LC_TIME",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 3360,
+        "rawSha256": "sha256:0910b595d1d5d4e52cc0f415bbb1ff07c015d6860d34aae02505dd9973a63154"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/usr/share",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "artifacts/profiles/privileged-supervisor-ingest-v1/rootfs/usr/share/git-core",
+        "type": "directory",
+        "mode": "0555"
+      },
+      {
+        "path": "build_preimage.py",
+        "type": "file",
+        "mode": "0644",
+        "bytes": 27387,
+        "rawSha256": "sha256:cad405bc8da6ba0944c93cb80236a97abc4ed87f3a84c4da8c843e6804bc5f3b"
+      },
+      {
+        "path": "freeze-attestation.json",
+        "type": "file",
+        "mode": "0444",
+        "bytes": 2860,
+        "rawSha256": "sha256:fdc2160704ea4a1e07fa9c9cccd129867c7b419479c5e0f149fb40e38b632ffd"
+      },
+      {
+        "path": "root_acceptance_orchestrator.py",
+        "type": "file",
+        "mode": "0644",
+        "bytes": 26389,
+        "rawSha256": "sha256:bf029fa3c9c00b08abd8efb31ecbecce4027a90a15f9390db5fd0b55aea6f394"
+      }
+    ]
+  },
+  "predecessorStage": {
+    "disposition": "HISTORICAL_EVIDENCE_ONLY / PRESERVE / NO_DELETE / NO_OVERWRITE / NO_REUSE",
+    "path": "/var/lib/chaotang-product-verifier/root-stage-oob-recovery-v1",
+    "identityObservedReadOnly": {
+      "dev": 2096,
+      "ino": 5935054,
+      "mode": "0700",
+      "owner": "root:root",
+      "type": "directory"
+    },
+    "oldContract": "PACKET_AND_RECEIPT_ONLY",
+    "oldStageName": "root-stage-oob-recovery-v1"
+  },
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev",
+    "baseCommit": "a26b76723f516e5b2b679cea1e6486febccee466",
+    "baseTree": "6c1924520ffa59c93136676bbbdc2486b4f086f6",
+    "observedRemoteHead": "a26b76723f516e5b2b679cea1e6486febccee466"
+  },
+  "request": {
+    "approvalCommitPaths": [
+      "docs/product/tasks/2026-09-17-product-authority-m0-root-storage-oob-recovery-corrective-successor.md",
+      "docs/product/tasks/2026-09-17-product-authority-m0-root-storage-oob-recovery-corrective-successor.packet.json",
+      "docs/superpowers/plans/2026-09-17-product-authority-m0-root-storage-oob-recovery-corrective-successor.md"
+    ],
+    "futureRepositoryCandidatePaths": [],
+    "allowedDraftMutationPaths": [
+      "docs/product/tasks/2026-09-17-product-authority-m0-root-storage-oob-recovery-corrective-successor.md",
+      "docs/product/tasks/2026-09-17-product-authority-m0-root-storage-oob-recovery-corrective-successor.packet.json",
+      "docs/superpowers/plans/2026-09-17-product-authority-m0-root-storage-oob-recovery-corrective-successor.md"
+    ],
+    "nonAuthorizing": true
+  },
+  "rootStageContract": {
+    "futureAction": "CREATE_ROOT_OWNED_FULL_PREIMAGE_STAGE_ONLY",
+    "name": "root-stage-installed-preimage-v3-a548edd3",
+    "path": "/var/lib/chaotang-product-verifier/root-stage-installed-preimage-v3-a548edd3",
+    "mode": "0700",
+    "owner": {
+      "uid": 0,
+      "gid": 0
+    },
+    "rootParent": {
+      "path": "/var/lib/chaotang-product-verifier",
+      "type": "directory",
+      "fstype": "ext4",
+      "dev": 2096,
+      "ino": 4787912,
+      "mode": "0555",
+      "uid": 0,
+      "gid": 0
+    },
+    "executionPolicy": {
+      "scope": "all payload objects during stage creation and READY verification",
+      "stagePurpose": "NON_EXECUTING_BYTE_STAGE_ONLY",
+      "executableModeMeaning": "frozen metadata preservation only; never an execution authorization",
+      "prohibitedOperations": [
+        "execve, execveat, fexecve or any equivalent exec syscall on payload",
+        "posix_spawn, system, popen, shell or subprocess invocation of payload",
+        "interpreter import, compile, eval or exec of payload source or bytecode",
+        "dynamic loader, dlopen, plugin or shared-object loading from payload",
+        "Git hook, package lifecycle script or installer execution from payload",
+        "systemctl, service-manager, socket or unit activation using payload",
+        "runtime-profile, broker, verifier, orchestrator, Node, Python, Git or bwrap invocation from payload"
+      ],
+      "readyInvariant": "any payload execution or attempted execution is STOP and forbids ROOT_OWNED_STAGE_READY"
+    },
+    "sourceContract": {
+      "access": "single already-open no-follow directory FD",
+      "lookup": "relative dirfd traversal only; O_NOFOLLOW on every opened component",
+      "requiredChecks": [
+        "exact 392-record closed set",
+        "no missing or extra path",
+        "no absolute path, dot segment, empty segment or traversal",
+        "regular files and directories only",
+        "no symlink, hardlink, special object, xattr, group-writable or world-writable source",
+        "every file bytes/rawSha256 and every record mode match"
+      ]
+    },
+    "creationContract": {
+      "directoryCreation": "mkdirat under verified root-parent FD; EEXIST is STOP; no reuse",
+      "fileCreation": "openat with O_CREAT|O_EXCL|O_NOFOLLOW|O_CLOEXEC under verified stage dirfds",
+      "ownership": "every created object must remain uid=0,gid=0",
+      "ordering": "create private directories, write+fsync files, apply exact modes bottom-up, fsync every modified directory",
+      "closedPayload": "exactly the 392 payload records plus root-stage-receipt.json",
+      "successOutput": "ROOT_OWNED_STAGE_READY sha256:<receipt canonical raw SHA-256>",
+      "receipt": {
+        "path": "root-stage-receipt.json",
+        "mode": "0400",
+        "owner": {
+          "uid": 0,
+          "gid": 0
+        },
+        "maxBytes": 8192,
+        "schemaVersion": "chaotang.root-owned-full-preimage-stage-receipt.v1",
+        "serialization": "strict I-JSON with duplicate-key rejection; raw UTF-8 bytes equal RFC8785 canonical bytes exactly; no trailing LF",
+        "digestAlgorithm": "sha256(raw RFC8785 canonical receipt bytes), recomputed after no-follow re-open and emitted in successOutput",
+        "creation": "openat stage FD with O_CREAT|O_EXCL|O_NOFOLLOW|O_CLOEXEC; write; fsync(receipt FD); fchown root:root; fchmod 0400; fstat; fsync(receipt FD) again to durably commit security-critical metadata; fsync(stage directory FD); no-follow reopen and full receipt validation; any failure STOPs before READY",
+        "fileIdentity": "regular file, nlink=1, uid=0, gid=0, mode=0400, 0<size<=8192 and exact canonical byte count",
+        "closedSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schemaVersion",
+            "state",
+            "governancePacketCanonicalDigest",
+            "stage",
+            "rootParent",
+            "payload",
+            "frozenPreimage"
+          ],
+          "properties": {
+            "schemaVersion": {
+              "type": "string",
+              "const": "chaotang.root-owned-full-preimage-stage-receipt.v1"
+            },
+            "state": {
+              "type": "string",
+              "const": "ROOT_OWNED_STAGE_READY"
+            },
+            "governancePacketCanonicalDigest": {
+              "type": "string",
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "x-runtimeEquals": "Owner-confirmed RFC8785 canonical digest of this exact governance Packet"
+            },
+            "stage": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "name",
+                "path",
+                "dev",
+                "ino",
+                "mode",
+                "uid",
+                "gid"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "const": "root-stage-installed-preimage-v3-a548edd3"
+                },
+                "path": {
+                  "type": "string",
+                  "const": "/var/lib/chaotang-product-verifier/root-stage-installed-preimage-v3-a548edd3"
+                },
+                "dev": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991,
+                  "x-runtimeEquals": "final stage fstat.st_dev"
+                },
+                "ino": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991,
+                  "x-runtimeEquals": "final stage fstat.st_ino"
+                },
+                "mode": {
+                  "type": "string",
+                  "const": "0700"
+                },
+                "uid": {
+                  "type": "integer",
+                  "const": 0
+                },
+                "gid": {
+                  "type": "integer",
+                  "const": 0
+                }
+              }
+            },
+            "rootParent": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "path",
+                "fstype",
+                "dev",
+                "ino",
+                "mode",
+                "uid",
+                "gid"
+              ],
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "const": "/var/lib/chaotang-product-verifier"
+                },
+                "fstype": {
+                  "type": "string",
+                  "const": "ext4"
+                },
+                "dev": {
+                  "type": "integer",
+                  "const": 2096
+                },
+                "ino": {
+                  "type": "integer",
+                  "const": 4787912
+                },
+                "mode": {
+                  "type": "string",
+                  "const": "0555"
+                },
+                "uid": {
+                  "type": "integer",
+                  "const": 0
+                },
+                "gid": {
+                  "type": "integer",
+                  "const": 0
+                }
+              }
+            },
+            "payload": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "digest",
+                "recordCount",
+                "fileCount",
+                "directoryCount",
+                "totalFileBytes"
+              ],
+              "properties": {
+                "digest": {
+                  "type": "string",
+                  "const": "sha256:860b2debf95afaef097670ca3b2da087bc66add75c89f94675553eaa08ac6f96"
+                },
+                "recordCount": {
+                  "type": "integer",
+                  "const": 392
+                },
+                "fileCount": {
+                  "type": "integer",
+                  "const": 253
+                },
+                "directoryCount": {
+                  "type": "integer",
+                  "const": 139
+                },
+                "totalFileBytes": {
+                  "type": "integer",
+                  "const": 335965043
+                }
+              }
+            },
+            "frozenPreimage": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "freezeDigest",
+                "bundleDigest",
+                "installationManifestDigest",
+                "exact2ProvenanceDigest",
+                "oldInstallationBackupInventoryDigest",
+                "profileDigests"
+              ],
+              "properties": {
+                "freezeDigest": {
+                  "type": "string",
+                  "const": "sha256:a548edd3d0b1daf211ef1539e570c0d7d28e3bba2b258a71bf04a34a71fc8fad"
+                },
+                "bundleDigest": {
+                  "type": "string",
+                  "const": "sha256:ee0f581be575ccd352c918f52503590e6fe6e026342c4574e28a11766073e0e5"
+                },
+                "installationManifestDigest": {
+                  "type": "string",
+                  "const": "sha256:9cbc52ecff9440cf41b7f45c73c68064e2c6ceaa76a9bfeddaf807b8ff928e31"
+                },
+                "exact2ProvenanceDigest": {
+                  "type": "string",
+                  "const": "sha256:84e671374c559057ece0a6909908805edd54bbeabdd66f575b7b2969c2bf94a2"
+                },
+                "oldInstallationBackupInventoryDigest": {
+                  "type": "string",
+                  "const": "sha256:74ff3fad4c9b6893299ff77e0db2debfce9d9be19abcf71196cedc60d0c006e2"
+                },
+                "profileDigests": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "node-preauthorization-v1",
+                    "privileged-supervisor-ingest-v1"
+                  ],
+                  "properties": {
+                    "node-preauthorization-v1": {
+                      "type": "string",
+                      "const": "sha256:c073e229ae5c313cc4bb3b0a06ba895807b39702adefb9ef8706fa71917eb193"
+                    },
+                    "privileged-supervisor-ingest-v1": {
+                      "type": "string",
+                      "const": "sha256:17435c3683a868dfc5da4aeb7716ce3bd44253a4ee443a82d0d490a0863a5df0"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "verification": "no-follow re-open from verified stage FD; strict parse; exact closed fields/types/values; canonical raw equality; SHA-256, ownership, mode, nlink, size and fstat identity equality"
+      }
+    },
+    "failurePolicy": {
+      "existingTarget": "STOP_WITHOUT_READING_OR_MUTATING_TARGET",
+      "partialCreation": "remove only objects created by this invocation in reverse frozen order after inode/type verification",
+      "cleanupFailure": "STOP_AND_REPORT_NOT_READY; never emit ready receipt",
+      "successInvariant": "without executing any payload, re-open from root-parent FD and reverify complete closed payload, modes, ownership, digests and exact closed canonical receipt before emitting READY"
+    }
+  },
+  "schemaVersion": "chaotang.root-storage-oob-recovery-governance.v2",
+  "state": "DRAFT / NON_AUTHORIZING / READY_FOR_OWNER_CONFIRMATION",
+  "stopConditions": [
+    "REMOTE_BASE_DRIFT",
+    "ROOT_PARENT_IDENTITY_DRIFT",
+    "PREDECESSOR_STAGE_MUTATION_OR_REUSE_REQUESTED",
+    "PREIMAGE_FREEZE_OR_COMPONENT_DIGEST_DRIFT",
+    "PAYLOAD_RECORD_COUNT_PATH_MODE_BYTES_OR_DIGEST_DRIFT",
+    "UNKNOWN_OR_DUPLICATE_PACKET_FIELD",
+    "SYMLINK_HARDLINK_SPECIAL_XATTR_OR_WRITABLE_PAYLOAD",
+    "ROOT_STAGE_SYSTEM_WRITE_REQUESTED_IN_THIS_PHASE",
+    "REVIEW_P0_P1_P2"
+  ],
+  "taskId": "PRODUCT-AUTHORITY-M0-ROOT-STORAGE-OOB-RECOVERY-CORRECTIVE-SUCCESSOR-20260917",
+  "verification": {
+    "draft": [
+      "STRICT_JSON_AND_DUPLICATE_KEY_REJECTION",
+      "RFC8785_PACKET_CANONICAL_DIGEST",
+      "EXACT_392_RECORD_CLOSED_PAYLOAD",
+      "PAYLOAD_DIGEST_RECOMPUTATION",
+      "FREEZE_COMPONENT_DIGEST_RECOMPUTATION",
+      "PREDECESSOR_PRESERVATION_AND_UNIQUE_STAGE_NAME",
+      "ROOT_STAGE_NOFOLLOW_EXCLUSIVE_ATOMIC_FAILURE_CONTRACT",
+      "ROOT_STAGE_CLOSED_CANONICAL_RECEIPT_CONTRACT",
+      "ROOT_STAGE_PAYLOAD_NON_EXECUTION_CONTRACT",
+      "TASK_PRODUCT_TASK_ERRORS_EMPTY",
+      "EXACT_THREE_GOVERNANCE_PATHS",
+      "FULL_HARNESS",
+      "GIT_DIFF_CHECK"
+    ],
+    "independentReviews": [
+      "Code Review",
+      "Security Review"
+    ]
+  }
+}
