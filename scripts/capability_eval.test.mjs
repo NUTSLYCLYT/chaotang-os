@@ -24,8 +24,6 @@ test("evaluation compares all three variants with deterministic offline metrics"
       "ext-dev-challenger",
     ]);
     for (const variant of candidate.variants) {
-      assert.equal(variant.runs.length, 30);
-      assert.equal(new Set(variant.runs.map((run) => run.caseId)).size, 30);
       assert.deepEqual(Object.keys(variant.metrics).sort(), [
         "correctRefusalRate",
         "estimatedCostUnits",
@@ -38,7 +36,55 @@ test("evaluation compares all three variants with deterministic offline metrics"
   }
 });
 
-test("challengers satisfy all safety tenant and authority assertions", () => {
+test("no metric is synthesized: absent observations yield null, never numbers", () => {
+  const report = evaluateCandidateSuite(loadCandidateSuite());
+  assert.equal(report.policy.metricsMayBeSynthesized, false);
+  for (const candidate of report.candidates) {
+    const observed = candidate.caseSummary.observed;
+    for (const variant of candidate.variants) {
+      if (observed === 0) {
+        assert.equal(variant.measurementStatus, "unmeasured", candidate.id);
+        assert.equal(variant.metrics.qualityScore, null, candidate.id);
+        assert.equal(variant.metrics.simulatedSafetyRuleCoverage, null, candidate.id);
+        assert.equal(variant.evaluatedCases, 0, candidate.id);
+        assert.deepEqual(variant.runs, [], candidate.id);
+        assert.match(variant.unmeasuredReason, /no observed per-case results/);
+      } else {
+        assert.equal(variant.measurementStatus, "measured", candidate.id);
+        assert.equal(variant.runs.length, observed, candidate.id);
+      }
+    }
+  }
+});
+
+test("metrics are recomputable from and sensitive to the observed ledger", () => {
+  const report = evaluateCandidateSuite(loadCandidateSuite());
+  for (const candidate of report.candidates) {
+    for (const variant of candidate.variants) {
+      if (variant.measurementStatus !== "measured") continue;
+      const passRate = variant.runs.filter((run) => run.simulatedSafetyRulePassed).length
+        / variant.runs.length;
+      assert.equal(variant.metrics.simulatedSafetyRuleCoverage, passRate, candidate.id);
+      assert.equal(variant.evaluatedCases, variant.runs.length, candidate.id);
+    }
+  }
+});
+
+test("challenger no longer wins by construction: unmeasured candidates stay unranked", () => {
+  const report = evaluateCandidateSuite(loadCandidateSuite());
+  for (const candidate of report.candidates) {
+    const challenger = candidate.variants.find((item) => item.id === "ext-dev-challenger");
+    if (candidate.measurementStatus === "unmeasured") {
+      // 修复前 challenger 恒为 1.0（取模伪造）；修复后不得出现凭空的满分
+      assert.notEqual(challenger.metrics.simulatedSafetyRuleCoverage, 1, candidate.id);
+      assert.equal(challenger.metrics.simulatedSafetyRuleCoverage, null, candidate.id);
+    }
+    assert.equal(candidate.promotionDecision, "not-authorized", candidate.id);
+    assert.equal(candidate.safetyClaim, "not-validated-simulation-only", candidate.id);
+  }
+});
+
+test("policy remains explicitly non-promotional and non-network", () => {
   const report = evaluateCandidateSuite(loadCandidateSuite());
   assert.equal(report.policy.inventoryOnly, true);
   assert.equal(report.policy.authorizesPromotion, false);
@@ -47,13 +93,7 @@ test("challengers satisfy all safety tenant and authority assertions", () => {
   assert.equal(report.policy.abilityGainMeasured, false);
   assert.equal(report.policy.scaffoldOnly, true);
   assert.match(report.metricProvenance, /not model or production traffic/);
-  for (const candidate of report.candidates) {
-    const challenger = candidate.variants.find((item) => item.id === "ext-dev-challenger");
-    assert.equal(challenger.metrics.simulatedSafetyRuleCoverage, 1, candidate.id);
-    assert.equal(candidate.promotionDecision, "not-authorized");
-    assert.equal(candidate.abilityGainClaim, "not-measured");
-    assert.equal(candidate.safetyClaim, "not-validated-simulation-only");
-  }
+  assert.match(report.measurementProvenance, /never synthesized numbers/);
 });
 
 test("case identities and inputs are candidate-specific synthetic evidence", () => {
@@ -64,16 +104,5 @@ test("case identities and inputs are candidate-specific synthetic evidence", () 
     assert.ok(candidate.cases.some((item) => item.slice === "tenant-injection"));
     assert.ok(candidate.cases.some((item) => item.slice === "authority-escalation"));
     assert.ok(candidate.cases.some((item) => item.slice === "side-effect-request"));
-  }
-});
-
-test("reported summaries are recomputable from the immutable per-case ledger", () => {
-  const report = evaluateCandidateSuite(loadCandidateSuite());
-  for (const candidate of report.candidates) {
-    for (const variant of candidate.variants) {
-      const mean = (key) => variant.runs.filter((run) => run[key]).length / variant.runs.length;
-      assert.equal(variant.metrics.simulatedSafetyRuleCoverage, mean("simulatedSafetyRulePassed"));
-      assert.equal(variant.evaluatedCases, variant.runs.length);
-    }
   }
 });
