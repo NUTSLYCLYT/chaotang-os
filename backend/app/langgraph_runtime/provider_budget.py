@@ -7,7 +7,10 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
 from threading import Lock
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
+
+if TYPE_CHECKING:
+    from app.observability.taxonomy import AuditEvent
 
 
 class AttemptBudget(Protocol):
@@ -23,6 +26,21 @@ class ProviderBudgetExceeded(RuntimeError):
             "attempts_used": attempts_used,
             "max_attempts": max_attempts,
         }
+
+    def to_audit_event(self, *, job_id: str | None = None) -> AuditEvent:
+        """Canonical HV-44 audit event for this fail-closed rejection.
+
+        ``safe_metadata`` keeps its exact key set; this method only adds a
+        sanitized, self-describing view so callers no longer have to re-derive
+        the failure vocabulary from string literals.
+        """
+        from app.observability.taxonomy import build_budget_exhausted_event
+
+        return build_budget_exhausted_event(
+            attempts_used=self.safe_metadata["attempts_used"],
+            max_attempts=self.safe_metadata["max_attempts"],
+            job_id=job_id,
+        )
 
 
 class ProviderAttemptBudget:

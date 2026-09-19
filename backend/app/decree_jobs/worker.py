@@ -6,6 +6,8 @@ from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from typing import Protocol
 
+from app.observability.taxonomy import classify_job_failure_category
+
 from .models import DecreeJob, DecreeJobState
 from .storage import (
     ClaimEvidenceCommitmentUnavailable,
@@ -51,17 +53,15 @@ class PermanentJobError(RuntimeError):
 
 
 def _failure_category(code: str) -> str:
-    if code == "provider_budget_exceeded":
-        return "budget"
-    if code == "deadline_exceeded":
-        return "deadline"
-    if code.startswith("provider_"):
-        return "provider"
-    if code == "retry_exhausted":
-        return "retry"
-    if code == "model_output_invalid":
-        return "retry"
-    return "internal"
+    """Derive the coarse failure bucket from a decree-job failure code.
+
+    The mapping itself lives in :mod:`app.observability.taxonomy` so that this
+    worker and the SQL ``error_category`` CASE in
+    :mod:`app.decree_jobs.storage` cannot drift apart.  The classifier is total:
+    an unrecognised code is bucketed as ``internal`` rather than raising, which
+    preserves the previous behaviour exactly.
+    """
+    return classify_job_failure_category(code).value
 
 
 class DecreeJobExecutor(Protocol):
