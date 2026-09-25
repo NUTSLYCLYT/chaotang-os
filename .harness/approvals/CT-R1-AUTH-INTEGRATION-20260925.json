@@ -1,0 +1,82 @@
+{
+  "schemaVersion": "product-authority.m0.approval.v1",
+  "authorityId": "product-authority.m0.v1",
+  "taskId": "CT-R1-AUTH-INTEGRATION-20260925",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "dd96e571944a5128ac8eb79c3c1e611294faa1ba",
+    "baseTree": "3eb25ccb4c81b21bc0c92b976833730d7803990f",
+    "approvalPath": ".harness/approvals/CT-R1-AUTH-INTEGRATION-20260925.json",
+    "approvalCommitPaths": [
+      ".harness/approvals/CT-R1-AUTH-INTEGRATION-20260925.json",
+      "docs/product/tasks/2026-09-25-r1-auth-integration.md"
+    ],
+    "productPaths": [
+      "backend/app/api/auth.py",
+      "backend/tests/test_auth_api.py"
+    ]
+  },
+  "nonGoals": [
+    "NO_AUTHORITY_OR_ADR_CHANGE",
+    "NO_DATABASE_SCHEMA_CHANGE",
+    "NO_DEPLOYMENT",
+    "NO_PERMISSION_MODEL_CHANGE",
+    "NO_PRODUCT_CANDIDATE_PUSH",
+    "NO_REAL_MODEL_CALL",
+    "NO_RUNTIME_DATA_ACCESS",
+    "NO_TEST_WEAKENING",
+    "NO_UI_CHANGE"
+  ],
+  "verification": [
+    {
+      "id": "auth-regression",
+      "tool": "python3",
+      "cwd": "backend",
+      "timeoutMs": 300000,
+      "args": [
+        "-I",
+        "-c",
+        "import os,subprocess; subprocess.run(['.venv/bin/python',\"-m\",\"pytest\",\"-q\",\"-p\",\"no:cacheprovider\",\"tests/test_auth_api.py\",\"tests/test_auth_storage.py\",\"tests/test_auth_passwords.py\"],check=True,env={**os.environ,'PYTHONDONTWRITEBYTECODE':'1','PYTEST_DISABLE_PLUGIN_AUTOLOAD':'1','CHAOTANG_DECREE_JOB_WORKER_ENABLED':'false'})"
+      ]
+    },
+    {
+      "id": "changed-python-lint",
+      "tool": "python3",
+      "cwd": "backend",
+      "timeoutMs": 300000,
+      "args": [
+        "-I",
+        "-c",
+        "import os,subprocess; subprocess.run(['.venv/bin/python',\"-m\",\"ruff\",\"check\",\"app/api/auth.py\",\"tests/test_auth_api.py\"],check=True,env={**os.environ,'PYTHONDONTWRITEBYTECODE':'1','PYTEST_DISABLE_PLUGIN_AUTOLOAD':'1','CHAOTANG_DECREE_JOB_WORKER_ENABLED':'false'})"
+      ]
+    },
+    {
+      "id": "diff-check",
+      "tool": "node",
+      "cwd": ".",
+      "timeoutMs": 10000,
+      "args": [
+        "--input-type=module",
+        "-e",
+        "import{execFileSync}from'node:child_process';execFileSync('/usr/bin/git',['diff','--check','HEAD^','HEAD'],{stdio:'inherit'});"
+      ]
+    },
+    {
+      "id": "frontend-auth-contracts",
+      "tool": "node",
+      "cwd": "frontend",
+      "timeoutMs": 300000,
+      "args": [
+        "--test",
+        "src/app/api/auth/authRoutes.test.ts",
+        "src/lib/session.test.ts",
+        "src/features/pre-auth/formValidation.test.ts",
+        "src/features/pre-auth/submissionGate.test.ts"
+      ]
+    }
+  ],
+  "state": "APPROVED_FOR_ONE_CHILD"
+}
