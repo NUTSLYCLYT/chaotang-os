@@ -7,8 +7,8 @@
     "targetBranch": "ext-dev"
   },
   "request": {
-    "baseCommit": "dd96e571944a5128ac8eb79c3c1e611294faa1ba",
-    "baseTree": "3eb25ccb4c81b21bc0c92b976833730d7803990f",
+    "baseCommit": "36c67bafe1d632a7ebeb146ba9e9fd01a63bd70e",
+    "baseTree": "aba24469cb89c24a6612ff5d7a3e367d7fb106ee",
     "approvalPath": ".harness/approvals/CT-R1-AUTH-INTEGRATION-20260925.json",
     "approvalCommitPaths": [
       ".harness/approvals/CT-R1-AUTH-INTEGRATION-20260925.json",
