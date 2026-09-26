@@ -86,6 +86,14 @@ _CONTENT_FINGERPRINT_PAIRS = (
         "sha256:9e8729a88bc797c01d59818fb67d852025a9c679fdd7eb6e8fe63f26cbc8d365",
         "sha256:6b9521165b821729a3548f3535b90c30aab9b874c81b1b1b437bb5af64d06e34",
     ),
+    (
+        "sha256:33baa33eebcbefbb09f85fb09b4f49baf145b667eabdfe2be3c245f43f39f2f7",
+        "sha256:d4e78e42b89022088bb6687a7ab5cc57bcd908a3017b2b4a2e2611497d04def2",
+    ),
+    (
+        "sha256:7a1220fa7c583de7248eca3ef6deac9b50635f73bf08d569190a3505b62db628",
+        "sha256:d4e78e42b89022088bb6687a7ab5cc57bcd908a3017b2b4a2e2611497d04def2",
+    ),
 )
 _HISTORICAL_REVIEW_STATUS = "approved-with-notes"
 _HISTORICAL_FILE_COUNT = 69
@@ -256,7 +264,7 @@ def test_content_pair_rejects_mixed_or_third_state() -> None:
     runtime_fingerprints = {*(pair[0] for pair in valid_pairs), unknown}
     successor_fingerprints = {*(pair[1] for pair in valid_pairs), unknown}
 
-    assert len(valid_pairs) == len(_CONTENT_FINGERPRINT_PAIRS) == 14
+    assert len(valid_pairs) == len(_CONTENT_FINGERPRINT_PAIRS) == 16
     for runtime_fingerprint in runtime_fingerprints:
         for successor_fingerprint in successor_fingerprints:
             candidate = (runtime_fingerprint, successor_fingerprint)
@@ -500,8 +508,8 @@ def test_content_pair_policy_appends_only_the_approved_fourteenth_pair() -> None
     )
     expected_pairs = (*predecessor_pairs, approved_pair)
 
-    assert _CONTENT_FINGERPRINT_PAIRS == expected_pairs
-    assert len(set(_CONTENT_FINGERPRINT_PAIRS)) == len(expected_pairs) == 14
+    assert _CONTENT_FINGERPRINT_PAIRS[:14] == expected_pairs
+    assert len(set(_CONTENT_FINGERPRINT_PAIRS[:14])) == len(expected_pairs) == 14
 
     unknown_runtime = "sha256:" + "8" * 64
     unknown_successor = "sha256:" + "7" * 64
@@ -520,6 +528,22 @@ def test_content_pair_policy_appends_only_the_approved_fourteenth_pair() -> None
         (approved_pair[0], tampered_successor),
     )
     assert all(pair not in _CONTENT_FINGERPRINT_PAIRS for pair in rejected_pairs)
+
+
+def test_content_pair_policy_appends_only_reviewed_head_and_r1_pairs() -> None:
+    predecessor_pairs = _CONTENT_FINGERPRINT_PAIRS[:14]
+    head_pair = (
+        "sha256:33baa33eebcbefbb09f85fb09b4f49baf145b667eabdfe2be3c245f43f39f2f7",
+        "sha256:d4e78e42b89022088bb6687a7ab5cc57bcd908a3017b2b4a2e2611497d04def2",
+    )
+    r1_pair = (
+        "sha256:7a1220fa7c583de7248eca3ef6deac9b50635f73bf08d569190a3505b62db628",
+        "sha256:d4e78e42b89022088bb6687a7ab5cc57bcd908a3017b2b4a2e2611497d04def2",
+    )
+
+    assert _CONTENT_FINGERPRINT_PAIRS == (*predecessor_pairs, head_pair, r1_pair)
+    assert len(set(_CONTENT_FINGERPRINT_PAIRS)) == 16
+    assert head_pair != r1_pair
 
 
 def test_content_policy_keeps_exactly_four_exclusions() -> None:
