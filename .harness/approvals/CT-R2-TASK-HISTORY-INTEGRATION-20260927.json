@@ -1,0 +1,83 @@
+{
+  "schemaVersion": "product-authority.m0.approval.v1",
+  "authorityId": "product-authority.m0.v1",
+  "taskId": "CT-R2-TASK-HISTORY-INTEGRATION-20260927",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "f41088319aaae65210c60fba6c67e2bcea5e90f9",
+    "baseTree": "35b38aa08e3e09d93860f6bd4cfec5a93a14a9eb",
+    "approvalPath": ".harness/approvals/CT-R2-TASK-HISTORY-INTEGRATION-20260927.json",
+    "approvalCommitPaths": [
+      ".harness/approvals/CT-R2-TASK-HISTORY-INTEGRATION-20260927.json",
+      "docs/product/tasks/2026-09-27-r2-task-history-integration.md"
+    ],
+    "productPaths": [
+      "backend/app/api/decree_jobs.py",
+      "backend/app/decree_jobs/storage.py",
+      "backend/tests/test_decree_history_http_integration.py",
+      "backend/tests/test_decree_job_storage.py",
+      "backend/tests/test_decree_jobs_api.py"
+    ]
+  },
+  "nonGoals": [
+    "NO_AUTHORITY_OR_ADR_CHANGE",
+    "NO_DEPLOYMENT",
+    "NO_NEW_TASK_OR_PERMISSION_SYSTEM",
+    "NO_PRODUCT_CANDIDATE_PUSH",
+    "NO_REAL_MODEL_CALL",
+    "NO_RUNTIME_DATA_ACCESS",
+    "NO_TEST_WEAKENING",
+    "NO_UI_CHANGE",
+    "NO_WORKSPACE_OR_RETRY_IMPLEMENTATION"
+  ],
+  "verification": [
+    {
+      "id": "changed-python-lint",
+      "tool": "python3",
+      "cwd": "backend",
+      "timeoutMs": 300000,
+      "args": [
+        "-I",
+        "-c",
+        "import os,subprocess; subprocess.run([\".venv/bin/python\",\"-m\",\"ruff\",\"check\",\"app/api/decree_jobs.py\",\"app/decree_jobs/storage.py\",\"tests/test_decree_history_http_integration.py\",\"tests/test_decree_job_storage.py\",\"tests/test_decree_jobs_api.py\"],check=True,env={**os.environ,**{\"PYTHONDONTWRITEBYTECODE\":\"1\",\"PYTEST_DISABLE_PLUGIN_AUTOLOAD\":\"1\",\"CHAOTANG_DECREE_JOB_WORKER_ENABLED\":\"false\",\"JINYIWEI_EXTERNAL_NETWORK_ENABLED\":\"false\"}})"
+      ]
+    },
+    {
+      "id": "decree-regression",
+      "tool": "python3",
+      "cwd": "backend",
+      "timeoutMs": 300000,
+      "args": [
+        "-I",
+        "-c",
+        "import os,subprocess; subprocess.run([\".venv/bin/python\",\"-m\",\"pytest\",\"-q\",\"-p\",\"no:cacheprovider\",\"tests/test_decree_job_storage.py\",\"tests/test_decree_jobs_api.py\",\"tests/test_decree_job_worker.py\",\"tests/test_decree_job_executor.py\",\"tests/test_decree_provider_budget.py\",\"tests/test_decree_async_integration.py\",\"tests/test_claim_evidence_gate.py\",\"tests/test_auth_api.py\",\"tests/test_auth_storage.py\"],check=True,env={**os.environ,**{\"PYTHONDONTWRITEBYTECODE\":\"1\",\"PYTEST_DISABLE_PLUGIN_AUTOLOAD\":\"1\",\"CHAOTANG_DECREE_JOB_WORKER_ENABLED\":\"false\",\"JINYIWEI_EXTERNAL_NETWORK_ENABLED\":\"false\"}})"
+      ]
+    },
+    {
+      "id": "diff-check",
+      "tool": "node",
+      "cwd": ".",
+      "timeoutMs": 10000,
+      "args": [
+        "--input-type=module",
+        "-e",
+        "import{execFileSync}from'node:child_process';execFileSync('/usr/bin/git',['diff','--check','HEAD^','HEAD'],{stdio:'inherit'});"
+      ]
+    },
+    {
+      "id": "real-http-history",
+      "tool": "python3",
+      "cwd": "backend",
+      "timeoutMs": 300000,
+      "args": [
+        "-I",
+        "-c",
+        "import os,subprocess; subprocess.run([\".venv/bin/python\",\"-m\",\"pytest\",\"-q\",\"-p\",\"no:cacheprovider\",\"tests/test_decree_history_http_integration.py\"],check=True,env={**os.environ,**{\"PYTHONDONTWRITEBYTECODE\":\"1\",\"PYTEST_DISABLE_PLUGIN_AUTOLOAD\":\"1\",\"CHAOTANG_DECREE_JOB_WORKER_ENABLED\":\"false\",\"JINYIWEI_EXTERNAL_NETWORK_ENABLED\":\"false\"}})"
+      ]
+    }
+  ],
+  "state": "APPROVED_FOR_ONE_CHILD"
+}
