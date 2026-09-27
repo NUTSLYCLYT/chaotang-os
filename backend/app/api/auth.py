@@ -6,9 +6,9 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, FastAPI, Header
 from fastapi.responses import JSONResponse, Response
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from app.auth.errors import DuplicateIdentityError, UserValidationError
+from app.auth.errors import AuthenticationStorageError, DuplicateIdentityError, UserValidationError
 from app.auth.models import AuthenticatedPrincipal, AuthenticatedUser
 from app.auth.storage import (
     authenticate_and_create_session,
@@ -27,9 +27,9 @@ class RegisterRequest(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    username: str
-    email: str
-    password: str
+    username: str = Field(min_length=1, max_length=254)
+    email: str = Field(min_length=1, max_length=254)
+    password: str = Field(min_length=6, max_length=1024)
 
     @field_validator("username", "email")
     @classmethod
@@ -44,8 +44,8 @@ class LoginRequest(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    identifier: str
-    password: str
+    identifier: str = Field(min_length=1, max_length=254)
+    password: str = Field(max_length=1024)
 
     @field_validator("identifier")
     @classmethod
@@ -143,6 +143,18 @@ def me(current_user: CurrentUser) -> PublicUserResponse:
 
 def register_auth_exception_handlers(app: FastAPI) -> None:
     """Install sanitized authentication error mappings on the application."""
+
+    @app.exception_handler(AuthenticationStorageError)
+    async def _handle_storage_unavailable(
+        _request, _exc: AuthenticationStorageError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "code": "AUTH_STORAGE_UNAVAILABLE",
+                "message": "account service temporarily unavailable",
+            },
+        )
 
     @app.exception_handler(InvalidCredentialsError)
     async def _handle_invalid_credentials(_request, _exc: InvalidCredentialsError) -> JSONResponse:

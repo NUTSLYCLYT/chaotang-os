@@ -100,6 +100,43 @@ def test_rejects_unrecognized_fields_and_malformed_bearer_credentials(client):
 
 
 @pytest.mark.parametrize(
+    "payload,route",
+    (
+        (
+            {"username": "u" * 255, "email": "u@example.com", "password": TEST_LOGIN_VALUE},
+            "register",
+        ),
+        (
+            {"username": "u", "email": f"{'e' * 243}@example.com", "password": TEST_LOGIN_VALUE},
+            "register",
+        ),
+        ({"username": "u", "email": "u@example.com", "password": "p" * 1025}, "register"),
+        ({"identifier": "u" * 255, "password": "password"}, "login"),
+        ({"identifier": "u", "password": "p" * 1025}, "login"),
+    ),
+)
+def test_authentication_inputs_have_explicit_size_limits(client, payload, route):
+    response = client.post(f"/api/v1/auth/{route}", json=payload)
+
+    assert response.status_code == 422
+
+
+def test_authentication_accepts_values_at_the_documented_size_limits(client):
+    username = "u" * 254
+    email = f"{'e' * 242}@example.com"
+    password = "p" * 1024
+
+    registration = client.post(
+        "/api/v1/auth/register",
+        json={"username": username, "email": email, "password": password},
+    )
+    assert registration.status_code == 201
+
+    login = client.post("/api/v1/auth/login", json={"identifier": username, "password": password})
+    assert login.status_code == 200
+
+
+@pytest.mark.parametrize(
     "field,value",
     (
         ("tenant_id", "client-tenant"),
@@ -196,3 +233,77 @@ def test_public_health_and_protected_route_source_contract():
     ):
         handler_block = shiguan_source.split(f"def {handler}", 1)[1].split("\n\ndef ", 1)[0]
         assert "current_user: CurrentUser" in handler_block
+
+
+@pytest.mark.parametrize(
+    "route,payload,storage_function",
+    (
+        (
+            "register",
+            {"username": "u" * 255, "email": "u@example.com", "password": TEST_LOGIN_VALUE},
+            "register_user",
+        ),
+        (
+            "login",
+            {"identifier": "u" * 255, "password": TEST_LOGIN_VALUE},
+            "authenticate_and_create_session",
+        ),
+    ),
+)
+def test_oversized_authentication_input_never_reaches_storage(
+    client, monkeypatch, route, payload, storage_function
+):
+    from app.api import auth as auth_api
+
+    def storage_must_not_run(*_args, **_kwargs):
+        pytest.fail("invalid input reached authentication storage")
+
+    monkeypatch.setattr(auth_api, storage_function, storage_must_not_run)
+    assert client.post(f"/api/v1/auth/{route}", json=payload).status_code == 422
+
+
+@pytest.mark.parametrize("operation", ("register", "login", "me", "logout"))
+def test_authentication_storage_failure_has_fixed_public_response(client, monkeypatch, operation):
+    from app.api import auth as auth_api
+    from app.auth.errors import AuthenticationStorageError
+
+    session_id = None
+    if operation in ("me", "logout"):
+        registration = client.post(
+            "/api/v1/auth/register",
+            json={"username": "court", "email": "court@example.com", "password": TEST_LOGIN_VALUE},
+        )
+        assert registration.status_code == 201
+        session_id = registration.json()["session_id"]
+
+    def storage_failure(*_args, **_kwargs):
+        raise AuthenticationStorageError("private /data/auth.sqlite3 account-secret")
+
+    storage_function = {
+        "register": "register_user",
+        "login": "authenticate_and_create_session",
+        "me": "get_session_user",
+        "logout": "revoke_session",
+    }[operation]
+    monkeypatch.setattr(auth_api, storage_function, storage_failure)
+    if operation == "register":
+        response = client.post(
+            "/api/v1/auth/register",
+            json={"username": "court", "email": "court@example.com", "password": TEST_LOGIN_VALUE},
+        )
+    elif operation == "login":
+        response = client.post(
+            "/api/v1/auth/login", json={"identifier": "court", "password": TEST_LOGIN_VALUE}
+        )
+    else:
+        headers = {"Authorization": f"Bearer {session_id}"}
+        response = (
+            client.get("/api/v1/auth/me", headers=headers)
+            if operation == "me"
+            else client.post("/api/v1/auth/logout", headers=headers)
+        )
+    assert response.status_code == 503
+    assert response.json() == {
+        "code": "AUTH_STORAGE_UNAVAILABLE",
+        "message": "account service temporarily unavailable",
+    }
