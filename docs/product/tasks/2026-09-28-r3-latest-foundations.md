@@ -4,7 +4,7 @@
 
 Ready
 
-任务定义及隔离验证已就绪，仍待 Owner 确认批准清单摘要。本文及同目录提案不是已落地批准，不产生产品 GO。现有主线、本机完整候选、用户数据和界面不因本材料被修改。
+Owner 已确认精确摘要 sha256:a7f5cd9e0acf764c33581780377a4dcd284bf22a758d505de56bd36e90b7d213。三份批准记录已独立提交并推送，十文件产品候选已经实施并通过 M0 验证；候选尚未推送，不表示整个产品已验收或已部署。原始批准和候选提交保持不变，本次仅更新任务说明。
 
 ## Product Definition
 
@@ -38,6 +38,9 @@ Ready
 全量整合范围继续保留。不得以文件数量限制为由删除旧功能、保护或测试；本批只是分阶段合入，不是缩小 Goal。
 
 ## Affected Modules
+
+- 模块：backend/app/fusion 预算账本与 SQLite 连接生命周期；backend/app/cash_safety 户部确定性计算与成果适配。
+- 允许路径：本任务 Base and Scope 中列出的十个新增文件；本次说明修正仅涉及 docs/product/tasks/2026-09-28-r3-latest-foundations.md，不扩大产品批准范围。
 
 预算基础：使用既有 Fusion provider-budget 数据库设计，保存尝试计数、owner/task 累计额度和预留。新增默认 50,000 与已知 20,000 表结构原子迁移，保留旧任务额度；不建另一份用户任务或权限系统。
 
@@ -86,7 +89,7 @@ Ready
 
 ## Implementation Report
 
-已准备隔离候选，没有在产品仓库实施。基点源自真实 Git 对象，初次复制误排除了 credentials.py 源码模块，导致收集失败；已补回该原始代码，未读取私人凭据，失败日志保留。
+隔离准备完成后，已经在真实 Git 验证仓实施十文件候选。基点源自真实 Git 对象，初次复制误排除了 credentials.py 源码模块，导致收集失败；已补回该原始代码，未读取私人凭据，失败日志保留。
 
 原基础模块测试 22 项通过。追加连接回归后，旧实现 5 项失败；修复后与基础测试共同通过。Windows 的临时目录清理失败是实际复现，不能用 GC 或忽略清理错误来充作修复。
 
@@ -96,4 +99,8 @@ Ready
 
 ## Acceptance Review
 
-Pending。材料供 Owner 审查；没有获得本批精确摘要批准，没有批准提交或产品候选提交。批准记录字段的 APPROVED_FOR_ONE_CHILD 是待提交清单的合同值，不代表本地草稿已经具有权限。
+基础批准提交：a8fe1bd49cd2ac3aaa962ae35e670723ee529bd9，已推送至 Gitee ext-dev。
+
+产品候选：3a9e09a0e697f5821b554ec3d009aed42c2696a1；tree 772d1ebf173cc67e7234ac47a6aa80f44ff4bece，为批准提交的精确单亲子。M0 authorize 返回 GO，verify-candidate 返回 PASS；28 项定向测试与 Ruff 通过。证据见交付工作区 outputs/Chaotang-Release-Consolidation-20260928/foundation-batch/authorized-execution/。
+
+本地候选尚未推送；Owner 最终候选验收、真实模型、多 Agent 完整流程和 G3 验收不能由上述基础验证代替。本说明更新不改变原 approval JSON、候选身份或已冻结的证明矩阵。
