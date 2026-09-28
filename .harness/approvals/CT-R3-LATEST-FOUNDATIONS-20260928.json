@@ -1,0 +1,79 @@
+{
+  "schemaVersion": "product-authority.m0.approval.v1",
+  "authorityId": "product-authority.m0.v1",
+  "taskId": "CT-R3-LATEST-FOUNDATIONS-20260928",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "dfae1e7c57354c3942d4ad8668f8383fd6a3d30c",
+    "baseTree": "fe9f6321e13a08ef70c83848232a59c01dc3d128",
+    "approvalPath": ".harness/approvals/CT-R3-LATEST-FOUNDATIONS-20260928.json",
+    "approvalCommitPaths": [
+      ".harness/approvals/CT-R3-LATEST-FOUNDATIONS-20260928.json",
+      "docs/product/tasks/2026-09-27-r2-task-history-integration.md",
+      "docs/product/tasks/2026-09-28-r3-latest-foundations.md"
+    ],
+    "productPaths": [
+      "backend/app/cash_safety/__init__.py",
+      "backend/app/cash_safety/calculation.py",
+      "backend/app/cash_safety/contracts.py",
+      "backend/app/cash_safety/work_product.py",
+      "backend/app/fusion/__init__.py",
+      "backend/app/fusion/budget.py",
+      "backend/app/fusion/task_token_budget.py",
+      "backend/tests/test_cash_safety_kernel.py",
+      "backend/tests/test_fusion_task_token_budget.py",
+      "backend/tests/test_persistent_budget_connections.py"
+    ]
+  },
+  "nonGoals": [
+    "NO_AUTHORITY_OR_ADR_CHANGE",
+    "NO_DEPLOYMENT",
+    "NO_MODEL_ACTIVATION",
+    "NO_NETWORK_REQUESTS",
+    "NO_PRODUCT_CANDIDATE_PUSH",
+    "NO_RUNTIME_DATA_ACCESS",
+    "NO_SLIM_PRODUCT_REPLACEMENT",
+    "NO_TASK_ROUTE_ACTIVATION",
+    "NO_TEST_WEAKENING",
+    "NO_UI_CHANGE"
+  ],
+  "verification": [
+    {
+      "id": "diff-check",
+      "tool": "node",
+      "cwd": ".",
+      "timeoutMs": 10000,
+      "args": [
+        "--input-type=module",
+        "-e",
+        "import{execFileSync}from'node:child_process';execFileSync('/usr/bin/git',['diff','--check','HEAD^','HEAD'],{stdio:'inherit'});"
+      ]
+    },
+    {
+      "id": "foundation-lint",
+      "tool": "python3",
+      "cwd": "backend",
+      "timeoutMs": 300000,
+      "args": [
+        "-I",
+        "-c",
+        "import os,subprocess; subprocess.run(['.venv/bin/python', '-B', '-m', 'ruff', 'check', 'app/cash_safety/__init__.py', 'app/cash_safety/calculation.py', 'app/cash_safety/contracts.py', 'app/cash_safety/work_product.py', 'app/fusion/__init__.py', 'app/fusion/budget.py', 'app/fusion/task_token_budget.py', 'tests/test_cash_safety_kernel.py', 'tests/test_fusion_task_token_budget.py', 'tests/test_persistent_budget_connections.py'],check=True,env={**os.environ,**{'PYTHONDONTWRITEBYTECODE': '1', 'PYTEST_DISABLE_PLUGIN_AUTOLOAD': '1', 'CHAOTANG_DECREE_JOB_WORKER_ENABLED': 'false', 'CHAOTANG_TASK_MODEL_CALLS_ENABLED': '0', 'JINYIWEI_EXTERNAL_NETWORK_ENABLED': 'false'}})"
+      ]
+    },
+    {
+      "id": "foundation-regression",
+      "tool": "python3",
+      "cwd": "backend",
+      "timeoutMs": 300000,
+      "args": [
+        "-I",
+        "-c",
+        "import os,subprocess; subprocess.run(['.venv/bin/python', '-B', '-m', 'pytest', '-q', '-p', 'no:cacheprovider', 'tests/test_persistent_budget_connections.py', 'tests/test_cash_safety_kernel.py', 'tests/test_fusion_task_token_budget.py'],check=True,env={**os.environ,**{'PYTHONDONTWRITEBYTECODE': '1', 'PYTEST_DISABLE_PLUGIN_AUTOLOAD': '1', 'CHAOTANG_DECREE_JOB_WORKER_ENABLED': 'false', 'CHAOTANG_TASK_MODEL_CALLS_ENABLED': '0', 'JINYIWEI_EXTERNAL_NETWORK_ENABLED': 'false'}})"
+      ]
+    }
+  ],
+  "state": "APPROVED_FOR_ONE_CHILD"
+}

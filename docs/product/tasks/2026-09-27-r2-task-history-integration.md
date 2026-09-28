@@ -2,10 +2,12 @@
 
 ## Status
 
-Prepared for exact Owner review。未批准该精确摘要，未创建批准提交，未获得产品 GO，未修改产品源码。
+Blocked
+
+原批准记录已在 dfae1e7 独立提交并推送；R2 产品候选 10fd14f 曾通过原 M0 验证，但尚未取得最终候选接受、未推送产品候选、未部署。下文区分原五文件候选与后续本机隔离改进，不能把后者视为已合入本候选。
 
 清单摘要：`sha256:1d055f9a2f8af945211432b7564b055f0652a3056f23c6afbed54dcc2be00be2`。
-`R2-HISTORY.proposed-approval.json` 中 APPROVED_FOR_ONE_CHILD 是待批准机器清单要求的字段值，不是已批准事实。真实状态以本文件和 R2-HISTORY.review.json 为准。
+原批准摘要、批准清单及批准提交保持原字节。本说明为后继治理修正，不能产生新的施工、提交、推送或发布批准。
 
 ## Product Definition
 
@@ -28,6 +30,15 @@ Prepared for exact Owner review。未批准该精确摘要，未创建批准提�
   - backend/tests/test_decree_job_storage.py
   - backend/tests/test_decree_jobs_api.py
 - 不修改 ADR 0028、authority、权限或新的任务系统；不访问真实用户运行库，不操作原生窗口，不调用模型。
+
+## Delivery Constraints
+
+保持原五文件范围、ADR 0028、任务/owner/预算/取消和证据保护。本说明只修正文档结构与可核查事实，不修改产品、旧批准记录、允许摘要或权限，不调用模型、不操作原生窗口。
+
+## Affected Modules
+
+- 模块：backend 任务 API、任务存储及相应测试。
+- 允许路径：本次治理修正仅 docs/product/tasks/2026-09-27-r2-task-history-integration.md；原 R2 产品范围仍仅为上文列明的五个路径，不因此再次授权施工。
 
 ## API Contract
 
@@ -62,7 +73,7 @@ Prepared for exact Owner review。未批准该精确摘要，未创建批准提�
 - [ ] 报告命令、开始/结束时间、退出码、通过/失败原因、模型=false、外网=false、loopback HTTP=true、原生后端=true、原生 UI=false。
 - [ ] 原生 CDesktop UI 验收留待允许操作窗口或取得已有可用隔离浏览器途径；API 验收不能替代它。
 
-## Technical Plan and Quality Gates
+## Technical Plan
 
 任务类型：API + 数据升级，五个精确文件，已有前端消费者，升级风险高于普通 UI 改动。
 路由：Superpowers 等价 Codex 顺序步骤；使用现有 codex-engineering-workflow 和 LYT1，不安装第三方工具。Codex-only。
@@ -79,6 +90,22 @@ Prepared for exact Owner review。未批准该精确摘要，未创建批准提�
 
 实施前保存 f410883 源码身份和临时验证库备份。实际运行库首次升级前另备份并验证可恢复，不能直接使用本批 fixture 证明客户库已可恢复。数据库升级后回退旧代码须同步恢复升级前对应数据库；不能只切代码后继续访问新表结构。禁止删表凑兼容、覆盖用户数据或强推共享分支。
 
-## Implementation Report / Acceptance Review
+## Implementation Report
 
-目前仅完成源码对照、前端契约核对、精确路径和验证矩阵准备、现有验证器的清单 schema 校验。产品实施、RED/GREEN、新接口 HTTP 验收、迁移和最终候选均未执行；G3 仍未通过。
+### 原 R2 候选的已记录事实
+
+批准提交：dfae1e7c57354c3942d4ad8668f8383fd6a3d30c。产品候选：10fd14f12252daa2ade5362db3f2c8e750125c4a，tree 0b97aabfc300949c2a90d8239d2189ddbbe63e24，为批准提交的精确单亲子，仅五个批准产品路径。原 M0 authorize 返回 GO；2026-09-27 的 verify-candidate 返回 PASS，证据摘要 sha256:532b4b60eabc1fd712610d258aef1fb49d7ec750425b8351042169f937d4d082。这里引用历史回执，没有宣称本说明重新运行过该验证。
+
+原回归297通过，真实临时Uvicorn/HTTP/两账户历史接口检查通过，任务数据为明确的测试夹具而非Agent产物。之后扩展备份/就绪检查发现：原基点103通过，R2候选52通过、51失败，主要涉及新增历史结构未登记和旧夹具兼容。以上失败保留，不因本次说明更正而抹除。
+
+原证据位于本机 outputs/Chaotang-Release-Execution-20260925/developer-baseline-20260927/：R2-RESULT.md、r2-full.json、r2-http.json、r2-verify-candidate.json、r2-backup-baseline.json、r2-backup-readiness-regression.json。文件名是本机证据位置，不宣称已发布到Gitee。
+
+### 后续隔离整合的边界（2026-09-28）
+
+本机后来已完成数据登记/恢复修复、CDesktop界面和原生候选构建等增量，证据分别保存在 OpenCode-Orca-Review-20260928/ROUND-4.md、Chaotang-User-Data-Recovery-20260928/、Chaotang-Native-Updated-20260928/。这些不属于原五文件R2提交，不替代原候选身份、旧回执或Owner接受。六部当前实现与已审查指纹仍不一致；真实模型流程、真实界面操作和G3最终验收仍未完成。
+
+2026-09-28 最新限定源码清单和回退材料见本机 outputs/Chaotang-Release-Consolidation-20260928/；独立读取Gitee仍为dfae1e7。不得把当前本机改进说成远端已包含。
+
+## Acceptance Review
+
+Pending。本次仅订正说明，不勾选原验收清单，不把离线/HTTP检查等同原生界面或真实多Agent验收，不更改可信指纹。Owner尚未接受原产品候选SHA/tree；全量整合、后继精确批准、真实用户验收及G3发布判断分别推进。
