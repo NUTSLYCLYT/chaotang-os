@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
-from collections import Counter
+import re
+from collections import Counter, defaultdict
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import yaml
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from app.agents.chancellor_runtime.skills import RUNTIME_SKILLS
 from app.agents.runtime_skills.registry import (
@@ -18,11 +21,15 @@ from app.agents.runtime_skills.registry import (
 from .contracts import (
     AgentPersonaCard,
     CapabilityCard,
+    CapabilityCatalogMetadata,
     CapabilityPromotionCase,
+    CapabilityReadiness,
     CapabilityRegistryItem,
     CapabilityRegistryProjection,
     CapabilityRegistrySummary,
     ExternalCapabilityReview,
+    InvocationPolicy,
+    McpToolDetail,
 )
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
@@ -33,7 +40,252 @@ READONLY_SOURCES = [
     "backend/app/agents/chancellor_runtime/skills.py",
     "backend/config/jinyiwei_mcp.yaml",
     "backend/harness/capability_candidates/authority-manifest.json",
+    "backend/config/personal_capabilities.snapshot.json",
 ]
+
+PERSONAL_SNAPSHOT_PATH = "backend/config/personal_capabilities.snapshot.json"
+PERSONAL_SNAPSHOT_SHA256 = (
+    "aa516d2a9d54ea53a046eda8767085872a2e946038b3714bd16ff8758468a818"
+)
+MAX_PERSONAL_SNAPSHOT_BYTES = 256 * 1024
+MAX_PERSONAL_SKILLS = 256
+MAX_PROVIDER_GROUPS = 64
+MAX_MCP_TOOLS = 512
+
+_PROVIDER_TOOL_GROUPS = {
+    "Codex Document Control": "Document Control",
+}
+_PRIVATE_PATH_RE = re.compile(
+    r"(?i)(?:[a-z]:[\\/]|\\\\[^\\/\s]+[\\/]|/(?:home|users|mnt|tmp|var|etc)/)"
+)
+_CREDENTIAL_RE = re.compile(
+    r"(?i)(?:"
+    r"(?:sk|ghp|glpat|xox[baprs])[_-][a-z0-9_-]{12,}|"
+    r"bearer\s+[a-z0-9._~+/-]{12,}|"
+    r"(?:api[_-]?key|access[_-]?token|password|secret)\s*[:=]\s*\S+"
+    r")"
+)
+_ACCOUNT_IDENTIFIER_RE = re.compile(
+    r"(?i)(?:[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@"
+    r"[a-z0-9-]+(?:\.[a-z0-9-]+)+)"
+)
+
+
+class CapabilitySnapshotError(RuntimeError):
+    """Fail-closed snapshot error that never carries raw input or local paths."""
+
+
+class _SnapshotModel(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+
+class _SnapshotSecurity(_SnapshotModel):
+    contains_absolute_private_paths: Literal[False]
+    contains_account_identifiers: Literal[False]
+    contains_credentials: Literal[False]
+    contains_skill_source: Literal[False]
+    grants_runtime_permission: Literal[False]
+
+
+class _SnapshotCounts(_SnapshotModel):
+    eligible_mcp_tools: int = Field(ge=0, le=MAX_MCP_TOOLS)
+    hanlin_skills: int = Field(ge=0, le=MAX_PERSONAL_SKILLS)
+    honglusi_provider_groups: int = Field(ge=0, le=MAX_PROVIDER_GROUPS)
+    mcp_tools: int = Field(ge=0, le=MAX_MCP_TOOLS)
+
+
+class _SnapshotSkill(_SnapshotModel):
+    category: str = Field(min_length=1, max_length=128)
+    connection_status: str = Field(min_length=1, max_length=128)
+    eligible_for_product_projection: bool
+    explicit_trigger: str | None = Field(default=None, max_length=256)
+    external_data: str = Field(min_length=1, max_length=512)
+    fee_status: str = Field(min_length=1, max_length=512)
+    id: str = Field(min_length=3, max_length=256)
+    installation_status: str = Field(min_length=1, max_length=128)
+    invocation_policy: InvocationPolicy
+    kind: Literal["skill"]
+    name: str = Field(min_length=1, max_length=256)
+    natural_language_trigger: str = Field(min_length=1, max_length=512)
+    purpose: str = Field(min_length=1, max_length=1024)
+    registry_home: Literal["hanlin"]
+    runtime_binding_status: Literal["not_bound"]
+    source_names: list[str] = Field(min_length=1, max_length=16)
+    verification_status: str = Field(min_length=1, max_length=128)
+    visibility_status: str = Field(min_length=1, max_length=128)
+
+
+class _SnapshotProvider(_SnapshotModel):
+    connection_status: str = Field(min_length=1, max_length=128)
+    dependency_and_account: str = Field(min_length=1, max_length=512)
+    eligible_for_product_projection: bool
+    evidence_and_recommendation: str = Field(min_length=1, max_length=1024)
+    explicit_trigger: str | None = Field(default=None, max_length=256)
+    external_data: str = Field(min_length=1, max_length=512)
+    fee_status: str = Field(min_length=1, max_length=512)
+    id: str = Field(min_length=3, max_length=256)
+    installation_status: str = Field(min_length=1, max_length=128)
+    invocation_policy: InvocationPolicy
+    kind: Literal["external_provider"]
+    name: str = Field(min_length=1, max_length=256)
+    natural_language_trigger: str = Field(min_length=1, max_length=512)
+    permission_summary: str = Field(min_length=1, max_length=1024)
+    purpose: str = Field(min_length=1, max_length=1024)
+    registry_home: Literal["honglusi"]
+    runtime_binding_status: Literal["not_bound"]
+    verification_status: str = Field(min_length=1, max_length=128)
+    visibility_status: str = Field(min_length=1, max_length=128)
+
+
+class _SnapshotMcpTool(_SnapshotModel):
+    connection_status: str = Field(min_length=1, max_length=128)
+    eligible_for_product_projection: bool
+    id: str = Field(min_length=3, max_length=256)
+    invocation_policy: InvocationPolicy
+    kind: Literal["mcp_tool"]
+    name: str = Field(min_length=1, max_length=256)
+    provider_group: str = Field(min_length=1, max_length=128)
+    registry_home: Literal["honglusi"]
+    runtime_binding_status: Literal["not_bound"]
+    verification_status: str = Field(min_length=1, max_length=128)
+    visibility_status: str = Field(min_length=1, max_length=128)
+
+
+class _PersonalCapabilitySnapshot(_SnapshotModel):
+    schema_version: Literal["chaotang-personal-capability-snapshot.v1"]
+    generated_on: str = Field(pattern=r"^\d{4}-\d{2}-\d{2}$")
+    authority: Literal["metadata-only-non-authorizing"]
+    security: _SnapshotSecurity
+    counts: _SnapshotCounts
+    hanlin_skills: list[_SnapshotSkill] = Field(max_length=MAX_PERSONAL_SKILLS)
+    honglusi_provider_groups: list[_SnapshotProvider] = Field(
+        max_length=MAX_PROVIDER_GROUPS
+    )
+    mcp_tools: list[_SnapshotMcpTool] = Field(max_length=MAX_MCP_TOOLS)
+
+    @model_validator(mode="after")
+    def validate_counts_and_ids(self) -> _PersonalCapabilitySnapshot:
+        if self.counts.hanlin_skills != len(self.hanlin_skills):
+            raise ValueError("hanlin count mismatch")
+        if self.counts.honglusi_provider_groups != len(
+            self.honglusi_provider_groups
+        ):
+            raise ValueError("provider count mismatch")
+        if self.counts.mcp_tools != len(self.mcp_tools):
+            raise ValueError("mcp tool count mismatch")
+        eligible_tools = sum(
+            tool.eligible_for_product_projection for tool in self.mcp_tools
+        )
+        if self.counts.eligible_mcp_tools != eligible_tools:
+            raise ValueError("eligible mcp tool count mismatch")
+        ids = [
+            item.id
+            for group in (
+                self.hanlin_skills,
+                self.honglusi_provider_groups,
+                self.mcp_tools,
+            )
+            for item in group
+        ]
+        if len(ids) != len(set(ids)):
+            raise ValueError("duplicate capability id")
+        provider_groups = {
+            _PROVIDER_TOOL_GROUPS.get(provider.name, provider.name)
+            for provider in self.honglusi_provider_groups
+            if provider.eligible_for_product_projection
+        }
+        if any(
+            tool.eligible_for_product_projection
+            and tool.provider_group not in provider_groups
+            for tool in self.mcp_tools
+        ):
+            raise ValueError("eligible tool has no eligible provider")
+        return self
+
+
+def _walk_snapshot_strings(value: Any):
+    if isinstance(value, str):
+        yield value
+    elif isinstance(value, dict):
+        for item in value.values():
+            yield from _walk_snapshot_strings(item)
+    elif isinstance(value, list):
+        for item in value:
+            yield from _walk_snapshot_strings(item)
+
+
+def load_personal_capability_snapshot(
+    path: Path | None = None,
+    *,
+    expected_digest: str | None = PERSONAL_SNAPSHOT_SHA256,
+) -> _PersonalCapabilitySnapshot:
+    """Load the approved metadata snapshot with strict privacy checks."""
+
+    snapshot_path = path or (REPOSITORY_ROOT / PERSONAL_SNAPSHOT_PATH)
+    try:
+        if snapshot_path.stat().st_size > MAX_PERSONAL_SNAPSHOT_BYTES:
+            raise CapabilitySnapshotError("snapshot_too_large")
+        raw = snapshot_path.read_bytes()
+        if expected_digest is not None:
+            digest = hashlib.sha256(raw).hexdigest()
+            if digest != expected_digest:
+                raise CapabilitySnapshotError("snapshot_digest_mismatch")
+        value = json.loads(raw)
+        if not isinstance(value, dict):
+            raise CapabilitySnapshotError("snapshot_invalid")
+        for candidate in _walk_snapshot_strings(value):
+            if (
+                len(candidate) > 2048
+                or _PRIVATE_PATH_RE.search(candidate)
+                or _CREDENTIAL_RE.search(candidate)
+                or _ACCOUNT_IDENTIFIER_RE.search(candidate)
+            ):
+                raise CapabilitySnapshotError("snapshot_privacy_rejected")
+        return _PersonalCapabilitySnapshot.model_validate(value)
+    except CapabilitySnapshotError:
+        raise
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValidationError) as exc:
+        raise CapabilitySnapshotError("snapshot_invalid") from exc
+
+
+def _snapshot_readiness(record: Any) -> CapabilityReadiness:
+    return CapabilityReadiness(
+        visibility_status=record.visibility_status,
+        installation_status=record.installation_status,
+        connection_status=record.connection_status,
+        verification_status=record.verification_status,
+        runtime_binding_status=record.runtime_binding_status,
+    )
+
+
+def _snapshot_blocker(record: Any) -> str:
+    if record.invocation_policy == "DISABLED":
+        return "当前策略已停用；需要重新评估依赖、权限和适用范围。"
+    if record.connection_status == "blocked":
+        return "连接状态受阻；先修复连接并完成验证，仍不会自动获得运行权限。"
+    if "not_individually_verified" in record.verification_status:
+        return "尚未逐项验证；使用前需在真实任务中验证依赖和结果。"
+    return "尚未绑定朝堂 Runtime；当前仅可用于选型和编写协作草案。"
+
+
+def _display_trigger(value: str) -> str:
+    cleaned = re.sub(r'[”"]?\s*/\s*\x60?\s*$', "", value).strip()
+    return cleaned.rstrip('”"').strip() or value
+
+
+def _catalog_cost_level(fee_status: str) -> str:
+    lowered = fee_status.lower()
+    if "charge" in lowered or "付费" in fee_status or "方案" in fee_status:
+        return "medium"
+    return "low"
+
+
+def _catalog_risk_level(invocation_policy: str, external_data: str) -> str:
+    if invocation_policy == "PREPARE_THEN_CONFIRM":
+        return "high"
+    if "send" in external_data.lower() or "是" in external_data:
+        return "medium"
+    return "low"
 
 DEPARTMENT_HOME_BY_TEXT = {
     "军机处": "junjichu",
@@ -482,6 +734,151 @@ def _mcp_capability_items() -> list[CapabilityRegistryItem]:
     return items
 
 
+def _personal_catalog_items(
+    snapshot: _PersonalCapabilitySnapshot,
+) -> list[CapabilityRegistryItem]:
+    items: list[CapabilityRegistryItem] = []
+    snapshot_evidence = [PERSONAL_SNAPSHOT_PATH, f"sha256:{PERSONAL_SNAPSHOT_SHA256}"]
+
+    for skill in sorted(snapshot.hanlin_skills, key=lambda item: item.id):
+        if not skill.eligible_for_product_projection:
+            continue
+        card = CapabilityCard(
+            id=skill.id,
+            name=skill.name,
+            type="skill",
+            source="personal_catalog",
+            best_use_case=skill.purpose,
+            input_needed=["用户用自然语言描述想完成的结果"],
+            output_produced=["匹配的方法、提示词或工作流建议"],
+            risk_level=_catalog_risk_level(
+                skill.invocation_policy, skill.external_data
+            ),
+            cost_level=_catalog_cost_level(skill.fee_status),
+            reuse_potential="high",
+            recommended_home="hanlin",
+            status="draft" if skill.invocation_policy == "DISABLED" else "trial",
+            evidence_sources=snapshot_evidence,
+            active=False,
+            sample_count=0,
+            authority_score=None,
+        )
+        catalog = CapabilityCatalogMetadata(
+            category=skill.category,
+            natural_language_trigger=_display_trigger(skill.natural_language_trigger),
+            explicit_trigger=skill.explicit_trigger,
+            invocation_policy=skill.invocation_policy,
+            fee_status=skill.fee_status,
+            permission_summary=(
+                "仅登记 Skill 元数据；实际使用继续服从 Codex 当前任务权限和用户确认。"
+            ),
+            external_data=skill.external_data,
+            readiness=_snapshot_readiness(skill),
+            blocker=_snapshot_blocker(skill),
+        )
+        items.append(
+            CapabilityRegistryItem(
+                card=card,
+                promotion_case=_promotion_for(card),
+                catalog=catalog,
+            )
+        )
+
+    tools_by_group: dict[str, list[_SnapshotMcpTool]] = defaultdict(list)
+    for tool in snapshot.mcp_tools:
+        if tool.eligible_for_product_projection:
+            tools_by_group[tool.provider_group].append(tool)
+
+    for provider in sorted(
+        snapshot.honglusi_provider_groups, key=lambda item: item.id
+    ):
+        if not provider.eligible_for_product_projection:
+            continue
+        tool_group = _PROVIDER_TOOL_GROUPS.get(provider.name, provider.name)
+        tool_records = sorted(
+            tools_by_group.get(tool_group, []), key=lambda item: item.id
+        )
+        tool_details = [
+            McpToolDetail(
+                id=tool.id,
+                name=tool.name,
+                provider_group=tool.provider_group,
+                invocation_policy=tool.invocation_policy,
+                connection_status=tool.connection_status,
+                verification_status=tool.verification_status,
+                runtime_binding_status=tool.runtime_binding_status,
+            )
+            for tool in tool_records
+        ]
+        card = CapabilityCard(
+            id=provider.id,
+            name=provider.name,
+            type="provider",
+            source="honglusi",
+            best_use_case=provider.purpose,
+            input_needed=["明确任务目的", "最小必要数据", "用户确认（如涉及外部动作）"],
+            output_produced=["外部能力候选结果", "权限与费用提示", "可审计元数据"],
+            risk_level=_catalog_risk_level(
+                provider.invocation_policy, provider.external_data
+            ),
+            cost_level=_catalog_cost_level(provider.fee_status),
+            reuse_potential="medium",
+            recommended_home="honglusi",
+            status=(
+                "draft"
+                if provider.invocation_policy == "DISABLED"
+                else "trial"
+            ),
+            evidence_sources=snapshot_evidence,
+            active=False,
+            sample_count=0,
+            authority_score=None,
+        )
+        review = ExternalCapabilityReview(
+            provider=provider.name,
+            permission_needed=[
+                provider.dependency_and_account,
+                provider.permission_summary,
+            ],
+            data_exposure=[provider.external_data],
+            allowed_actions=["METADATA_ONLY"],
+            forbidden_actions=[
+                "direct external execution",
+                "external write",
+                "automatic connection or authorization",
+                "publishing, sending, deleting, paying, or trading",
+                "credential or private-file export",
+            ],
+            requires_xingbu_review=True,
+            default_grant_duration="no runtime grant",
+            audit_required=True,
+        )
+        catalog = CapabilityCatalogMetadata(
+            natural_language_trigger=_display_trigger(
+                provider.natural_language_trigger
+            ),
+            explicit_trigger=provider.explicit_trigger,
+            invocation_policy=provider.invocation_policy,
+            fee_status=provider.fee_status,
+            permission_summary=provider.permission_summary,
+            external_data=provider.external_data,
+            readiness=_snapshot_readiness(provider),
+            blocker=_snapshot_blocker(provider),
+            provider_group=provider.name,
+            tool_count=len(tool_details),
+            tools=tool_details,
+        )
+        items.append(
+            CapabilityRegistryItem(
+                card=card,
+                external_review=review,
+                promotion_case=_promotion_for(card),
+                catalog=catalog,
+            )
+        )
+    return items
+
+
 def _agent_items() -> list[CapabilityRegistryItem]:
     items: list[CapabilityRegistryItem] = []
     for persona in AGENT_PERSONAS:
@@ -517,10 +914,23 @@ def _agent_items() -> list[CapabilityRegistryItem]:
     return items
 
 
-def _summary(items: list[CapabilityRegistryItem]) -> CapabilityRegistrySummary:
+def _summary(
+    items: list[CapabilityRegistryItem],
+    snapshot: _PersonalCapabilitySnapshot | None = None,
+) -> CapabilityRegistrySummary:
     by_type = Counter(item.card.type for item in items)
     by_home = Counter(item.card.recommended_home for item in items)
     by_status = Counter(item.card.status for item in items)
+    catalog_items = [item for item in items if item.catalog is not None]
+    catalog_hanlin = sum(
+        item.card.recommended_home == "hanlin" for item in catalog_items
+    )
+    catalog_providers = sum(
+        item.card.recommended_home == "honglusi" for item in catalog_items
+    )
+    catalog_tools = sum(
+        item.catalog.tool_count for item in catalog_items if item.catalog
+    )
     return CapabilityRegistrySummary(
         total=len(items),
         by_type=dict(sorted(by_type.items())),
@@ -535,16 +945,30 @@ def _summary(items: list[CapabilityRegistryItem]) -> CapabilityRegistrySummary:
             if item.card.sample_count < SMALL_SAMPLE_AUTHORITY_THRESHOLD
             and item.card.authority_score is None
         ),
+        catalog_hanlin_skills=catalog_hanlin,
+        catalog_provider_groups=catalog_providers,
+        catalog_mcp_tools=catalog_tools,
+        catalog_snapshot_provider_groups=(
+            snapshot.counts.honglusi_provider_groups if snapshot else 0
+        ),
+        catalog_snapshot_mcp_tools=snapshot.counts.mcp_tools if snapshot else 0,
+        catalog_excluded_support_tools=(
+            snapshot.counts.mcp_tools - snapshot.counts.eligible_mcp_tools
+            if snapshot
+            else 0
+        ),
     )
 
 
 def build_capability_registry_projection() -> CapabilityRegistryProjection:
+    snapshot = load_personal_capability_snapshot()
     items = (
         _agent_items()
         + _runtime_skill_items()
         + _chancellor_skill_items()
         + _harness_capability_items()
         + _mcp_capability_items()
+        + _personal_catalog_items(snapshot)
     )
     unique: dict[str, CapabilityRegistryItem] = {}
     for item in items:
@@ -554,7 +978,7 @@ def build_capability_registry_projection() -> CapabilityRegistryProjection:
         readonly_sources=READONLY_SOURCES,
         items=ordered,
         agent_personas=AGENT_PERSONAS,
-        summary=_summary(ordered),
+        summary=_summary(ordered, snapshot),
     )
 
 

@@ -2398,10 +2398,45 @@ export function getJinyiweiInvestigation(id:string,options:JinyiweiReadOptions):
 
 // ---- CapabilityRegistry readonly projection -----------------------------
 
-export type CapabilityKind = "skill" | "agent" | "swarm" | "workflow" | "mcp" | "plugin" | "api" | "template" | "imprint";
-export type CapabilitySource = "internal" | "honglusi" | "user_contribution" | "shiguan" | "external";
+export type CapabilityKind = "skill" | "agent" | "swarm" | "workflow" | "mcp" | "plugin" | "provider" | "api" | "template" | "imprint";
+export type CapabilitySource = "internal" | "honglusi" | "personal_catalog" | "user_contribution" | "shiguan" | "external";
 export type CapabilityLevel = "low" | "medium" | "high";
 export type CapabilityStatus = "draft" | "trial" | "approved" | "retired";
+export type CapabilityInvocationPolicy = "AUTO_MATCH" | "EXPLICIT_ONLY" | "PREPARE_THEN_CONFIRM" | "DISABLED";
+
+export interface CapabilityReadiness {
+  visibilityStatus: string;
+  installationStatus: string;
+  connectionStatus: string;
+  verificationStatus: string;
+  runtimeBindingStatus: "not_bound";
+}
+
+export interface CapabilityMcpToolDetail {
+  id: string;
+  name: string;
+  providerGroup: string;
+  invocationPolicy: CapabilityInvocationPolicy;
+  connectionStatus: string;
+  verificationStatus: string;
+  runtimeBindingStatus: "not_bound";
+}
+
+export interface CapabilityCatalogMetadata {
+  origin: "personal_catalog";
+  category: string | null;
+  naturalLanguageTrigger: string;
+  explicitTrigger: string | null;
+  invocationPolicy: CapabilityInvocationPolicy;
+  feeStatus: string;
+  permissionSummary: string;
+  externalData: string;
+  readiness: CapabilityReadiness;
+  blocker: string;
+  providerGroup: string | null;
+  toolCount: number;
+  tools: CapabilityMcpToolDetail[];
+}
 
 export interface CapabilityCard {
   id: string;
@@ -2461,6 +2496,7 @@ export interface CapabilityRegistryItem {
   persona: AgentPersonaCard | null;
   externalReview: ExternalCapabilityReview | null;
   promotionCase: CapabilityPromotionCase;
+  catalog: CapabilityCatalogMetadata | null;
 }
 
 export interface CapabilityRegistrySummary {
@@ -2470,10 +2506,16 @@ export interface CapabilityRegistrySummary {
   byStatus: Record<string, number>;
   externalReviewRequired: number;
   smallSampleWithoutAuthorityScore: number;
+  catalogHanlinSkills: number;
+  catalogProviderGroups: number;
+  catalogMcpTools: number;
+  catalogSnapshotProviderGroups: number;
+  catalogSnapshotMcpTools: number;
+  catalogExcludedSupportTools: number;
 }
 
 export interface CapabilityRegistryProjection {
-  schemaVersion: "capability-registry.v1";
+  schemaVersion: "capability-registry.v2";
   owner: string;
   canonicalWriter: string;
   readonlySources: string[];
@@ -2504,10 +2546,11 @@ export interface CapabilityListOptions extends CapabilityReadOptions {
 }
 
 const CAPABILITY_TIMEOUT_MS = 10000;
-const CAPABILITY_TYPES = new Set<CapabilityKind>(["skill", "agent", "swarm", "workflow", "mcp", "plugin", "api", "template", "imprint"]);
-const CAPABILITY_SOURCES = new Set<CapabilitySource>(["internal", "honglusi", "user_contribution", "shiguan", "external"]);
+const CAPABILITY_TYPES = new Set<CapabilityKind>(["skill", "agent", "swarm", "workflow", "mcp", "plugin", "provider", "api", "template", "imprint"]);
+const CAPABILITY_SOURCES = new Set<CapabilitySource>(["internal", "honglusi", "personal_catalog", "user_contribution", "shiguan", "external"]);
 const CAPABILITY_LEVELS = new Set<CapabilityLevel>(["low", "medium", "high"]);
 const CAPABILITY_STATUSES = new Set<CapabilityStatus>(["draft", "trial", "approved", "retired"]);
+const CAPABILITY_INVOCATION_POLICIES = new Set<CapabilityInvocationPolicy>(["AUTO_MATCH", "EXPLICIT_ONLY", "PREPARE_THEN_CONFIRM", "DISABLED"]);
 const CAPABILITY_ERROR = "能力总账只读服务暂时不可用，请稍后重试。";
 
 function parseCountMap(value: unknown): Record<string, number> | null {
@@ -2610,26 +2653,97 @@ function parseCapabilityPromotionCase(value: unknown): CapabilityPromotionCase |
   };
 }
 
+function parseCapabilityReadiness(value: unknown): CapabilityReadiness | null {
+  const r = asRecord(value);
+  if (!r || !hasExactKeys(r, ["visibility_status", "installation_status", "connection_status", "verification_status", "runtime_binding_status"]) ||
+      !textValue(r.visibility_status) || !textValue(r.installation_status) ||
+      !textValue(r.connection_status) || !textValue(r.verification_status) ||
+      r.runtime_binding_status !== "not_bound") return null;
+  return {
+    visibilityStatus: r.visibility_status,
+    installationStatus: r.installation_status,
+    connectionStatus: r.connection_status,
+    verificationStatus: r.verification_status,
+    runtimeBindingStatus: "not_bound",
+  };
+}
+
+function parseCapabilityMcpToolDetail(value: unknown): CapabilityMcpToolDetail | null {
+  const r = asRecord(value);
+  if (!r || !hasExactKeys(r, ["id", "name", "provider_group", "invocation_policy", "connection_status", "verification_status", "runtime_binding_status"]) ||
+      !textValue(r.id) || !textValue(r.name) || !textValue(r.provider_group) ||
+      !CAPABILITY_INVOCATION_POLICIES.has(r.invocation_policy as CapabilityInvocationPolicy) ||
+      !textValue(r.connection_status) || !textValue(r.verification_status) ||
+      r.runtime_binding_status !== "not_bound") return null;
+  return {
+    id: r.id,
+    name: r.name,
+    providerGroup: r.provider_group,
+    invocationPolicy: r.invocation_policy as CapabilityInvocationPolicy,
+    connectionStatus: r.connection_status,
+    verificationStatus: r.verification_status,
+    runtimeBindingStatus: "not_bound",
+  };
+}
+
+function parseCapabilityCatalogMetadata(value: unknown): CapabilityCatalogMetadata | null {
+  const r = asRecord(value);
+  if (!r || !hasExactKeys(r, ["origin", "category", "natural_language_trigger", "explicit_trigger", "invocation_policy", "fee_status", "permission_summary", "external_data", "readiness", "blocker", "provider_group", "tool_count", "tools"])) return null;
+  const readiness = parseCapabilityReadiness(r.readiness);
+  const tools = Array.isArray(r.tools) ? r.tools.map(parseCapabilityMcpToolDetail) : null;
+  const category = r.category === null ? null : textValue(r.category) ? r.category : null;
+  const explicitTrigger = r.explicit_trigger === null ? null : textValue(r.explicit_trigger) ? r.explicit_trigger : null;
+  const providerGroup = r.provider_group === null ? null : textValue(r.provider_group) ? r.provider_group : null;
+  if (r.origin !== "personal_catalog" || category === null && r.category !== null ||
+      !textValue(r.natural_language_trigger) || explicitTrigger === null && r.explicit_trigger !== null ||
+      !CAPABILITY_INVOCATION_POLICIES.has(r.invocation_policy as CapabilityInvocationPolicy) ||
+      !textValue(r.fee_status) || !textValue(r.permission_summary) || !textValue(r.external_data) ||
+      readiness === null || !textValue(r.blocker) || providerGroup === null && r.provider_group !== null ||
+      !nonNegativeInteger(r.tool_count) || tools === null || tools.some((tool) => tool === null) ||
+      r.tool_count !== tools.length || new Set((tools as CapabilityMcpToolDetail[]).map((tool) => tool.id)).size !== tools.length) return null;
+  return {
+    origin: "personal_catalog",
+    category,
+    naturalLanguageTrigger: r.natural_language_trigger,
+    explicitTrigger,
+    invocationPolicy: r.invocation_policy as CapabilityInvocationPolicy,
+    feeStatus: r.fee_status,
+    permissionSummary: r.permission_summary,
+    externalData: r.external_data,
+    readiness,
+    blocker: r.blocker,
+    providerGroup,
+    toolCount: r.tool_count,
+    tools: tools as CapabilityMcpToolDetail[],
+  };
+}
+
 function parseCapabilityItem(value: unknown): CapabilityRegistryItem | null {
   const r = asRecord(value);
-  if (!r || !hasExactKeys(r, ["card", "persona", "external_review", "promotion_case"])) return null;
+  if (!r || !hasExactKeys(r, ["card", "persona", "external_review", "promotion_case", "catalog"])) return null;
   const card = parseCapabilityCard(r.card);
   const persona = r.persona === null ? null : parseAgentPersonaCard(r.persona);
   const externalReview = r.external_review === null ? null : parseExternalCapabilityReview(r.external_review);
   const promotionCase = parseCapabilityPromotionCase(r.promotion_case);
+  const catalog = r.catalog === null ? null : parseCapabilityCatalogMetadata(r.catalog);
   if (card === null || (r.persona !== null && persona === null) ||
-      (r.external_review !== null && externalReview === null) || promotionCase === null) return null;
-  return { card, persona, externalReview, promotionCase };
+      (r.external_review !== null && externalReview === null) || promotionCase === null ||
+      (r.catalog !== null && catalog === null)) return null;
+  if (catalog && (card.active || !card.zeroPermissionWhenInactive)) return null;
+  return { card, persona, externalReview, promotionCase, catalog };
 }
 
 function parseCapabilitySummary(value: unknown): CapabilityRegistrySummary | null {
   const r = asRecord(value);
-  if (!r || !hasExactKeys(r, ["total", "by_type", "by_home", "by_status", "external_review_required", "small_sample_without_authority_score"])) return null;
+  if (!r || !hasExactKeys(r, ["total", "by_type", "by_home", "by_status", "external_review_required", "small_sample_without_authority_score", "catalog_hanlin_skills", "catalog_provider_groups", "catalog_mcp_tools", "catalog_snapshot_provider_groups", "catalog_snapshot_mcp_tools", "catalog_excluded_support_tools"])) return null;
   const byType = parseCountMap(r.by_type);
   const byHome = parseCountMap(r.by_home);
   const byStatus = parseCountMap(r.by_status);
   if (!nonNegativeInteger(r.total) || byType === null || byHome === null || byStatus === null ||
-      !nonNegativeInteger(r.external_review_required) || !nonNegativeInteger(r.small_sample_without_authority_score)) return null;
+      !nonNegativeInteger(r.external_review_required) || !nonNegativeInteger(r.small_sample_without_authority_score) ||
+      !nonNegativeInteger(r.catalog_hanlin_skills) || !nonNegativeInteger(r.catalog_provider_groups) ||
+      !nonNegativeInteger(r.catalog_mcp_tools) || !nonNegativeInteger(r.catalog_snapshot_provider_groups) ||
+      !nonNegativeInteger(r.catalog_snapshot_mcp_tools) || !nonNegativeInteger(r.catalog_excluded_support_tools)) return null;
   return {
     total: r.total,
     byType,
@@ -2637,6 +2751,12 @@ function parseCapabilitySummary(value: unknown): CapabilityRegistrySummary | nul
     byStatus,
     externalReviewRequired: r.external_review_required,
     smallSampleWithoutAuthorityScore: r.small_sample_without_authority_score,
+    catalogHanlinSkills: r.catalog_hanlin_skills,
+    catalogProviderGroups: r.catalog_provider_groups,
+    catalogMcpTools: r.catalog_mcp_tools,
+    catalogSnapshotProviderGroups: r.catalog_snapshot_provider_groups,
+    catalogSnapshotMcpTools: r.catalog_snapshot_mcp_tools,
+    catalogExcludedSupportTools: r.catalog_excluded_support_tools,
   };
 }
 
@@ -2647,12 +2767,13 @@ function parseCapabilityRegistryProjection(value: unknown): CapabilityRegistryPr
   const items = Array.isArray(r.items) ? r.items.map(parseCapabilityItem) : null;
   const agentPersonas = Array.isArray(r.agent_personas) ? r.agent_personas.map(parseAgentPersonaCard) : null;
   const summary = parseCapabilitySummary(r.summary);
-  if (r.schema_version !== "capability-registry.v1" || !textValue(r.owner) || !textValue(r.canonical_writer) ||
+  if (r.schema_version !== "capability-registry.v2" || !textValue(r.owner) || !textValue(r.canonical_writer) ||
       readonlySources === null || items === null || items.some((item) => item === null) ||
       agentPersonas === null || agentPersonas.some((item) => item === null) || summary === null ||
-      summary.total !== items.length) return null;
+      summary.total !== items.length ||
+      new Set((items as CapabilityRegistryItem[]).map((item) => item.card.id)).size !== items.length) return null;
   return {
-    schemaVersion: "capability-registry.v1",
+    schemaVersion: "capability-registry.v2",
     owner: r.owner,
     canonicalWriter: r.canonical_writer,
     readonlySources,
