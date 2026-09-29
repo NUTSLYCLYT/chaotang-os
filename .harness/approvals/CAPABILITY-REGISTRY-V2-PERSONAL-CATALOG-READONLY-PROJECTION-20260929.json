@@ -7,8 +7,8 @@
     "targetBranch": "ext-dev"
   },
   "request": {
-    "baseCommit": "9b0775e05651335d611fe383936a31c3b306113d",
-    "baseTree": "aa2a456904e39ef3a9c90b4bb47cf7fee2ab8add",
+    "baseCommit": "3c913e38e0dc883220269822fe66e5547a665b43",
+    "baseTree": "5a50c821eb59be9b6fe22b27e060f62af8f333c2",
     "approvalPath": ".harness/approvals/CAPABILITY-REGISTRY-V2-PERSONAL-CATALOG-READONLY-PROJECTION-20260929.json",
     "approvalCommitPaths": [
       ".harness/approvals/CAPABILITY-REGISTRY-V2-PERSONAL-CATALOG-READONLY-PROJECTION-20260929.json",
@@ -19,8 +19,10 @@
       "backend/app/capabilities/contracts.py",
       "backend/app/capabilities/projection.py",
       "backend/config/personal_capabilities.snapshot.json",
+      "backend/harness/capability_candidates/eval_runner.py",
       "backend/tests/test_capabilities_api.py",
       "backend/tests/test_capability_registry_projection.py",
+      "backend/tests/test_eval_runner_judgement.py",
       "frontend/src/features/capabilities/CapabilityRegistry.module.css",
       "frontend/src/features/capabilities/CapabilityRegistryClient.tsx",
       "frontend/src/features/capabilities/capabilityRegistryViewModel.test.ts",
