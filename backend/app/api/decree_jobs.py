@@ -1,17 +1,22 @@
 from __future__ import annotations
 
 import json
+import sqlite3
 from datetime import datetime
 from functools import lru_cache
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, StrictBool
 
 from app.api.auth import CurrentUser
 from app.decree_jobs import DecreeJob, DecreeJobState, DecreeJobStore, JobNotFound
-from app.decree_jobs.storage import ClaimEvidenceCommitmentUnavailable
+from app.decree_jobs.storage import (
+    ClaimEvidenceCommitmentUnavailable,
+    DecreeJobStoreError,
+    JobHistoryArchiveRejected,
+)
 
 router = APIRouter(prefix="/api/v1/decree-jobs", tags=["decree-jobs"])
 
@@ -216,6 +221,82 @@ def _job_unavailable() -> JSONResponse:
         status_code=503,
         content={"status": "error", "reason": "job_unavailable"},
     )
+
+
+class DecreeJobListItem(DecreeJobResponse):
+    title: str
+    decree_text: str
+    history_archived: bool
+
+
+class DecreeJobPage(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    items: list[DecreeJobListItem]
+    total: int
+    limit: int
+    offset: int
+
+
+class HistoryAnnotationRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    archived: StrictBool
+
+
+class HistoryAnnotationResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    job_id: str
+    history_archived: bool
+    updated_at: datetime | None
+
+
+@router.get("", response_model=DecreeJobPage)
+def list_decree_jobs(
+    current_user: CurrentUser, store: JobStore,
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    offset: Annotated[int, Query(ge=0, le=1_000_000)] = 0,
+    q: Annotated[str, Query(max_length=500)] = "",
+    archived: Literal["active", "archived", "all"] = "active",
+) -> DecreeJobPage | JSONResponse:
+    try:
+        rows, total = store.list_for_owner(
+            current_user.id, limit=limit, offset=offset, q=q, archived=archived,
+        )
+        items = [DecreeJobListItem(
+            **_response(job).model_dump(), title=job.decree_text.strip()[:120],
+            decree_text=job.decree_text, history_archived=is_archived,
+        ) for job, is_archived in rows]
+        return DecreeJobPage(items=items, total=total, limit=limit, offset=offset)
+    except (DecreeJobStoreError, sqlite3.Error, ValueError):
+        return _job_unavailable()
+
+
+@router.get("/{job_id}/history-annotation", response_model=HistoryAnnotationResponse)
+def get_history_annotation(
+    job_id: str, current_user: CurrentUser, store: JobStore,
+) -> HistoryAnnotationResponse | JSONResponse:
+    try:
+        return HistoryAnnotationResponse(**store.get_history_annotation(job_id, current_user.id))
+    except JobNotFound:
+        return _not_found()
+    except (DecreeJobStoreError, sqlite3.Error, ValueError):
+        return _job_unavailable()
+
+
+@router.put("/{job_id}/history-annotation", response_model=HistoryAnnotationResponse)
+def set_history_annotation(
+    job_id: str, payload: HistoryAnnotationRequest, current_user: CurrentUser, store: JobStore,
+) -> HistoryAnnotationResponse | JSONResponse:
+    try:
+        return HistoryAnnotationResponse(**store.set_history_annotation(
+            job_id, current_user.id, payload.archived,
+        ))
+    except JobNotFound:
+        return _not_found()
+    except JobHistoryArchiveRejected:
+        return JSONResponse(status_code=409,
+                            content={"status": "error", "reason": "job_history_archive_rejected"})
+    except (DecreeJobStoreError, sqlite3.Error, ValueError):
+        return _job_unavailable()
 
 
 @router.get("/{job_id}", response_model=DecreeJobResponse)

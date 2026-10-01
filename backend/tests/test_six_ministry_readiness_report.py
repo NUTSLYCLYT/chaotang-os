@@ -94,6 +94,10 @@ _CONTENT_FINGERPRINT_PAIRS = (
         "sha256:7a1220fa7c583de7248eca3ef6deac9b50635f73bf08d569190a3505b62db628",
         "sha256:d4e78e42b89022088bb6687a7ab5cc57bcd908a3017b2b4a2e2611497d04def2",
     ),
+    (
+        "sha256:da31d9d44a2d9fc81e562d0f59027b5a7114afacbdd9f6803b5511350d9c9666",
+        "sha256:8c4e1669489eb5ec90a79e8e123a390a6e5b74fcc369adcd249493c5ba7c326e",
+    ),
 )
 _HISTORICAL_REVIEW_STATUS = "approved-with-notes"
 _HISTORICAL_FILE_COUNT = 69
@@ -264,7 +268,7 @@ def test_content_pair_rejects_mixed_or_third_state() -> None:
     runtime_fingerprints = {*(pair[0] for pair in valid_pairs), unknown}
     successor_fingerprints = {*(pair[1] for pair in valid_pairs), unknown}
 
-    assert len(valid_pairs) == len(_CONTENT_FINGERPRINT_PAIRS) == 16
+    assert len(valid_pairs) == len(_CONTENT_FINGERPRINT_PAIRS) == 17
     for runtime_fingerprint in runtime_fingerprints:
         for successor_fingerprint in successor_fingerprints:
             candidate = (runtime_fingerprint, successor_fingerprint)
@@ -541,8 +545,8 @@ def test_content_pair_policy_appends_only_reviewed_head_and_r1_pairs() -> None:
         "sha256:d4e78e42b89022088bb6687a7ab5cc57bcd908a3017b2b4a2e2611497d04def2",
     )
 
-    assert _CONTENT_FINGERPRINT_PAIRS == (*predecessor_pairs, head_pair, r1_pair)
-    assert len(set(_CONTENT_FINGERPRINT_PAIRS)) == 16
+    assert _CONTENT_FINGERPRINT_PAIRS[:16] == (*predecessor_pairs, head_pair, r1_pair)
+    assert len(set(_CONTENT_FINGERPRINT_PAIRS[:16])) == 16
     assert head_pair != r1_pair
 
 
@@ -611,3 +615,28 @@ def test_active_readiness_rows_match_generated_runtime_projection_exactly() -> N
         assert row["businessSuccessMeasured"] is False
         assert row["contractShapeExercised"] is True
         assert row["missingProductionDependencies"]
+
+
+def test_integration_pair_preserves_all_predecessors_and_rejects_cross_pairs() -> None:
+    """Register only the reviewed pair; independent halves never authorize code."""
+    expected_pair = (
+        "sha256:da31d9d44a2d9fc81e562d0f59027b5a7114afacbdd9f6803b5511350d9c9666",
+        "sha256:8c4e1669489eb5ec90a79e8e123a390a6e5b74fcc369adcd249493c5ba7c326e",
+    )
+    predecessors = _CONTENT_FINGERPRINT_PAIRS[:16]
+    predecessor_bytes = json.dumps(predecessors, separators=(",", ":")).encode()
+    assert hashlib.sha256(predecessor_bytes).hexdigest() == (
+        "3cfb1c73796d107adea3c9ec65dbd0b458e7239785529ab01e5ef6e1da40bc16"
+    )
+    assert _CONTENT_FINGERPRINT_PAIRS == (*predecessors, expected_pair)
+    assert len(set(_CONTENT_FINGERPRINT_PAIRS)) == 17
+    unknown = "sha256:" + "0" * 64
+    rejected = [(expected_pair[0], unknown), (unknown, expected_pair[1])]
+    rejected += [(runtime, expected_pair[1]) for runtime, _ in predecessors]
+    rejected += [(expected_pair[0], successor) for _, successor in predecessors]
+    for index in (0, 1):
+        tampered = list(expected_pair)
+        value = tampered[index]
+        tampered[index] = value[:-1] + ("1" if value[-1] == "0" else "0")
+        rejected.append(tuple(tampered))
+    assert all(candidate not in _CONTENT_FINGERPRINT_PAIRS for candidate in rejected)

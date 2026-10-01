@@ -28,6 +28,78 @@ from app.decree_jobs.storage import DecreeJobStore
 NOW = datetime(2026, 8, 5, 12, 0, tzinfo=UTC)
 
 
+def test_history_list_and_annotation_are_owned_persistent_and_not_task_state(tmp_path):
+    store = DecreeJobStore(tmp_path / "history.sqlite3")
+    job_id = _accepted(store)
+    client = _client(store, "owner-a")
+    other = _client(store, "owner-b")
+    base = "/api/v1/decree-jobs"
+    page = client.get(base)
+    assert page.status_code == 200
+    assert page.json()["total"] == 1
+    assert page.json()["items"][0]["history_archived"] is False
+    assert page.json()["items"][0]["title"] == "请户部核查国库"
+    annotation = f"{base}/{job_id}/history-annotation"
+    assert client.get(annotation).json() == {
+        "job_id": job_id, "history_archived": False, "updated_at": None,
+    }
+    assert other.get(base).json()["total"] == 0
+    assert other.get(annotation).status_code == 404
+    assert other.put(annotation, json={"archived": True}).status_code == 404
+    denied = client.put(annotation, json={"archived": True})
+    assert denied.status_code == 409
+    assert denied.json()["reason"] == "job_history_archive_rejected"
+    for payload in ({"archived": "true"}, {"archived": 1},
+                    {"archived": True, "owner_user_id": "owner-b"}, {}):
+        assert client.put(annotation, json=payload).status_code == 422
+    store.request_cancel(job_id, "owner-a", now=NOW)
+    before = store.get_for_owner(job_id, "owner-a")
+    marked = client.put(annotation, json={"archived": True})
+    assert marked.status_code == 200
+    assert marked.json()["history_archived"] is True
+    assert client.put(annotation, json={"archived": True}).json() == marked.json()
+    assert client.get(base).json()["total"] == 0
+    assert client.get(base, params={"archived": "archived"}).json()["total"] == 1
+    assert client.get(base, params={"archived": "all"}).json()["total"] == 1
+    reopened = _client(DecreeJobStore(store.db_path), "owner-a")
+    assert reopened.get(annotation).json() == marked.json()
+    assert store.get_for_owner(job_id, "owner-a") == before
+    assert reopened.put(annotation, json={"archived": False}).status_code == 200
+    assert reopened.get(base).json()["total"] == 1
+
+
+@pytest.mark.parametrize("params", [
+    {"limit": 0}, {"limit": 101}, {"offset": -1}, {"offset": 1000001},
+    {"q": "x" * 501}, {"archived": "true"},
+])
+def test_history_rejects_invalid_query(tmp_path, params):
+    response = _client(DecreeJobStore(tmp_path / "jobs.sqlite3"), "owner-a").get(
+        "/api/v1/decree-jobs", params=params,
+    )
+    assert response.status_code == 422
+
+
+def test_history_storage_failures_do_not_leak_details():
+    class BrokenStore:
+        def list_for_owner(self, *args, **kwargs):
+            raise sqlite3.OperationalError("private/db/path and password")
+
+        def get_history_annotation(self, *args, **kwargs):
+            raise sqlite3.OperationalError("private/db/path and password")
+
+        def set_history_annotation(self, *args, **kwargs):
+            raise sqlite3.OperationalError("private/db/path and password")
+
+    client = _client(BrokenStore(), "owner-a", raise_server_exceptions=False)
+    for response in (
+        client.get("/api/v1/decree-jobs"),
+        client.get("/api/v1/decree-jobs/missing/history-annotation"),
+        client.put("/api/v1/decree-jobs/missing/history-annotation", json={"archived": True}),
+    ):
+        assert response.status_code == 503
+        assert response.json() == {"status": "error", "reason": "job_unavailable"}
+
+
 def _accepted(store: DecreeJobStore) -> str:
     return store.accept(
         AcceptDecreeJob(

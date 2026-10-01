@@ -23,6 +23,135 @@ from app.decree_jobs.storage import (
 NOW = datetime(2026, 8, 5, 12, 0, tzinfo=UTC)
 
 
+def test_history_search_pagination_literal_characters_and_owner(tmp_path):
+    store = DecreeJobStore(tmp_path / "history.sqlite3")
+    ids = []
+    for index, text in enumerate(["普通", "利润100%", "成本_a", "路径\\a", "中文调查"]):
+        command = replace(_command(key=str(index), fingerprint=str(index) * 64),
+                          decree_text=text)
+        ids.append(store.accept(command, now=NOW).job.job_id)
+    store.accept(_command(owner="owner-b"), now=NOW)
+    for query, expected in [("%", ids[1]), ("_", ids[2]), ("\\", ids[3]), ("中文", ids[4])]:
+        items, total = store.list_for_owner("owner-a", q=query)
+        assert total == 1
+        assert items[0][0].job_id == expected
+    first, total = store.list_for_owner("owner-a", limit=2)
+    second, second_total = store.list_for_owner("owner-a", limit=3, offset=2)
+    assert total == second_total == 5
+    assert [job.job_id for job, _ in first + second] == sorted(ids, reverse=True)
+    assert store.list_for_owner("owner-a", offset=50) == ([], 5)
+    assert store.list_for_owner("owner-a", q="   ")[1] == 5
+
+
+def test_history_migration_preserves_commitment_and_keys_and_rolls_back(tmp_path):
+    path = tmp_path / "old.sqlite3"
+    with closing(sqlite3.connect(path)) as connection:
+        DecreeJobStore._create_canonical_schema(connection)
+        connection.commit()
+    # This is the exact frozen pre-history schema, not a permissive approximation.
+    with closing(sqlite3.connect(path)) as connection:
+        assert DecreeJobStore._schema_digest(connection) == DecreeJobStore._EXACT_NEW_SCHEMA
+
+    class FailedMigration(DecreeJobStore):
+        @staticmethod
+        def _create_history_schema(connection):
+            DecreeJobStore._create_history_schema(connection)
+            raise RuntimeError("injected_history_migration_failure")
+
+    before = _database_snapshot(path)
+    with pytest.raises(RuntimeError, match="injected_history_migration_failure"):
+        FailedMigration(path)
+    assert _database_snapshot(path) == before
+    store = DecreeJobStore(path)
+    job_id = store.accept(_command(), now=NOW).job.job_id
+    with closing(sqlite3.connect(path)) as connection:
+        connection.execute("DROP TABLE decree_job_history_annotations")
+        connection.execute("UPDATE decree_jobs SET claim_evidence_commitment_json = ?",
+                           (_commitment(),))
+        connection.commit()
+        jobs = connection.execute("SELECT * FROM decree_jobs").fetchall()
+        keys = connection.execute("SELECT * FROM decree_job_idempotency_keys").fetchall()
+    reopened = DecreeJobStore(path)
+    with closing(sqlite3.connect(path)) as connection:
+        assert connection.execute("SELECT * FROM decree_jobs").fetchall() == jobs
+        assert connection.execute("SELECT * FROM decree_job_idempotency_keys").fetchall() == keys
+    with pytest.raises(ClaimEvidenceCommitmentUnavailable):
+        reopened.list_for_owner("owner-a")
+    with pytest.raises(ClaimEvidenceCommitmentUnavailable):
+        reopened.set_history_annotation(job_id, "owner-a", True)
+
+
+@pytest.mark.parametrize("state", list(DecreeJobState))
+def test_history_only_terminal_tasks_can_be_marked(tmp_path, state):
+    from app.decree_jobs.storage import JobHistoryArchiveRejected
+
+    store = DecreeJobStore(tmp_path / "states.sqlite3")
+    job_id = store.accept(_command(), now=NOW).job.job_id
+    # Explicit state fixture tests the history policy, not an executed Agent task.
+    with closing(sqlite3.connect(store.db_path)) as connection:
+        connection.execute("UPDATE decree_jobs SET state = ? WHERE job_id = ?",
+                           (state.value, job_id))
+        connection.commit()
+    if state in {DecreeJobState.SUCCEEDED, DecreeJobState.FAILED, DecreeJobState.CANCELLED}:
+        assert store.set_history_annotation(job_id, "owner-a", True)["history_archived"]
+        assert not store.set_history_annotation(job_id, "owner-a", False)["history_archived"]
+    else:
+        for archived in (True, False):
+            with pytest.raises(JobHistoryArchiveRejected):
+                store.set_history_annotation(job_id, "owner-a", archived)
+    with pytest.raises(JobNotFound):
+        store.get_history_annotation(job_id, "owner-b")
+
+
+def test_history_count_rows_and_annotations_share_read_snapshot(tmp_path, monkeypatch):
+    store = DecreeJobStore(tmp_path / "snapshot.sqlite3")
+    job_id = store.accept(_command(), now=NOW).job.job_id
+    store.request_cancel(job_id, "owner-a", now=NOW)
+
+    class ConcurrentConnection(sqlite3.Connection):
+        def execute(self, sql, parameters=()):
+            result = super().execute(sql, parameters)
+            if sql.startswith("SELECT COUNT(*) FROM decree_jobs"):
+                with closing(sqlite3.connect(store.db_path)) as writer:
+                    writer.execute(
+                        "INSERT INTO decree_job_history_annotations VALUES (?, 1, ?)",
+                        (job_id, NOW.isoformat()),
+                    )
+                    writer.commit()
+            return result
+
+    def connect():
+        connection = sqlite3.connect(store.db_path, factory=ConcurrentConnection)
+        connection.row_factory = sqlite3.Row
+        return connection
+
+    monkeypatch.setattr(store, "_connect", connect)
+    rows, total = store.list_for_owner("owner-a")
+    assert total == len(rows) == 1
+    assert rows[0][1] is False
+    assert DecreeJobStore(store.db_path).get_history_annotation(job_id, "owner-a")[
+        "history_archived"
+    ] is True
+
+
+@pytest.mark.parametrize("drift", [
+    "CREATE INDEX unwanted_history_index ON decree_job_history_annotations(updated_at)",
+    "ALTER TABLE decree_job_history_annotations ADD COLUMN hidden TEXT",
+    "CREATE TRIGGER unwanted_history_trigger AFTER INSERT ON decree_job_history_annotations "
+    "BEGIN SELECT 1; END",
+])
+def test_history_schema_drift_is_rejected_without_touching_files(tmp_path, drift):
+    path = tmp_path / "history-drift.sqlite3"
+    DecreeJobStore(path)
+    with closing(sqlite3.connect(path)) as connection:
+        connection.execute(drift)
+        connection.commit()
+    before = _database_file_bytes(path)
+    with pytest.raises(DecreeJobStoreError, match="decree_job_schema_unrecognized"):
+        DecreeJobStore(path)
+    assert _database_file_bytes(path) == before
+
+
 def _commitment(
     state: str = "PENDING",
     *,
@@ -1045,6 +1174,7 @@ def test_exact_old_schema_rebuilds_to_the_only_canonical_new_shape(tmp_path) -> 
     seed = DecreeJobStore(path)
     job_id = seed.accept(_command(), now=NOW).job.job_id
     with closing(sqlite3.connect(path)) as connection:
+        connection.execute("DROP TABLE decree_job_history_annotations")
         connection.execute("ALTER TABLE decree_jobs DROP COLUMN claim_evidence_commitment_json")
         connection.commit()
         old_columns = [str(row[1]) for row in connection.execute("PRAGMA table_info(decree_jobs)")]
@@ -1076,7 +1206,7 @@ def test_exact_old_schema_rebuilds_to_the_only_canonical_new_shape(tmp_path) -> 
         "RENAME TO __ct_p10b1_decree_job_idempotency_keys_old",
         "ALTER TABLE main.decree_jobs RENAME TO __ct_p10b1_decree_jobs_old",
     ]
-    assert mutations[-2:] == [
+    assert mutations[-3:-1] == [
         "DROP TABLE main.__ct_p10b1_decree_job_idempotency_keys_old",
         "DROP TABLE main.__ct_p10b1_decree_jobs_old",
     ]
@@ -1088,7 +1218,7 @@ def test_exact_old_schema_rebuilds_to_the_only_canonical_new_shape(tmp_path) -> 
     assert all("CREATE TABLE main." in statement for statement in creates)
     assert all("ADD COLUMN" not in statement.upper() for statement in mutations)
     with closing(sqlite3.connect(path)) as connection:
-        assert reopened._schema_digest(connection) == reopened._EXACT_NEW_SCHEMA
+        assert reopened._schema_digest(connection) == reopened._HISTORY_SCHEMA
         projection = ", ".join(f'"{column}"' for column in old_columns)
         assert (
             connection.execute(f"SELECT {projection} FROM decree_jobs ORDER BY job_id").fetchall()
@@ -1167,6 +1297,8 @@ def test_all_frozen_schema_identities_are_mechanically_reproducible(tmp_path) ->
     new = tmp_path / "new.sqlite3"
     DecreeJobStore(new)
     with closing(sqlite3.connect(new)) as connection:
+        assert DecreeJobStore._schema_digest(connection) == DecreeJobStore._HISTORY_SCHEMA
+        connection.execute("DROP TABLE decree_job_history_annotations")
         assert DecreeJobStore._schema_digest(connection) == DecreeJobStore._EXACT_NEW_SCHEMA
         connection.execute("ALTER TABLE decree_jobs DROP COLUMN claim_evidence_commitment_json")
         connection.commit()
@@ -1270,6 +1402,7 @@ def test_temp_reserved_name_blocks_exact_old_migration_without_target_changes(tm
     path = tmp_path / "reserved-temp.sqlite3"
     DecreeJobStore(path)
     with closing(sqlite3.connect(path)) as connection:
+        connection.execute("DROP TABLE decree_job_history_annotations")
         connection.execute("ALTER TABLE decree_jobs DROP COLUMN claim_evidence_commitment_json")
         connection.commit()
     before = _database_file_bytes(path)
@@ -1292,6 +1425,7 @@ def test_exact_old_migration_forces_legacy_alter_off_before_lock(tmp_path) -> No
     path = tmp_path / "legacy-alter-off.sqlite3"
     DecreeJobStore(path)
     with closing(sqlite3.connect(path)) as connection:
+        connection.execute("DROP TABLE decree_job_history_annotations")
         connection.execute("ALTER TABLE decree_jobs DROP COLUMN claim_evidence_commitment_json")
         connection.commit()
 
@@ -1318,6 +1452,7 @@ def test_exact_old_rebuild_failure_rolls_back_names_rows_and_identity(tmp_path) 
     seed = DecreeJobStore(path)
     seed.accept(_command(), now=NOW)
     with closing(sqlite3.connect(path)) as connection:
+        connection.execute("DROP TABLE decree_job_history_annotations")
         connection.execute("ALTER TABLE decree_jobs DROP COLUMN claim_evidence_commitment_json")
         connection.commit()
         before = _database_snapshot(path)
@@ -1351,6 +1486,7 @@ def test_exact_old_rebuild_late_failure_rolls_back_everything(
     seed = DecreeJobStore(path)
     seed.accept(_command(), now=NOW)
     with closing(sqlite3.connect(path)) as connection:
+        connection.execute("DROP TABLE decree_job_history_annotations")
         connection.execute("ALTER TABLE decree_jobs DROP COLUMN claim_evidence_commitment_json")
         connection.commit()
         before = _database_snapshot(path)
@@ -1385,6 +1521,7 @@ def test_single_alter_intermediate_schema_is_explicitly_rejected_without_writes(
     path = tmp_path / "single-alter.sqlite3"
     DecreeJobStore(path)
     with closing(sqlite3.connect(path)) as connection:
+        connection.execute("DROP TABLE decree_job_history_annotations")
         connection.execute("ALTER TABLE decree_jobs DROP COLUMN claim_evidence_commitment_json")
         connection.execute("ALTER TABLE decree_jobs ADD COLUMN claim_evidence_commitment_json TEXT")
         connection.commit()

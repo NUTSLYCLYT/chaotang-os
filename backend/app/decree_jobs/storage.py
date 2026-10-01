@@ -28,6 +28,10 @@ class JobNotFound(DecreeJobStoreError):
     pass
 
 
+class JobHistoryArchiveRejected(DecreeJobStoreError):
+    pass
+
+
 class LeaseConflict(DecreeJobStoreError):
     pass
 
@@ -133,6 +137,7 @@ CREATE TABLE decree_jobs (
 """
     _FRESH_SCHEMA = "sha256:0c346e52fa80d30e8948d709d7e83d84389c51ec195a866f44bd874fb414fb51"
     _EXACT_NEW_SCHEMA = "sha256:8b38c49b719aa2a758ba037eb436d6fdf97db50e0a4b8cabd874b1a20f3059c2"
+    _HISTORY_SCHEMA = "sha256:9786efdbe7fe9df671ac4e7af03b6371f6d568c03e5c39c88a77c47986ae2eb6"
     _EXACT_OLD_SCHEMA = "sha256:aa2938733179612f5d4decd4f5e363be7dafaee5d38128273fef9f24eea3f027"
     _EARLIEST_SCHEMA = "sha256:8632c03d798b1a3ac0e5e2774d8d64c4af7d1c734b0b95b2d2d3465b9b3e1124"
     _PRE_AUTHORITY_SCHEMA = (
@@ -339,6 +344,18 @@ CREATE TABLE decree_jobs (
                     request_hash TEXT NOT NULL,
                     job_id TEXT NOT NULL REFERENCES decree_jobs(job_id),
                     PRIMARY KEY(owner_user_id, idempotency_key)
+                )
+                """
+        )
+
+    @staticmethod
+    def _create_history_schema(connection: sqlite3.Connection) -> None:
+        connection.execute(
+            """
+                CREATE TABLE main.decree_job_history_annotations (
+                    job_id TEXT PRIMARY KEY REFERENCES decree_jobs(job_id),
+                    archived INTEGER NOT NULL CHECK (archived IN (0, 1)),
+                    updated_at TEXT NOT NULL
                 )
                 """
         )
@@ -608,6 +625,7 @@ CREATE TABLE decree_jobs (
         probe = self._probe_schema_identity()
         allowed = {
             self._FRESH_SCHEMA,
+            self._HISTORY_SCHEMA,
             self._EXACT_NEW_SCHEMA,
             self._EXACT_OLD_SCHEMA,
             self._EARLIEST_SCHEMA,
@@ -615,7 +633,7 @@ CREATE TABLE decree_jobs (
         }
         if probe not in allowed:
             raise DecreeJobStoreError("decree_job_schema_unrecognized")
-        if probe == self._EXACT_NEW_SCHEMA:
+        if probe == self._HISTORY_SCHEMA:
             return
         with closing(self._connect_for_initialization()) as connection:
             connection.execute("PRAGMA foreign_keys = ON")
@@ -637,7 +655,13 @@ CREATE TABLE decree_jobs (
                     self._migrate_parent_only(connection, earliest=True)
                 elif locked == self._PRE_AUTHORITY_SCHEMA:
                     self._migrate_parent_only(connection, earliest=False)
-                self._assert_canonical_new(connection)
+                if locked != self._HISTORY_SCHEMA:
+                    self._assert_canonical_new(connection)
+                    self._create_history_schema(connection)
+                if self._schema_digest(connection) != self._HISTORY_SCHEMA:
+                    raise DecreeJobStoreError("decree_job_schema_migration_failed")
+                if connection.execute("PRAGMA main.foreign_key_check").fetchall():
+                    raise DecreeJobStoreError("decree_job_schema_migration_failed")
                 connection.commit()
             except Exception:
                 connection.rollback()
@@ -1173,6 +1197,90 @@ CREATE TABLE decree_jobs (
             except Exception:
                 connection.rollback()
                 raise
+
+    def list_for_owner(
+        self, owner_user_id: str, *, limit: int = 50, offset: int = 0,
+        q: str = "", archived: str = "active",
+    ) -> tuple[list[tuple[DecreeJob, bool]], int]:
+        if (type(limit) is not int or not 1 <= limit <= 100
+                or type(offset) is not int or not 0 <= offset <= 1_000_000
+                or not isinstance(q, str) or len(q) > 500
+                or archived not in {"active", "archived", "all"}):
+            raise ValueError("invalid job history query")
+        clauses = ["jobs.owner_user_id = ?"]
+        parameters: list[object] = [owner_user_id]
+        if archived != "all":
+            clauses.append("COALESCE(history.archived, 0) = ?")
+            parameters.append(int(archived == "archived"))
+        if q.strip():
+            # instr performs literal substring search: %, _ and backslash are not patterns.
+            clauses.append("instr(jobs.decree_text, ?) > 0")
+            parameters.append(q.strip())
+        source = (
+            " FROM decree_jobs AS jobs LEFT JOIN decree_job_history_annotations AS history "
+            "ON history.job_id = jobs.job_id WHERE " + " AND ".join(clauses)
+        )
+        with closing(self._connect()) as connection:
+            connection.execute("BEGIN")
+            total = int(connection.execute("SELECT COUNT(*)" + source, parameters).fetchone()[0])
+            rows = connection.execute(
+                "SELECT jobs.*, COALESCE(history.archived, 0) AS history_archived" + source
+                + " ORDER BY jobs.created_at DESC, jobs.job_id DESC LIMIT ? OFFSET ?",
+                [*parameters, limit, offset],
+            ).fetchall()
+            for row in rows:
+                _require_legacy_commitment(row)
+            return [(self._job(row), bool(row["history_archived"])) for row in rows], total
+
+    @staticmethod
+    def _history_annotation(connection: sqlite3.Connection, job_id: str) -> dict[str, object]:
+        row = connection.execute(
+            "SELECT archived, updated_at FROM decree_job_history_annotations WHERE job_id = ?",
+            (job_id,),
+        ).fetchone()
+        return {"job_id": job_id, "history_archived": bool(row["archived"]) if row else False,
+                "updated_at": row["updated_at"] if row else None}
+
+    def get_history_annotation(self, job_id: str, owner_user_id: str) -> dict[str, object]:
+        with closing(self._connect()) as connection:
+            connection.execute("BEGIN")
+            row = connection.execute(
+                "SELECT * FROM decree_jobs WHERE job_id = ? AND owner_user_id = ?",
+                (job_id, owner_user_id),
+            ).fetchone()
+            if row is None:
+                raise JobNotFound
+            _require_legacy_commitment(row)
+            return self._history_annotation(connection, job_id)
+
+    def set_history_annotation(
+        self, job_id: str, owner_user_id: str, archived: bool, *, now: datetime | None = None,
+    ) -> dict[str, object]:
+        if type(archived) is not bool:
+            raise ValueError("archived must be a boolean")
+        with closing(self._connect()) as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            row = connection.execute(
+                "SELECT * FROM decree_jobs WHERE job_id = ? AND owner_user_id = ?",
+                (job_id, owner_user_id),
+            ).fetchone()
+            if row is None:
+                raise JobNotFound
+            _require_legacy_commitment(row)
+            if row["state"] not in {"SUCCEEDED", "FAILED", "CANCELLED"}:
+                raise JobHistoryArchiveRejected("job_history_archive_rejected")
+            current = self._history_annotation(connection, job_id)
+            if current["history_archived"] == archived:
+                return current
+            connection.execute(
+                "INSERT INTO decree_job_history_annotations (job_id, archived, updated_at) "
+                "VALUES (?, ?, ?) ON CONFLICT(job_id) DO UPDATE SET "
+                "archived = excluded.archived, updated_at = excluded.updated_at",
+                (job_id, int(archived), _iso(now or datetime.now(UTC))),
+            )
+            result = self._history_annotation(connection, job_id)
+            connection.commit()
+            return result
 
     def get_for_owner(self, job_id: str, owner_user_id: str) -> DecreeJob:
         with closing(self._connect()) as connection:
