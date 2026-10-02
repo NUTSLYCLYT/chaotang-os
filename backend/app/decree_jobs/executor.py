@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from contextlib import nullcontext
 from types import SimpleNamespace
 
 from pydantic import TypeAdapter
@@ -28,6 +29,7 @@ from app.api.decrees import (
     build_accounting_report_session,
     execute_decree_now,
 )
+from app.fusion.task_token_budget import TaskTokenBudget
 from app.junjichu_cases import (
     JunjichuCaseNotFoundError,
     JunjichuRuntimeReportError,
@@ -39,6 +41,7 @@ from app.junjichu_cases import (
 from app.langgraph_runtime.provider_budget import (
     ProviderBudgetExceeded,
     use_provider_attempt_budget,
+    use_task_token_budget,
 )
 from app.shiguan.archive_decree import archive_chancellor_decree
 
@@ -356,7 +359,20 @@ class PersistentDecreeJobExecutor:
             draft_version=1,
             draft_fingerprint=job.draft_fingerprint,
         )
-        with use_provider_attempt_budget(budget):
+        # Production controls expose the durable store; lightweight unit-test
+        # controls intentionally do not. Keep the old in-memory execution seam
+        # for those callers while real workers always receive the 50k ledger.
+        store = getattr(control, "store", None)
+        task_budget_context = nullcontext()
+        if store is not None:
+            token_budget = TaskTokenBudget(
+                store.db_path,
+                owner_id=job.owner_user_id,
+                task_id=store.resolve_budget_root(job.job_id, job.owner_user_id),
+                max_tokens=50_000,
+            )
+            task_budget_context = use_task_token_budget(token_budget)
+        with task_budget_context, use_provider_attempt_budget(budget):
             try:
                 response = execute_decree_now(
                     payload,

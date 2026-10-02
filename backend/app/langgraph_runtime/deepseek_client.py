@@ -15,21 +15,27 @@ constructs, returns, logs, or raises.
 
 from __future__ import annotations
 
+import hashlib
+import json
 from collections.abc import Callable
 from pathlib import Path
 from typing import Literal
+from uuid import uuid4
 
 import openai
 
+from app.fusion.task_token_budget import TaskTokenBudgetError
 from app.langgraph_runtime.deepseek_config import DeepSeekProviderConfig
 from app.langgraph_runtime.deepseek_env import resolve_deepseek_api_key_with_dotenv_fallback
 from app.langgraph_runtime.provider_budget import (
     ProviderAttemptBudget,
     ProviderBudgetExceeded,
+    get_task_token_budget,
 )
 
 _MODEL_NAME_PREFIX = "openai/"
 _REQUEST_TIMEOUT_SECONDS = 60.0
+_MAX_OUTPUT_TOKENS = 2500
 
 # A DeepSeek chat model is any callable that takes an OpenAI-style list of
 # ``{"role": ..., "content": ...}`` messages and returns the assistant's
@@ -102,6 +108,37 @@ def _classify_provider_failure(
         transient = status_code in {408, 409, 429} or 500 <= status_code < 600
         return category, status_code, transient
     return "unexpected", None, False
+
+
+def _conservative_input_token_bound(messages: list[dict[str, str]]) -> int:
+    """Return a safe upper bound without depending on a provider tokenizer.
+
+    Every UTF-8 byte can be at most one provider token.  This deliberately
+    over-reserves rather than guessing a cheaper count; the provider's usage
+    receipt settles the hold after the response arrives.
+    """
+
+    encoded = json.dumps(
+        messages, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    ).encode("utf-8")
+    return max(1, len(encoded) + (8 * len(messages)))
+
+
+def _usage_tokens(response) -> tuple[int, int] | None:
+    usage = getattr(response, "usage", None)
+    if usage is None:
+        return None
+    input_tokens = getattr(usage, "prompt_tokens", None)
+    output_tokens = getattr(usage, "completion_tokens", None)
+    if input_tokens is None:
+        input_tokens = getattr(usage, "input_tokens", None)
+    if output_tokens is None:
+        output_tokens = getattr(usage, "output_tokens", None)
+    if type(input_tokens) is not int or input_tokens < 0:
+        return None
+    if type(output_tokens) is not int or output_tokens < 0:
+        return None
+    return input_tokens, output_tokens
 
 
 def normalize_deepseek_model_name(model_name: str) -> str:
@@ -185,12 +222,67 @@ def build_deepseek_chat_model(
             request_kwargs["response_format"] = {"type": "json_object"}
             request_kwargs["extra_body"] = {"thinking": {"type": "disabled"}}
         for attempt in range(max_provider_attempts):
+            task_budget = get_task_token_budget()
+            reservation = None
+            request_digest = None
             try:
                 if attempt_budget is not None:
                     attempt_budget.reserve()
+                if task_budget is not None:
+                    request_digest = hashlib.sha256(
+                        json.dumps(
+                            request_kwargs,
+                            ensure_ascii=False,
+                            sort_keys=True,
+                            separators=(",", ":"),
+                        ).encode("utf-8")
+                    ).hexdigest()
+                    reservation = task_budget.reserve_tokens(
+                        attempt_id=f"deepseek-attempt-{uuid4().hex}",
+                        request_id=f"deepseek-request-{uuid4().hex}",
+                        request_sha256=request_digest,
+                        input_tokens=_conservative_input_token_bound(messages),
+                        max_output_tokens=_MAX_OUTPUT_TOKENS,
+                    )
                 response = client.chat.completions.create(**request_kwargs)
+                if reservation is not None and request_digest is not None:
+                    usage = _usage_tokens(response)
+                    if usage is None:
+                        task_budget.mark_usage_unknown(
+                            request_id=reservation.request_id,
+                            request_sha256=request_digest,
+                        )
+                    else:
+                        task_budget.settle_tokens(
+                            request_id=reservation.request_id,
+                            request_sha256=request_digest,
+                            input_tokens=usage[0],
+                            output_tokens=usage[1],
+                        )
                 break
+            except (TaskTokenBudgetError, ValueError) as exc:
+                if reservation is not None and request_digest is not None:
+                    try:
+                        task_budget.mark_usage_unknown(
+                            request_id=reservation.request_id,
+                            request_sha256=request_digest,
+                        )
+                    except Exception:
+                        pass
+                raise DeepSeekModelInvocationError(
+                    "DeepSeek task token budget rejected the provider request.",
+                    failure_category="budget_exhausted",
+                    retry_count=attempt,
+                ) from exc
             except Exception as exc:  # noqa: BLE001 - intentionally wrap any SDK error
+                if reservation is not None and request_digest is not None:
+                    try:
+                        task_budget.mark_usage_unknown(
+                            request_id=reservation.request_id,
+                            request_sha256=request_digest,
+                        )
+                    except Exception:
+                        pass
                 category, status_code, transient = _classify_provider_failure(exc)
                 if transient and attempt + 1 < max_provider_attempts:
                     continue

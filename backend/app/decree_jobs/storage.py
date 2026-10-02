@@ -1293,6 +1293,33 @@ CREATE TABLE decree_jobs (
         _require_legacy_commitment(row)
         return self._job(row)
 
+    def resolve_budget_root(self, job_id: str, owner_user_id: str) -> str:
+        """Return the immutable token-budget root for an owned active job.
+
+        The current decree schema has no retry-child lineage.  Until that
+        lineage is introduced with its own migration and tests, the accepted
+        job itself is the only valid root.  This fail-closed seam prevents a
+        caller from minting a budget for an unknown, uncommitted or foreign
+        job while keeping the existing task ledger API usable.
+        """
+
+        with closing(self._connect()) as connection:
+            row = connection.execute(
+                "SELECT job_id, authority_committed, acceptance_committed, "
+                "claim_evidence_commitment_json FROM decree_jobs "
+                "WHERE job_id = ? AND owner_user_id = ?",
+                (job_id, owner_user_id),
+            ).fetchone()
+        if row is None:
+            raise JobNotFound
+        if row["claim_evidence_commitment_json"] is not None:
+            raise ClaimEvidenceCommitmentUnavailable(
+                "claim_evidence_commitment_unavailable"
+            )
+        if not bool(row["authority_committed"]) or not bool(row["acceptance_committed"]):
+            raise DecreeJobStoreError("budget_root_not_committed")
+        return str(row["job_id"])
+
     def _owned_by_worker(
         self,
         connection: sqlite3.Connection,

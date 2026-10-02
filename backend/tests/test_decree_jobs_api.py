@@ -41,7 +41,9 @@ def test_history_list_and_annotation_are_owned_persistent_and_not_task_state(tmp
     assert page.json()["items"][0]["title"] == "请户部核查国库"
     annotation = f"{base}/{job_id}/history-annotation"
     assert client.get(annotation).json() == {
-        "job_id": job_id, "history_archived": False, "updated_at": None,
+        "job_id": job_id,
+        "history_archived": False,
+        "updated_at": None,
     }
     assert other.get(base).json()["total"] == 0
     assert other.get(annotation).status_code == 404
@@ -49,8 +51,12 @@ def test_history_list_and_annotation_are_owned_persistent_and_not_task_state(tmp
     denied = client.put(annotation, json={"archived": True})
     assert denied.status_code == 409
     assert denied.json()["reason"] == "job_history_archive_rejected"
-    for payload in ({"archived": "true"}, {"archived": 1},
-                    {"archived": True, "owner_user_id": "owner-b"}, {}):
+    for payload in (
+        {"archived": "true"},
+        {"archived": 1},
+        {"archived": True, "owner_user_id": "owner-b"},
+        {},
+    ):
         assert client.put(annotation, json=payload).status_code == 422
     store.request_cancel(job_id, "owner-a", now=NOW)
     before = store.get_for_owner(job_id, "owner-a")
@@ -68,13 +74,111 @@ def test_history_list_and_annotation_are_owned_persistent_and_not_task_state(tmp
     assert reopened.get(base).json()["total"] == 1
 
 
-@pytest.mark.parametrize("params", [
-    {"limit": 0}, {"limit": 101}, {"offset": -1}, {"offset": 1000001},
-    {"q": "x" * 501}, {"archived": "true"},
-])
+def test_first_loop_route_is_reachable_from_main_and_does_not_write_job_state(tmp_path):
+    from app.main import app as main_app
+
+    store = DecreeJobStore(tmp_path / "first-loop.sqlite3")
+    job_id = _terminal_first_loop_job(store)
+    before = store.get_for_owner(job_id, "owner-a")
+    main_app.dependency_overrides[require_current_user] = lambda: SimpleNamespace(id="owner-a")
+    main_app.dependency_overrides[get_decree_job_store] = lambda: store
+    try:
+        with TestClient(main_app) as client:
+            response = client.post(
+                f"/api/v1/decree-jobs/{job_id}/first-loop",
+                json={"evidence_refs": ["evidence-1"]},
+            )
+            assert response.status_code == 200
+            body = response.json()
+            assert body["result"]["departments"] == ["hubu"]
+            assert body["result"]["evidence_refs"] == ["evidence-1"]
+            assert body["events"][-1]["kind"] == "REPLY_ARCHIVED"
+            assert store.get_for_owner(job_id, "owner-a") == before
+    finally:
+        main_app.dependency_overrides.pop(require_current_user, None)
+        main_app.dependency_overrides.pop(get_decree_job_store, None)
+
+
+def test_first_loop_is_owner_scoped_and_requires_terminal_state(tmp_path):
+    store = DecreeJobStore(tmp_path / "first-loop-gates.sqlite3")
+    job_id = _accepted(store)
+    assert _client(store, "owner-a").post(
+        f"/api/v1/decree-jobs/{job_id}/first-loop", json={"evidence_refs": []}
+    ).json() == {
+        "status": "error",
+        "reason": "first_loop_requires_terminal_job",
+    }
+    assert (
+        _client(store, "owner-b")
+        .post(f"/api/v1/decree-jobs/{job_id}/first-loop", json={"evidence_refs": []})
+        .status_code
+        == 404
+    )
+
+
+@pytest.mark.parametrize(
+    "evidence_refs, reason",
+    [
+        (["evidence-1", "evidence-1"], "evidence_refs_must_be_unique"),
+        (["  "], "evidence_refs_must_be_nonblank_strings"),
+        ([123], "string_type"),
+    ],
+)
+def test_first_loop_validates_evidence_refs_at_http_boundary(
+    tmp_path,
+    evidence_refs,
+    reason,
+):
+    store = DecreeJobStore(tmp_path / "first-loop-evidence.sqlite3")
+    job_id = _terminal_first_loop_job(store)
+    response = _client(store, "owner-a").post(
+        f"/api/v1/decree-jobs/{job_id}/first-loop",
+        json={"evidence_refs": evidence_refs},
+    )
+    assert response.status_code == 422
+    if reason == "string_type":
+        assert any(item["type"] == reason for item in response.json()["detail"])
+    else:
+        assert reason in response.json()["detail"][0]["msg"]
+
+
+def test_first_loop_rejects_unverified_client_evidence_and_replays_idempotently(tmp_path):
+    store = DecreeJobStore(tmp_path / "first-loop-replay.sqlite3")
+    job_id = _terminal_first_loop_job(store)
+    client = _client(store, "owner-a")
+    unverified = client.post(
+        f"/api/v1/decree-jobs/{job_id}/first-loop",
+        json={"evidence_refs": ["client-claim"]},
+    )
+    assert unverified.status_code == 422
+    assert unverified.json() == {"status": "error", "reason": "evidence_refs_not_verified"}
+    first = client.post(
+        f"/api/v1/decree-jobs/{job_id}/first-loop",
+        json={"evidence_refs": ["evidence-1"]},
+    )
+    second = client.post(
+        f"/api/v1/decree-jobs/{job_id}/first-loop",
+        json={"evidence_refs": ["evidence-1"]},
+    )
+    assert first.status_code == second.status_code == 200
+    assert first.json() == second.json()
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"limit": 0},
+        {"limit": 101},
+        {"offset": -1},
+        {"offset": 1000001},
+        {"q": "x" * 501},
+        {"archived": "true"},
+    ],
+)
 def test_history_rejects_invalid_query(tmp_path, params):
     response = _client(DecreeJobStore(tmp_path / "jobs.sqlite3"), "owner-a").get(
-        "/api/v1/decree-jobs", params=params,
+        "/api/v1/decree-jobs",
+        params=params,
     )
     assert response.status_code == 422
 
@@ -113,6 +217,20 @@ def _accepted(store: DecreeJobStore) -> str:
         ),
         now=NOW,
     ).job.job_id
+
+
+def _terminal_first_loop_job(store: DecreeJobStore) -> str:
+    job_id = _accepted(store)
+    with closing(sqlite3.connect(store.db_path)) as connection:
+        connection.execute(
+            "UPDATE decree_jobs SET state = 'SUCCEEDED', result_json = ? WHERE job_id = ?",
+            (
+                json.dumps({"internal_result": {"adopted_evidence_ids": ["evidence-1"]}}),
+                job_id,
+            ),
+        )
+        connection.commit()
+    return job_id
 
 
 def _client(
@@ -903,11 +1021,7 @@ def test_accept_decree_late_commitment_boundary_is_fixed_503_without_cleanup(
         "restore_if_absent",
         lambda **_kwargs: events.append("restore") or True,
     )
-    original = (
-        store.mark_authority_committed
-        if boundary == "marker"
-        else store.activate_acceptance
-    )
+    original = store.mark_authority_committed if boundary == "marker" else store.activate_acceptance
 
     def inject_then_call(job_id: str, owner_user_id: str):
         with closing(sqlite3.connect(store.db_path)) as connection:
