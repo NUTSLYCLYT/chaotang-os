@@ -23,6 +23,23 @@ from app.orchestration.contracts import (
     decree_input_digest,
 )
 from app.orchestration.engine import OrchestrationEngine
+from app.orchestration.first_loop import (
+    EvidenceLedger,
+    FirstLoopAdapter,
+    FirstLoopSubmission,
+    GoalInterpreter,
+    GoalSpec,
+    MemoryPolicy,
+    PlanBuilder,
+    QualityDecision,
+    QualityGate,
+    RecoveryDecision,
+    RecoveryManager,
+    ResultContract,
+    ScopeBinding,
+    TeamSelection,
+    TeamSelector,
+)
 
 __all__ = [
     "EngineKind",
@@ -46,4 +63,19 @@ __all__ = [
     "RouteType",
     "archive_idempotency_key",
     "decree_input_digest",
+    "EvidenceLedger",
+    "FirstLoopAdapter",
+    "FirstLoopSubmission",
+    "GoalInterpreter",
+    "GoalSpec",
+    "MemoryPolicy",
+    "PlanBuilder",
+    "QualityDecision",
+    "QualityGate",
+    "RecoveryDecision",
+    "RecoveryManager",
+    "ResultContract",
+    "ScopeBinding",
+    "TeamSelection",
+    "TeamSelector",
 ]
