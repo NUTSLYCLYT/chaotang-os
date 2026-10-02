@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { cpSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -8,8 +8,21 @@ import test from 'node:test';
 
 const sourceDir = dirname(fileURLToPath(import.meta.url));
 
+function resolveBash() {
+  if (process.platform !== 'win32') return 'bash';
+  const candidates = [
+    process.env.BASH,
+    process.env.ProgramFiles ? join(process.env.ProgramFiles, 'Git', 'bin', 'bash.exe') : null,
+    process.env['ProgramFiles(x86)']
+      ? join(process.env['ProgramFiles(x86)'], 'Git', 'bin', 'bash.exe')
+      : null,
+  ].filter((candidate) => candidate && existsSync(candidate));
+  return candidates[0] ?? 'bash';
+}
+
 function run(cwd, command, args) {
-  return spawnSync(command, args, { cwd, encoding: 'utf8' });
+  const executable = command === 'bash' ? resolveBash() : command;
+  return spawnSync(executable, args, { cwd, encoding: 'utf8' });
 }
 
 function git(cwd, ...args) {

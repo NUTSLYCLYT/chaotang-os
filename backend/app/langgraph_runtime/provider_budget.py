@@ -78,6 +78,9 @@ _PROCESS_BUDGET: ProviderAttemptBudget | None = None
 _CONTEXT_BUDGET: ContextVar[AttemptBudget | None] = ContextVar(
     "provider_attempt_budget", default=None
 )
+_TASK_TOKEN_BUDGET: ContextVar[object | None] = ContextVar(
+    "task_token_budget", default=None
+)
 
 
 class _CombinedAttemptBudget:
@@ -147,3 +150,26 @@ def use_provider_attempt_budget(budget: AttemptBudget) -> Iterator[None]:
         yield
     finally:
         _CONTEXT_BUDGET.reset(token)
+
+
+def get_task_token_budget():
+    """Return the task-scoped token ledger bound to the current execution.
+
+    The context is intentionally untyped at runtime to keep this low-level
+    module independent from ``app.fusion``.  Only the execution worker may
+    install a ledger; direct model construction and offline tests remain
+    unchanged and therefore cannot accidentally spend a product budget.
+    """
+
+    return _TASK_TOKEN_BUDGET.get()
+
+
+@contextmanager
+def use_task_token_budget(budget) -> Iterator[None]:
+    """Bind one durable token ledger to all provider calls in this task."""
+
+    token = _TASK_TOKEN_BUDGET.set(budget)
+    try:
+        yield
+    finally:
+        _TASK_TOKEN_BUDGET.reset(token)

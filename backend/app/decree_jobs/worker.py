@@ -87,6 +87,17 @@ class DecreeJobControl:
         self._clock = clock
         self._lease_lost = lease_lost
 
+    @property
+    def store(self) -> DecreeJobStore:
+        """Expose the already-bound job store to execution adapters.
+
+        The worker remains the owner of lease and cancellation checks; this
+        read-only reference lets a budget adapter bind durable accounting to
+        the same SQLite file without creating a second task registry.
+        """
+
+        return self._store
+
     def record_provider_request(self, count: int = 1) -> None:
         if self._lease_lost.is_set():
             raise JobLeaseLost
