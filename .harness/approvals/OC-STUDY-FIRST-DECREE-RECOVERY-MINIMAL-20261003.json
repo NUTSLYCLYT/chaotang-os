@@ -7,8 +7,8 @@
     "targetBranch": "ext-dev"
   },
   "request": {
-    "baseCommit": "fa530d25c886c8d96049396e21af0550b2272f0c",
-    "baseTree": "c6f9fcb1785746242305424e2be65e69cfebfb90",
+    "baseCommit": "cb5b17947533c4e1df5d770de7f68147f66b3b34",
+    "baseTree": "c177af3dbd6747ada45bee895861e678d7176a2f",
     "approvalPath": ".harness/approvals/OC-STUDY-FIRST-DECREE-RECOVERY-MINIMAL-20261003.json",
     "approvalCommitPaths": [
       ".harness/approvals/OC-STUDY-FIRST-DECREE-RECOVERY-MINIMAL-20261003.json"
@@ -42,7 +42,7 @@
       "id": "study-first-decree-build",
       "tool": "node",
       "cwd": "frontend",
-      "args": ["--eval", "const { spawnSync } = require('node:child_process'); const env = { ...process.env, SystemRoot: 'C:/Windows', ComSpec: 'C:/Windows/System32/cmd.exe', PATH: 'C:/Windows/System32;C:/Program Files/nodejs;C:/Program Files/Git/usr/bin;C:/Program Files/Git/bin', TEMP: 'C:/Users/Administrator/AppData/Local/Temp', TMP: 'C:/Users/Administrator/AppData/Local/Temp', USERPROFILE: 'C:/Users/Administrator', APPDATA: 'C:/Users/Administrator/AppData/Roaming', LOCALAPPDATA: 'C:/Users/Administrator/AppData/Local' }; const result = spawnSync(process.execPath, ['C:/Program Files/nodejs/node_modules/npm/bin/npm-cli.js', 'run', 'build'], { cwd: process.cwd(), env, stdio: 'inherit' }); process.exit(result.status ?? 1);"],
+      "args": ["node_modules/next/dist/bin/next", "build"],
       "timeoutMs": 300000
     },
     {
@@ -61,14 +61,14 @@
       "id": "study-first-decree-lint",
       "tool": "node",
       "cwd": "frontend",
-      "args": ["--eval", "const { spawnSync } = require('node:child_process'); const env = { ...process.env, SystemRoot: 'C:/Windows', ComSpec: 'C:/Windows/System32/cmd.exe', PATH: 'C:/Windows/System32;C:/Program Files/nodejs;C:/Program Files/Git/usr/bin;C:/Program Files/Git/bin', TEMP: 'C:/Users/Administrator/AppData/Local/Temp', TMP: 'C:/Users/Administrator/AppData/Local/Temp', USERPROFILE: 'C:/Users/Administrator', APPDATA: 'C:/Users/Administrator/AppData/Roaming', LOCALAPPDATA: 'C:/Users/Administrator/AppData/Local' }; const result = spawnSync(process.execPath, ['C:/Program Files/nodejs/node_modules/npm/bin/npm-cli.js', 'run', 'lint'], { cwd: process.cwd(), env, stdio: 'inherit' }); process.exit(result.status ?? 1);"],
+      "args": ["node_modules/eslint/bin/eslint.js", "."],
       "timeoutMs": 300000
     },
     {
       "id": "study-first-decree-typecheck",
       "tool": "node",
       "cwd": "frontend",
-      "args": ["--eval", "const { spawnSync } = require('node:child_process'); const env = { ...process.env, SystemRoot: 'C:/Windows', ComSpec: 'C:/Windows/System32/cmd.exe', PATH: 'C:/Windows/System32;C:/Program Files/nodejs;C:/Program Files/Git/usr/bin;C:/Program Files/Git/bin', TEMP: 'C:/Users/Administrator/AppData/Local/Temp', TMP: 'C:/Users/Administrator/AppData/Local/Temp', USERPROFILE: 'C:/Users/Administrator', APPDATA: 'C:/Users/Administrator/AppData/Roaming', LOCALAPPDATA: 'C:/Users/Administrator/AppData/Local' }; const result = spawnSync(process.execPath, ['C:/Program Files/nodejs/node_modules/npm/bin/npm-cli.js', 'run', 'typecheck'], { cwd: process.cwd(), env, stdio: 'inherit' }); process.exit(result.status ?? 1);"],
+      "args": ["node_modules/typescript/bin/tsc", "--noEmit"],
       "timeoutMs": 300000
     }
   ]
