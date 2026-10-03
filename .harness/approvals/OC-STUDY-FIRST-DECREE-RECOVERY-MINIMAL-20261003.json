@@ -7,16 +7,16 @@
     "targetBranch": "ext-dev"
   },
   "request": {
-    "baseCommit": "ff13282869e8dbc0c9dcacf31602791c9b5c1869",
-    "baseTree": "ea528520f746502a2547689936b400d0e382c605",
+    "baseCommit": "1f115038975ab2c637a63819dc35aaf36c711de1",
+    "baseTree": "a2dd243819b8395456505c40efa82902aab4f89c",
     "approvalPath": ".harness/approvals/OC-STUDY-FIRST-DECREE-RECOVERY-MINIMAL-20261003.json",
     "approvalCommitPaths": [
       ".harness/approvals/OC-STUDY-FIRST-DECREE-RECOVERY-MINIMAL-20261003.json"
     ],
     "productPaths": [
       "frontend/src/app/study/StudyClient.tsx",
-      "frontend/src/app/study/decreeJobPolling.ts",
       "frontend/src/app/study/decreeJobPolling.test.ts",
+      "frontend/src/app/study/decreeJobPolling.ts",
       "frontend/src/features/study-visual/DevStudyWorkspace.test.ts",
       "frontend/src/features/study-visual/DevStudyWorkspace.tsx",
       "frontend/src/features/study-visual/studyTaskCockpit.test.ts",
