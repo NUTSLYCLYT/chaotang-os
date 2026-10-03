@@ -7,8 +7,8 @@
     "targetBranch": "ext-dev"
   },
   "request": {
-    "baseCommit": "69d52227ac077848a56d143f3570f90db0f77164",
-    "baseTree": "a7410a7f2e0f6db44a1202667f5b721be6dfac2d",
+    "baseCommit": "fa530d25c886c8d96049396e21af0550b2272f0c",
+    "baseTree": "c6f9fcb1785746242305424e2be65e69cfebfb90",
     "approvalPath": ".harness/approvals/OC-STUDY-FIRST-DECREE-RECOVERY-MINIMAL-20261003.json",
     "approvalCommitPaths": [
       ".harness/approvals/OC-STUDY-FIRST-DECREE-RECOVERY-MINIMAL-20261003.json"
@@ -40,9 +40,9 @@
   "verification": [
     {
       "id": "study-first-decree-build",
-      "tool": "npm",
+      "tool": "node",
       "cwd": "frontend",
-      "args": ["run", "build"],
+      "args": ["C:/Program Files/nodejs/node_modules/npm/bin/npm-cli.js", "run", "build"],
       "timeoutMs": 300000
     },
     {
@@ -59,16 +59,16 @@
     },
     {
       "id": "study-first-decree-lint",
-      "tool": "npm",
+      "tool": "node",
       "cwd": "frontend",
-      "args": ["run", "lint"],
+      "args": ["C:/Program Files/nodejs/node_modules/npm/bin/npm-cli.js", "run", "lint"],
       "timeoutMs": 300000
     },
     {
       "id": "study-first-decree-typecheck",
-      "tool": "npm",
+      "tool": "node",
       "cwd": "frontend",
-      "args": ["run", "typecheck"],
+      "args": ["C:/Program Files/nodejs/node_modules/npm/bin/npm-cli.js", "run", "typecheck"],
       "timeoutMs": 300000
     }
   ]
