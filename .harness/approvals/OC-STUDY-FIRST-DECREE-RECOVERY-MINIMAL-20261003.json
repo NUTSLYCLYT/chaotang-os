@@ -7,8 +7,8 @@
     "targetBranch": "ext-dev"
   },
   "request": {
-    "baseCommit": "f0827354ab59da2153dd88cc004a8656387be0f4",
-    "baseTree": "ac450e592730fc1715cd0e7183e4456323ae1a52",
+    "baseCommit": "ca38875bab6424b46a2a3df20940b404b7bceff1",
+    "baseTree": "d1b028fdf674a88350cfeaede6a7754d743cbe5a",
     "approvalPath": ".harness/approvals/OC-STUDY-FIRST-DECREE-RECOVERY-MINIMAL-20261003.json",
     "approvalCommitPaths": [
       ".harness/approvals/OC-STUDY-FIRST-DECREE-RECOVERY-MINIMAL-20261003.json"
@@ -39,6 +39,13 @@
   "state": "APPROVED_FOR_ONE_CHILD",
   "verification": [
     {
+      "id": "root-harness-and-authority-regression",
+      "tool": "node",
+      "cwd": ".",
+      "args": ["scripts/check_harness.mjs", "--self-test"],
+      "timeoutMs": 180000
+    },
+    {
       "id": "study-first-decree-build",
       "tool": "npm",
       "cwd": "frontend",
@@ -63,13 +70,6 @@
       "cwd": "frontend",
       "args": ["run", "lint"],
       "timeoutMs": 300000
-    },
-    {
-      "id": "root-harness-and-authority-regression",
-      "tool": "node",
-      "cwd": ".",
-      "args": ["scripts/check_harness.mjs", "--self-test"],
-      "timeoutMs": 180000
     },
     {
       "id": "study-first-decree-typecheck",
