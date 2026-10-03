@@ -7,7 +7,7 @@
     "targetBranch": "ext-dev"
   },
   "request": {
-    "baseCommit": "ca38875bab6424b46a2a3df20940b404b7bceff1",
+    "baseCommit": "ca38875bceb277fa292e5a266895a4940eeea875",
     "baseTree": "d1b028fdf674a88350cfeaede6a7754d743cbe5a",
     "approvalPath": ".harness/approvals/OC-STUDY-FIRST-DECREE-RECOVERY-MINIMAL-20261003.json",
     "approvalCommitPaths": [
