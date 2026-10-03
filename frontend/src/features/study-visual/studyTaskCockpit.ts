@@ -17,7 +17,28 @@ export const SOURCE_MODE_LABELS: Readonly<Record<StudySourceMode, string>> = {
 
 export type StudyStage = "EMPTY" | "DAILY_MEMORIAL_REVIEW_ONLY" | "CONSULTING" |
   "UNDERSTANDING_READY" | "CONFIRMED_AND_DRAFTING" | "DRAFT_READY" |
-  "QUEUED_OR_RUNNING" | "SUCCEEDED" | "FAILED_OR_CANCELLED";
+  "DRAFT_BLOCKED" | "QUEUED_OR_RUNNING" | "SUCCEEDED" | "FAILED_OR_CANCELLED";
+
+/**
+ * 非 `DRAFT_READY` 草案的唯一恢复动作。
+ *
+ * 只投影既有草案状态，不新增状态机或存储；返回的 `action` 恒为 `REDRAFT`，
+ * `label` 是面向用户的唯一恢复控件文案。`status` 保留真实阻断状态，便于渲染
+ * 真实原因而不是把它伪装成 `EMPTY`（没有草案）。
+ */
+export interface StudyDraftBlockRecovery {
+  status: ChancellorDraftResult["status"];
+  action: "REDRAFT";
+  label: string;
+}
+
+const STUDY_DRAFT_BLOCK_RECOVERY_LABEL = "重新拟旨 · 更新目标后重试";
+
+export function resolveStudyDraftBlockRecovery(
+  status: ChancellorDraftResult["status"],
+): StudyDraftBlockRecovery {
+  return { status, action: "REDRAFT", label: STUDY_DRAFT_BLOCK_RECOVERY_LABEL };
+}
 
 /** A display projection of existing states, not another job or authority state. */
 export function projectStudyPrimaryAction(input: {
@@ -37,15 +58,21 @@ export function projectStudyPrimaryAction(input: {
   else if (input.draftPending) stage = "CONFIRMED_AND_DRAFTING";
   else if (input.draftStatus === "DRAFT_READY") stage = "DRAFT_READY";
   else if (input.understandingReady && input.draftStatus === null) stage = "UNDERSTANDING_READY";
+  // A non-null, non-ready draft is a real block: never fall through to EMPTY.
+  else if (input.draftStatus !== null) stage = "DRAFT_BLOCKED";
   else if (!input.goal.trim() && input.dailyMemorialReady) stage = "DAILY_MEMORIAL_REVIEW_ONLY";
   else stage = "EMPTY";
   const labels: Record<StudyStage, string | null> = {
     EMPTY: "请丞相复述", DAILY_MEMORIAL_REVIEW_ONLY: "确认上奏并归档为奏折",
     CONSULTING: null, UNDERSTANDING_READY: "确认理解 · 生成拟旨",
     CONFIRMED_AND_DRAFTING: null, DRAFT_READY: "确认下旨 · 开始办理",
+    DRAFT_BLOCKED: null,
     QUEUED_OR_RUNNING: null, SUCCEEDED: "查看成果", FAILED_OR_CANCELLED: "查看原因与下一步",
   };
-  return { stage, label: labels[stage] };
+  const label = stage === "DRAFT_BLOCKED" && input.draftStatus !== null
+    ? resolveStudyDraftBlockRecovery(input.draftStatus).label
+    : labels[stage];
+  return { stage, label };
 }
 
 export interface StudyAcceptanceContract {

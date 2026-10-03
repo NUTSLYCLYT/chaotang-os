@@ -420,6 +420,24 @@ test("submission failure leaves the recovery button as the only enabled draft ac
   assert.match(composer, /disabled=\{!props\.canEdit \|\| !props\.decreeText\.trim\(\)\}/);
 });
 
+test("a blocked draft shows exactly one recovery control and leaves the issue action unchanged", async () => {
+  const source = await readFile(new URL("./DevStudyWorkspace.tsx", import.meta.url), "utf8");
+  const composer = source.slice(
+    source.indexOf("const composer = ("),
+    source.indexOf("const drawers = ("),
+  );
+
+  assert.match(composer, /actionSurfaceReady && action\.stage === "DRAFT_BLOCKED"/);
+  assert.match(composer, /data-testid="draft-blocked-recovery"/);
+  assert.match(composer, /onClick=\{props\.onRetryProgress\}/);
+  assert.match(composer, /disabled=\{!props\.canRetryProgress\}/);
+  assert.match(composer, /\{action\.label\}/);
+  assert.equal((composer.match(/props\.onRetryProgress/g) ?? []).length, 1);
+  assert.equal((composer.match(/data-testid="draft-edict-button"/g) ?? []).length, 1);
+  assert.equal((source.match(/data-testid="submit-decree-button"/g) ?? []).length, 1);
+  assert.match(source, /actionSurfaceReady && action\.stage === "DRAFT_READY"/);
+});
+
 test("verified enqueueing, queued, and running progress outranks a retained draft", async () => {
   const source = await readFile(new URL("./DevStudyWorkspace.tsx", import.meta.url), "utf8");
   const centralFlow = source.slice(

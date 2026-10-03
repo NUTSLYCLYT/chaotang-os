@@ -8,6 +8,7 @@ import {
   SOURCE_MODE_LABELS,
   projectStudyTaskCockpit,
   projectStudyPrimaryAction,
+  resolveStudyDraftBlockRecovery,
 } from "./studyTaskCockpit.ts";
 
 test("one full-page business action is projected for every confirmation/job phase", () => {
@@ -32,6 +33,37 @@ test("one full-page business action is projected for every confirmation/job phas
     { stage: "FAILED_OR_CANCELLED", label: "查看原因与下一步" });
   assert.deepEqual(projectStudyPrimaryAction({ ...base, uiPhase: "success" }),
     { stage: "SUCCEEDED", label: "查看成果" });
+});
+
+const NON_READY_DRAFT_STATUSES = [
+  "CLARIFYING", "NEEDS_INPUT", "PARTIAL", "ISSUE_BLOCKED",
+  "ISSUED", "EXECUTING", "RETURNED",
+] as const;
+
+test("a non-ready draft projects a real block plus one recovery action instead of EMPTY", () => {
+  const base = { uiPhase: "idle" as const, draftPending: false, consultPending: false,
+    understandingReady: true, goal: "核验经营目标", dailyMemorialReady: true };
+  for (const draftStatus of NON_READY_DRAFT_STATUSES) {
+    const recovery = resolveStudyDraftBlockRecovery(draftStatus);
+    assert.equal(recovery.status, draftStatus);
+    assert.equal(recovery.action, "REDRAFT");
+    assert.ok(recovery.label.length > 0);
+    assert.deepEqual(
+      projectStudyPrimaryAction({ ...base, draftStatus }),
+      { stage: "DRAFT_BLOCKED", label: recovery.label },
+      draftStatus,
+    );
+  }
+});
+
+test("EMPTY is only projected when there is no draft at all", () => {
+  const base = { uiPhase: "idle" as const, draftPending: false, consultPending: false,
+    understandingReady: false, goal: "核验经营目标", dailyMemorialReady: true };
+  assert.deepEqual(projectStudyPrimaryAction({ ...base, draftStatus: null }),
+    { stage: "EMPTY", label: "请丞相复述" });
+  for (const draftStatus of NON_READY_DRAFT_STATUSES) {
+    assert.notEqual(projectStudyPrimaryAction({ ...base, draftStatus }).stage, "EMPTY", draftStatus);
+  }
 });
 
 const READY_DRAFT: ChancellorDraftResult = {

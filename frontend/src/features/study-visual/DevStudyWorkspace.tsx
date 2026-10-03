@@ -356,7 +356,21 @@ export function DevStudyWorkspace(props: DevStudyWorkspaceProps) {
             else props.onDraft(props.decreeText);
           }}>{action.label}</button>
         )}
+        {actionSurfaceReady && action.stage === "DRAFT_BLOCKED" && (
+          <button
+            type="button"
+            className={styles.draftAction}
+            data-testid="draft-blocked-recovery"
+            disabled={!props.canRetryProgress}
+            onClick={props.onRetryProgress}
+          >
+            {action.label}
+          </button>
+        )}
       </div>
+      {actionSurfaceReady && action.stage === "DRAFT_BLOCKED" && !props.canRetryProgress && props.retryProgressHint && (
+        <p className={styles.recoveryHint}>{props.retryProgressHint}</p>
+      )}
       {props.consultError && <p role="alert" className={styles.localNotice}>{props.consultError}</p>}
       {props.draftError && <p className={styles.localNotice}>{props.draftError}</p>}
     </section>
