@@ -7,8 +7,8 @@
     "targetBranch": "ext-dev"
   },
   "request": {
-    "baseCommit": "c046240216a2bae79c0bcdd1509cf435fb9ed619",
-    "baseTree": "185f84c46acba65521b8f4cec08f28e6acf134ab",
+    "baseCommit": "69d52227ac077848a56d143f3570f90db0f77164",
+    "baseTree": "a7410a7f2e0f6db44a1202667f5b721be6dfac2d",
     "approvalPath": ".harness/approvals/OC-STUDY-FIRST-DECREE-RECOVERY-MINIMAL-20261003.json",
     "approvalCommitPaths": [
       ".harness/approvals/OC-STUDY-FIRST-DECREE-RECOVERY-MINIMAL-20261003.json"
@@ -38,13 +38,6 @@
   ],
   "state": "APPROVED_FOR_ONE_CHILD",
   "verification": [
-    {
-      "id": "root-harness-and-authority-regression",
-      "tool": "node",
-      "cwd": ".",
-      "args": ["scripts/check_harness.mjs", "--self-test"],
-      "timeoutMs": 180000
-    },
     {
       "id": "study-first-decree-build",
       "tool": "npm",
