@@ -70,6 +70,9 @@ _SOURCE_SCOPE = (
 _MAX_INVESTIGATIONS = 3
 _MAX_EXTRACTIONS = 6
 _DEADLINE_SECONDS = 30.0
+_MAX_EVIDENCE_MESSAGE_BYTES = 6000
+_MAX_EVIDENCE_EXCERPT_BYTES = 512
+_MIN_EVIDENCE_EXCERPT_BYTES = 96
 _DEFAULT_MCP_RATE_LIMIT_STATE = McpRateLimitState()
 _DEGRADABLE_SYNTHESIS_ERRORS = frozenset(
     {
@@ -1535,14 +1538,22 @@ def _validate_gap_bounds(draft: DataGapDraft) -> None:
 
 
 def _evidence_message(pack: EvidencePack) -> Message:
-    serialized = json.dumps(
-        pack.model_dump(
-            mode="json", warnings="none", fallback=_serialization_fallback
-        ),
-        ensure_ascii=False,
-        separators=(",", ":"),
-        sort_keys=True,
+    payload = pack.model_dump(
+        mode="json", warnings="none", fallback=_serialization_fallback
     )
+    # Evidence excerpts are untrusted presentation text. Keep the complete pack
+    # in the session/audit trail, but bound what is sent back to the model so a
+    # public page cannot consume the whole task budget before synthesis.
+    _bound_evidence_payload(payload, excerpt_bytes=_MAX_EVIDENCE_EXCERPT_BYTES)
+    serialized = _serialize_evidence_payload(payload)
+    if len(serialized.encode("utf-8")) > _MAX_EVIDENCE_MESSAGE_BYTES:
+        _bound_evidence_payload(payload, excerpt_bytes=_MIN_EVIDENCE_EXCERPT_BYTES)
+        serialized = _serialize_evidence_payload(payload)
+    if len(serialized.encode("utf-8")) > _MAX_EVIDENCE_MESSAGE_BYTES:
+        payload = _minimal_evidence_payload(payload)
+        serialized = _serialize_evidence_payload(payload)
+    if len(serialized.encode("utf-8")) > _MAX_EVIDENCE_MESSAGE_BYTES:
+        raise EvidenceProtocolError("evidence_message_too_large")
     return {
         "role": "user",
         "content": (
@@ -1553,6 +1564,89 @@ def _evidence_message(pack: EvidencePack) -> Message:
             "END_UNTRUSTED_EVIDENCE_PACK"
         ),
     }
+
+
+def _serialize_evidence_payload(payload: Mapping[str, object]) -> str:
+    return json.dumps(
+        payload,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+
+
+def _truncate_utf8(value: str, max_bytes: int) -> str:
+    encoded = value.encode("utf-8")
+    if len(encoded) <= max_bytes:
+        return value
+    return encoded[:max_bytes].decode("utf-8", errors="ignore") + "…"
+
+
+def _bound_evidence_payload(payload: object, *, excerpt_bytes: int) -> None:
+    if isinstance(payload, dict):
+        for key, value in list(payload.items()):
+            if key == "access_metadata":
+                payload.pop(key, None)
+                continue
+            if key == "excerpt" and isinstance(value, str):
+                payload[key] = _truncate_utf8(value, excerpt_bytes)
+                continue
+            _bound_evidence_payload(value, excerpt_bytes=excerpt_bytes)
+    elif isinstance(payload, list):
+        for value in payload:
+            _bound_evidence_payload(value, excerpt_bytes=excerpt_bytes)
+
+
+def _minimal_evidence_payload(payload: Mapping[str, object]) -> dict[str, object]:
+    """Build a bounded evidence view while retaining citation identities."""
+
+    minimal: dict[str, object] = {
+        key: payload[key]
+        for key in ("pack_id", "investigation_id", "status", "resolved_facts", "unresolved_facts")
+        if key in payload
+    }
+    minimal["evidence_by_fact"] = _minimal_evidence_groups(
+        payload.get("evidence_by_fact")
+    )
+    minimal["historical_evidence_by_fact"] = _minimal_evidence_groups(
+        payload.get("historical_evidence_by_fact")
+    )
+    return minimal
+
+
+def _minimal_evidence_groups(value: object) -> dict[str, list[dict[str, object]]]:
+    if not isinstance(value, Mapping):
+        return {}
+    groups: dict[str, list[dict[str, object]]] = {}
+    for fact_key, items in value.items():
+        if not isinstance(fact_key, str) or not isinstance(items, list):
+            continue
+        compacted: list[dict[str, object]] = []
+        for item in items:
+            if not isinstance(item, Mapping):
+                continue
+            compacted.append(
+                {
+                    key: item[key]
+                    for key in (
+                        "evidence_id",
+                        "fact_key",
+                        "value",
+                        "unit",
+                        "as_of",
+                        "source_url",
+                        "publisher",
+                        "source_type",
+                        "excerpt",
+                        "content_hash",
+                        "confidence",
+                    )
+                    if key in item
+                }
+            )
+        if compacted:
+            groups[fact_key] = compacted
+    return groups
 
 
 def _unsupported_dependency_correction(node_id: str) -> Message:

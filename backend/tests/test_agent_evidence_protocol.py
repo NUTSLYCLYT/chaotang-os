@@ -15,6 +15,7 @@ import app.agents.evidence_protocol as evidence_protocol_module
 from app.agents.evidence_protocol import (
     AgentEvidenceSession,
     EvidenceProtocolError,
+    _evidence_message,
     build_bureau_evidence_tool_adapter,
     verify_bureau_evidence_tool_adapter,
     build_default_evidence_session,
@@ -34,8 +35,10 @@ from app.jinyiwei.models import (
     EvidenceQuality,
     EvidenceStance,
     FactCategory,
+    FreshnessRequirement,
     InvestigationPlan,
     MarketMetric,
+    RequiredFact,
     SourceType,
 )
 from app.agents.runtime_skills.registry import build_default_downstream_skill_registry
@@ -284,6 +287,39 @@ class Coordinator:
             (request, department, matter_type, extraction_budget, owner_user_id)
         )
         return _pack(request, status=self.status, cache_hit=self.cache_hit)
+
+
+def test_evidence_message_bounds_untrusted_excerpt_without_changing_session_pack() -> None:
+    request = DataGapRequest(
+        request_id="request-large-excerpt",
+        requesting_agent="bureau:工部:技术司",
+        question="目标项目的许可证是什么？",
+        required_facts=(
+            RequiredFact(
+                key="license",
+                description="项目许可证",
+                category=FactCategory.ENTITY_REFERENCE,
+                data_scope=DataScope.EXTERNAL_PUBLIC,
+                subject="example/project",
+            ),
+        ),
+        decision_context="评估接入风险",
+        freshness=FreshnessRequirement(max_age_seconds=3600),
+        timeout_seconds=30,
+        source_scope=(SourceType.SHIGUAN,),
+    )
+    pack = _pack(request)
+    large_item = _evidence(
+        fact_key="license",
+    ).model_copy(update={"excerpt": "证据正文" * 20_000})
+    large_pack = pack.model_copy(
+        update={"evidence_by_fact": {"license": (large_item,)}}
+    )
+
+    message = _evidence_message(large_pack)
+    assert len(message["content"].encode("utf-8")) < 7000
+    assert "e-1" in message["content"]
+    assert len(large_item.excerpt) > 70_000
 
 
 def test_bureau_evidence_tool_adapter_uses_real_session_and_canonical_projection() -> None:

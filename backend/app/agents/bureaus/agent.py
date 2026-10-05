@@ -665,12 +665,63 @@ def _invoke_bureau_agent_with_report_authorized(
             ):
                 from app.agents.evidence_protocol import parse_bureau_ready_envelope
 
-                opinion = parse_bureau_ready_envelope(
-                    parsed,
-                    session=evidence_session,
-                    node_id=node_id,
-                    messages=messages,
-                )
+                try:
+                    opinion = parse_bureau_ready_envelope(
+                        parsed,
+                        session=evidence_session,
+                        node_id=node_id,
+                        messages=messages,
+                    )
+                except Exception as exc:  # noqa: BLE001 - sanitized protocol boundary
+                    from app.agents.evidence_protocol import (
+                        EvidenceProtocolError,
+                        _bare_opinion_correction,
+                    )
+
+                    if (
+                        not isinstance(exc, EvidenceProtocolError)
+                        or str(exc) != "unsupported_factual_dependency"
+                        or evidence_session is None
+                        or node_id is None
+                        or not evidence_session.claim_protocol_correction()
+                    ):
+                        raise
+                    corrected = chat_model(
+                        [
+                            *rendered,
+                            {
+                                "role": "user",
+                                "content": _bare_opinion_correction(node_id)["content"],
+                            },
+                        ]
+                    )
+                    corrected_parsed: object = corrected
+                    if isinstance(corrected, str):
+                        corrected_parsed = parse_strict_json_object(corrected)
+                    if (
+                        isinstance(corrected_parsed, Mapping)
+                        and corrected_parsed.get("status") == "NEEDS_DATA"
+                    ):
+                        from app.agents.evidence_protocol import legacy_gap_to_tool_call
+
+                        return legacy_gap_to_tool_call(
+                            corrected_parsed,
+                            node_id=node_id,
+                            session=evidence_session,
+                            decree_text=decree_text,
+                            domain=next(iter(policy.allowed_data_domains)),
+                        )
+                    if not (
+                        isinstance(corrected_parsed, Mapping)
+                        and corrected_parsed.get("status") == "READY"
+                    ):
+                        raise EvidenceProtocolError("unsupported_factual_dependency") from None
+                    opinion = parse_bureau_ready_envelope(
+                        corrected_parsed,
+                        session=evidence_session,
+                        node_id=node_id,
+                        messages=messages,
+                    )
                 if opinion is None:
                     raise ValueError("evidence_ready_invalid")
                 return {"status": "FINAL", "report": {"opinion": opinion}}
