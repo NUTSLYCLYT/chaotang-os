@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # Reject credential-like literals newly introduced by the staged diff.
 set -euo pipefail
+if [ -x /usr/bin/sort ] && [ -x /usr/bin/comm ]; then
+  PATH="/usr/bin:/bin:$PATH"
+  export PATH
+fi
 cd "$(git rev-parse --show-toplevel)"
 
 added_lines_against() {
@@ -12,13 +16,22 @@ added_lines_against() {
 
 added_lines=$(added_lines_against HEAD)
 
+intersect_lines() {
+  local left_file right_file intersection
+  left_file=$(mktemp)
+  right_file=$(mktemp)
+  printf '%s\n' "$1" | LC_ALL=C sort -u > "$left_file"
+  printf '%s\n' "$2" | LC_ALL=C sort -u > "$right_file"
+  intersection=$(comm -12 "$left_file" "$right_file" || true)
+  rm -f "$left_file" "$right_file"
+  printf '%s\n' "$intersection"
+}
+
 merge_head_path=$(git rev-parse --git-path MERGE_HEAD)
 if [ -f "$merge_head_path" ]; then
   while IFS= read -r parent; do
     parent_added=$(added_lines_against "$parent")
-    added_lines=$(comm -12 \
-      <(printf '%s\n' "$added_lines" | LC_ALL=C sort -u) \
-      <(printf '%s\n' "$parent_added" | LC_ALL=C sort -u))
+    added_lines=$(intersect_lines "$added_lines" "$parent_added")
   done < "$merge_head_path"
 fi
 
