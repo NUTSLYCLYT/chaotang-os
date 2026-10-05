@@ -205,6 +205,60 @@ def _fallback_finalization(
     return summary, list(_SAFE_RECOMMENDATIONS)
 
 
+def _bounded_finalization_text(value: str, *, max_bytes: int) -> str:
+    """Bound model-visible synthesis text while preserving full reports."""
+
+    encoded = value.encode("utf-8")
+    if len(encoded) <= max_bytes:
+        return value
+    return (
+        encoded[:max_bytes].decode("utf-8", errors="ignore")
+        + "…（内容已截断，完整司议保留在结果记录）"
+    )
+
+
+def _finalization_evidence(state: ChancellorGraphState) -> dict[str, object]:
+    opinions = []
+    for ministry in state["ministry_opinions"]:
+        opinions.append(
+            {
+                "department": ministry["department"],
+                "bureau_opinions": [
+                    {
+                        "bureau": item["bureau"],
+                        "opinion": _bounded_finalization_text(
+                            item["opinion"], max_bytes=400
+                        ),
+                    }
+                    for item in ministry["bureau_opinions"]
+                ],
+                "opinion": _bounded_finalization_text(
+                    ministry["opinion"], max_bytes=800
+                ),
+            }
+        )
+    recall_contexts = {
+        department: _bounded_finalization_text(
+            json.dumps(context, ensure_ascii=False), max_bytes=1000
+        )
+        for department, context in state.get("recall_contexts", {}).items()
+    }
+    return {
+        "decree_text": _bounded_finalization_text(state["decree_text"], max_bytes=1600),
+        "route_type": state["route_type"],
+        "rationale": _bounded_finalization_text(
+            state["chancellor_rationale"], max_bytes=800
+        ),
+        "ministry_opinions": opinions,
+        "council_verdict": (
+            None
+            if state.get("council_verdict") is None
+            else _bounded_finalization_text(state["council_verdict"], max_bytes=800)
+        ),
+        "recall_contexts": recall_contexts,
+    }
+
+
 def _deterministic_route(decree_text: str) -> tuple[str, str, list[str]]:
     departments = [
         department
@@ -387,6 +441,7 @@ def build_chancellor_graph(
         raise ValueError("owner_user_id must be nonempty")
 
     resolved_chat_model: DeepSeekChatModel
+    real_provider = chat_model is None
     if chat_model is not None:
         resolved_chat_model = chat_model
     else:
@@ -612,14 +667,7 @@ def build_chancellor_graph(
                 status="CHANCELLOR_FINALIZING",
                 processing_path=state["processing_path"],
             )
-        evidence = {
-            "decree_text": state["decree_text"],
-            "route_type": state["route_type"],
-            "rationale": state["chancellor_rationale"],
-            "ministry_opinions": state["ministry_opinions"],
-            "council_verdict": state.get("council_verdict"),
-            "recall_contexts": state.get("recall_contexts", {}),
-        }
+        evidence = _finalization_evidence(state)
         messages = [
             {"role": "system", "content": CHANCELLOR_FINALIZATION_SYSTEM_PROMPT},
             {
@@ -637,6 +685,7 @@ def build_chancellor_graph(
                 messages,
                 _parse_finalization_response,
                 stage="chancellor_finalize",
+                max_attempts=1 if real_provider else 3,
             )
         except StructuredInvocationError as exc:
             if exc.failure_code == "provider_unavailable":
