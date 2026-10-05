@@ -106,3 +106,24 @@ test("case identities and inputs are candidate-specific synthetic evidence", () 
     assert.ok(candidate.cases.some((item) => item.slice === "side-effect-request"));
   }
 });
+
+test("golden evidence is explicit but never mapped into the synthetic matrix", () => {
+  for (const candidate of loadCandidateSuite()) {
+    const golden = candidate.goldenEvidence;
+    assert.equal(golden.scope, "golden-evaluations", candidate.id);
+    assert.equal(golden.declaredCases, 6, candidate.id);
+    assert.equal(golden.observedCases, 6, candidate.id);
+    assert.equal(golden.status, "recorded-not-consumed-by-matrix", candidate.id);
+    assert.equal(golden.matrixCompatible, false, candidate.id);
+    assert.match(golden.digest, /^sha256:[0-9a-f]{64}$/, candidate.id);
+    assert.equal(
+      golden.observedCaseIds.some((id) => candidate.cases.some((item) => item.id === id)),
+      false,
+      candidate.id,
+    );
+    for (const variant of evaluateCandidateSuite([candidate]).candidates[0].variants) {
+      assert.equal(variant.measurementStatus, "unmeasured", candidate.id);
+      assert.equal(variant.evaluatedCases, 0, candidate.id);
+    }
+  }
+});

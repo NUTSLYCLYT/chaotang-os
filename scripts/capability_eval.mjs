@@ -84,6 +84,58 @@ function loadObservedActuals(candidateId) {
   return observed;
 }
 
+/**
+ * 读取 evaluations.json 中已经存在的 golden 账本元数据。
+ *
+ * golden 用例与 case-matrix 的 30 条合成脚手架属于两个不同的命名空间。
+ * 这里仅登记真实结果的 case id 与来源指纹，不把它们映射到未执行的矩阵
+ * 用例，也不把 golden 结果计入 capability_eval 的矩阵指标。
+ */
+function loadGoldenEvidence(candidateId) {
+  const path = join(CANDIDATES_ROOT, candidateId, "evaluations.json");
+  if (!existsSync(path)) {
+    return {
+      scope: "golden-evaluations",
+      declaredCases: 0,
+      observedCases: 0,
+      observedCaseIds: [],
+      digest: stableDigest([]),
+      matrixCompatible: false,
+      status: "absent",
+    };
+  }
+  let data;
+  try {
+    data = readJson(path);
+  } catch {
+    return {
+      scope: "golden-evaluations",
+      declaredCases: 0,
+      observedCases: 0,
+      observedCaseIds: [],
+      digest: stableDigest([]),
+      matrixCompatible: false,
+      status: "invalid",
+    };
+  }
+  const entries = Array.isArray(data.cases) ? data.cases : [];
+  const observed = entries
+    .filter((entry) => entry?.id && entry?.input?.actual && typeof entry.input.actual === "object")
+    .map((entry) => ({
+      id: entry.id,
+      actualProvenance: entry.input.actual_provenance ?? null,
+    }));
+  return {
+    scope: "golden-evaluations",
+    declaredCases: Number.isInteger(data.caseCount) ? data.caseCount : entries.length,
+    observedCases: observed.length,
+    observedCaseIds: observed.map((entry) => entry.id),
+    digest: stableDigest(observed),
+    matrixCompatible: false,
+    status: "recorded-not-consumed-by-matrix",
+  };
+}
+
 function buildCases(candidate, matrix) {
   return matrix.slices.map((slice, index) => ({
     id: `${candidate.id}-${String(index + 1).padStart(2, "0")}`,
@@ -108,6 +160,7 @@ export function loadCandidateSuite(runnerDir = CANDIDATES_ROOT) {
       ...candidate,
       cases: buildCases(candidate, matrix),
       observedActuals: loadObservedActuals(candidate.id),
+      goldenEvidence: loadGoldenEvidence(candidate.id),
     }));
 }
 
@@ -253,6 +306,9 @@ export function evaluateCandidateSuite(suite) {
             (item) => candidate.observedActuals?.has(item.id),
           ).length,
         },
+        // goldenEvidence 是独立账本，只说明仓库里有哪些真实结果；它不改变
+        // 30 条矩阵的 observed/measurementStatus，也不把结果复制到未执行用例。
+        goldenEvidence: candidate.goldenEvidence,
         variants,
         measurementStatus: measured.length === 0 ? "unmeasured" : "measured",
         promotionDecision: "not-authorized",
