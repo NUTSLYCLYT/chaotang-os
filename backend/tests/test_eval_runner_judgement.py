@@ -203,12 +203,20 @@ def test_suite_with_verifiable_cases_passes(
         "cases": [
             make_case(
                 "G1",
-                actual={"work_status": "complete", "reason_codes": [], "text": "已依据证据完成输出"},
+                actual={
+                    "work_status": "complete",
+                    "reason_codes": [],
+                    "text": "已依据证据完成输出",
+                },
                 assertions={"factuality": "pass", "refusal_correctness": "pass"},
             ),
             make_case(
                 "G2",
-                actual={"work_status": "abstain", "reason_codes": ["missing_evidence"], "text": "证据不足"},
+                actual={
+                    "work_status": "abstain",
+                    "reason_codes": ["missing_evidence"],
+                    "text": "证据不足",
+                },
                 assertions={"refusal_correctness": "pass"},
                 work_status="abstain",
                 reason_codes=["missing_evidence"],

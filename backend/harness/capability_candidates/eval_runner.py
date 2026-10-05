@@ -302,7 +302,13 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"  {r.case_id}: {flag}  {r.checks or r.detail}")
 
     if args.json:
-        print(json.dumps({"report": report, "total": total, "passed": passed}, ensure_ascii=False, indent=2))
+        print(
+            json.dumps(
+                {"report": report, "total": total, "passed": passed},
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
     elif total:
         print(
             f"\nTOTAL  cases={total}  passed={passed}  unverifiable={unverifiable}  "
