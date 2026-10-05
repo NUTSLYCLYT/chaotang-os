@@ -11,14 +11,14 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import sqlite3
 import stat
 import subprocess
-import time
-import shutil
 import tempfile
-from contextlib import closing
+import time
 from collections.abc import Callable, Sequence
+from contextlib import closing
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -226,7 +226,11 @@ def _open_directory(path: Path) -> tuple[int, os.stat_result]:
         return descriptor, expected
     flags = os.O_RDONLY
     if not _is_windows():
-        flags |= getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
+        flags |= (
+            getattr(os, "O_DIRECTORY", 0)
+            | getattr(os, "O_CLOEXEC", 0)
+            | getattr(os, "O_NOFOLLOW", 0)
+        )
     try:
         descriptor = os.open(path, flags)
     except OSError:
@@ -244,7 +248,12 @@ def _open_directory_at(directory_descriptor: int, name: str) -> tuple[int, os.st
     if _is_windows():
         path = _path_for_fd(directory_descriptor) / name
         return _open_directory(path)
-    flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
+    flags = (
+        os.O_RDONLY
+        | getattr(os, "O_DIRECTORY", 0)
+        | getattr(os, "O_CLOEXEC", 0)
+        | getattr(os, "O_NOFOLLOW", 0)
+    )
     try:
         descriptor = os.open(name, flags, dir_fd=directory_descriptor)
     except OSError:
@@ -269,12 +278,19 @@ def _open_regular_at(directory_descriptor: int, name: str) -> tuple[int, os.stat
         status = os.fstat(descriptor)
         if not stat.S_ISREG(status.st_mode) or status.st_nlink != 1:
             _close_fd(descriptor)
-            raise BackupError("hardlink_forbidden" if status.st_nlink != 1 else "regular_file_required")
+            raise BackupError(
+                "hardlink_forbidden" if status.st_nlink != 1 else "regular_file_required"
+            )
         if not _same_identity(status, expected):
             _close_fd(descriptor)
             raise BackupError("file_changed_during_open")
         return descriptor, status
-    flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
+    flags = (
+        os.O_RDONLY
+        | getattr(os, "O_CLOEXEC", 0)
+        | getattr(os, "O_NOFOLLOW", 0)
+        | getattr(os, "O_NONBLOCK", 0)
+    )
     try:
         descriptor = os.open(name, flags, dir_fd=directory_descriptor)
     except OSError:
@@ -472,7 +488,9 @@ def _sqlite_metadata_at(directory_descriptor: int, name: str) -> tuple[int, str]
     try:
         file_descriptor, expected = _open_regular_at(directory_descriptor, name)
         sidecars = _hold_sqlite_sidecars_at(directory_descriptor, name)
-        with closing(sqlite3.connect(_sqlite_uri_for_file(file_descriptor, "ro"), uri=True)) as connection:
+        with closing(
+            sqlite3.connect(_sqlite_uri_for_file(file_descriptor, "ro"), uri=True)
+        ) as connection:
             _assert_entry_identity(directory_descriptor, name, expected)
             connection.execute("PRAGMA query_only = ON")
             user_version = int(connection.execute("PRAGMA user_version").fetchone()[0])
@@ -496,7 +514,9 @@ def _sqlite_schema_digest_at(directory_descriptor: int, name: str) -> str:
     try:
         file_descriptor, expected = _open_regular_at(directory_descriptor, name)
         sidecars = _hold_sqlite_sidecars_at(directory_descriptor, name)
-        with closing(sqlite3.connect(_sqlite_uri_for_file(file_descriptor, "ro"), uri=True)) as connection:
+        with closing(
+            sqlite3.connect(_sqlite_uri_for_file(file_descriptor, "ro"), uri=True)
+        ) as connection:
             _assert_entry_identity(directory_descriptor, name, expected)
             _verify_sqlite_sidecars_at(directory_descriptor, name, sidecars)
             digest = schema_contract_digest_connection(connection)
@@ -565,7 +585,9 @@ def _sqlite_page_bytes_at(directory_descriptor: int, name: str) -> int:
     try:
         file_descriptor, expected = _open_regular_at(directory_descriptor, name)
         sidecars = _hold_sqlite_sidecars_at(directory_descriptor, name)
-        with closing(sqlite3.connect(_sqlite_uri_for_file(file_descriptor, "ro"), uri=True)) as connection:
+        with closing(
+            sqlite3.connect(_sqlite_uri_for_file(file_descriptor, "ro"), uri=True)
+        ) as connection:
             connection.execute("PRAGMA query_only = ON")
             page_count = int(connection.execute("PRAGMA page_count").fetchone()[0])
             page_size = int(connection.execute("PRAGMA page_size").fetchone()[0])
@@ -646,7 +668,9 @@ def _snapshot_sqlite_at(
             | getattr(os, "O_CLOEXEC", 0)
             | getattr(os, "O_NOFOLLOW", 0)
         )
-        destination_descriptor = _open_at_path(destination_directory, destination_name, flags, 0o600)
+        destination_descriptor = _open_at_path(
+            destination_directory, destination_name, flags, 0o600
+        )
         if _is_windows():
             destination_descriptor = _remember_fd(
                 destination_descriptor, _path_for_fd(destination_directory) / destination_name
@@ -700,7 +724,9 @@ def _referenced_artifacts_at(directory_descriptor: int, database_name: str) -> l
     try:
         file_descriptor, expected = _open_regular_at(directory_descriptor, database_name)
         sidecars = _hold_sqlite_sidecars_at(directory_descriptor, database_name)
-        with closing(sqlite3.connect(_sqlite_uri_for_file(file_descriptor, "ro"), uri=True)) as connection:
+        with closing(
+            sqlite3.connect(_sqlite_uri_for_file(file_descriptor, "ro"), uri=True)
+        ) as connection:
             _assert_entry_identity(directory_descriptor, database_name, expected)
             _verify_sqlite_sidecars_at(directory_descriptor, database_name, sidecars)
             connection.execute("PRAGMA query_only = ON")
