@@ -65,7 +65,7 @@ export function stableDigest(value) {
  * 读取候选目录下 evaluations.json 中的真实被测结果。
  * 返回 Map<caseId, actual>；文件不存在或无 input.actual 时返回空 Map。
  */
-function loadObservedActuals(candidateId) {
+function loadObservedActuals(candidateId, allowedCaseIds) {
   const path = join(CANDIDATES_ROOT, candidateId, "evaluations.json");
   const observed = new Map();
   if (!existsSync(path)) return observed;
@@ -77,7 +77,7 @@ function loadObservedActuals(candidateId) {
   }
   for (const entry of data.cases ?? []) {
     const actual = entry?.input?.actual;
-    if (entry?.id && actual && typeof actual === "object") {
+    if (allowedCaseIds.has(entry?.id) && actual && typeof actual === "object") {
       observed.set(entry.id, actual);
     }
   }
@@ -156,12 +156,17 @@ export function loadCandidateSuite(runnerDir = CANDIDATES_ROOT) {
     .filter((entry) => entry.isDirectory())
     .map((entry) => readJson(join(runnerDir, entry.name, "candidate.json")))
     .sort((left, right) => left.id.localeCompare(right.id))
-    .map((candidate) => ({
-      ...candidate,
-      cases: buildCases(candidate, matrix),
-      observedActuals: loadObservedActuals(candidate.id),
-      goldenEvidence: loadGoldenEvidence(candidate.id),
-    }));
+    .map((candidate) => {
+      const cases = buildCases(candidate, matrix);
+      return {
+        ...candidate,
+        cases,
+        // 只消费当前矩阵白名单中的 actual。golden 用例使用独立账本，
+        // 即使未来两套 ID 意外碰撞，也不会被静默灌入矩阵评测。
+        observedActuals: loadObservedActuals(candidate.id, new Set(cases.map((item) => item.id))),
+        goldenEvidence: loadGoldenEvidence(candidate.id),
+      };
+    });
 }
 
 /**

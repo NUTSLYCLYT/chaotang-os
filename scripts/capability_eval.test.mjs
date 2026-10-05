@@ -115,6 +115,7 @@ test("golden evidence is explicit but never mapped into the synthetic matrix", (
     assert.equal(golden.observedCases, 6, candidate.id);
     assert.equal(golden.status, "recorded-not-consumed-by-matrix", candidate.id);
     assert.equal(golden.matrixCompatible, false, candidate.id);
+    assert.equal(candidate.observedActuals.size, 0, candidate.id);
     assert.match(golden.digest, /^sha256:[0-9a-f]{64}$/, candidate.id);
     assert.equal(
       golden.observedCaseIds.some((id) => candidate.cases.some((item) => item.id === id)),
