@@ -466,7 +466,7 @@ def invoke_ministry_skill_with_report(
                 # degradation path below. A single provider attempt prevents
                 # schema retries from reserving the same 2,500-token output
                 # ceiling repeatedly under the task's hard budget.
-                max_attempts=1,
+                max_attempts=1 if market_evidence_required else 3,
             )
         except StructuredInvocationError as exc:
             error = MinistryAgentInvocationError(f"{department} agent ministry synthesis failed.")
