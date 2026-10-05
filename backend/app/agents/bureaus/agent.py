@@ -688,7 +688,11 @@ def _invoke_bureau_agent_with_report_authorized(
                         raise
                     corrected = chat_model(
                         [
-                            *rendered,
+                            # The correction only needs the original bureau
+                            # contract and decree. Re-sending the Tool Loop
+                            # catalog/context here needlessly reserves the
+                            # same bytes a second time under the task cap.
+                            *messages,
                             {
                                 "role": "user",
                                 "content": _bare_opinion_correction(node_id)["content"],
