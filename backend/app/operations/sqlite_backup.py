@@ -15,7 +15,6 @@ import shutil
 import sqlite3
 import stat
 import subprocess
-import tempfile
 import time
 from collections.abc import Callable, Sequence
 from contextlib import closing
@@ -36,7 +35,31 @@ BACKUP_MANIFEST_NAME = "backup-manifest.json"
 _MANIFEST_SCHEMA = "chaotang.sqlite-backup.v2"
 _MANIFEST_MAX_BYTES = 1_048_576
 _HASH_CHUNK_BYTES = 1024 * 1024
-_TRUSTED_SYNTHETIC_ROOT = Path(tempfile.gettempdir())
+
+
+def _trusted_os_tempdir() -> Path:
+    """Return the OS temp directory without trusting TMPDIR/TEMP/TMP.
+
+    ``tempfile.gettempdir()`` intentionally honours those environment
+    variables.  That is useful for ordinary applications, but unsafe for the
+    synthetic backup CLI: a caller could point them at the repository's data
+    directory and make an otherwise forbidden output path look trusted.  Use
+    the platform's conventional user temp location instead, while retaining
+    a conservative system fallback for stripped-down environments.
+    """
+
+    if os.name == "nt":
+        local_app_data = os.environ.get("LOCALAPPDATA")
+        if local_app_data:
+            return Path(local_app_data) / "Temp"
+        user_profile = os.environ.get("USERPROFILE")
+        if user_profile:
+            return Path(user_profile) / "AppData" / "Local" / "Temp"
+        return Path("C:/Windows/Temp")
+    return Path("/tmp")
+
+
+_TRUSTED_SYNTHETIC_ROOT = _trusted_os_tempdir()
 _ONLINE_MODE = "ONLINE_PER_DATABASE"
 _COLD_MODE = "COLD_RELEASE"
 _BACKUP_MODES = {_ONLINE_MODE, _COLD_MODE}
