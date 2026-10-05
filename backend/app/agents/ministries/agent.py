@@ -169,9 +169,22 @@ def _format_recall_context(context: RecallContext) -> str:
         return "史馆旧案召回失败：不可把召回失败伪装成已有历史经验。"
     if not context.entries:
         return "史馆旧案召回：未命中旧案。"
-    return "史馆旧案召回：" + json.dumps(
+    serialized = json.dumps(
         [entry.model_dump() for entry in context.entries],
         ensure_ascii=False,
+    )
+    return "史馆旧案召回：" + _bounded_prompt_text(serialized, max_bytes=1200)
+
+
+def _bounded_prompt_text(value: str, *, max_bytes: int) -> str:
+    """Bound model-visible history while retaining the full stored artifact."""
+
+    encoded = value.encode("utf-8")
+    if len(encoded) <= max_bytes:
+        return value
+    return (
+        encoded[:max_bytes].decode("utf-8", errors="ignore")
+        + "…（内容已截断，完整记录留存于史馆）"
     )
 
 
@@ -375,10 +388,13 @@ def invoke_ministry_skill_with_report(
         {
             "bureau": bureau,
             "report_ref": report.report_id,
-            "opinion": report.executive_summary,
+            "opinion": _bounded_prompt_text(report.executive_summary, max_bytes=800),
             "status": report.status.value,
             "evidence_refs": report.evidence_refs,
-            "data_gaps": report.data_gaps,
+            "data_gaps": [
+                _bounded_prompt_text(item, max_bytes=240)
+                for item in report.data_gaps[:6]
+            ],
         }
         for bureau, report in bureau_report_entries
     ]
@@ -390,10 +406,11 @@ def invoke_ministry_skill_with_report(
         {
             "role": "user",
             "content": (
-                f"原始旨意：{decree_text}\n\n"
-                f"丞相判断说明：{rationale}\n\n"
+                f"原始旨意：{_bounded_prompt_text(decree_text, max_bytes=1600)}\n\n"
+                f"丞相判断说明：{_bounded_prompt_text(rationale, max_bytes=800)}\n\n"
                 f"{recall_context_text}\n\n"
-                f"本部司级路由说明：{route_rationale.strip()}\n\n"
+                "本部司级路由说明："
+                f"{_bounded_prompt_text(route_rationale.strip(), max_bytes=800)}\n\n"
                 "已调用司级报告摘要与引用（按路由顺序，JSON）："
                 f"{json.dumps(compact_bureau_reports, ensure_ascii=False)}"
             ),
