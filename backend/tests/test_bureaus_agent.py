@@ -584,6 +584,53 @@ def test_session_enabled_bureau_retries_one_protocol_correction_for_unsupported_
     ]
 
 
+def test_session_enabled_bureau_degrades_after_repeated_unsupported_ready():
+    def unsupported(opinion: str) -> str:
+        return json.dumps(
+            {
+                "status": "READY",
+                "result": {
+                    "opinion": opinion,
+                    "factual_claims": [
+                        {
+                            "claim": opinion,
+                            "basis": "NORMATIVE",
+                            "evidence_ids": [],
+                            "fact_key": None,
+                            "category": None,
+                            "subject": None,
+                        }
+                    ],
+                },
+                "adopted_evidence_ids": [],
+                "fact_basis": "NOT_REQUIRED",
+            },
+            ensure_ascii=False,
+        )
+
+    responses = iter(
+        (
+            unsupported("当前系统为稳定，应当继续办理"),
+            unsupported("当前系统为稳定，应当继续办理"),
+        )
+    )
+    session = AgentEvidenceSession(owner_user_id="test-owner", coordinator=object())
+
+    result = invoke_bureau_agent(
+        "工部",
+        "技术司",
+        "提出一项不依赖外部事实的规范性办理建议",
+        "route",
+        lambda messages: next(responses),
+        evidence_session=session,
+    )
+
+    assert "数据不足（model_synthesis_invalid）" in result
+    assert session.snapshot().degradation_reasons == (
+        "model_synthesis_degraded:bureau:工部:技术司",
+    )
+
+
 def test_evidence_fallback_says_data_is_insufficient_without_factual_conclusion():
     class UnavailableCoordinator:
         def investigate(self, *_args, **_kwargs):

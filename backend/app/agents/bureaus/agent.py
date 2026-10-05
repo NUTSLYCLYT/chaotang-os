@@ -725,12 +725,30 @@ def _invoke_bureau_agent_with_report_authorized(
                         and corrected_parsed.get("status") == "READY"
                     ):
                         raise EvidenceProtocolError("unsupported_factual_dependency") from None
-                    opinion = parse_bureau_ready_envelope(
-                        corrected_parsed,
-                        session=evidence_session,
-                        node_id=node_id,
-                        messages=messages,
-                    )
+                    try:
+                        opinion = parse_bureau_ready_envelope(
+                            corrected_parsed,
+                            session=evidence_session,
+                            node_id=node_id,
+                            messages=messages,
+                        )
+                    except EvidenceProtocolError as corrected_exc:
+                        if str(corrected_exc) != "unsupported_factual_dependency":
+                            raise
+                        # Match the existing one-resume evidence adapter: a
+                        # repeated protocol violation becomes an explicit,
+                        # auditable degraded result rather than a fabricated
+                        # bureau opinion.
+                        evidence_session.record_degradation(node_id)
+                        return {
+                            "status": "FINAL",
+                            "report": {
+                                "opinion": (
+                                    "数据不足（model_synthesis_invalid），无法形成事实结论；"
+                                    "待取得可验证数据后再行复核。"
+                                )
+                            },
+                        }
                 if opinion is None:
                     raise ValueError("evidence_ready_invalid")
                 return {"status": "FINAL", "report": {"opinion": opinion}}
