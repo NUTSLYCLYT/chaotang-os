@@ -683,9 +683,19 @@ def _invoke_bureau_agent_with_report_authorized(
                         or str(exc) != "unsupported_factual_dependency"
                         or evidence_session is None
                         or node_id is None
-                        or not evidence_session.claim_protocol_correction()
                     ):
                         raise
+                    if not evidence_session.claim_protocol_correction():
+                        evidence_session.record_degradation(node_id)
+                        return {
+                            "status": "FINAL",
+                            "report": {
+                                "opinion": (
+                                    "数据不足（model_synthesis_invalid），无法形成事实结论；"
+                                    "待取得可验证数据后再行复核。"
+                                )
+                            },
+                        }
                     corrected = chat_model(
                         [
                             # The correction only needs the evidence contract
