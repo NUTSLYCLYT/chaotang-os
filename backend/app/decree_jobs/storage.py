@@ -282,7 +282,9 @@ CREATE TABLE decree_jobs (
             if first:
                 raise DecreeJobStoreError("decree_job_schema_unrecognized")
             return self._FRESH_SCHEMA
-        with tempfile.TemporaryDirectory(prefix="p10b1-schema-probe-", dir="/tmp") as root:
+        with tempfile.TemporaryDirectory(
+            prefix="p10b1-schema-probe-", dir=tempfile.gettempdir()
+        ) as root:
             probe_root = Path(root)
             for basename in first:
                 shutil.copyfile(self.db_path.parent / basename, probe_root / basename)
