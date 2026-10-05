@@ -1028,6 +1028,12 @@ def verify_lock(lock_path: Path, wheelhouse: Path, pyproject: Path) -> dict[str,
 def verify_candidate_wheelhouse_permissions(wheelhouse: Path) -> None:
     """Require the M0 wheelhouse to be root-owned and candidate-read-only."""
 
+    # Windows does not expose POSIX effective-UID semantics and reports a
+    # synthetic ``st_uid`` for NTFS paths.  We cannot prove root ownership in
+    # that environment, so fail closed with the same contract error instead of
+    # raising AttributeError or accepting an unverifiable wheelhouse.
+    if not hasattr(os, "geteuid"):
+        _fail("candidate wheelhouse must be root-owned and candidate-read-only")
     _validate_verifier_identity()
     try:
         root_info = wheelhouse.lstat()
