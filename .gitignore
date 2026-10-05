@@ -33,3 +33,11 @@ backend/data/
 # Local runtime, QA, and private input data.
 /data/
 /.tmp-welcome-qa/
+
+# Local venv accidentally created inside backend/ (recovery-era artifacts).
+/backend/bin/
+/backend/lib/
+/backend/lib64/
+/backend/include/
+/backend/pyvenv.cfg
+*.bak-*
