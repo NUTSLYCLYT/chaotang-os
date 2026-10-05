@@ -5,6 +5,7 @@ import json
 import sqlite3
 from datetime import datetime
 from functools import lru_cache
+from importlib import import_module
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Query
@@ -23,14 +24,6 @@ from app.decree_jobs.storage import (
     ClaimEvidenceCommitmentUnavailable,
     DecreeJobStoreError,
     JobHistoryArchiveRejected,
-)
-from app.orchestration import (
-    ExecutionIdentity,
-    FirstLoopAdapter,
-    FirstLoopSubmission,
-    OrchestrationRequest,
-    ProviderBudget,
-    decree_input_digest,
 )
 
 router = APIRouter(prefix="/api/v1/decree-jobs", tags=["decree-jobs"])
@@ -344,7 +337,18 @@ def _trusted_first_loop_evidence_refs(job: DecreeJob) -> tuple[str, ...] | None:
     return normalized
 
 
-def _first_loop_request(job: DecreeJob) -> OrchestrationRequest:
+def _first_loop_contracts():
+    """Load the optional comparison adapter only when its endpoint is used.
+
+    The ordinary decree-job API must remain importable without wiring the
+    comparison-contract package into the existing runtime.  The explicit
+    first-loop endpoint is the opt-in boundary for that adapter.
+    """
+
+    return import_module("app.orchestration")
+
+
+def _first_loop_request(job: DecreeJob):
     """Project one accepted job onto the existing first-loop request contract.
 
     The projection uses only immutable job fields.  ``attempt_ref`` is an
@@ -356,16 +360,17 @@ def _first_loop_request(job: DecreeJob) -> OrchestrationRequest:
         "sha256:" + hashlib.sha256(job.approved_route_json.encode("utf-8")).hexdigest()
     )
     decree_id = job.draft_fingerprint or job.request_hash or job.job_id
-    return OrchestrationRequest(
-        identity=ExecutionIdentity(
+    contracts = _first_loop_contracts()
+    return contracts.OrchestrationRequest(
+        identity=contracts.ExecutionIdentity(
             owner_user_id=job.owner_user_id,
             run_id=job.job_id,
             decree_id=decree_id,
         ),
         decree_text=job.decree_text,
-        input_digest=decree_input_digest(job.decree_text),
+        input_digest=contracts.decree_input_digest(job.decree_text),
         resource_manifest_digest=resource_manifest_digest,
-        provider_budget=ProviderBudget(
+        provider_budget=contracts.ProviderBudget(
             # Contract preview performs no provider calls or token accounting.
             max_calls=0,
             max_tokens=0,
@@ -404,8 +409,9 @@ def run_first_loop(
                 content={"status": "error", "reason": "evidence_refs_not_verified"},
             )
         request = _first_loop_request(job)
-        trace = FirstLoopAdapter().run(
-            FirstLoopSubmission(
+        contracts = _first_loop_contracts()
+        trace = contracts.FirstLoopAdapter().run(
+            contracts.FirstLoopSubmission(
                 request=request,
                 task_ref=job.job_id,
                 attempt_ref=f"attempt:{job.job_id}",
