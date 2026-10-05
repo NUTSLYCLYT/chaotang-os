@@ -22,6 +22,10 @@ import pytest
 from app.operations import runtime_lock
 
 BACKEND_ROOT = Path(__file__).resolve().parent.parent
+POSIX_PROCESS_TEST = pytest.mark.skipif(
+    os.name == "nt",
+    reason="requires POSIX pass_fds, process groups, and signal semantics",
+)
 LOCK_PATH = BACKEND_ROOT / "requirements-runtime.lock"
 DOCKERFILE_PATH = BACKEND_ROOT / "Dockerfile"
 LOCK_KEYS = {
@@ -236,6 +240,10 @@ def test_candidate_rejects_a_wheelhouse_owned_by_the_candidate(tmp_path: Path) -
         runtime_lock.verify_candidate_wheelhouse_permissions(wheelhouse)
 
 
+@pytest.mark.skipif(
+    os.name == "nt",
+    reason="POSIX UID and mode-bit semantics are unavailable on Windows",
+)
 def test_secure_work_root_is_new_private_and_identity_bound(tmp_path: Path) -> None:
     tmp_path.chmod(0o1777)
     with runtime_lock.secure_work_root(
@@ -255,6 +263,10 @@ def test_secure_work_root_is_new_private_and_identity_bound(tmp_path: Path) -> N
 
 
 @pytest.mark.parametrize("mode", [0o755, 0o777])
+@pytest.mark.skipif(
+    os.name == "nt",
+    reason="POSIX sticky-bit semantics are unavailable on Windows",
+)
 def test_secure_work_root_rejects_a_non_sticky_parent(tmp_path: Path, mode: int) -> None:
     tmp_path.chmod(mode)
     with pytest.raises(runtime_lock.LockValidationError, match="sticky 01777"):
@@ -264,6 +276,10 @@ def test_secure_work_root_rejects_a_non_sticky_parent(tmp_path: Path, mode: int)
             pass
 
 
+@pytest.mark.skipif(
+    os.name == "nt",
+    reason="POSIX owner semantics are unavailable on Windows",
+)
 def test_secure_work_root_rejects_an_untrusted_parent_owner(tmp_path: Path) -> None:
     tmp_path.chmod(0o1777)
     with pytest.raises(runtime_lock.LockValidationError, match="owner"):
@@ -271,6 +287,10 @@ def test_secure_work_root_rejects_an_untrusted_parent_owner(tmp_path: Path) -> N
             pass
 
 
+@pytest.mark.skipif(
+    os.name == "nt",
+    reason="POSIX owner semantics are unavailable on Windows",
+)
 def test_secure_work_root_rejects_a_symlink_parent(tmp_path: Path) -> None:
     real_parent = tmp_path / "real"
     real_parent.mkdir(mode=0o1777)
@@ -292,6 +312,10 @@ def test_verifier_identity_rejects_root_and_kernel_overflow(effective_uid: int) 
         )
 
 
+@pytest.mark.skipif(
+    os.name == "nt",
+    reason="POSIX UID and mode-bit semantics are unavailable on Windows",
+)
 def test_candidate_attestation_is_canonical_exclusive_and_identity_bound(
     tmp_path: Path,
 ) -> None:
@@ -535,6 +559,7 @@ def test_malicious_conftest_is_rejected_by_frozen_bytes_before_pytest(
 
 
 @pytest.mark.parametrize("replace_phase", [None, "pre-conftest", "post-conftest"])
+@POSIX_PROCESS_TEST
 def test_attestation_handshake_freezes_both_inodes_before_candidate_execution(
     tmp_path: Path, replace_phase: str | None
 ) -> None:
@@ -778,6 +803,7 @@ def test_verify_candidate_cli_requires_the_frozen_shard_contract() -> None:
         parser.parse_args(common)
 
 
+@POSIX_PROCESS_TEST
 def test_completed_verifier_child_cannot_leave_a_grandchild_process(
     tmp_path: Path,
 ) -> None:
@@ -807,6 +833,7 @@ def test_completed_verifier_child_cannot_leave_a_grandchild_process(
                 pass
 
 
+@POSIX_PROCESS_TEST
 def test_verifier_sigterm_is_controlled_and_cleans_the_child_process_group(
     tmp_path: Path,
 ) -> None:
@@ -838,6 +865,7 @@ def test_verifier_sigterm_is_controlled_and_cleans_the_child_process_group(
         os.kill(grandchild_pid, 0)
 
 
+@POSIX_PROCESS_TEST
 def test_verifier_deadline_interrupts_synchronous_work() -> None:
     started = time.monotonic()
     with pytest.raises(runtime_lock.LockValidationError, match="deadline exceeded"):
@@ -848,6 +876,7 @@ def test_verifier_deadline_interrupts_synchronous_work() -> None:
     assert time.monotonic() - started < 1
 
 
+@POSIX_PROCESS_TEST
 def test_verifier_deadline_still_removes_its_secure_work_root() -> None:
     deadline_at = time.monotonic() + 0.05
     work_root: Path | None = None
@@ -864,6 +893,7 @@ def test_verifier_deadline_still_removes_its_secure_work_root() -> None:
     assert not work_root.exists()
 
 
+@POSIX_PROCESS_TEST
 def test_no_ready_timeout_kills_the_entire_pytest_process_group(tmp_path: Path) -> None:
     guard = tmp_path / "guard.py"
     guard.write_text("# guard\n", encoding="utf-8")
@@ -907,6 +937,7 @@ def test_no_ready_timeout_kills_the_entire_pytest_process_group(tmp_path: Path) 
         os.kill(grandchild_pid, 0)
 
 
+@POSIX_PROCESS_TEST
 def test_post_ack_timeout_kills_the_entire_pytest_process_group(tmp_path: Path) -> None:
     guard = tmp_path / "guard.py"
     guard.write_text("# guard\n", encoding="utf-8")
@@ -983,6 +1014,7 @@ def test_post_ack_timeout_kills_the_entire_pytest_process_group(tmp_path: Path) 
         os.kill(grandchild_pid, 0)
 
 
+@POSIX_PROCESS_TEST
 @pytest.mark.parametrize("exit_path", ["normal", "sigterm", "timeout"])
 def test_bwrap_pid_namespace_reaps_setsid_double_fork_descendants(
     exit_path: str,

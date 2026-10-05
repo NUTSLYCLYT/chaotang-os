@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import secrets
 import shutil
 import sqlite3
@@ -19,6 +20,10 @@ from app.shiguan import db, maintenance, storage
 from app.shiguan.errors import ShiguanStorageError
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
+POSIX_PATH_RACE_TEST = pytest.mark.skipif(
+    os.name == "nt",
+    reason="requires POSIX descriptor paths and rename-while-open semantics",
+)
 
 V1_SCHEMA = """
 CREATE TABLE archives (
@@ -728,7 +733,8 @@ def test_runtime_v6_to_v7_uses_verified_backup_and_publishes_current_schema(
     assert report.migrated is True
     assert report.backup_path == str(backup)
     assert report.archive_count == 0
-    assert backup.stat().st_mode & 0o777 == 0o600
+    if os.name != "nt":
+        assert backup.stat().st_mode & 0o777 == 0o600
     with sqlite3.connect(backup) as backup_connection:
         assert backup_connection.execute("PRAGMA user_version").fetchone() == (6,)
         db._validate_v6_schema(backup_connection)
@@ -737,6 +743,7 @@ def test_runtime_v6_to_v7_uses_verified_backup_and_publishes_current_schema(
         assert connection.execute("SELECT COUNT(*) FROM outcome_events").fetchone()[0] == 0
 
 
+@POSIX_PATH_RACE_TEST
 def test_runtime_v6_to_v7_path_replacement_keeps_all_inodes_pending_and_unrunnable(
     tmp_path, monkeypatch
 ):
@@ -1559,7 +1566,8 @@ def test_runtime_v5_to_v6_uses_sqlite_backup_and_marks_verified(tmp_path, monkey
     assert report.backup_path == str(backup)
     assert report.archive_count == 1
     assert backup.exists()
-    assert backup.stat().st_mode & 0o777 == 0o600
+    if os.name != "nt":
+        assert backup.stat().st_mode & 0o777 == 0o600
     backup_connection = sqlite3.connect(backup)
     try:
         assert backup_connection.execute("PRAGMA user_version").fetchone()[0] == 5
@@ -1627,6 +1635,7 @@ def test_runtime_v5_to_v6_refuses_to_overwrite_existing_backup(tmp_path):
     assert maintenance.inspect_runtime_database(path).version == 5
 
 
+@POSIX_PATH_RACE_TEST
 def test_runtime_v5_to_v6_rejects_backup_path_replacement_without_touching_victim(
     tmp_path, monkeypatch
 ):
@@ -1712,6 +1721,7 @@ def test_postcommit_readback_rejects_revoked_backfilled_membership(
         ).fetchone() == ("PENDING_VERIFICATION",)
 
 
+@POSIX_PATH_RACE_TEST
 def test_postcommit_readback_rejects_source_path_replacement(tmp_path, monkeypatch):
     path = tmp_path / "schema-v5-source-race.sqlite3"
     displaced = tmp_path / "schema-v6-original-inode.sqlite3"
