@@ -125,6 +125,12 @@ def _rmdir_at(directory_descriptor: int, name: str) -> None:
     os.rmdir(name, dir_fd=directory_descriptor)
 
 
+def _validate_relative_name(name: str) -> None:
+    """Reject names that could become multi-component Windows paths."""
+    if not name or "/" in name or "\\" in name or ":" in name or name in {".", ".."}:
+        raise BackupError("unsafe_relative_name")
+
+
 class BackupError(RuntimeError):
     """A stable, fail-closed backup contract violation."""
 
@@ -228,8 +234,7 @@ def _open_directory(path: Path) -> tuple[int, os.stat_result]:
 
 
 def _open_directory_at(directory_descriptor: int, name: str) -> tuple[int, os.stat_result]:
-    if not name or "/" in name or name in {".", ".."}:
-        raise BackupError("unsafe_relative_name")
+    _validate_relative_name(name)
     if _is_windows():
         path = _path_for_fd(directory_descriptor) / name
         return _open_directory(path)
@@ -246,8 +251,7 @@ def _open_directory_at(directory_descriptor: int, name: str) -> tuple[int, os.st
 
 
 def _open_regular_at(directory_descriptor: int, name: str) -> tuple[int, os.stat_result]:
-    if not name or "/" in name or name in {".", ".."}:
-        raise BackupError("unsafe_relative_name")
+    _validate_relative_name(name)
     if _is_windows():
         path = _path_for_fd(directory_descriptor) / name
         expected = _require_regular_file(path)
@@ -385,7 +389,9 @@ def _fsync_directory_descriptor(descriptor: int) -> None:
 
 def _sqlite_uri_for_file(file_descriptor: int, mode: str) -> str:
     if _is_windows():
-        path = _path_for_fd(file_descriptor).resolve()
+        # Do not resolve symlinks here: the path was lstat-checked by the
+        # caller and the identity is checked again after every SQLite use.
+        path = _path_for_fd(file_descriptor).absolute()
         return f"{path.as_uri()}?mode={mode}"
     return f"file:/proc/self/fd/{file_descriptor}?mode={mode}"
 
