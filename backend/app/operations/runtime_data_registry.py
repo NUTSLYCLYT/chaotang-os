@@ -23,8 +23,8 @@ _VERIFICATION_TIMESTAMP_PATTERN = re.compile(
     r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z"
 )
 _DECREE_JOB_SCHEMA_CONTRACT_DIGESTS = (
-    "sha256:fa4e21efd694b2160197f9202419ed0889b83098e182932ec75231e78fd92b9d",
-    "sha256:5372895aff08d4b39a19c4100b1b30ec8eaf7a9e597960425fee13c52552f5e3",
+    "sha256:374ba3999e8e333f6ef236dccdf418506f222ebe1f07dbe1627c3a0d1b483e05",
+    "sha256:3c3599af569b192c3cd038a43038a071b2e3575c4cdc34bf748938ae1b2f3fb2",
 )
 
 
@@ -348,7 +348,11 @@ RUNTIME_DATA_ENTRIES = (
         "decree_jobs.sqlite3",
         "decree_jobs.sqlite3",
         0,
-        ("decree_job_idempotency_keys", "decree_jobs"),
+        (
+            "decree_job_history_annotations",
+            "decree_job_idempotency_keys",
+            "decree_jobs",
+        ),
         (),
         _DECREE_JOB_SCHEMA_CONTRACT_DIGESTS,
     ),

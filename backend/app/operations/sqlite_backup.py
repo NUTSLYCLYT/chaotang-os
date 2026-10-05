@@ -16,6 +16,7 @@ import stat
 import subprocess
 import time
 import shutil
+import tempfile
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -34,7 +35,7 @@ BACKUP_MANIFEST_NAME = "backup-manifest.json"
 _MANIFEST_SCHEMA = "chaotang.sqlite-backup.v2"
 _MANIFEST_MAX_BYTES = 1_048_576
 _HASH_CHUNK_BYTES = 1024 * 1024
-_TRUSTED_SYNTHETIC_ROOT = Path("/tmp")
+_TRUSTED_SYNTHETIC_ROOT = Path(tempfile.gettempdir())
 _ONLINE_MODE = "ONLINE_PER_DATABASE"
 _COLD_MODE = "COLD_RELEASE"
 _BACKUP_MODES = {_ONLINE_MODE, _COLD_MODE}
@@ -68,6 +69,10 @@ def _is_windows() -> bool:
     return os.name == "nt"
 
 
+def _binary_flag() -> int:
+    return getattr(os, "O_BINARY", 0) if _is_windows() else 0
+
+
 def _remember_fd(descriptor: int, path: Path) -> int:
     if _is_windows():
         _FD_PATHS[descriptor] = path
@@ -88,7 +93,7 @@ def _close_fd(descriptor: int) -> None:
 
 def _open_at_path(directory_descriptor: int, name: str, flags: int, mode: int = 0o600) -> int:
     if _is_windows():
-        return os.open(_path_for_fd(directory_descriptor) / name, flags, mode)
+        return os.open(_path_for_fd(directory_descriptor) / name, flags | _binary_flag(), mode)
     return os.open(name, flags, mode, dir_fd=directory_descriptor)
 
 
@@ -256,7 +261,7 @@ def _open_regular_at(directory_descriptor: int, name: str) -> tuple[int, os.stat
         path = _path_for_fd(directory_descriptor) / name
         expected = _require_regular_file(path)
         try:
-            descriptor = os.open(path, os.O_RDONLY)
+            descriptor = os.open(path, os.O_RDONLY | _binary_flag())
         except OSError:
             raise BackupError("safe_open_failed") from None
         descriptor = _remember_fd(descriptor, path)
@@ -296,7 +301,7 @@ def _open_regular_readonly(path: Path) -> tuple[int, os.stat_result]:
     expected = _require_regular_file(path)
     flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
     try:
-        descriptor = os.open(path, flags)
+        descriptor = os.open(path, flags | _binary_flag())
     except OSError:
         raise BackupError("safe_open_failed") from None
     descriptor = _remember_fd(descriptor, path)
