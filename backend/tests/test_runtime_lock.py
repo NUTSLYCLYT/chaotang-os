@@ -258,8 +258,15 @@ def test_secure_work_root_is_new_private_and_identity_bound(tmp_path: Path) -> N
         child = work_root / "nested"
         child.mkdir()
         (child / "evidence").write_text("verified", encoding="utf-8")
+        assert identity[0] > 0 and identity[1] > 0
     assert not work_root.exists()
-    assert identity[0] > 0 and identity[1] > 0
+
+
+def test_git_security_adapters_are_platform_explicit() -> None:
+    executable = Path(runtime_lock._git_executable())  # noqa: SLF001
+    assert executable.is_absolute()
+    assert executable.name.lower().startswith("git")
+    assert runtime_lock._git_hooks_path() == ("NUL" if os.name == "nt" else "/dev/null")  # noqa: SLF001
 
 
 @pytest.mark.parametrize("mode", [0o755, 0o777])

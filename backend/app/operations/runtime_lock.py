@@ -1211,10 +1211,28 @@ def secure_work_root(
             root.rmdir()
 
 
-def _git(source_root: Path, *args: str, deadline_at: float | None = None) -> str:
+def _git_executable() -> str:
+    """Resolve the verifier-owned Git binary without weakening POSIX trust anchors."""
+
+    if os.name != "nt":
+        git_executable = Path("/usr/bin/git")
+        if not git_executable.is_file():
+            _fail("git executable is unavailable")
+        return str(git_executable)
     git_executable = shutil.which("git")
     if not git_executable:
         _fail("git executable is unavailable")
+    return str(Path(git_executable).resolve())
+
+
+def _git_hooks_path() -> str:
+    """Use the platform null device when disabling repository hooks."""
+
+    return "/dev/null" if os.name != "nt" else "NUL"
+
+
+def _git(source_root: Path, *args: str, deadline_at: float | None = None) -> str:
+    git_executable = _git_executable()
     environment = {
         "PATH": str(Path(git_executable).parent),
         "GIT_CONFIG_GLOBAL": os.devnull,
@@ -1228,7 +1246,7 @@ def _git(source_root: Path, *args: str, deadline_at: float | None = None) -> str
             "-c",
             "core.fsmonitor=false",
             "-c",
-            "core.hooksPath=/dev/null",
+            f"core.hooksPath={_git_hooks_path()}",
             "--no-replace-objects",
             *args,
         ],
@@ -1284,8 +1302,9 @@ def materialize_candidate_snapshot(
         _fail("candidate source root is not the repository backend")
     target_root.mkdir(mode=0o700)
     archive_path = target_root.parent / "candidate-source.tar"
+    git_executable = _git_executable()
     environment = {
-        "PATH": str(Path(shutil.which("git") or "git").parent),
+        "PATH": str(Path(git_executable).parent),
         "GIT_CONFIG_GLOBAL": os.devnull,
         "GIT_CONFIG_SYSTEM": os.devnull,
         "GIT_OPTIONAL_LOCKS": "0",
@@ -1293,9 +1312,9 @@ def materialize_candidate_snapshot(
     }
     _run(
         [
-            shutil.which("git") or "git",
+            git_executable,
             "-c", "core.fsmonitor=false",
-            "-c", "core.hooksPath=/dev/null",
+            "-c", f"core.hooksPath={_git_hooks_path()}",
             "--no-replace-objects",
             "archive",
             "--format=tar",
