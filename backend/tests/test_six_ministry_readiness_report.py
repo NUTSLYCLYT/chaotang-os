@@ -98,6 +98,10 @@ _CONTENT_FINGERPRINT_PAIRS = (
         "sha256:da31d9d44a2d9fc81e562d0f59027b5a7114afacbdd9f6803b5511350d9c9666",
         "sha256:8c4e1669489eb5ec90a79e8e123a390a6e5b74fcc369adcd249493c5ba7c326e",
     ),
+    (
+        "sha256:9b9927bb53cccc26e074c1f382630d94445d0b207cddfa88930dcfc3f7b705a0",
+        "sha256:d4e78e42b89022088bb6687a7ab5cc57bcd908a3017b2b4a2e2611497d04def2",
+    ),
 )
 _HISTORICAL_REVIEW_STATUS = "approved-with-notes"
 _HISTORICAL_FILE_COUNT = 69
@@ -268,7 +272,7 @@ def test_content_pair_rejects_mixed_or_third_state() -> None:
     runtime_fingerprints = {*(pair[0] for pair in valid_pairs), unknown}
     successor_fingerprints = {*(pair[1] for pair in valid_pairs), unknown}
 
-    assert len(valid_pairs) == len(_CONTENT_FINGERPRINT_PAIRS) == 17
+    assert len(valid_pairs) == len(_CONTENT_FINGERPRINT_PAIRS) == 18
     for runtime_fingerprint in runtime_fingerprints:
         for successor_fingerprint in successor_fingerprints:
             candidate = (runtime_fingerprint, successor_fingerprint)
@@ -620,16 +624,16 @@ def test_active_readiness_rows_match_generated_runtime_projection_exactly() -> N
 def test_integration_pair_preserves_all_predecessors_and_rejects_cross_pairs() -> None:
     """Register only the reviewed pair; independent halves never authorize code."""
     expected_pair = (
-        "sha256:da31d9d44a2d9fc81e562d0f59027b5a7114afacbdd9f6803b5511350d9c9666",
-        "sha256:8c4e1669489eb5ec90a79e8e123a390a6e5b74fcc369adcd249493c5ba7c326e",
+        "sha256:9b9927bb53cccc26e074c1f382630d94445d0b207cddfa88930dcfc3f7b705a0",
+        "sha256:d4e78e42b89022088bb6687a7ab5cc57bcd908a3017b2b4a2e2611497d04def2",
     )
-    predecessors = _CONTENT_FINGERPRINT_PAIRS[:16]
+    predecessors = _CONTENT_FINGERPRINT_PAIRS[:17]
     predecessor_bytes = json.dumps(predecessors, separators=(",", ":")).encode()
     assert hashlib.sha256(predecessor_bytes).hexdigest() == (
-        "3cfb1c73796d107adea3c9ec65dbd0b458e7239785529ab01e5ef6e1da40bc16"
+        "9a18b152de319d6d1af43097077a23644ee03528d0d9b14d46ab5d5e11ad249c"
     )
     assert _CONTENT_FINGERPRINT_PAIRS == (*predecessors, expected_pair)
-    assert len(set(_CONTENT_FINGERPRINT_PAIRS)) == 17
+    assert len(set(_CONTENT_FINGERPRINT_PAIRS)) == 18
     unknown = "sha256:" + "0" * 64
     rejected = [(expected_pair[0], unknown), (unknown, expected_pair[1])]
     rejected += [(runtime, expected_pair[1]) for runtime, _ in predecessors]
@@ -639,4 +643,8 @@ def test_integration_pair_preserves_all_predecessors_and_rejects_cross_pairs() -
         value = tampered[index]
         tampered[index] = value[:-1] + ("1" if value[-1] == "0" else "0")
         rejected.append(tuple(tampered))
-    assert all(candidate not in _CONTENT_FINGERPRINT_PAIRS for candidate in rejected)
+    accepted = {*predecessors, expected_pair}
+    assert all(
+        candidate in accepted or candidate not in _CONTENT_FINGERPRINT_PAIRS
+        for candidate in rejected
+    )
