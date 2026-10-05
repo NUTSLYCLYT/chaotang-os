@@ -179,9 +179,13 @@ def _sqlite_backup_snapshot(source_descriptor: int, backup: Path) -> None:
             | getattr(os, "O_CLOEXEC", 0)
             | getattr(os, "O_NOFOLLOW", 0)
         )
-        destination_descriptor = os.open(
-            backup.name, flags, 0o600, dir_fd=directory_descriptor
+        destination_descriptor = governed_sqlite_backup._open_at_path(
+            directory_descriptor, backup.name, flags, 0o600
         )
+        if governed_sqlite_backup._is_windows():
+            destination_descriptor = governed_sqlite_backup._remember_fd(
+                destination_descriptor, backup
+            )
         destination_status = os.fstat(destination_descriptor)
         if (
             not stat.S_ISREG(destination_status.st_mode)
@@ -211,9 +215,9 @@ def _sqlite_backup_snapshot(source_descriptor: int, backup: Path) -> None:
         raise ShiguanStorageError("史馆运行库备份创建失败") from exc
     finally:
         if destination_descriptor >= 0:
-            os.close(destination_descriptor)
+            governed_sqlite_backup._close_fd(destination_descriptor)
         if directory_descriptor >= 0:
-            os.close(directory_descriptor)
+            governed_sqlite_backup._close_fd(directory_descriptor)
 
 
 def _validate_v5_snapshot(
@@ -684,16 +688,9 @@ def migrate_runtime_v5_to_v6(path: Path) -> RuntimeDatabaseReport:
         source_directory_descriptor, source_directory_status = (
             governed_sqlite_backup._open_directory(target.parent)
         )
-        source_descriptor = os.open(
-            target.name,
-            os.O_RDWR
-            | getattr(os, "O_CLOEXEC", 0)
-            | getattr(os, "O_NOFOLLOW", 0),
-            dir_fd=source_directory_descriptor,
+        source_descriptor, source_status = governed_sqlite_backup._open_regular_rw_at(
+            source_directory_descriptor, target.name
         )
-        source_status = os.fstat(source_descriptor)
-        if not stat.S_ISREG(source_status.st_mode) or source_status.st_nlink != 1:
-            raise governed_sqlite_backup.BackupError("unsafe_source_identity")
         connection = sqlite3.connect(
             governed_sqlite_backup._sqlite_uri_for_file(source_descriptor, "rw"),
             uri=True,
@@ -715,9 +712,11 @@ def migrate_runtime_v5_to_v6(path: Path) -> RuntimeDatabaseReport:
         db._migrate_v5_to_v6_connection(connection)
         connection.commit()
         committed = True
-        verification_source_descriptor = os.dup(source_descriptor)
+        verification_source_descriptor = governed_sqlite_backup._dup_descriptor(
+            source_descriptor
+        )
         try:
-            verification_directory_descriptor = os.dup(
+            verification_directory_descriptor = governed_sqlite_backup._dup_descriptor(
                 source_directory_descriptor
             )
         except OSError:
@@ -741,9 +740,9 @@ def migrate_runtime_v5_to_v6(path: Path) -> RuntimeDatabaseReport:
         if connection is not None:
             connection.close()
         if source_descriptor >= 0:
-            os.close(source_descriptor)
+            governed_sqlite_backup._close_fd(source_descriptor)
         if source_directory_descriptor >= 0:
-            os.close(source_directory_descriptor)
+            governed_sqlite_backup._close_fd(source_directory_descriptor)
 
     # This is deliberately post-commit. Failure leaves PENDING persisted and
     # retains the independently verified v5 snapshot for governed recovery.
@@ -793,9 +792,9 @@ def migrate_runtime_v5_to_v6(path: Path) -> RuntimeDatabaseReport:
         if readback is not None:
             readback.close()
         if verification_source_descriptor >= 0:
-            os.close(verification_source_descriptor)
+            governed_sqlite_backup._close_fd(verification_source_descriptor)
         if verification_directory_descriptor >= 0:
-            os.close(verification_directory_descriptor)
+            governed_sqlite_backup._close_fd(verification_directory_descriptor)
     return RuntimeDatabaseReport(
         **{
             **after.to_payload(),
@@ -831,16 +830,9 @@ def migrate_runtime_v6_to_v7(path: Path) -> RuntimeDatabaseReport:
         source_directory_descriptor, source_directory_status = (
             governed_sqlite_backup._open_directory(target.parent)
         )
-        source_descriptor = os.open(
-            target.name,
-            os.O_RDWR
-            | getattr(os, "O_CLOEXEC", 0)
-            | getattr(os, "O_NOFOLLOW", 0),
-            dir_fd=source_directory_descriptor,
+        source_descriptor, source_status = governed_sqlite_backup._open_regular_rw_at(
+            source_directory_descriptor, target.name
         )
-        source_status = os.fstat(source_descriptor)
-        if not stat.S_ISREG(source_status.st_mode) or source_status.st_nlink != 1:
-            raise governed_sqlite_backup.BackupError("unsafe_source_identity")
         connection = sqlite3.connect(
             governed_sqlite_backup._sqlite_uri_for_file(source_descriptor, "rw"),
             uri=True,
@@ -866,9 +858,11 @@ def migrate_runtime_v6_to_v7(path: Path) -> RuntimeDatabaseReport:
         db._migrate_v6_to_v7_connection(connection)
         connection.commit()
         committed = True
-        verification_source_descriptor = os.dup(source_descriptor)
+        verification_source_descriptor = governed_sqlite_backup._dup_descriptor(
+            source_descriptor
+        )
         try:
-            verification_directory_descriptor = os.dup(
+            verification_directory_descriptor = governed_sqlite_backup._dup_descriptor(
                 source_directory_descriptor
             )
         except OSError:
@@ -892,9 +886,9 @@ def migrate_runtime_v6_to_v7(path: Path) -> RuntimeDatabaseReport:
         if connection is not None:
             connection.close()
         if source_descriptor >= 0:
-            os.close(source_descriptor)
+            governed_sqlite_backup._close_fd(source_descriptor)
         if source_directory_descriptor >= 0:
-            os.close(source_directory_descriptor)
+            governed_sqlite_backup._close_fd(source_directory_descriptor)
 
     verified = False
     try:
@@ -915,13 +909,13 @@ def migrate_runtime_v6_to_v7(path: Path) -> RuntimeDatabaseReport:
     finally:
         if verification_source_descriptor >= 0:
             try:
-                os.close(verification_source_descriptor)
+                governed_sqlite_backup._close_fd(verification_source_descriptor)
             except OSError:
                 if not verified:
                     raise
         if verification_directory_descriptor >= 0:
             try:
-                os.close(verification_directory_descriptor)
+                governed_sqlite_backup._close_fd(verification_directory_descriptor)
             except OSError:
                 if not verified:
                     raise

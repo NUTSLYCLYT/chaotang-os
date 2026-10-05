@@ -328,6 +328,55 @@ def _open_regular_at(directory_descriptor: int, name: str) -> tuple[int, os.stat
     return descriptor, status
 
 
+def _open_regular_rw_at(directory_descriptor: int, name: str) -> tuple[int, os.stat_result]:
+    """Open one checked regular file for SQLite read/write access.
+
+    ``dir_fd`` is unavailable on Windows, so mirror the existing checked
+    read-only adapter while retaining the descriptor-to-path mapping used by
+    the URI and identity guards.
+    """
+
+    _validate_relative_name(name)
+    if _is_windows():
+        path = _path_for_fd(directory_descriptor) / name
+        expected = _require_regular_file(path)
+        try:
+            descriptor = os.open(path, os.O_RDWR | _binary_flag())
+        except OSError:
+            raise BackupError("safe_open_failed") from None
+        descriptor = _remember_fd(descriptor, path)
+        status = os.fstat(descriptor)
+        if not stat.S_ISREG(status.st_mode) or status.st_nlink != 1:
+            _close_fd(descriptor)
+            raise BackupError(
+                "hardlink_forbidden" if status.st_nlink != 1 else "regular_file_required"
+            )
+        if not _same_identity(status, expected):
+            _close_fd(descriptor)
+            raise BackupError("file_changed_during_open")
+        return descriptor, status
+    flags = os.O_RDWR | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
+    try:
+        descriptor = os.open(name, flags, dir_fd=directory_descriptor)
+    except OSError:
+        raise BackupError("safe_open_failed") from None
+    status = os.fstat(descriptor)
+    if not stat.S_ISREG(status.st_mode):
+        os.close(descriptor)
+        raise BackupError("regular_file_required")
+    if status.st_nlink != 1:
+        os.close(descriptor)
+        raise BackupError("hardlink_forbidden")
+    return descriptor, status
+
+
+def _dup_descriptor(descriptor: int) -> int:
+    duplicate = os.dup(descriptor)
+    if _is_windows():
+        _remember_fd(duplicate, _path_for_fd(descriptor))
+    return duplicate
+
+
 def _assert_entry_identity(directory_descriptor: int, name: str, expected: os.stat_result) -> None:
     try:
         actual = _stat_at_path(directory_descriptor, name)
