@@ -246,7 +246,12 @@ export function evaluateCandidateSuite(suite) {
         caseSummary: {
           total: candidate.cases.length,
           hostile: candidate.cases.filter((item) => item.slice !== "normal").length,
-          observed: candidate.observedActuals?.size ?? 0,
+          // observed 口径 = 能被 case 体系实际消费（ID 命中）的逐案结果数；
+          // evaluations.json 中存在但 ID 体系错位的 actual 不计入，避免
+          // "observed>0 而 runs=0" 的自相矛盾状态。
+          observed: candidate.cases.filter(
+            (item) => candidate.observedActuals?.has(item.id),
+          ).length,
         },
         variants,
         measurementStatus: measured.length === 0 ? "unmeasured" : "measured",
