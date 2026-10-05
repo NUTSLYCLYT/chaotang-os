@@ -61,6 +61,7 @@ verdict, and enforces exact ``summary`` plus three unique recommendations.
 
 from __future__ import annotations
 
+import inspect
 import json
 import re
 from collections.abc import Callable
@@ -529,6 +530,12 @@ def build_chancellor_graph(
                 "evidence_session": state["evidence_session"],
                 "required_bureaus": state["required_bureaus_by_department"][department],
             }
+            if (
+                real_provider
+                and "route_is_authoritative"
+                in inspect.signature(invoke_ministry_agent).parameters
+            ):
+                ministry_kwargs["route_is_authoritative"] = True
             if report_session is not None:
                 ministry_kwargs["report_session"] = report_session
             opinion = invoke_ministry_agent(

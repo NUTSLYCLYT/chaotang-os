@@ -198,6 +198,7 @@ def invoke_ministry_skill_with_report(
     bureau_invoker: Callable[[str, str], BureauAgentInvocationResult],
     recall_context: RecallContext | None = None,
     market_evidence_required: bool = False,
+    route_is_authoritative: bool = False,
 ) -> MinistryAgentInvocationResult:
     """Consult selected bureaus serially, then produce a ministry synthesis.
 
@@ -250,7 +251,10 @@ def invoke_ministry_skill_with_report(
         recall_context = safe_recall_context_for_department(department)
     recall_context_text = _format_recall_context(recall_context)
 
-    if department == "户部" and is_mainland_last_price_intent(decree_text):
+    if route_is_authoritative:
+        route_rationale = rationale.strip() or "依已批准司级路由办理。"
+        selected_bureaus = list(required_bureaus)
+    elif department == "户部" and is_mainland_last_price_intent(decree_text):
         route_rationale = "明确的中国大陆证券最新价查询，由投资司办理。"
         selected_bureaus = ["投资司"]
     else:
@@ -644,6 +648,7 @@ def invoke_ministry_agent_with_report(
     report_session: AccountingReportSession | None = None,
     requirement_data_refs_by_bureau: Mapping[str, Mapping[str, tuple[str, ...]]] | None = None,
     approved_data_refs: Sequence[str] = (),
+    route_is_authoritative: bool = False,
 ) -> MinistryAgentInvocationResult:
     """Authorize bureau access before routing, bureau, or model side effects."""
 
@@ -753,6 +758,7 @@ def invoke_ministry_agent_with_report(
             bureau_invoker=restricted_bureau_invoker,
             recall_context=recall_context,
             market_evidence_required=market_evidence_required,
+            route_is_authoritative=route_is_authoritative,
         ),
     )
     if (
@@ -783,6 +789,7 @@ def invoke_ministry_agent(
     recall_context: RecallContext | None = None,
     evidence_session: AgentEvidenceSession | None = None,
     report_session: AccountingReportSession | None = None,
+    route_is_authoritative: bool = False,
 ) -> MinistryOpinion:
     """Preserve the exact legacy MinistryOpinion API."""
     return invoke_ministry_agent_with_report(
@@ -794,4 +801,5 @@ def invoke_ministry_agent(
         recall_context=recall_context,
         evidence_session=evidence_session,
         report_session=report_session,
+        route_is_authoritative=route_is_authoritative,
     ).opinion
