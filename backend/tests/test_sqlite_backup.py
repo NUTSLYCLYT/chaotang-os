@@ -1092,6 +1092,8 @@ def test_ignores_aborted_artifact_history_without_a_file(tmp_path: Path) -> None
 
 @pytest.mark.parametrize("kind", ["symlink", "hardlink", "fifo"])
 def test_verify_rejects_unsafe_backup_entries(tmp_path: Path, kind: str) -> None:
+    if os.name == "nt" and kind == "hardlink":
+        pytest.skip("Windows sharing semantics do not permit moving this opened backup file")
     backup = tmp_path / "backup"
     backup_runtime(_create_runtime(tmp_path / "source"), backup)
     target = backup / "decree_jobs.sqlite3"
