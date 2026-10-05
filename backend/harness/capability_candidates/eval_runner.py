@@ -90,6 +90,13 @@ def _has_negation_near(text: str, marker: str) -> bool:
 
 
 def _eval_factuality(draft: EvaluatedDraft, forbidden: list[str]) -> str:
+    has_defect_carrier = any(w in draft.text for w in WEAK_FACTUALITY_MARKERS) or bool(
+        re.findall(r"(?:¥|￥|\d+\.?\d*%|\d{4,})", draft.text)
+    )
+    if draft.work_status != "complete" and not has_defect_carrier:
+        # 未产出草稿正文（needs_data/abstain）且正文无可检缺陷载体
+        # （无弱事实标记、无可核数字）时，事实性维度不适用。
+        return "skip"
     for marker in forbidden:
         if marker == "fabricated_amount" and _contains_fabricated_number(draft.text):
             return "fail"

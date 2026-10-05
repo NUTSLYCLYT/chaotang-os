@@ -251,7 +251,14 @@ def test_real_golden_cases_report_unverifiable_until_actual_provided() -> None:
 
     assert results, "真实套件不应为空"
     unverifiable = [r for r in results if r.unverifiable]
-    assert len(unverifiable) == len(results), (
-        "存在已注入 actual 的用例，请更新本测试并校验其真实通过率；"
-        f"当前已可验证用例数={len(results) - len(unverifiable)}"
+    assert not unverifiable, (
+        "存在未注入 actual 的用例，评测将失去判定力；"
+        f"不可验证用例={[r.case_id for r in unverifiable]}"
+    )
+    # 2026-10-05: 全部 38 条 golden case 已用真实 DeepSeek 输出灌装
+    # （court-agent-v11 提示词），按守卫测试约定改为断言真实通过率。
+    passed = [r for r in results if r.passed]
+    assert len(passed) == len(results), (
+        "golden 全量评测未达 100%，请先修复再提交；"
+        f"失败用例={[r.case_id for r in results if not r.passed]}"
     )
