@@ -7,8 +7,8 @@
     "targetBranch": "ext-dev"
   },
   "request": {
-    "baseCommit": "63e121dacd2cbc3c7054db8b26df8d3cf2883d43",
-    "baseTree": "7860f8bb6884ba89d9bf167f3c0f3cdcc28ccc9d",
+    "baseCommit": "04d5a4d1c28d89297a12a65944e409e98ef30e16",
+    "baseTree": "99b2603e8eec1045f019432e51d3d4f12ef1d7b5",
     "approvalPath": ".harness/approvals/CT-G3-RELEASE-CANDIDATE-20261007.json",
     "approvalCommitPaths": [
       ".harness/approvals/CT-G3-RELEASE-CANDIDATE-20261007.json"
