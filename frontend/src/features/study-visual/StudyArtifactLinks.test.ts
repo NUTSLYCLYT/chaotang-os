@@ -78,7 +78,7 @@ test("artifact link preserves the raw test id and encodes a dangerous artifact I
   assert.equal(anchors[0].tagName, "a");
   assert.equal(anchors[0].attributes["data-testid"], `decree-artifact-${REPORT.artifactId}`);
   assert.equal(anchors[0].attributes.href, "/api/report-artifacts/report%20%E7%94%B2%2F2025");
-  assert.match(anchors[0].text, /下载财务报告/);
+  assert.match(anchors[0].text, /下载成果/);
   assert.match(anchors[0].text, /2025年度财务管理报告/);
   assert.match(anchors[0].text, /2025.*2025/);
 });
