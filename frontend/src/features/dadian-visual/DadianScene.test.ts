@@ -115,6 +115,27 @@ test("dadian seat cards navigate to their corresponding workspaces", async () =>
   assert.match(source, /onClick=\{\(\) => router\.push\(hotspot\.href\)\}/);
 });
 
+test("dadian seat cards explain the result of each click", async () => {
+  const source = await sceneSource();
+
+  for (const { id, action } of [
+    { id: "gongbu", action: "进入工部" },
+    { id: "hubu", action: "进入户部" },
+    { id: "libu-personnel", action: "进入吏部" },
+    { id: "libu", action: "进入礼部" },
+    { id: "prime", action: "前往上书房" },
+    { id: "xingbu", action: "进入刑部" },
+    { id: "bingbu", action: "进入兵部" },
+    { id: "jinyiwei", action: "查阅案卷" },
+    { id: "shiguan", action: "查阅归档" },
+  ]) {
+    assert.match(source, new RegExp(`id: "${id}"[^\\n]*actionLabel: "${action}"`));
+  }
+  assert.match(source, /aria-label=\{`\$\{hotspot\.label\}：\$\{hotspot\.actionLabel\}`\}/);
+  assert.match(source, /\{hotspot\.actionLabel\}/);
+  assert.doesNotMatch(source, /席位展示/);
+});
+
 test("today-focus card sits 20px from the desktop left edge without changing the mobile layout", async () => {
   const css = await readFile(new URL("./DadianScene.module.css", import.meta.url), "utf8");
   const desktopCard = css.match(/\.focusCard\s*\{([^}]*)\}/)?.[1];
