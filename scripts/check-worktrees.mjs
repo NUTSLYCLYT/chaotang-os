@@ -1,8 +1,10 @@
 #!/usr/bin/env node
-// check-worktrees.mjs — worktree 治理门禁（2026-10-07 owner 拍板，规则见 AGENTS.md「Worktree 治理铁律」）
+// check-worktrees.mjs — worktree 治理门禁（2026-10-07 owner 拍板，规则见 docs/worktree-governance.md）
 // 用法:
 //   node scripts/check-worktrees.mjs          # 人类可读报告；越界 worktree 时 exit 1
 //   node scripts/check-worktrees.mjs --json   # 机器可读输出
+// 跨平台: 白名单默认 Windows 盘符形式；WSL/Linux 的 /mnt/<盘>/ 自动归一为 <盘>:/，
+//         亦可用 CHAOTANG_WORKTREE_WHITELIST 覆盖（冒号分隔）。策略见 docs/platform-strategy.md。
 // 规则:除主仓自身外,所有 worktree 必须位于白名单目录;C 盘(含 Temp/AppData)绝对禁止。
 // 实现:优先走 `git worktree list --porcelain`;spawn 不可用时(受限沙箱)回退到直读
 //       .git/worktrees/*/gitdir + HEAD 的文件系统通道,保证任何环境可运行。
@@ -11,18 +13,33 @@ import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
-const WHITELIST_PREFIXES = [
+// 白名单：默认 Windows 盘符形式；WSL/Linux 下 /mnt/<盘>/ 会自动归一为 <盘>:/（见 normPath）。
+// 可通过环境变量覆盖（冒号分隔，避免平台差异），例如：
+//   CHAOTANG_WORKTREE_WHITELIST="h:/chaotangworktrees/:h:/chaotangstaging/:d:/orcaworkspaces/"
+const DEFAULT_WHITELIST_PREFIXES = [
   "h:/chaotangworktrees/",
   "h:/chaotangstaging/",
   "h:/chaotangsource/",
   "d:/orcaworkspaces/",
 ];
 
+const WHITELIST_PREFIXES = (process.env.CHAOTANG_WORKTREE_WHITELIST
+  ? process.env.CHAOTANG_WORKTREE_WHITELIST.split(":").map((s) => s.trim()).filter(Boolean)
+  : DEFAULT_WHITELIST_PREFIXES
+).map((p) => (p.endsWith("/") ? p : p + "/"));
+
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const jsonMode = process.argv.includes("--json");
 
 function toFwd(p) {
   return p.replace(/\\/g, "/");
+}
+
+// WSL/Linux 的 /mnt/h/... 与 Windows 的 h:/... 视为同一目录，保证双平台结论一致。
+function normPath(p) {
+  return toFwd(p)
+    .replace(/^\/mnt\/([a-z])\//i, (_m, drive) => drive.toLowerCase() + ":/")
+    .replace(/^([a-z]):\//i, (_m, drive) => drive.toLowerCase() + ":/");
 }
 
 function collectViaGitCli() {
@@ -104,12 +121,12 @@ try {
   mode = "filesystem";
 }
 
-const mainNorm = toFwd(repoRoot).toLowerCase().replace(/\/+$/, "");
+const mainNorm = normPath(repoRoot).toLowerCase().replace(/\/+$/, "");
 const whitelist = WHITELIST_PREFIXES.map((p) => p.toLowerCase());
 
 const violations = [];
 const report = entries.map((e) => {
-  const p = toFwd(e.path).replace(/\/+$/, "");
+  const p = normPath(e.path).replace(/\/+$/, "");
   const isMain = e.main === true || p.toLowerCase() === mainNorm;
   const allowed = isMain || whitelist.some((prefix) => p.toLowerCase().startsWith(prefix));
   if (!allowed) violations.push(e);

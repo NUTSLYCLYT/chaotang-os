@@ -9,8 +9,11 @@ agent 同时运行、自动互相调用、并行写入或 worktree 隔离。
 
 ## 支持环境
 
-- 仓库主工作区位于 WSL2 的 Linux 文件系统中。
-- Codex 与 Claude Code 从仓库根目录启动,保证项目级相对 hook 路径稳定。
+- 仓库支持 **Windows 原生 与 WSL2 Linux 文件系统 双平台**开发，平台策略与契约见
+  `docs/platform-strategy.md`；**Linux（CI）是唯一权威验证平台**，本地门禁结果仅供参考。
+- 无论工作区位于何处，治理脚本必须跨平台等价：行尾由 `.gitattributes` 统一为 LF，
+  路径差异由脚本自行归一（禁止在治理脚本中硬编码单一平台路径）。
+- 客户端从仓库根目录启动,保证项目级相对 hook 路径稳定。
 - 执行根级 harness 的客户端进程必须能从 `PATH` 找到 Node.js 22 或更新的兼容版本；CI
   当前使用 Node.js 24。
 - Windows 侧 Codex 可以直接使用 Windows Node 访问 WSL 工作区;共享 hook 不再
