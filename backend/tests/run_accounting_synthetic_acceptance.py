@@ -34,7 +34,7 @@ def _load_dynamic_layout_matrix():
     backend_import_root = str(BACKEND)
     if backend_import_root not in sys.path:
         sys.path.insert(0, backend_import_root)
-    from tests.synthetic_accounting_acceptance_app import _run_dynamic_layout_matrix
+    from tests.synthetic_accounting_dynamic_layout import _run_dynamic_layout_matrix
 
     return _run_dynamic_layout_matrix
 

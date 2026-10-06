@@ -440,6 +440,7 @@ def test_default_public_api_registry_uses_bounded_private_wikidata_search() -> N
         {
             "search": [
                 {"id": "Q956", "label": "北京", "description": "中华人民共和国首都"},
+                {"id": "Q42", "label": "无描述", "description": None},
                 {"id": "Q2", "label": "", "description": "unusable"},
                 {"id": "not-an-entity", "label": "坏项", "description": "unusable"},
             ]
@@ -480,6 +481,70 @@ def test_wikidata_search_uses_english_for_ascii_entity_subject() -> None:
 
     assert parse_qs(parsed.query)["search"] == ["OpenAI"]
     assert parse_qs(parsed.query)["language"] == ["en"]
+
+
+def test_default_public_api_registry_builds_bounded_github_repository_search() -> None:
+    registry = build_default_public_api_registry()
+    connector = registry.get("github_repository_search")
+    fact = RequiredFact(
+        key="github_repository:metadata",
+        description="核查 GitHub 开源项目元数据",
+        category=FactCategory.ENTITY_REFERENCE,
+        data_scope="EXTERNAL_PUBLIC",
+        subject="github:promptfoo/promptfoo",
+        expected_shape="object",
+    )
+
+    parsed = urlsplit(connector.build_url((fact,), 99))
+    assert parsed.scheme == "https"
+    assert parsed.netloc == "api.github.com"
+    assert parsed.path == "/search/repositories"
+    assert parse_qs(parsed.query) == {
+        "per_page": ["10"],
+        "q": ["repo:promptfoo/promptfoo"],
+    }
+    assert connector.matches_fact(fact)
+    assert not connector.matches_fact(
+        fact.model_copy(update={"subject": "OpenAI", "expected_shape": "string"})
+    )
+
+    body = json.dumps(
+        {
+            "items": [
+                {
+                    "full_name": "promptfoo/promptfoo",
+                    "html_url": "https://github.com/promptfoo/promptfoo",
+                    "description": "Test and evaluate LLM apps.",
+                    "license": {"spdx_id": "MIT", "name": "MIT License"},
+                    "updated_at": "2026-07-20T11:00:00Z",
+                    "pushed_at": "2026-07-20T10:00:00Z",
+                    "created_at": "2024-01-01T00:00:00Z",
+                    "stargazers_count": 12345,
+                    "open_issues_count": 12,
+                    "default_branch": "main",
+                }
+            ]
+        }
+    ).encode()
+    client = FakeClient([_response(connector.build_url((fact,), 2), body)])
+    result = PublicApiSource(registry=registry, client=client, now=lambda: NOW).fetch(
+        _query(
+            SourceType.PUBLIC_API,
+            request=_request(SourceType.PUBLIC_API).model_copy(
+                update={"required_facts": (fact,)}
+            ),
+            unresolved_fact_keys=(fact.key,),
+        )
+    )
+
+    assert result.attempt.status is SourceAttemptStatus.SUCCEEDED
+    assert len(result.documents) == 1
+    document = result.documents[0]
+    assert document.source_name == "github_repository_search"
+    assert document.title == "promptfoo/promptfoo"
+    assert document.quality_ceiling is EvidenceQuality.AUTHORITATIVE
+    assert "MIT" in document.text
+    assert document.metadata["repository"]["full_name"] == "promptfoo/promptfoo"
 
 
 def test_public_api_source_skips_empty_registry_explicitly() -> None:
