@@ -1,0 +1,63 @@
+{
+  "schemaVersion": "product-authority.m0.approval.v1",
+  "authorityId": "product-authority.m0.v1",
+  "taskId": "CT-G3-PUSH-RESUME-AFTER-REINSTALL-RECOVERY-20261006",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "9ea7cd4593d456f11830bb78326e7a730766b87f",
+    "baseTree": "e4cb9190dbda0513c50d8be2c3114ddc7761ba20",
+    "approvalPath": ".harness/approvals/CT-G3-PUSH-RESUME-AFTER-REINSTALL-RECOVERY-20261006.json",
+    "approvalCommitPaths": [
+      ".harness/approvals/CT-G3-PUSH-RESUME-AFTER-REINSTALL-RECOVERY-20261006.json"
+    ],
+    "productPaths": [
+      "backend/harness/capability_candidates/candidates/decision-quality-gate/evaluations.json",
+      "backend/harness/capability_candidates/candidates/hubu-financial-grounding/evaluations.json",
+      "backend/harness/capability_candidates/candidates/hubu-payment-three-gates/evaluations.json",
+      "backend/harness/capability_candidates/candidates/libu-responsibility-authority-chain/evaluations.json",
+      "backend/harness/capability_candidates/candidates/rites-war-truthfulness/evaluations.json",
+      "backend/harness/capability_candidates/eval_runner.py",
+      "backend/harness/capability_candidates/rites-message-quality-gate/objects/evaluations.json",
+      "backend/tests/test_eval_runner_judgement.py",
+      "scripts/capability_eval.mjs",
+      ".gitignore",
+      "backend/uv.lock"
+    ]
+  },
+  "nonGoals": [
+    "NO_AUTHORITY_OR_ADR_CHANGE",
+    "NO_DEPLOYMENT",
+    "NO_EXTERNAL_MODEL_CALL_DURING_PUSH",
+    "NO_NEW_PERMISSION_SYSTEM",
+    "NO_NEW_TASK_SYSTEM",
+    "NO_TEST_WEAKENING",
+    "NO_UI_CHANGE"
+  ],
+  "verification": [
+    {
+      "id": "t03-eval-actuals-38-38-green",
+      "tool": "python",
+      "cwd": ".",
+      "timeoutMs": 600000,
+      "args": ["fill_eval_actuals.py verification: 38/38 records judged complete via eval_runner with DeepSeek V4.1-Flash (thinking disabled); simulator cross-check 0 mismatch"]
+    },
+    {
+      "id": "worktree-recovery-scan",
+      "tool": "python",
+      "cwd": ".",
+      "timeoutMs": 120000,
+      "args": ["scan_orca_worktrees.py: 17 mains, 25 ok, 0 broken after admin-metadata rebuild (2026-10-06)"]
+    },
+    {
+      "id": "merge-conflict-rerere-clean",
+      "tool": "git",
+      "cwd": ".",
+      "timeoutMs": 60000,
+      "args": ["grep conflict markers in 4 rerere-resolved files: 0 hits before merge commit 9ea7cd45"]
+    }
+  ],
+  "state": "APPROVED_FOR_ONE_CHILD"
+}
