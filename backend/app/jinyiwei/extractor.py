@@ -84,6 +84,16 @@ class StructuredEvidenceExtractor:
             )
             if deterministic_entity is not None:
                 return deterministic_entity
+        if all(
+            document.source_type is SourceType.PUBLIC_API
+            and document.source_name == "github_repository_search"
+            for document in bounded
+        ):
+            deterministic_repository = _extract_deterministic_github_repository(
+                query, bounded, requested
+            )
+            if deterministic_repository is not None:
+                return deterministic_repository
         indexed = {_document_id(document): document for document in bounded}
         if len(indexed) != len(bounded):
             raise EvidenceExtractionError("extractor_input_invalid")
@@ -304,6 +314,72 @@ def _extract_deterministic_wikidata_entity(
             excerpt=excerpt,
             content_hash=hashlib.sha256(excerpt.encode()).hexdigest(),
             confidence=_CONFIDENCE[document.quality_ceiling],
+        ),
+    )
+
+
+def _extract_deterministic_github_repository(
+    query: SourceQuery,
+    documents: tuple[SourceDocument, ...],
+    requested: Mapping[str, RequiredFact],
+) -> tuple[EvidenceItem, ...] | None:
+    """Convert one registered GitHub metadata record without model inference."""
+
+    if len(query.unresolved_fact_keys) != 1:
+        return None
+    fact_key = query.unresolved_fact_keys[0]
+    fact = requested.get(fact_key)
+    if (
+        fact is None
+        or fact.category is not FactCategory.ENTITY_REFERENCE
+        or fact.expected_shape != "object"
+        or not all(document.metadata.get("repository") for document in documents)
+    ):
+        return None
+    if len(documents) != 1:
+        return ()
+    document = documents[0]
+    repository = document.metadata.get("repository")
+    if not isinstance(repository, Mapping):
+        return ()
+    value = _normalize_json(dict(repository))
+    excerpt = document.text.strip()
+    if not excerpt:
+        return ()
+    evidence_id = _evidence_id(
+        fact_key=fact_key,
+        document=document,
+        excerpt=excerpt,
+        value=value,
+        unit=None,
+        as_of=document.as_of,
+        stance=EvidenceStance.SUPPORTS,
+    )
+    return (
+        EvidenceItem(
+            evidence_id=evidence_id,
+            fact_key=fact_key,
+            value=value,
+            unit=None,
+            as_of=document.as_of,
+            published_at=document.published_at,
+            retrieved_at=document.retrieved_at,
+            source_url=document.source_url,
+            publisher=document.publisher,
+            source_type=SourceType.PUBLIC_API,
+            coverage=document.coverage,
+            license_note=document.license_note,
+            quality=document.quality_ceiling,
+            stance=EvidenceStance.SUPPORTS,
+            excerpt=excerpt,
+            content_hash=hashlib.sha256(excerpt.encode()).hexdigest(),
+            confidence=_CONFIDENCE[document.quality_ceiling],
+            access_url=(
+                repository.get("html_url")
+                if isinstance(repository.get("html_url"), str)
+                else None
+            ),
+            access_metadata={"connector": "github_repository_search"},
         ),
     )
 
