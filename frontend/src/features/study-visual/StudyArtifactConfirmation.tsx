@@ -44,7 +44,12 @@ export function StudyArtifactConfirmation({ artifactId }: { artifactId: string }
     <section aria-label="成果人工确认" data-artifact-state={state.snapshot.artifactState}>
       <p role="status">{view.label}</p>
       {view.showLookupButton && <button type="button" disabled={pending} onClick={() => { void controller.load(); }}>重试读取回奏</button>}
-      {view.replyId && <a href={`/shiguan?replyId=${encodeURIComponent(view.replyId)}`}>查看对应回奏</a>}
+      {view.replyId && (
+        <nav aria-label="史馆结果反馈">
+          <a href={`/shiguan?replyId=${encodeURIComponent(view.replyId)}`}>查看对应回奏</a>
+          <a data-testid="study-record-outcome" href={`/shiguan?replyId=${encodeURIComponent(view.replyId)}`}>记录结果反馈</a>
+        </nav>
+      )}
       {view.showControls && (
         <fieldset disabled={pending}>
           <legend>人工确认</legend>

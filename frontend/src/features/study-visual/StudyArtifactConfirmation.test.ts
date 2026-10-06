@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
@@ -42,6 +43,15 @@ test("confirmation projection exposes only a server-provided reply identifier", 
   assert.equal(projectStudyArtifactConfirmationUi({ phase: "ready", snapshot, message: null, verifiedReplyId: "reply-1" }).replyId, "reply-1");
   const legacy = parseStudyArtifactConfirmationSnapshot({ ...READY_SNAPSHOT, replyId: undefined });
   assert.equal(projectStudyArtifactConfirmationUi({ phase: "ready", snapshot: legacy, message: null, verifiedReplyId: null }).replyId, null);
+});
+
+test("confirmed replies expose a truthful史馆结果反馈入口 without writing from the study card", () => {
+  const source = readFileSync(new URL("./StudyArtifactConfirmation.tsx", import.meta.url), "utf8");
+  assert.match(source, /aria-label="史馆结果反馈"/);
+  assert.match(source, /data-testid="study-record-outcome"/);
+  assert.match(source, /记录结果反馈/);
+  assert.match(source, /\/shiguan\?replyId=/);
+  assert.doesNotMatch(source, /createShiguanOutcome|recordOutcome\(/);
 });
 
 test("confirmation projection keeps machine and human axes separate", () => {
