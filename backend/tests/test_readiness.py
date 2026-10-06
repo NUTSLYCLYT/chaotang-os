@@ -31,6 +31,7 @@ from app.readiness import (
     _local_credential_available,
     run_readiness_preflight,
 )
+from app.scene_packs import storage as scene_pack_storage
 from app.shiguan import db as shiguan_db
 from app.shiguan import maintenance
 from app.shiguan.errors import ShiguanStorageError
@@ -554,7 +555,7 @@ def test_shiguan_semantic_validator_rejects_missing_invalid_or_duplicate_state(
         assert validate_registered_schema_connection(connection, entry) is False
 
 
-def test_runtime_data_registry_is_closed_and_includes_all_eight_stores() -> None:
+def test_runtime_data_registry_is_closed_and_includes_all_nine_stores() -> None:
     assert tuple(entry.name for entry in RUNTIME_DATA_ENTRIES) == (
         "decree_jobs.sqlite3",
         "jinyiwei.sqlite3",
@@ -562,6 +563,7 @@ def test_runtime_data_registry_is_closed_and_includes_all_eight_stores() -> None
         "junjichu_cases.sqlite3",
         "qintianjian.sqlite3",
         "report_artifacts.sqlite3",
+        "scene_packs.sqlite3",
         "runtime_bindings.sqlite3",
         "shiguan.sqlite3",
     )
@@ -576,6 +578,13 @@ def test_runtime_data_registry_is_closed_and_includes_all_eight_stores() -> None
         "mingshuo_delivery_intents_guard_update",
         "mingshuo_delivery_intents_no_delete",
     }
+
+
+def test_readiness_accepts_scene_pack_store_after_first_initialization(tmp_path: Path) -> None:
+    settings = _settings(tmp_path)
+    scene_pack_storage._connect(settings.data_dir / "scene_packs.sqlite3").close()
+
+    assert run_readiness_preflight(settings).codes == ()
 
 
 def test_readiness_accepts_exact_runtime_binding_schema(tmp_path: Path) -> None:

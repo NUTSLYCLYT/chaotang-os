@@ -332,7 +332,7 @@ class RecoveryManager:
         attempt: int,
         retryable: bool,
         cancelled: bool = False,
-        max_attempts: int = 2,
+        max_attempts: int,
     ) -> RecoveryDecision:
         _require_attempt_number(attempt)
         _require_attempt_number(max_attempts, "max_attempts")
@@ -438,7 +438,7 @@ class FirstLoopAdapter:
     def run(self, submission: FirstLoopSubmission) -> ExecutionTrace:
         request = submission.request
         scope = self._submission_scope(submission)
-        self.interpreter.interpret(
+        goal = self.interpreter.interpret(
             owner_user_id=scope.owner_user_id,
             run_id=request.identity.run_id,
             decree_id=request.identity.decree_id,
@@ -446,6 +446,7 @@ class FirstLoopAdapter:
             task_ref=scope.task_ref,
             attempt_ref=scope.attempt_ref,
         )
+        self._assert_goal_binding(goal, request, scope)
         team = self.selector.select(submission.department)
         plan = self.planner.build(request, team)
         ledger = EvidenceLedger.from_refs(submission.evidence_refs)
@@ -500,6 +501,27 @@ class FirstLoopAdapter:
             idempotency_key=result.side_effect_keys[0],
         )
         return ExecutionTrace(request=request, plan=plan, events=tuple(events), result=result)
+
+    @staticmethod
+    def _assert_goal_binding(
+        goal: GoalSpec,
+        request: OrchestrationRequest,
+        scope: ScopeBinding,
+    ) -> None:
+        """Keep interpretation and execution on one request identity boundary."""
+
+        if goal.owner_user_id != request.identity.owner_user_id:
+            raise ValueError("goal_owner_scope_mismatch")
+        if goal.run_id != request.identity.run_id:
+            raise ValueError("goal_run_scope_mismatch")
+        if goal.decree_id != request.identity.decree_id:
+            raise ValueError("goal_decree_scope_mismatch")
+        if goal.decree_text != request.decree_text:
+            raise ValueError("goal_decree_text_mismatch")
+        if goal.input_digest != request.input_digest:
+            raise ValueError("goal_input_digest_mismatch")
+        if goal.scope != scope:
+            raise ValueError("goal_task_scope_mismatch")
 
     def replay(
         self,

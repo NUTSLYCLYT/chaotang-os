@@ -1,13 +1,18 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
 
+import app.orchestration as orchestration_package
+import app.orchestration.first_loop as first_loop_module
 from app.orchestration import (
     ExecutionIdentity,
     OrchestrationRequest,
     ProviderBudget,
     decree_input_digest,
 )
+from app.orchestration import FirstLoopAdapter as PackageFirstLoopAdapter
 from app.orchestration.contracts import ExecutionEventKind, FailureDisposition
 from app.orchestration.first_loop import (
     EvidenceLedger,
@@ -19,6 +24,16 @@ from app.orchestration.first_loop import (
     ScopeBinding,
     TeamSelector,
 )
+
+
+def test_package_reexports_first_loop_contracts() -> None:
+    assert PackageFirstLoopAdapter is FirstLoopAdapter
+    assert set(first_loop_module.__all__) <= set(orchestration_package.__all__)
+    assert len(orchestration_package.__all__) == len(set(orchestration_package.__all__))
+    for name in first_loop_module.__all__:
+        assert getattr(orchestration_package, name) is getattr(first_loop_module, name)
+    for name in orchestration_package.__all__:
+        assert getattr(orchestration_package, name)
 
 
 def _request() -> OrchestrationRequest:
@@ -67,7 +82,9 @@ def test_first_loop_replay_is_byte_equivalent_and_owner_bound() -> None:
     assert first.result == replay.result
     assert first.result is not None
     assert first.result.side_effect_keys[0].startswith("sha256:")
-    assert MemoryPolicy().can_reuse(archive_owner_user_id="owner-a", requester_user_id="owner-a")
+    assert MemoryPolicy().can_reuse(
+        archive_owner_user_id="owner-a", requester_user_id="owner-a"
+    )
     assert not MemoryPolicy().can_reuse(
         archive_owner_user_id="owner-a", requester_user_id="owner-b"
     )
@@ -103,9 +120,9 @@ def test_contracts_fail_closed_for_duplicate_evidence_or_unknown_department() ->
 
 def test_recovery_preserves_retry_cancel_and_terminal_semantics() -> None:
     manager = RecoveryManager()
-    retry = manager.decide(attempt=1, retryable=True)
-    cancelled = manager.decide(attempt=1, retryable=True, cancelled=True)
-    terminal = manager.decide(attempt=2, retryable=True)
+    retry = manager.decide(attempt=1, retryable=True, max_attempts=2)
+    cancelled = manager.decide(attempt=1, retryable=True, cancelled=True, max_attempts=2)
+    terminal = manager.decide(attempt=2, retryable=True, max_attempts=2)
 
     assert retry.disposition is FailureDisposition.RETRY
     assert retry.retryable
@@ -113,6 +130,18 @@ def test_recovery_preserves_retry_cancel_and_terminal_semantics() -> None:
     assert cancelled.code == "CANCELLED"
     assert terminal.disposition is FailureDisposition.TERMINAL
     assert not terminal.retryable
+
+    for max_attempts in (1, 2, 3):
+        result = manager.decide(
+            attempt=max_attempts,
+            retryable=True,
+            max_attempts=max_attempts,
+        )
+        assert result.disposition is FailureDisposition.TERMINAL
+    with pytest.raises(TypeError):
+        manager.decide(attempt=1, retryable=True)  # type: ignore[call-arg]
+    with pytest.raises(ValueError, match="max_attempts_must_be_positive_integer"):
+        manager.decide(attempt=1, retryable=True, max_attempts=None)  # type: ignore[arg-type]
 
 
 def test_goal_interpreter_binds_normalized_text_and_existing_refs() -> None:
@@ -163,4 +192,51 @@ def test_first_loop_rejects_partial_scope_and_invalid_attempt_counter() -> None:
         FirstLoopSubmission(request=_request(), task_ref="task-1")
 
     with pytest.raises(ValueError, match="attempt_must_be_positive_integer"):
-        RecoveryManager().decide(attempt=True, retryable=True)  # type: ignore[arg-type]
+        RecoveryManager().decide(attempt=True, retryable=True, max_attempts=2)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    ("mismatch", "error"),
+    (
+        ("owner_user_id", "goal_owner_scope_mismatch"),
+        ("run_id", "goal_run_scope_mismatch"),
+        ("decree_id", "goal_decree_scope_mismatch"),
+        ("decree_text", "goal_decree_text_mismatch"),
+        ("input_digest", "goal_input_digest_mismatch"),
+        ("scope", "goal_task_scope_mismatch"),
+    ),
+)
+def test_first_loop_rejects_each_interpretation_binding_mismatch(
+    mismatch: str,
+    error: str,
+) -> None:
+    class MismatchingInterpreter:
+        def interpret(self, **kwargs):
+            goal = GoalInterpreter().interpret(**kwargs)
+            values = {
+                "owner_user_id": goal.owner_user_id,
+                "run_id": goal.run_id,
+                "decree_id": goal.decree_id,
+                "decree_text": goal.decree_text,
+                "input_digest": goal.input_digest,
+                "scope": goal.scope,
+            }
+            if mismatch == "scope":
+                values[mismatch] = ScopeBinding("owner-a", "other-task", "attempt-1")
+            elif mismatch == "input_digest":
+                values[mismatch] = "sha256:" + "0" * 64
+            elif mismatch == "decree_text":
+                values[mismatch] = "A different decree"
+            else:
+                values[mismatch] = "other-value"
+            return SimpleNamespace(**values)
+
+    with pytest.raises(ValueError, match=error):
+        FirstLoopAdapter(interpreter=MismatchingInterpreter()).run(
+            FirstLoopSubmission(
+                request=_request(),
+                task_ref="task-1",
+                attempt_ref="attempt-1",
+                evidence_refs=("evidence-1",),
+            )
+        )

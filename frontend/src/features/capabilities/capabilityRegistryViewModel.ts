@@ -1,4 +1,8 @@
-import type { CapabilityRegistryItem, CapabilityRegistryProjection } from "../../lib/backendClient";
+import type {
+  CapabilityInvocationPolicy,
+  CapabilityRegistryItem,
+  CapabilityRegistryProjection,
+} from "../../lib/backendClient";
 
 export interface CapabilityTile {
   label: string;
@@ -18,8 +22,8 @@ export interface CapabilityRegistryViewModel {
   subtitle: string;
   tiles: CapabilityTile[];
   departmentGroups: CapabilityDepartmentGroup[];
-  recommendedForPaidScenarios: CapabilityRegistryItem[];
-  externalCandidates: CapabilityRegistryItem[];
+  hanlinCatalog: CapabilityRegistryItem[];
+  externalProviderGroups: CapabilityRegistryItem[];
 }
 
 const HOME_TITLES: Record<string, string> = {
@@ -50,42 +54,93 @@ const HOME_DESCRIPTIONS: Record<string, string> = {
   shiguan: "负责归档、复盘和结果回流。",
 };
 
+const POLICY_LABELS: Record<CapabilityInvocationPolicy, string> = {
+  AUTO_MATCH: "自然语言自动匹配",
+  EXPLICIT_ONLY: "仅显式调用",
+  PREPARE_THEN_CONFIRM: "准备后再确认",
+  DISABLED: "暂不启用",
+};
+
 function groupByHome(items: CapabilityRegistryItem[]): CapabilityDepartmentGroup[] {
   const grouped = new Map<string, CapabilityRegistryItem[]>();
   for (const item of items) {
     const home = item.card.recommendedHome;
     grouped.set(home, [...(grouped.get(home) ?? []), item]);
   }
-  return [...grouped.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([home, group]) => ({
-    home,
-    title: HOME_TITLES[home] ?? `${home} · 能力池`,
-    description: HOME_DESCRIPTIONS[home] ?? "已登记能力，等待更多真实任务数据考绩。",
-    items: group,
-  }));
+  return [...grouped.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([home, group]) => ({
+      home,
+      title: HOME_TITLES[home] ?? `${home} · 能力池`,
+      description:
+        HOME_DESCRIPTIONS[home] ?? "已登记能力，等待更多真实任务数据考绩。",
+      items: group,
+    }));
+}
+
+function byName(a: CapabilityRegistryItem, b: CapabilityRegistryItem): number {
+  return a.card.name.localeCompare(b.card.name, "zh-CN");
+}
+
+export function invocationPolicyLabel(policy: CapabilityInvocationPolicy): string {
+  return POLICY_LABELS[policy];
 }
 
 export function capabilityBadge(item: CapabilityRegistryItem): string {
+  if (item.catalog) return invocationPolicyLabel(item.catalog.invocationPolicy);
   if (item.externalReview?.requiresXingbuReview) return "鸿胪寺候选 · 刑部复核";
-  if (item.card.authorityScore === null) return "小样本 · 暂不打权威分";
   if (!item.card.active) return "未启用 · 零权限";
+  if (item.card.authorityScore === null) return "小样本 · 暂不打权威分";
   return "已登记 · 可考绩";
 }
 
-export function buildCapabilityRegistryViewModel(registry: CapabilityRegistryProjection): CapabilityRegistryViewModel {
-  const externalCandidates = registry.items.filter((item) => item.card.source === "honglusi");
-  const reusable = registry.items.filter((item) => item.card.reusePotential === "high" && item.card.status !== "retired");
-  const recommendedForPaidScenarios = reusable.slice(0, 20);
+export function buildCapabilityRegistryViewModel(
+  registry: CapabilityRegistryProjection,
+): CapabilityRegistryViewModel {
+  const hanlinCatalog = registry.items
+    .filter(
+      (item) =>
+        item.catalog?.origin === "personal_catalog" &&
+        item.card.recommendedHome === "hanlin",
+    )
+    .sort(byName);
+  const externalProviderGroups = registry.items
+    .filter(
+      (item) =>
+        item.catalog?.origin === "personal_catalog" &&
+        item.card.recommendedHome === "honglusi" &&
+        item.card.type === "provider",
+    )
+    .sort(byName);
+
   return {
     headline: "朝堂能力总账",
-    subtitle: "把 Skill、Agent、蜂群、Workflow、MCP 和外部工具收口成一个可审查、可晋升、可裁撤的能力账本。",
+    subtitle:
+      "把个人 Codex 能力作为只读目录纳入翰林院和鸿胪寺；目录卡片只帮助选型，不授予运行权限。",
     tiles: [
-      { label: "登记能力", value: String(registry.summary.total), hint: "只读投影，不新增权限" },
-      { label: "外部候选", value: String(registry.summary.externalReviewRequired), hint: "默认归鸿胪寺，刑部复核" },
-      { label: "小样本", value: String(registry.summary.smallSampleWithoutAuthorityScore), hint: "不显示权威评分" },
-      { label: "部门归属", value: String(Object.keys(registry.summary.byHome).length), hint: "服务军机处组阁" },
+      {
+        label: "翰林院能力",
+        value: String(registry.summary.catalogHanlinSkills),
+        hint: "Skill、Prompt、模板与方法",
+      },
+      {
+        label: "鸿胪寺服务组",
+        value: `${registry.summary.catalogProviderGroups}/${registry.summary.catalogSnapshotProviderGroups}`,
+        hint: "已投影 / 快照登记",
+      },
+      {
+        label: "MCP 工具明细",
+        value: `${registry.summary.catalogMcpTools}/${registry.summary.catalogSnapshotMcpTools}`,
+        hint: "可投影 / 快照登记",
+      },
+      {
+        label: "安全排除",
+        value: String(registry.summary.catalogExcludedSupportTools),
+        hint: "内部支撑工具只保留审计记录",
+      },
     ],
     departmentGroups: groupByHome(registry.items),
-    recommendedForPaidScenarios,
-    externalCandidates,
+    hanlinCatalog,
+    externalProviderGroups,
   };
 }

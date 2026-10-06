@@ -1,0 +1,79 @@
+{
+  "schemaVersion": "product-authority.m0.approval.v1",
+  "authorityId": "product-authority.m0.v1",
+  "taskId": "CT-G3-REGISTRY-WINDOWS-STORAGE-20261005",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "fbd875a7b6dc8a6fec872cb71de650a3bfcfb850",
+    "baseTree": "e6b81a5fcffc1fec2d2e744e4ff9a619ff85b6e6",
+    "approvalPath": ".harness/approvals/CT-G3-REGISTRY-WINDOWS-STORAGE-20261005.json",
+    "approvalCommitPaths": [
+      ".harness/approvals/CT-G3-REGISTRY-WINDOWS-STORAGE-20261005.json",
+      "docs/product/tasks/2026-10-05-g3-registry-windows-storage.md"
+    ],
+    "productPaths": [
+      "backend/app/decree_jobs/storage.py",
+      "backend/app/operations/runtime_data_registry.py",
+      "backend/tests/test_decree_job_storage.py",
+      "backend/tests/test_readiness.py",
+      "backend/tests/test_sqlite_backup.py"
+    ]
+  },
+  "nonGoals": [
+    "NO_AUTHORITY_OR_ADR_CHANGE",
+    "NO_DEPLOYMENT",
+    "NO_EXTERNAL_MODEL_CALL",
+    "NO_NEW_PERMISSION_SYSTEM",
+    "NO_NEW_TASK_SYSTEM",
+    "NO_REMOTE_PUSH",
+    "NO_RUNTIME_DATA_ACCESS",
+    "NO_TEST_WEAKENING",
+    "NO_UI_CHANGE"
+  ],
+  "verification": [
+    {
+      "id": "backend-focused-tests",
+      "tool": "node",
+      "cwd": ".",
+      "timeoutMs": 300000,
+      "args": [
+        "--input-type=module",
+        "-e",
+        "import{existsSync}from'node:fs';import{execFileSync}from'node:child_process';const c=['backend/.venv/Scripts/python.exe','H:/ChaotangPortable/chaotang-ai-os-gitee/platform/backend/.venv/Scripts/python.exe','/usr/bin/python3'];const p=c.find(existsSync);if(!p)throw new Error('python_runtime_missing');execFileSync(p,['-m','pytest','-q','backend/tests/test_decree_job_storage.py','backend/tests/test_readiness.py','backend/tests/test_sqlite_backup.py'],{stdio:'inherit'});"
+      ]
+    },
+    {
+      "id": "backend-ruff",
+      "tool": "node",
+      "cwd": ".",
+      "timeoutMs": 300000,
+      "args": [
+        "--input-type=module",
+        "-e",
+        "import{existsSync}from'node:fs';import{execFileSync}from'node:child_process';const c=['backend/.venv/Scripts/python.exe','H:/ChaotangPortable/chaotang-ai-os-gitee/platform/backend/.venv/Scripts/python.exe','/usr/bin/python3'];const p=c.find(existsSync);if(!p)throw new Error('python_runtime_missing');execFileSync(p,['-m','ruff','check','backend/app/decree_jobs/storage.py','backend/app/operations/runtime_data_registry.py','backend/tests/test_decree_job_storage.py','backend/tests/test_readiness.py','backend/tests/test_sqlite_backup.py'],{stdio:'inherit'});"
+      ]
+    },
+    {
+      "id": "harness-check",
+      "tool": "node",
+      "cwd": ".",
+      "timeoutMs": 300000,
+      "args": ["scripts/check_harness.mjs", "--check"]
+    },
+    {
+      "id": "static-contract",
+      "tool": "node",
+      "cwd": ".",
+      "timeoutMs": 10000,
+      "args": [
+        "--input-type=module",
+        "-e",
+        "import{readFileSync}from'node:fs';const r=readFileSync('backend/app/operations/runtime_data_registry.py','utf8');const s=readFileSync('backend/app/decree_jobs/storage.py','utf8');if(!r.includes('sha256:3c3599af569b192c3cd038a43038a071b2e3575c4cdc34bf748938ae1b2f3fb2')||!r.includes('decree_job_history_annotations')||!s.includes('dir=self.db_path.parent'))process.exit(1);"
+      ]
+    }
+  ],
+  "state": "APPROVED_FOR_ONE_CHILD"
+}

@@ -1,0 +1,75 @@
+{
+  "schemaVersion": "product-authority.m0.approval.v1",
+  "authorityId": "product-authority.m0.v1",
+  "taskId": "OC-STUDY-FIRST-DECREE-RECOVERY-MINIMAL-20261003",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "cb5b17947533c4e1df5d770de7f68147f66b3b34",
+    "baseTree": "c177af3dbd6747ada45bee895861e678d7176a2f",
+    "approvalPath": ".harness/approvals/OC-STUDY-FIRST-DECREE-RECOVERY-MINIMAL-20261003.json",
+    "approvalCommitPaths": [
+      ".harness/approvals/OC-STUDY-FIRST-DECREE-RECOVERY-MINIMAL-20261003.json"
+    ],
+    "productPaths": [
+      "frontend/src/app/study/StudyClient.tsx",
+      "frontend/src/app/study/decreeJobPolling.test.ts",
+      "frontend/src/app/study/decreeJobPolling.ts",
+      "frontend/src/features/study-visual/DevStudyWorkspace.test.ts",
+      "frontend/src/features/study-visual/DevStudyWorkspace.tsx",
+      "frontend/src/features/study-visual/studyTaskCockpit.test.ts",
+      "frontend/src/features/study-visual/studyTaskCockpit.ts"
+    ]
+  },
+  "nonGoals": [
+    "NO_AUTHORITY_OR_ADR_CHANGE",
+    "NO_BACKEND_CHANGE",
+    "NO_BFF_CHANGE",
+    "NO_DATABASE_CHANGE",
+    "NO_DEPLOYMENT",
+    "NO_MODEL_ACTIVATION",
+    "NO_PRODUCTION_DATA",
+    "NO_SECOND_STATE_MACHINE",
+    "NO_TASK_LEDGER_CHANGE",
+    "NO_TEST_WEAKENING",
+    "NO_UI_BASELINE_CHANGE"
+  ],
+  "state": "APPROVED_FOR_ONE_CHILD",
+  "verification": [
+    {
+      "id": "study-first-decree-build",
+      "tool": "node",
+      "cwd": "frontend",
+      "args": ["node_modules/next/dist/bin/next", "build"],
+      "timeoutMs": 300000
+    },
+    {
+      "id": "study-first-decree-focused-tests",
+      "tool": "node",
+      "cwd": "frontend",
+      "args": [
+        "--test",
+        "src/features/study-visual/studyTaskCockpit.test.ts",
+        "src/features/study-visual/DevStudyWorkspace.test.ts",
+        "src/app/study/decreeJobPolling.test.ts"
+      ],
+      "timeoutMs": 180000
+    },
+    {
+      "id": "study-first-decree-lint",
+      "tool": "node",
+      "cwd": "frontend",
+      "args": ["node_modules/eslint/bin/eslint.js", "."],
+      "timeoutMs": 300000
+    },
+    {
+      "id": "study-first-decree-typecheck",
+      "tool": "node",
+      "cwd": "frontend",
+      "args": ["node_modules/typescript/bin/tsc", "--noEmit"],
+      "timeoutMs": 300000
+    }
+  ]
+}

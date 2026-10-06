@@ -32,13 +32,7 @@ export function savePendingSubmission(
   storage.setItem(pendingSubmissionStorageKey(userId), JSON.stringify(pending));
 }
 
-export function loadPendingSubmission(
-  storage: SafeStorage,
-  userId: string,
-): PendingDecreeSubmission | null {
-  const key = pendingSubmissionStorageKey(userId);
-  const raw = storage.getItem(key);
-  if (raw === null) return null;
+function parsePendingSubmission(raw: string): PendingDecreeSubmission | null {
   try {
     const value = JSON.parse(raw) as Record<string, unknown>;
     if (
@@ -52,8 +46,36 @@ export function loadPendingSubmission(
       return { idempotencyKey: value.idempotencyKey, requestHash: value.requestHash };
     }
   } catch {
-    // Invalid persisted state is removed below.
+    // Fall through to null.
   }
+  return null;
+}
+
+/**
+ * Side-effect-free read for render paths: invalid persisted state fails closed
+ * to `null` but is left in place, so rendering never mutates storage.
+ */
+export function readPendingSubmission(
+  storage: SafeStorage,
+  userId: string,
+): PendingDecreeSubmission | null {
+  const raw = storage.getItem(pendingSubmissionStorageKey(userId));
+  if (raw === null) return null;
+  return parsePendingSubmission(raw);
+}
+
+/**
+ * Active load used by the submission flow: reads and removes invalid state.
+ */
+export function loadPendingSubmission(
+  storage: SafeStorage,
+  userId: string,
+): PendingDecreeSubmission | null {
+  const key = pendingSubmissionStorageKey(userId);
+  const raw = storage.getItem(key);
+  if (raw === null) return null;
+  const value = parsePendingSubmission(raw);
+  if (value !== null) return value;
   storage.removeItem(key);
   return null;
 }
@@ -79,13 +101,7 @@ export function saveActiveJob(
   storage.setItem(activeJobStorageKey(userId), JSON.stringify(job));
 }
 
-export function loadActiveJob(
-  storage: SafeStorage,
-  userId: string,
-): ActiveDecreeJob | null {
-  const key = activeJobStorageKey(userId);
-  const raw = storage.getItem(key);
-  if (raw === null) return null;
+function parseActiveJob(raw: string): ActiveDecreeJob | null {
   try {
     const value = JSON.parse(raw) as Record<string, unknown>;
     if (
@@ -99,10 +115,34 @@ export function loadActiveJob(
       return { jobId: value.jobId, idempotencyKey: value.idempotencyKey };
     }
   } catch {
-    // Invalid persisted state is removed below.
+    // Fall through to null.
   }
-  storage.removeItem(key);
   return null;
+}
+
+/**
+ * Side-effect-free read for render paths: invalid persisted state fails closed
+ * to `null` but is left in place, so rendering never mutates storage. Active
+ * load flows call {@link clearInvalidActiveJob} separately to prune it.
+ */
+export function loadActiveJob(
+  storage: SafeStorage,
+  userId: string,
+): ActiveDecreeJob | null {
+  const raw = storage.getItem(activeJobStorageKey(userId));
+  if (raw === null) return null;
+  return parseActiveJob(raw);
+}
+
+/**
+ * Active cleanup used by load flows (resume/retry): removes only a present but
+ * invalid active job entry, leaving absent and valid state untouched.
+ */
+export function clearInvalidActiveJob(storage: SafeStorage, userId: string): void {
+  const key = activeJobStorageKey(userId);
+  const raw = storage.getItem(key);
+  if (raw === null) return;
+  if (parseActiveJob(raw) === null) storage.removeItem(key);
 }
 
 export function clearActiveJob(storage: SafeStorage, userId: string): void {

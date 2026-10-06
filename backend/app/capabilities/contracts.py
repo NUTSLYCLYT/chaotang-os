@@ -1,14 +1,15 @@
 """Contracts for the read-only CapabilityRegistry projection.
 
-V1 intentionally describes existing capabilities only. It does not grant a skill,
-agent, MCP server, plugin, or persona any runtime permission.
+V2 adds a metadata-only view of the user's personal Codex capability catalog.
+Catalog visibility never grants installation, connection, verification, or runtime
+permission.
 """
 
 from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 CapabilityType = Literal[
     "skill",
@@ -17,6 +18,7 @@ CapabilityType = Literal[
     "workflow",
     "mcp",
     "plugin",
+    "provider",
     "api",
     "template",
     "imprint",
@@ -24,12 +26,73 @@ CapabilityType = Literal[
 CapabilitySource = Literal[
     "internal",
     "honglusi",
+    "personal_catalog",
     "user_contribution",
     "shiguan",
     "external",
 ]
 CapabilityLevel = Literal["low", "medium", "high"]
 CapabilityStatus = Literal["draft", "trial", "approved", "retired"]
+InvocationPolicy = Literal[
+    "AUTO_MATCH",
+    "EXPLICIT_ONLY",
+    "PREPARE_THEN_CONFIRM",
+    "DISABLED",
+]
+
+
+class CapabilityReadiness(BaseModel):
+    """Five independent readiness dimensions; none implies another."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    visibility_status: str = Field(min_length=1, max_length=128)
+    installation_status: str = Field(min_length=1, max_length=128)
+    connection_status: str = Field(min_length=1, max_length=128)
+    verification_status: str = Field(min_length=1, max_length=128)
+    runtime_binding_status: Literal["not_bound"] = "not_bound"
+
+
+class McpToolDetail(BaseModel):
+    """Metadata-only MCP tool detail nested under its provider group."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str = Field(min_length=3, max_length=256)
+    name: str = Field(min_length=1, max_length=256)
+    provider_group: str = Field(min_length=1, max_length=128)
+    invocation_policy: InvocationPolicy
+    connection_status: str = Field(min_length=1, max_length=128)
+    verification_status: str = Field(min_length=1, max_length=128)
+    runtime_binding_status: Literal["not_bound"] = "not_bound"
+
+
+class CapabilityCatalogMetadata(BaseModel):
+    """Personal catalog metadata attached to a canonical registry item."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    origin: Literal["personal_catalog"] = "personal_catalog"
+    category: str | None = Field(default=None, max_length=128)
+    natural_language_trigger: str = Field(min_length=1, max_length=512)
+    explicit_trigger: str | None = Field(default=None, max_length=256)
+    invocation_policy: InvocationPolicy
+    fee_status: str = Field(min_length=1, max_length=512)
+    permission_summary: str = Field(min_length=1, max_length=1024)
+    external_data: str = Field(min_length=1, max_length=512)
+    readiness: CapabilityReadiness
+    blocker: str = Field(min_length=1, max_length=512)
+    provider_group: str | None = Field(default=None, max_length=128)
+    tool_count: int = Field(default=0, ge=0, le=512)
+    tools: list[McpToolDetail] = Field(default_factory=list, max_length=512)
+
+    @model_validator(mode="after")
+    def validate_tools(self) -> CapabilityCatalogMetadata:
+        if self.tool_count != len(self.tools):
+            raise ValueError("tool count mismatch")
+        if len({tool.id for tool in self.tools}) != len(self.tools):
+            raise ValueError("duplicate tool id")
+        return self
 
 
 class CapabilityCard(BaseModel):
@@ -110,6 +173,17 @@ class CapabilityRegistryItem(BaseModel):
     persona: AgentPersonaCard | None = None
     external_review: ExternalCapabilityReview | None = None
     promotion_case: CapabilityPromotionCase
+    catalog: CapabilityCatalogMetadata | None = None
+
+    @model_validator(mode="after")
+    def validate_catalog_is_non_authorizing(self) -> CapabilityRegistryItem:
+        if self.catalog is None:
+            return self
+        if self.card.active:
+            raise ValueError("catalog cards cannot be active")
+        if not self.card.zero_permission_when_inactive:
+            raise ValueError("catalog cards must preserve zero permission")
+        return self
 
 
 class CapabilityRegistrySummary(BaseModel):
@@ -121,6 +195,12 @@ class CapabilityRegistrySummary(BaseModel):
     by_status: dict[str, int]
     external_review_required: int
     small_sample_without_authority_score: int
+    catalog_hanlin_skills: int = Field(default=0, ge=0)
+    catalog_provider_groups: int = Field(default=0, ge=0)
+    catalog_mcp_tools: int = Field(default=0, ge=0)
+    catalog_snapshot_provider_groups: int = Field(default=0, ge=0)
+    catalog_snapshot_mcp_tools: int = Field(default=0, ge=0)
+    catalog_excluded_support_tools: int = Field(default=0, ge=0)
 
 
 class CapabilityRegistryProjection(BaseModel):
@@ -128,9 +208,9 @@ class CapabilityRegistryProjection(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    schema_version: Literal["capability-registry.v1"] = "capability-registry.v1"
-    owner: Literal["CapabilityRegistry V1 readonly projection"] = (
-        "CapabilityRegistry V1 readonly projection"
+    schema_version: Literal["capability-registry.v2"] = "capability-registry.v2"
+    owner: Literal["CapabilityRegistry V2 readonly projection"] = (
+        "CapabilityRegistry V2 readonly projection"
     )
     canonical_writer: Literal["existing source-of-truth modules only"] = (
         "existing source-of-truth modules only"

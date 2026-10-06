@@ -1,0 +1,78 @@
+{
+  "schemaVersion": "product-authority.m0.approval.v1",
+  "authorityId": "product-authority.m0.v1",
+  "taskId": "CHAOTANG-FIRST-LOOP-P2-REPAIR-20261002",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "ceef5e0f81c9f5298e8723e39b95a13e11e1aac9",
+    "baseTree": "557814522302767f4ed08ce2b57def97c14f685a",
+    "approvalPath": ".harness/approvals/CHAOTANG-FIRST-LOOP-P2-REPAIR-20261002.json",
+    "approvalCommitPaths": [
+      ".harness/approvals/CHAOTANG-FIRST-LOOP-P2-REPAIR-20261002.json",
+      "docs/product/tasks/2026-10-02-first-loop-p2-repair.md",
+      "docs/superpowers/plans/2026-10-02-first-loop-p2-repair.md"
+    ],
+    "productPaths": [
+      "backend/app/orchestration/__init__.py",
+      "backend/app/orchestration/first_loop.py",
+      "backend/tests/test_first_loop.py"
+    ]
+  },
+  "nonGoals": [
+    "NO_AUTHORITY_OR_ADR_CHANGE",
+    "NO_BUDGET_STORAGE_CHANGE",
+    "NO_DEPLOYMENT",
+    "NO_MODEL_ACTIVATION",
+    "NO_NETWORK_REQUESTS",
+    "NO_PRODUCT_CANDIDATE_PUSH",
+    "NO_RUNTIME_DATA_ACCESS",
+    "NO_TASK_LEDGER_CHANGE",
+    "NO_TEST_WEAKENING",
+    "NO_UI_CHANGE"
+  ],
+  "state": "APPROVED_FOR_ONE_CHILD",
+  "verification": [
+    {
+      "id": "compile-first-loop",
+      "tool": "python3",
+      "cwd": ".",
+      "args": [
+        "-m",
+        "compileall",
+        "-q",
+        "backend/app/orchestration",
+        "backend/tests/test_first_loop.py"
+      ],
+      "timeoutMs": 300000
+    },
+    {
+      "id": "pytest-first-loop",
+      "tool": "python3",
+      "cwd": ".",
+      "args": [
+        "-m",
+        "pytest",
+        "-q",
+        "backend/tests/test_first_loop.py"
+      ],
+      "timeoutMs": 300000
+    },
+    {
+      "id": "ruff-first-loop",
+      "tool": "python3",
+      "cwd": ".",
+      "args": [
+        "-m",
+        "ruff",
+        "check",
+        "backend/app/orchestration/__init__.py",
+        "backend/app/orchestration/first_loop.py",
+        "backend/tests/test_first_loop.py"
+      ],
+      "timeoutMs": 300000
+    }
+  ]
+}

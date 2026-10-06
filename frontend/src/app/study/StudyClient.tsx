@@ -14,7 +14,7 @@ import {
   resumeStudySubmission,
   submitStudyDecree,
 } from "./studySubmission";
-import { loadActiveJob } from "./decreeJobPolling";
+import { clearInvalidActiveJob, loadActiveJob } from "./decreeJobPolling";
 import { DevStudyWorkspace } from "../../features/study-visual/DevStudyWorkspace";
 import {
   EMPTY_CONSULT_STATE,
@@ -428,6 +428,8 @@ export function StudyClient({ userId }: { userId: string }) {
     let currentOwner = true;
     const active = loadActiveJob(window.sessionStorage, userId);
     if (active === null) {
+      // Active load flow (not render): prune present-but-invalid persisted state.
+      clearInvalidActiveJob(window.sessionStorage, userId);
       resumedJobRef.current = null;
       return () => { currentOwner = false; };
     }
@@ -562,6 +564,7 @@ export function StudyClient({ userId }: { userId: string }) {
   async function handleRetryProgress() {
     const recoveringOwner = userId;
     const active = loadActiveJob(window.sessionStorage, userId);
+    clearInvalidActiveJob(window.sessionStorage, userId);
     const fallbackSourceText = decreeText.trim() ||
       draftResult?.decree_text?.trim() || "";
     async function redraftOrExplain() {

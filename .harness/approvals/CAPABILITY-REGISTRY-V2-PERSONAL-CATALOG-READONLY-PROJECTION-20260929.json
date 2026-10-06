@@ -1,0 +1,119 @@
+{
+  "schemaVersion": "product-authority.m0.approval.v1",
+  "authorityId": "product-authority.m0.v1",
+  "taskId": "CAPABILITY-REGISTRY-V2-PERSONAL-CATALOG-READONLY-PROJECTION-20260929",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "3c913e38e0dc883220269822fe66e5547a665b43",
+    "baseTree": "5a50c821eb59be9b6fe22b27e060f62af8f333c2",
+    "approvalPath": ".harness/approvals/CAPABILITY-REGISTRY-V2-PERSONAL-CATALOG-READONLY-PROJECTION-20260929.json",
+    "approvalCommitPaths": [
+      ".harness/approvals/CAPABILITY-REGISTRY-V2-PERSONAL-CATALOG-READONLY-PROJECTION-20260929.json",
+      "docs/product/tasks/2026-09-29-capability-registry-v2-personal-catalog-readonly-projection.md"
+    ],
+    "productPaths": [
+      "backend/app/api/capabilities.py",
+      "backend/app/capabilities/contracts.py",
+      "backend/app/capabilities/projection.py",
+      "backend/config/personal_capabilities.snapshot.json",
+      "backend/harness/capability_candidates/eval_runner.py",
+      "backend/tests/test_capabilities_api.py",
+      "backend/tests/test_capability_registry_projection.py",
+      "backend/tests/test_eval_runner_judgement.py",
+      "frontend/src/features/capabilities/CapabilityRegistry.module.css",
+      "frontend/src/features/capabilities/CapabilityRegistryClient.tsx",
+      "frontend/src/features/capabilities/capabilityRegistryViewModel.test.ts",
+      "frontend/src/features/capabilities/capabilityRegistryViewModel.ts",
+      "frontend/src/lib/backendClient.capabilities.test.ts",
+      "frontend/src/lib/backendClient.ts"
+    ]
+  },
+  "nonGoals": [
+    "NO_ADR_OR_AUTHORITY_CHANGE",
+    "NO_DATABASE_CHANGE",
+    "NO_DEPLOYMENT",
+    "NO_DIRECT_EXTERNAL_EXECUTION",
+    "NO_EXTERNAL_ACCOUNT_LOGIN_OR_PERMISSION_CHANGE",
+    "NO_HARNESS_OR_CI_CHANGE",
+    "NO_PRIVATE_PATH_CREDENTIAL_OR_ACCOUNT_IDENTIFIER",
+    "NO_RUNTIME_PERMISSION_GRANT",
+    "NO_SKILL_SOURCE_COPY",
+    "NO_TEST_WEAKENING"
+  ],
+  "verification": [
+    {
+      "id": "backend-capability",
+      "tool": "python3",
+      "args": ["-I", "-c", "import os,subprocess; subprocess.run(['.venv/bin/python','-m','pytest','-q','-p','no:cacheprovider','tests/test_capabilities_api.py','tests/test_capability_registry_projection.py'],check=True,env={**os.environ,'PYTHONDONTWRITEBYTECODE':'1'})"],
+      "cwd": "backend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "backend-full",
+      "tool": "python3",
+      "args": ["-I", "-c", "import os,subprocess; subprocess.run(['.venv/bin/python','-m','pytest','-q','-p','no:cacheprovider'],check=True,env={**os.environ,'PYTHONDONTWRITEBYTECODE':'1'})"],
+      "cwd": "backend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "backend-lint",
+      "tool": "python3",
+      "args": ["-I", "-c", "import subprocess; subprocess.run(['.venv/bin/python','-m','ruff','check','.'],check=True)"],
+      "cwd": "backend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "diff-check",
+      "tool": "node",
+      "args": ["--input-type=module", "-e", "import{execFileSync}from'node:child_process';execFileSync('/usr/bin/git',['diff','--check','HEAD^','HEAD'],{stdio:'inherit'});"],
+      "cwd": ".",
+      "timeoutMs": 10000
+    },
+    {
+      "id": "frontend-build",
+      "tool": "npm",
+      "args": ["run", "build"],
+      "cwd": "frontend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "frontend-capability",
+      "tool": "node",
+      "args": ["--test", "frontend/src/lib/backendClient.capabilities.test.ts", "frontend/src/features/capabilities/capabilityRegistryViewModel.test.ts"],
+      "cwd": ".",
+      "timeoutMs": 60000
+    },
+    {
+      "id": "frontend-lint",
+      "tool": "npm",
+      "args": ["run", "lint"],
+      "cwd": "frontend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "frontend-test",
+      "tool": "npm",
+      "args": ["test"],
+      "cwd": "frontend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "frontend-typecheck",
+      "tool": "npm",
+      "args": ["run", "typecheck"],
+      "cwd": "frontend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "root-harness",
+      "tool": "node",
+      "args": ["scripts/check_harness.mjs"],
+      "cwd": ".",
+      "timeoutMs": 60000
+    }
+  ],
+  "state": "APPROVED_FOR_ONE_CHILD"
+}

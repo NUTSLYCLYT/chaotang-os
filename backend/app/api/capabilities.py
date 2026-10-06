@@ -14,6 +14,7 @@ from app.capabilities import (
     get_capability_registry_item,
 )
 from app.capabilities.contracts import CapabilityRegistryItem, CapabilityRegistrySummary
+from app.capabilities.projection import CapabilitySnapshotError
 
 router = APIRouter(prefix="/api/v1/capabilities", tags=["capabilities"])
 
@@ -23,16 +24,24 @@ _ALLOWED_QUERY_KEYS = {"type", "home", "source", "status", "risk"}
 def _validate_query(request: Request) -> JSONResponse | None:
     params = request.query_params
     if any(key not in _ALLOWED_QUERY_KEYS for key in params.keys()):
-        return JSONResponse(status_code=400, content={"status": "error", "reason": "validation"})
+        return JSONResponse(
+            status_code=400, content={"status": "error", "reason": "validation"}
+        )
     if any(len(params.getlist(key)) > 1 for key in params.keys()):
-        return JSONResponse(status_code=400, content={"status": "error", "reason": "validation"})
+        return JSONResponse(
+            status_code=400, content={"status": "error", "reason": "validation"}
+        )
     return None
 
 
-def _summary(items: list[CapabilityRegistryItem]) -> CapabilityRegistrySummary:
+def _summary(
+    items: list[CapabilityRegistryItem],
+    baseline: CapabilityRegistrySummary,
+) -> CapabilityRegistrySummary:
     by_type = Counter(item.card.type for item in items)
     by_home = Counter(item.card.recommended_home for item in items)
     by_status = Counter(item.card.status for item in items)
+    catalog_items = [item for item in items if item.catalog is not None]
     return CapabilityRegistrySummary(
         total=len(items),
         by_type=dict(sorted(by_type.items())),
@@ -44,6 +53,25 @@ def _summary(items: list[CapabilityRegistryItem]) -> CapabilityRegistrySummary:
         small_sample_without_authority_score=sum(
             1 for item in items if item.card.sample_count < 5 and item.card.authority_score is None
         ),
+        catalog_hanlin_skills=sum(
+            item.card.recommended_home == "hanlin" for item in catalog_items
+        ),
+        catalog_provider_groups=sum(
+            item.card.recommended_home == "honglusi" for item in catalog_items
+        ),
+        catalog_mcp_tools=sum(
+            item.catalog.tool_count for item in catalog_items if item.catalog
+        ),
+        catalog_snapshot_provider_groups=baseline.catalog_snapshot_provider_groups,
+        catalog_snapshot_mcp_tools=baseline.catalog_snapshot_mcp_tools,
+        catalog_excluded_support_tools=baseline.catalog_excluded_support_tools,
+    )
+
+
+def _storage_error() -> JSONResponse:
+    return JSONResponse(
+        status_code=503,
+        content={"status": "error", "reason": "storage"},
     )
 
 
@@ -64,7 +92,10 @@ def list_capabilities(
     if validation_error is not None:
         return validation_error
 
-    projection = build_capability_registry_projection()
+    try:
+        projection = build_capability_registry_projection()
+    except CapabilitySnapshotError:
+        return _storage_error()
     items = projection.items
     if type is not None:
         items = [item for item in items if item.card.type == type]
@@ -77,7 +108,9 @@ def list_capabilities(
     if risk is not None:
         items = [item for item in items if item.card.risk_level == risk]
 
-    filtered = projection.model_copy(update={"items": items, "summary": _summary(items)})
+    filtered = projection.model_copy(
+        update={"items": items, "summary": _summary(items, projection.summary)}
+    )
     return {"status": "ok", "registry": filtered.model_dump(mode="json")}
 
 
@@ -86,7 +119,12 @@ def get_capability(capability_id: str, current_user: CurrentUser):
     """Return one registry item by opaque capability id."""
 
     del current_user
-    item = get_capability_registry_item(capability_id)
+    try:
+        item = get_capability_registry_item(capability_id)
+    except CapabilitySnapshotError:
+        return _storage_error()
     if item is None:
-        return JSONResponse(status_code=404, content={"status": "error", "reason": "not_found"})
+        return JSONResponse(
+            status_code=404, content={"status": "error", "reason": "not_found"}
+        )
     return {"status": "ok", "capability": item.model_dump(mode="json")}

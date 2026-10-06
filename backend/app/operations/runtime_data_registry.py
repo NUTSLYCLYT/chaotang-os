@@ -439,6 +439,19 @@ RUNTIME_DATA_ENTRIES = (
         "report_artifacts",
     ),
     RuntimeDataEntry(
+        "scene_packs.sqlite3",
+        "scene_packs.sqlite3",
+        0,
+        (
+            "board_missions",
+            "scene_packs",
+            "scene_run_request_identities",
+            "scene_runs",
+        ),
+        (),
+        ("sha256:a406beadfa93b683abb45b94671f7cdc82b734973295beba179a2d36d5d84c64",),
+    ),
+    RuntimeDataEntry(
         "runtime_bindings.sqlite3",
         "runtime_bindings.sqlite3",
         0,
