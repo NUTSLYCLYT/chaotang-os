@@ -5,11 +5,13 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import shutil
 import sqlite3
 import subprocess
 import sys
 import threading
 import uuid
+from contextlib import closing
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -37,14 +39,15 @@ from app.operations.sqlite_backup import (
     verify_backup,
 )
 from app.qintianjian import storage as qintianjian_storage
+from app.scene_packs import storage as scene_packs_storage
 from app.shiguan import db as shiguan_db
 
 BACKEND_ROOT = Path(__file__).resolve().parent.parent
 _DECREE_SCHEMA_OLD = (
-    "sha256:fa4e21efd694b2160197f9202419ed0889b83098e182932ec75231e78fd92b9d"
+    "sha256:374ba3999e8e333f6ef236dccdf418506f222ebe1f07dbe1627c3a0d1b483e05"
 )
 _DECREE_SCHEMA_NEW = (
-    "sha256:5372895aff08d4b39a19c4100b1b30ec8eaf7a9e597960425fee13c52552f5e3"
+    "sha256:3c3599af569b192c3cd038a43038a071b2e3575c4cdc34bf748938ae1b2f3fb2"
 )
 
 
@@ -70,7 +73,13 @@ def _writer_stop_evidence(source: Path) -> dict[str, object]:
     runner_session_id = str(uuid.UUID("11111111-1111-4111-8111-111111111111"))
     container_id = "2" * 64
     image_digest = f"sha256:{'3' * 64}"
-    lock = {"device": 1, "inode": 2, "mode": 384, "nlink": 1, "uid": os.getuid()}
+    lock = {
+        "device": 1,
+        "inode": 2,
+        "mode": 384,
+        "nlink": 1,
+        "uid": getattr(os, "getuid", lambda: 0)(),
+    }
     lock["lockDigest"] = sqlite_backup._digest_canonical(
         {
             "schemaVersion": "chaotang.rollout-lock-identity.v1",
@@ -205,16 +214,21 @@ def _create_runtime(root: Path, *, with_artifact: bool = True) -> Path:
     finally:
         qintianjian_storage._DEFAULT_DB_PATH = previous_qintianjian_path
     artifact_storage = ArtifactStorage(root / "report_artifacts", root / "report_artifacts.sqlite3")
+    scene_connection = scene_packs_storage._connect(root / "scene_packs.sqlite3")
+    scene_connection.commit()
+    scene_connection.close()
     RuntimeBindingLedger(root / "runtime_bindings.sqlite3")
-    with sqlite3.connect(root / "runtime_bindings.sqlite3") as connection:
+    with closing(sqlite3.connect(root / "runtime_bindings.sqlite3")) as connection:
+        connection.execute("PRAGMA foreign_keys = ON")
         _insert_runtime_binding(connection, "baseline-binding")
+        connection.commit()
     shiguan_connection = shiguan_db.get_connection(root / "shiguan.sqlite3")
     shiguan_connection.close()
     if with_artifact:
         content = b"synthetic workbook bytes"
         artifact_id = "artifact-a"
         (artifact_storage.artifact_dir / f"{artifact_id}.xlsx").write_bytes(content)
-        with sqlite3.connect(root / "report_artifacts.sqlite3") as connection:
+        with closing(sqlite3.connect(root / "report_artifacts.sqlite3")) as connection:
             connection.execute(
                 "INSERT INTO report_artifacts VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (
@@ -233,6 +247,7 @@ def _create_runtime(root: Path, *, with_artifact: bool = True) -> Path:
                     "2026-08-21T00:00:00+00:00",
                 ),
             )
+            connection.commit()
     return root
 
 
@@ -563,6 +578,7 @@ def test_verify_rejects_allowed_but_spliced_decree_manifest_digest(
         json.dumps(manifest, ensure_ascii=True, sort_keys=True, separators=(",", ":"))
         + "\n",
         encoding="utf-8",
+        newline="\n",
     )
 
     with pytest.raises(BackupError, match="database_(manifest|schema)_mismatch"):
@@ -573,6 +589,8 @@ def test_verify_rejects_allowed_but_spliced_decree_manifest_digest(
 def test_backup_rejects_allowed_but_spliced_source_and_snapshot_schemas(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, source_is_new: bool
 ) -> None:
+    if os.name == "nt":
+        pytest.skip("Windows SQLite sharing prevents replacing an opened snapshot file")
     source = _create_runtime(tmp_path / "source")
     if source_is_new:
         _replace_decree_schema_with_canonical_new(source / "decree_jobs.sqlite3")
@@ -590,7 +608,11 @@ def test_backup_rejects_allowed_but_spliced_source_and_snapshot_schemas(
         destination_name = args[3]
         registration = args[4]
         if registration.name == "decree_jobs.sqlite3":
-            destination_root = Path(f"/proc/self/fd/{destination_directory}").resolve()
+            destination_root = (
+                sqlite_backup._path_for_fd(destination_directory)
+                if os.name == "nt"
+                else Path(f"/proc/self/fd/{destination_directory}").resolve()
+            )
             destination = destination_root / destination_name
             destination.unlink()
             if source_is_new:
@@ -643,6 +665,7 @@ def test_verify_backup_fails_closed_on_pending_migration_verification(
     manifest_path.write_text(
         json.dumps(manifest, ensure_ascii=True, sort_keys=True, separators=(",", ":")) + "\n",
         encoding="utf-8",
+        newline="\n",
     )
 
     with pytest.raises(BackupError, match=r"schema_mismatch:shiguan\.sqlite3"):
@@ -717,28 +740,45 @@ def test_backup_reserves_capacity_and_rejects_insufficient_space(
 ) -> None:
     source = _create_runtime(tmp_path / "source")
     calls: list[int] = []
-    original = os.posix_fallocate
+    if os.name == "nt":
+        original = os.ftruncate
 
-    def record_fallocate(descriptor: int, offset: int, length: int) -> None:
-        calls.append(length)
-        original(descriptor, offset, length)
+        def record_ftruncate(descriptor: int, length: int) -> None:
+            calls.append(length)
+            original(descriptor, length)
 
-    monkeypatch.setattr(os, "posix_fallocate", record_fallocate)
+        monkeypatch.setattr(os, "ftruncate", record_ftruncate)
+    else:
+        original = os.posix_fallocate
+
+        def record_fallocate(descriptor: int, offset: int, length: int) -> None:
+            calls.append(length)
+            original(descriptor, offset, length)
+
+        monkeypatch.setattr(os, "posix_fallocate", record_fallocate)
     destination = tmp_path / "backup"
     backup_runtime(source, destination)
     assert calls and calls[0] > 0
     assert not (destination / ".backup-reservation").exists()
 
-    statvfs = os.statvfs(tmp_path)
-    monkeypatch.setattr(
-        os,
-        "statvfs",
-        lambda _path: type(
-            "LowSpace",
-            (),
-            {"f_bavail": 0, "f_frsize": statvfs.f_frsize},
-        )(),
-    )
+    if os.name == "nt":
+        usage = shutil.disk_usage(tmp_path)
+        monkeypatch.setattr(
+            sqlite_backup.shutil,
+            "disk_usage",
+            lambda _path: usage._replace(free=0),
+        )
+    else:
+        statvfs = os.statvfs(tmp_path)
+        monkeypatch.setattr(
+            os,
+            "statvfs",
+            lambda _path: type(
+                "LowSpace",
+                (),
+                {"f_bavail": 0, "f_frsize": statvfs.f_frsize},
+            )(),
+        )
     blocked = tmp_path / "blocked"
     with pytest.raises(BackupError, match="insufficient_destination_space"):
         backup_runtime(source, blocked)
@@ -935,7 +975,11 @@ def test_rejects_existing_destination_without_overwrite(tmp_path: Path) -> None:
 def test_new_root_closes_descriptor_when_final_binding_check_fails(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    before = set(os.listdir("/proc/self/fd"))
+    before = (
+        set(sqlite_backup._FD_PATHS)
+        if os.name == "nt"
+        else set(os.listdir("/proc/self/fd"))
+    )
 
     def fail_binding(*_args: object) -> None:
         raise BackupError("directory_replaced_during_operation")
@@ -943,7 +987,12 @@ def test_new_root_closes_descriptor_when_final_binding_check_fails(
     monkeypatch.setattr(sqlite_backup, "_assert_directory_identity", fail_binding)
     with pytest.raises(BackupError, match="directory_replaced_during_operation"):
         sqlite_backup._create_new_root_open(tmp_path / "new-root")
-    assert set(os.listdir("/proc/self/fd")) == before
+    after = (
+        set(sqlite_backup._FD_PATHS)
+        if os.name == "nt"
+        else set(os.listdir("/proc/self/fd"))
+    )
+    assert after == before
 
 
 def test_backup_refuses_destination_nested_inside_source(tmp_path: Path) -> None:
@@ -993,6 +1042,8 @@ def test_rejects_hardlinks_and_special_files(tmp_path: Path) -> None:
         backup_runtime(source, tmp_path / "hardlink-backup")
     linked.unlink()
     (source / "decree_jobs.sqlite3").unlink()
+    if os.name == "nt":
+        pytest.skip("Windows has no os.mkfifo; FIFO rejection is covered on POSIX")
     os.mkfifo(source / "decree_jobs.sqlite3")
     with pytest.raises(BackupError, match="regular_file"):
         backup_runtime(source, tmp_path / "fifo-backup")
@@ -1041,6 +1092,8 @@ def test_ignores_aborted_artifact_history_without_a_file(tmp_path: Path) -> None
 
 @pytest.mark.parametrize("kind", ["symlink", "hardlink", "fifo"])
 def test_verify_rejects_unsafe_backup_entries(tmp_path: Path, kind: str) -> None:
+    if os.name == "nt" and kind == "hardlink":
+        pytest.skip("Windows sharing semantics do not permit moving this opened backup file")
     backup = tmp_path / "backup"
     backup_runtime(_create_runtime(tmp_path / "source"), backup)
     target = backup / "decree_jobs.sqlite3"
@@ -1051,6 +1104,8 @@ def test_verify_rejects_unsafe_backup_entries(tmp_path: Path, kind: str) -> None
     elif kind == "hardlink":
         os.link(original, target)
     else:
+        if os.name == "nt":
+            pytest.skip("Windows has no os.mkfifo; FIFO rejection is covered on POSIX")
         os.mkfifo(target)
     with pytest.raises(BackupError):
         verify_backup(backup)
@@ -1069,7 +1124,7 @@ def test_verify_rejects_tampering(tmp_path: Path, target: str) -> None:
         manifest_path = backup / BACKUP_MANIFEST_NAME
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         manifest["sourceSnapshotIdentity"] = "0" * 64
-        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8", newline="\n")
     with pytest.raises(BackupError):
         verify_backup(backup)
 
@@ -1096,6 +1151,7 @@ def test_verify_rejects_manifest_path_traversal(tmp_path: Path) -> None:
     manifest_path.write_text(
         json.dumps(manifest, sort_keys=True, separators=(",", ":")) + "\n",
         encoding="utf-8",
+        newline="\n",
     )
     with pytest.raises(BackupError, match="artifact_path_invalid"):
         verify_backup(backup)
@@ -1117,7 +1173,7 @@ def test_verify_rejects_noncanonical_manifest(tmp_path: Path, mutation: str) -> 
             }
         )
         manifest["artifacts"].reverse()
-    manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8", newline="\n")
     with pytest.raises(BackupError, match="manifest_not_canonical"):
         verify_backup(backup)
 
@@ -1125,6 +1181,8 @@ def test_verify_rejects_noncanonical_manifest(tmp_path: Path, mutation: str) -> 
 def test_sqlite_metadata_rejects_database_replacement_during_connect(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    if os.name == "nt":
+        pytest.skip("Windows sharing semantics prevent replacing an opened SQLite file")
     source = _create_runtime(tmp_path / "source")
     database = source / "decree_jobs.sqlite3"
     original_connect = sqlite_backup.sqlite3.connect
@@ -1146,6 +1204,8 @@ def test_sqlite_metadata_rejects_database_replacement_during_connect(
 def test_snapshot_reads_held_database_inode_during_aba_name_swap(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    if os.name == "nt":
+        pytest.skip("Windows path-backed SQLite URI cannot reproduce POSIX held-inode ABA test")
     source = _create_runtime(tmp_path / "source")
     database = source / "runtime_bindings.sqlite3"
     attack = tmp_path / "attack.payload"
@@ -1182,6 +1242,8 @@ def test_snapshot_reads_held_database_inode_during_aba_name_swap(
 def test_manifest_read_rejects_path_replacement(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    if os.name == "nt":
+        pytest.skip("Windows file sharing prevents replacing an opened manifest")
     backup = tmp_path / "backup"
     backup_runtime(_create_runtime(tmp_path / "source"), backup)
     manifest = backup / BACKUP_MANIFEST_NAME
@@ -1205,6 +1267,8 @@ def test_manifest_read_rejects_path_replacement(
 def test_backup_rejects_destination_root_replacement(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    if os.name == "nt":
+        pytest.skip("Windows directory sharing semantics differ from POSIX descriptor replacement")
     source = _create_runtime(tmp_path / "source")
     destination = tmp_path / "backup"
     original_snapshot = sqlite_backup._snapshot_sqlite_at
@@ -1244,6 +1308,7 @@ def test_verify_rejects_canonical_reversed_artifact_order(tmp_path: Path) -> Non
     manifest_path.write_text(
         json.dumps(manifest, sort_keys=True, separators=(",", ":")) + "\n",
         encoding="utf-8",
+        newline="\n",
     )
     with pytest.raises(BackupError, match="artifact_manifest_mismatch"):
         verify_backup(backup)
@@ -1259,6 +1324,7 @@ def test_verify_rejects_non_string_artifact_path_with_stable_error(tmp_path: Pat
     manifest_path.write_text(
         json.dumps(manifest, sort_keys=True, separators=(",", ":")) + "\n",
         encoding="utf-8",
+        newline="\n",
     )
     with pytest.raises(BackupError, match="artifact_path_invalid"):
         verify_backup(backup)
@@ -1276,6 +1342,7 @@ def test_verify_rejects_boolean_user_version_even_with_recomputed_identity(
     manifest_path.write_text(
         json.dumps(manifest, sort_keys=True, separators=(",", ":")) + "\n",
         encoding="utf-8",
+        newline="\n",
     )
     with pytest.raises(BackupError, match="database_manifest_mismatch"):
         verify_backup(backup)
@@ -1329,7 +1396,7 @@ def test_backup_manifest_is_closed_and_deterministically_ordered(tmp_path: Path)
     assert [entry["name"] for entry in manifest["databases"]] == [
         entry.name for entry in DATABASE_REGISTRY
     ]
-    assert len(manifest["databases"]) == 8
+    assert len(manifest["databases"]) == len(DATABASE_REGISTRY)
     assert all(entry["presence"] == "PRESENT" for entry in manifest["databases"])
 
 
@@ -1482,6 +1549,8 @@ def test_retention_probe_rejects_missing_synthetic_tenant(tmp_path: Path) -> Non
 
 
 def test_cli_rejects_a_prebuilt_cold_writer_session(tmp_path: Path) -> None:
+    if os.name == "nt":
+        pytest.skip("COLD_RELEASE writer session currently requires POSIX /proc evidence")
     runner = BACKEND_ROOT.parent / "scripts/run_rc1_release_acceptance.mjs"
     assert sqlite_backup._TRUSTED_RUNNER_SHA256 == (
         "sha256:" + hashlib.sha256(runner.read_bytes()).hexdigest()

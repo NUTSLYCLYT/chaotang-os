@@ -11,7 +11,8 @@ import {
   readdir,
   writeFile,
 } from "node:fs/promises";
-import { basename, dirname, isAbsolute, relative, resolve } from "node:path";
+import { tmpdir } from "node:os";
+import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
@@ -68,20 +69,34 @@ const TRUSTED_STAGING_SOURCES = new Map([
   ]),
 ]);
 const UTF8_DECODER = new TextDecoder("utf-8", { fatal: true });
-const FORBIDDEN_OUTPUT_ROOTS = ["/etc", "/opt", "/srv", "/var/lib/chaotang-os"];
+const IS_WINDOWS = process.platform === "win32";
+const GIT_EXECUTABLE = IS_WINDOWS ? "git.exe" : "/usr/bin/git";
+const NULL_DEVICE = IS_WINDOWS ? "NUL" : "/dev/null";
+const GIT_CONFIG_NULL = IS_WINDOWS ? "" : "/dev/null";
+const CLOSED_GIT_PATH = IS_WINDOWS
+  ? (process.env.Path ?? process.env.PATH ?? "")
+  : "/usr/bin:/bin";
+const FORBIDDEN_OUTPUT_ROOTS = [
+  "/etc", "/opt", "/srv", "/var/lib/chaotang-os",
+  ...(IS_WINDOWS ? [
+    process.env.SystemRoot ?? "C:\\Windows",
+    process.env.ProgramFiles ?? "C:\\Program Files",
+    process.env.ProgramData ?? "C:\\ProgramData",
+  ] : []),
+];
 const CLOSED_GIT_ENV = Object.freeze({
-  PATH: "/usr/bin:/bin",
-  HOME: "/nonexistent",
+  PATH: CLOSED_GIT_PATH,
+  HOME: IS_WINDOWS ? (process.env.USERPROFILE ?? "C:\\Windows\\Temp") : "/nonexistent",
   LANG: "C",
   LC_ALL: "C",
   GIT_CONFIG_NOSYSTEM: "1",
-  GIT_CONFIG_GLOBAL: "/dev/null",
-  GIT_CONFIG_SYSTEM: "/dev/null",
+  GIT_CONFIG_GLOBAL: GIT_CONFIG_NULL,
+  GIT_CONFIG_SYSTEM: GIT_CONFIG_NULL,
   GIT_TERMINAL_PROMPT: "0",
 });
 const CLOSED_GIT_OPTIONS = [
   "-c", "core.fsmonitor=false",
-  "-c", "core.hooksPath=/dev/null",
+  "-c", `core.hooksPath=${NULL_DEVICE}`,
   "-c", "core.preloadIndex=false",
 ];
 
@@ -274,27 +289,30 @@ export function validateReleasePhase(value) {
 }
 
 export function resolveLiveGiteeExtDevHeadWithExecutor(executor = execFileSync) {
-  const output = executor("/usr/bin/git", [
+  const sshCommand = IS_WINDOWS
+    ? `ssh.exe -F ${NULL_DEVICE} -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=${join(process.env.USERPROFILE ?? "", ".ssh", "known_hosts")}`
+    : `/usr/bin/ssh -F ${NULL_DEVICE} -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=/home/ubuntu/.ssh/known_hosts`;
+  const output = executor(GIT_EXECUTABLE, [
     "--no-replace-objects",
     "-c", "credential.helper=",
     "-c", "core.fsmonitor=false",
     "-c", "core.untrackedCache=false",
-    "-c", "core.hooksPath=/dev/null",
-    "-c", "core.sshCommand=/usr/bin/ssh -F /dev/null -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=/home/ubuntu/.ssh/known_hosts",
+    "-c", `core.hooksPath=${NULL_DEVICE}`,
+    "-c", `core.sshCommand=${sshCommand}`,
     "ls-remote",
     "--heads",
     FIXED_GITEE_EXT_DEV,
     "refs/heads/ext-dev",
   ], {
-    cwd: "/tmp",
+    cwd: IS_WINDOWS ? tmpdir() : "/tmp",
     encoding: "utf8",
     env: {
-      PATH: "/usr/bin:/bin",
+      PATH: CLOSED_GIT_PATH,
       GIT_CONFIG_NOSYSTEM: "1",
-      GIT_CONFIG_GLOBAL: "/dev/null",
-      GIT_CONFIG_SYSTEM: "/dev/null",
+      GIT_CONFIG_GLOBAL: GIT_CONFIG_NULL,
+      GIT_CONFIG_SYSTEM: GIT_CONFIG_NULL,
       GIT_TERMINAL_PROMPT: "0",
-      GIT_ASKPASS: "/bin/false",
+      ...(IS_WINDOWS ? {} : { GIT_ASKPASS: "/bin/false" }),
       GIT_NO_REPLACE_OBJECTS: "1",
       GIT_OPTIONAL_LOCKS: "0",
     },
@@ -308,7 +326,7 @@ export function resolveLiveGiteeExtDevHeadWithExecutor(executor = execFileSync) 
 }
 
 function localGitText(repositoryRoot, ...args) {
-  return execFileSync("/usr/bin/git", [
+  return execFileSync(GIT_EXECUTABLE, [
     ...CLOSED_GIT_OPTIONS,
     "--no-replace-objects",
     ...args,
@@ -704,9 +722,24 @@ function validateDescriptor(descriptor) {
 }
 
 function outputPathForbidden(outputDir) {
-  return FORBIDDEN_OUTPUT_ROOTS.some((root) => (
-    outputDir === root || outputDir.startsWith(`${root}/`)
-  ));
+  const target = resolve(outputDir);
+  return FORBIDDEN_OUTPUT_ROOTS.some((root) => {
+    const resolvedRoot = resolve(root);
+    const descendant = relative(resolvedRoot, target);
+    return descendant === "" || (
+      descendant !== ".." &&
+      !descendant.startsWith(`..${IS_WINDOWS ? "\\" : "/"}`) &&
+      !isAbsolute(descendant)
+    );
+  });
+}
+
+function hasUnsafePosixPermissions(info, mask) {
+  return !IS_WINDOWS && (info.mode & mask) !== 0;
+}
+
+function heldPathForHandle(handle, fallback) {
+  return IS_WINDOWS ? fallback : `/proc/self/fd/${handle.fd}`;
 }
 
 async function assertOutputBinding(outputDir, expected) {
@@ -716,7 +749,12 @@ async function assertOutputBinding(outputDir, expected) {
   } catch {
     fail("OUTPUT_REPLACED_DURING_BUILD");
   }
-  if (!actual.isDirectory() || actual.dev !== expected.dev || actual.ino !== expected.ino) {
+  if (
+    !actual.isDirectory() ||
+    actual.dev !== expected.dev ||
+    actual.ino !== expected.ino ||
+    (IS_WINDOWS && actual.birthtimeMs !== expected.birthtimeMs)
+  ) {
     fail("OUTPUT_REPLACED_DURING_BUILD");
   }
 }
@@ -745,7 +783,9 @@ async function openEmptyDirectory(outputDir) {
       parentHandle = await open(parent, constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW);
       const openedParent = await parentHandle.stat();
       if (openedParent.dev !== parentInfo.dev || openedParent.ino !== parentInfo.ino) fail("OUTPUT_NOT_DIRECTORY");
-      const heldOutput = resolve(`/proc/self/fd/${parentHandle.fd}`, basename(outputDir));
+      const heldOutput = IS_WINDOWS
+        ? outputDir
+        : resolve(`/proc/self/fd/${parentHandle.fd}`, basename(outputDir));
       await mkdir(heldOutput, { recursive: false, mode: 0o700 });
       handle = await open(heldOutput, constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW);
       info = await handle.stat();
@@ -758,7 +798,7 @@ async function openEmptyDirectory(outputDir) {
     !info.isDirectory() ||
     info.isSymbolicLink() ||
     (euid !== null && info.uid !== euid) ||
-    (info.mode & 0o022) !== 0
+    hasUnsafePosixPermissions(info, 0o022)
   ) fail("OUTPUT_NOT_PRIVATE");
   if (await realpath(outputDir) !== resolve(outputDir)) {
     await handle?.close();
@@ -770,12 +810,13 @@ async function openEmptyDirectory(outputDir) {
     await handle.close();
     fail("OUTPUT_CHANGED_DURING_OPEN");
   }
-  if ((await readdir(`/proc/self/fd/${handle.fd}`)).length !== 0) {
+  const heldPath = heldPathForHandle(handle, outputDir);
+  if ((await readdir(heldPath)).length !== 0) {
     await handle.close();
     fail("OUTPUT_NOT_EMPTY");
   }
   await assertOutputBinding(outputDir, opened);
-  return { handle, status: opened, heldPath: `/proc/self/fd/${handle.fd}` };
+  return { handle, status: opened, heldPath };
 }
 
 async function openBundleDirectories(output) {
@@ -786,8 +827,8 @@ async function openBundleDirectories(output) {
       await mkdir(path, { recursive: false, mode: 0o700 });
       const handle = await open(path, constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW);
       const status = await handle.stat();
-      if (!status.isDirectory() || (status.mode & 0o022) !== 0) fail("OUTPUT_CHANGED_DURING_OPEN");
-      directories.set(name, { handle, status, heldPath: `/proc/self/fd/${handle.fd}` });
+      if (!status.isDirectory() || hasUnsafePosixPermissions(status, 0o022)) fail("OUTPUT_CHANGED_DURING_OPEN");
+      directories.set(name, { handle, status, heldPath: heldPathForHandle(handle, path) });
     }
     return directories;
   } catch (error) {
@@ -799,7 +840,12 @@ async function openBundleDirectories(output) {
 async function assertBundleDirectoryBindings(output, directories) {
   for (const [name, expected] of directories) {
     const actual = await lstat(resolve(output.heldPath, name));
-    if (!actual.isDirectory() || actual.dev !== expected.status.dev || actual.ino !== expected.status.ino) {
+    if (
+      !actual.isDirectory() ||
+      actual.dev !== expected.status.dev ||
+      actual.ino !== expected.status.ino ||
+      (IS_WINDOWS && actual.birthtimeMs !== expected.status.birthtimeMs)
+    ) {
       fail("OUTPUT_REPLACED_DURING_BUILD");
     }
   }
@@ -965,7 +1011,7 @@ function expectedImagesEnv(images) {
 
 export async function readGitIdentity(repositoryRoot = process.cwd()) {
   const gitArgs = (...args) => [...CLOSED_GIT_OPTIONS, "--no-replace-objects", ...args];
-  const gitText = (...args) => execFileSync("/usr/bin/git", args, {
+  const gitText = (...args) => execFileSync(GIT_EXECUTABLE, args, {
     cwd: repositoryRoot,
     env: CLOSED_GIT_ENV,
     encoding: "utf8",
@@ -976,7 +1022,7 @@ export async function readGitIdentity(repositoryRoot = process.cwd()) {
   const tree = gitText(...gitArgs("rev-parse", "HEAD^{tree}"));
   const trustedFiles = {};
   for (const [bundlePath, repositoryPath] of TRUSTED_REPOSITORY_SOURCES) {
-    const bytes = execFileSync("/usr/bin/git", gitArgs("show", `${tree}:${repositoryPath}`), {
+    const bytes = execFileSync(GIT_EXECUTABLE, gitArgs("show", `${tree}:${repositoryPath}`), {
       cwd: repositoryRoot,
       env: CLOSED_GIT_ENV,
       encoding: null,
@@ -1038,7 +1084,7 @@ export async function buildOfflineRelease({
     !stagingInfo.isDirectory() ||
     stagingInfo.isSymbolicLink() ||
     (euid !== null && stagingInfo.uid !== euid) ||
-    (stagingInfo.mode & 0o077) !== 0 ||
+    hasUnsafePosixPermissions(stagingInfo, 0o077) ||
     outputPathForbidden(trustedStaging)
   ) fail("STAGING_ROOT_INVALID");
   const observedGitIdentity = await readGitIdentity(trustedRoot);
@@ -1054,10 +1100,13 @@ export async function buildOfflineRelease({
     if (typeof testHooks.afterOutputOpened === "function") {
       await testHooks.afterOutputOpened(normalizedOutput);
     }
+    await assertOutputBinding(normalizedOutput, output.status);
     outputDirectories = await openBundleDirectories(output);
     if (typeof testHooks.afterDirectoriesOpened === "function") {
       await testHooks.afterDirectoriesOpened(normalizedOutput);
     }
+    await assertOutputBinding(normalizedOutput, output.status);
+    await assertBundleDirectoryBindings(output, outputDirectories);
     records = await inspectArtifacts(descriptor, trustedRoot, trustedStaging);
     for (const bundlePath of TRUSTED_REPOSITORY_SOURCES.keys()) {
       const record = fileIdentity(records, bundlePath);
@@ -1198,7 +1247,7 @@ export async function validateCliStagingRoot(descriptorPath, repositoryRoot) {
     !parentInfo.isDirectory() || parentInfo.isSymbolicLink() ||
     await realpath(stagingRoot) !== stagingRoot || await realpath(parent) !== parent ||
     (euid !== null && (stagingInfo.uid !== euid || parentInfo.uid !== euid)) ||
-    (stagingInfo.mode & 0o077) !== 0 || (parentInfo.mode & 0o077) !== 0 ||
+    hasUnsafePosixPermissions(stagingInfo, 0o077) || hasUnsafePosixPermissions(parentInfo, 0o077) ||
     outputPathForbidden(stagingRoot)
   ) fail("STAGING_ROOT_INVALID");
   return stagingRoot;

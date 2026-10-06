@@ -665,12 +665,100 @@ def _invoke_bureau_agent_with_report_authorized(
             ):
                 from app.agents.evidence_protocol import parse_bureau_ready_envelope
 
-                opinion = parse_bureau_ready_envelope(
-                    parsed,
-                    session=evidence_session,
-                    node_id=node_id,
-                    messages=messages,
-                )
+                try:
+                    opinion = parse_bureau_ready_envelope(
+                        parsed,
+                        session=evidence_session,
+                        node_id=node_id,
+                        messages=messages,
+                    )
+                except Exception as exc:  # noqa: BLE001 - sanitized protocol boundary
+                    from app.agents.evidence_protocol import (
+                        EvidenceProtocolError,
+                        _bare_opinion_correction,
+                    )
+
+                    if (
+                        not isinstance(exc, EvidenceProtocolError)
+                        or str(exc) != "unsupported_factual_dependency"
+                        or evidence_session is None
+                        or node_id is None
+                    ):
+                        raise
+                    if not evidence_session.claim_protocol_correction():
+                        evidence_session.record_degradation(node_id)
+                        return {
+                            "status": "FINAL",
+                            "report": {
+                                "opinion": (
+                                    "数据不足（model_synthesis_invalid），无法形成事实结论；"
+                                    "待取得可验证数据后再行复核。"
+                                )
+                            },
+                        }
+                    corrected = chat_model(
+                        [
+                            # The correction only needs the evidence contract
+                            # and decree. Re-sending the full bureau prompt,
+                            # Tool Loop catalog, and runtime context here
+                            # needlessly reserves the same bytes a second time
+                            # under the task cap.
+                            {
+                                "role": "system",
+                                "content": _evidence_protocol_prompt(node_id),
+                            },
+                            messages[1],
+                            {
+                                "role": "user",
+                                "content": _bare_opinion_correction(node_id)["content"],
+                            },
+                        ]
+                    )
+                    corrected_parsed: object = corrected
+                    if isinstance(corrected, str):
+                        corrected_parsed = parse_strict_json_object(corrected)
+                    if (
+                        isinstance(corrected_parsed, Mapping)
+                        and corrected_parsed.get("status") == "NEEDS_DATA"
+                    ):
+                        from app.agents.evidence_protocol import legacy_gap_to_tool_call
+
+                        return legacy_gap_to_tool_call(
+                            corrected_parsed,
+                            node_id=node_id,
+                            session=evidence_session,
+                            decree_text=decree_text,
+                            domain=next(iter(policy.allowed_data_domains)),
+                        )
+                    if not (
+                        isinstance(corrected_parsed, Mapping)
+                        and corrected_parsed.get("status") == "READY"
+                    ):
+                        raise EvidenceProtocolError("unsupported_factual_dependency") from None
+                    try:
+                        opinion = parse_bureau_ready_envelope(
+                            corrected_parsed,
+                            session=evidence_session,
+                            node_id=node_id,
+                            messages=messages,
+                        )
+                    except EvidenceProtocolError as corrected_exc:
+                        if str(corrected_exc) != "unsupported_factual_dependency":
+                            raise
+                        # Match the existing one-resume evidence adapter: a
+                        # repeated protocol violation becomes an explicit,
+                        # auditable degraded result rather than a fabricated
+                        # bureau opinion.
+                        evidence_session.record_degradation(node_id)
+                        return {
+                            "status": "FINAL",
+                            "report": {
+                                "opinion": (
+                                    "数据不足（model_synthesis_invalid），无法形成事实结论；"
+                                    "待取得可验证数据后再行复核。"
+                                )
+                            },
+                        }
                 if opinion is None:
                     raise ValueError("evidence_ready_invalid")
                 return {"status": "FINAL", "report": {"opinion": opinion}}

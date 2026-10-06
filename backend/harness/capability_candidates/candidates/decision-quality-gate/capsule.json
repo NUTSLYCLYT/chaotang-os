@@ -9,7 +9,7 @@
     "prompt": "sha256:46bbd01a1cb2ddf2641d23375b122de3cb8c00ef358b57a8f8fa3a8e38fb0ed0",
     "contract": "sha256:a69bfb4419966673d7cce3f02ad69489718c20152b8097bbb09b4557a0bd0c4e",
     "policy": "sha256:271883f974e6fe4ae5528a8528687be30f67a834ea21346e07221fdac672cb29",
-    "evaluation": "sha256:4c5ef1df08099e309eee59505629ad7a6ad5da9f5b3d1c84ea0390bae2dc11a5"
+    "evaluation": "sha256:6bed1c70e4b616f93b2b968cb457270e621a0208d499ece10edcab00b2408187"
   },
   "artifacts": {
     "prompt": {
@@ -34,7 +34,7 @@
     },
     "evaluations": {
       "path": "evaluations.json",
-      "digest": "sha256:4c5ef1df08099e309eee59505629ad7a6ad5da9f5b3d1c84ea0390bae2dc11a5"
+      "digest": "sha256:6bed1c70e4b616f93b2b968cb457270e621a0208d499ece10edcab00b2408187"
     },
     "telemetry": {
       "path": "telemetry.txt",

@@ -161,6 +161,18 @@ def _verify_distribution_inventory(actual: dict[str, str], expected: dict[str, s
         _fail("candidate distribution inventory mismatch")
 
 
+def _chmod_descriptor(path: Path, descriptor: int, mode: int) -> None:
+    """Apply a private-file mode on POSIX and the closest supported Windows operation."""
+
+    if hasattr(os, "fchmod"):
+        os.fchmod(descriptor, mode)
+    else:
+        # Windows does not expose POSIX descriptor mode bits.  The file was
+        # created with the requested mode and chmod keeps the write policy
+        # consistent for the supported NTFS permission surface.
+        os.chmod(path, mode)
+
+
 def _write_candidate_attestation(path: Path, payload: dict[str, Any]) -> None:
     raw = canonical_json_bytes(payload)
     flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
@@ -171,7 +183,7 @@ def _write_candidate_attestation(path: Path, payload: dict[str, Any]) -> None:
     except FileExistsError as exc:
         raise LockValidationError("candidate attestation already exists") from exc
     try:
-        os.fchmod(descriptor, 0o600)
+        _chmod_descriptor(path, descriptor, 0o600)
         with os.fdopen(descriptor, "wb", closefd=False) as stream:
             stream.write(raw)
             stream.flush()
@@ -189,10 +201,15 @@ def _create_held_evidence_file(
         flags |= os.O_NOFOLLOW
     descriptor = os.open(path, flags, 0o600)
     try:
-        os.fchmod(descriptor, 0o600)
+        _chmod_descriptor(path, descriptor, 0o600)
         info = os.fstat(descriptor)
         identity = (info.st_dev, info.st_ino, info.st_uid, info.st_mode, info.st_nlink)
-        if stat.S_IMODE(info.st_mode) != 0o600 or info.st_nlink != 1 or info.st_size != 0:
+        if (
+            not stat.S_ISREG(info.st_mode)
+            or info.st_nlink != 1
+            or info.st_size != 0
+            or (os.name != "nt" and stat.S_IMODE(info.st_mode) != 0o600)
+        ):
             _fail("held verifier evidence identity is invalid")
         return descriptor, identity
     except BaseException:
@@ -204,11 +221,10 @@ def _load_candidate_attestation(
     path: Path,
 ) -> tuple[dict[str, Any], tuple[int, int, int, int, int]]:
     before = path.lstat()
-    if (
-        not stat.S_ISREG(before.st_mode)
-        or before.st_uid != os.geteuid()
-        or stat.S_IMODE(before.st_mode) != 0o600
-        or before.st_nlink != 1
+    if not stat.S_ISREG(before.st_mode) or before.st_nlink != 1:
+        _fail("candidate attestation identity mismatch")
+    if os.name != "nt" and (
+        before.st_uid != os.geteuid() or stat.S_IMODE(before.st_mode) != 0o600
     ):
         _fail("candidate attestation identity mismatch")
     with path.open("rb") as stream:
@@ -275,11 +291,10 @@ def _verify_candidate_attestation(
 
 def _load_execution_evidence(path: Path) -> dict[str, Any]:
     before = path.lstat()
-    if (
-        not stat.S_ISREG(before.st_mode)
-        or before.st_uid != os.geteuid()
-        or stat.S_IMODE(before.st_mode) != 0o600
-        or before.st_nlink != 1
+    if not stat.S_ISREG(before.st_mode) or before.st_nlink != 1:
+        _fail("candidate execution evidence identity mismatch")
+    if os.name != "nt" and (
+        before.st_uid != os.geteuid() or stat.S_IMODE(before.st_mode) != 0o600
     ):
         _fail("candidate execution evidence identity mismatch")
     with path.open("rb") as stream:
@@ -1028,6 +1043,12 @@ def verify_lock(lock_path: Path, wheelhouse: Path, pyproject: Path) -> dict[str,
 def verify_candidate_wheelhouse_permissions(wheelhouse: Path) -> None:
     """Require the M0 wheelhouse to be root-owned and candidate-read-only."""
 
+    # Windows does not expose POSIX effective-UID semantics and reports a
+    # synthetic ``st_uid`` for NTFS paths.  We cannot prove root ownership in
+    # that environment, so fail closed with the same contract error instead of
+    # raising AttributeError or accepting an unverifiable wheelhouse.
+    if not hasattr(os, "geteuid"):
+        _fail("candidate wheelhouse must be root-owned and candidate-read-only")
     _validate_verifier_identity()
     try:
         root_info = wheelhouse.lstat()
@@ -1190,21 +1211,42 @@ def secure_work_root(
             root.rmdir()
 
 
+def _git_executable() -> str:
+    """Resolve the verifier-owned Git binary without weakening POSIX trust anchors."""
+
+    if os.name != "nt":
+        git_executable = Path("/usr/bin/git")
+        if not git_executable.is_file():
+            _fail("git executable is unavailable")
+        return str(git_executable)
+    git_executable = shutil.which("git")
+    if not git_executable:
+        _fail("git executable is unavailable")
+    return str(Path(git_executable).resolve())
+
+
+def _git_hooks_path() -> str:
+    """Use the platform null device when disabling repository hooks."""
+
+    return "/dev/null" if os.name != "nt" else "NUL"
+
+
 def _git(source_root: Path, *args: str, deadline_at: float | None = None) -> str:
+    git_executable = _git_executable()
     environment = {
-        "PATH": "/usr/bin:/bin",
-        "GIT_CONFIG_GLOBAL": "/dev/null",
-        "GIT_CONFIG_SYSTEM": "/dev/null",
+        "PATH": str(Path(git_executable).parent),
+        "GIT_CONFIG_GLOBAL": os.devnull,
+        "GIT_CONFIG_SYSTEM": os.devnull,
         "GIT_OPTIONAL_LOCKS": "0",
         "LC_ALL": "C",
     }
     return _run_capture(
         [
-            "/usr/bin/git",
+            git_executable,
             "-c",
             "core.fsmonitor=false",
             "-c",
-            "core.hooksPath=/dev/null",
+            f"core.hooksPath={_git_hooks_path()}",
             "--no-replace-objects",
             *args,
         ],
@@ -1260,18 +1302,19 @@ def materialize_candidate_snapshot(
         _fail("candidate source root is not the repository backend")
     target_root.mkdir(mode=0o700)
     archive_path = target_root.parent / "candidate-source.tar"
+    git_executable = _git_executable()
     environment = {
-        "PATH": "/usr/bin:/bin",
-        "GIT_CONFIG_GLOBAL": "/dev/null",
-        "GIT_CONFIG_SYSTEM": "/dev/null",
+        "PATH": str(Path(git_executable).parent),
+        "GIT_CONFIG_GLOBAL": os.devnull,
+        "GIT_CONFIG_SYSTEM": os.devnull,
         "GIT_OPTIONAL_LOCKS": "0",
         "LC_ALL": "C",
     }
     _run(
         [
-            "/usr/bin/git",
+            git_executable,
             "-c", "core.fsmonitor=false",
-            "-c", "core.hooksPath=/dev/null",
+            "-c", f"core.hooksPath={_git_hooks_path()}",
             "--no-replace-objects",
             "archive",
             "--format=tar",
@@ -1432,6 +1475,24 @@ def _terminate_process_group(
     term_grace_seconds: float = 1.0,
     kill_grace_seconds: float = 2.0,
 ) -> None:
+    if os.name == "nt":
+        # Windows has no POSIX process groups or killpg.  The verifier still
+        # guarantees that the process it owns cannot survive cleanup; tests
+        # requiring descendant-tree reaping remain explicitly POSIX-only.
+        if leader is None or leader.poll() is not None:
+            return
+        with contextlib.suppress(OSError):
+            leader.terminate()
+        try:
+            leader.wait(timeout=term_grace_seconds)
+        except subprocess.TimeoutExpired:
+            with contextlib.suppress(OSError):
+                leader.kill()
+            try:
+                leader.wait(timeout=kill_grace_seconds)
+            except subprocess.TimeoutExpired as exc:
+                raise LockValidationError("candidate process leader survived cleanup") from exc
+        return
     if not _process_group_exists(process_group):
         return
     with contextlib.suppress(ProcessLookupError):

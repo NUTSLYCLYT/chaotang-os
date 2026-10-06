@@ -599,6 +599,42 @@ def test_executor_charges_process_and_persistent_budget_once_per_dispatch(
         configure_provider_attempt_budget(None)
 
 
+def test_persistent_executor_uses_governed_twenty_thousand_token_cap(
+    monkeypatch, tmp_path
+) -> None:
+    executor_module = _executor_module()
+    captured: list[int | None] = []
+
+    class CaptureBudget:
+        def __init__(self, _path, *, owner_id, task_id, max_tokens=None):
+            captured.append(max_tokens)
+
+    class Store:
+        db_path = tmp_path / "budget.sqlite3"
+
+        @staticmethod
+        def resolve_budget_root(job_id, owner_id):
+            return f"root:{owner_id}:{job_id}"
+
+    monkeypatch.setattr(executor_module, "TaskTokenBudget", CaptureBudget)
+    monkeypatch.setattr(
+        executor_module,
+        "execute_decree_now",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            model_dump_json=lambda: '{"status":"ok"}'
+        ),
+    )
+    control = SimpleNamespace(
+        store=Store(),
+        raise_if_cancelled=lambda: None,
+        record_provider_request=lambda: None,
+    )
+
+    executor_module.PersistentDecreeJobExecutor().execute(_job(), control)
+
+    assert captured == [20_000]
+
+
 def test_executor_does_not_prepare_accounting_before_agent_execution(
     monkeypatch,
 ) -> None:

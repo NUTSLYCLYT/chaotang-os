@@ -57,16 +57,16 @@ def _settings(tmp_path: Path) -> ReadinessSettings:
 
 
 _DECREE_SCHEMA_OLD = (
-    "sha256:fa4e21efd694b2160197f9202419ed0889b83098e182932ec75231e78fd92b9d"
+    "sha256:374ba3999e8e333f6ef236dccdf418506f222ebe1f07dbe1627c3a0d1b483e05"
 )
 _DECREE_SCHEMA_NEW = (
-    "sha256:5372895aff08d4b39a19c4100b1b30ec8eaf7a9e597960425fee13c52552f5e3"
+    "sha256:3c3599af569b192c3cd038a43038a071b2e3575c4cdc34bf748938ae1b2f3fb2"
 )
 _DEGREE_STORAGE_RAW_SCHEMA = (
     "sha256:8b38c49b719aa2a758ba037eb436d6fdf97db50e0a4b8cabd874b1a20f3059c2"
 )
 _DEGREE_SINGLE_ALTER_RUNTIME_SCHEMA = (
-    "sha256:5d928d429bbc134125649a5cbafe320947e0b9150303304cb63186696607707c"
+    "sha256:d1d6aacdd2fc639b3f77cad333b41b0e69fa40437f6763147bcc7a7d79bc23cb"
 )
 
 
@@ -113,6 +113,15 @@ def _create_canonical_old_decree_schema(path: Path) -> None:
                     request_hash TEXT NOT NULL,
                     job_id TEXT NOT NULL REFERENCES decree_jobs(job_id),
                     PRIMARY KEY(owner_user_id, idempotency_key)
+                )
+                """
+        )
+        connection.execute(
+            """
+                CREATE TABLE main.decree_job_history_annotations (
+                    job_id TEXT PRIMARY KEY REFERENCES decree_jobs(job_id),
+                    archived INTEGER NOT NULL CHECK (archived IN (0, 1)),
+                    updated_at TEXT NOT NULL
                 )
                 """
         )
@@ -163,6 +172,15 @@ def _create_canonical_new_decree_schema(path: Path) -> None:
                     request_hash TEXT NOT NULL,
                     job_id TEXT NOT NULL REFERENCES decree_jobs(job_id),
                     PRIMARY KEY(owner_user_id, idempotency_key)
+                )
+                """
+        )
+        connection.execute(
+            """
+                CREATE TABLE main.decree_job_history_annotations (
+                    job_id TEXT PRIMARY KEY REFERENCES decree_jobs(job_id),
+                    archived INTEGER NOT NULL CHECK (archived IN (0, 1)),
+                    updated_at TEXT NOT NULL
                 )
                 """
         )

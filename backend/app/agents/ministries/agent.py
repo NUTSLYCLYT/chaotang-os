@@ -169,9 +169,22 @@ def _format_recall_context(context: RecallContext) -> str:
         return "史馆旧案召回失败：不可把召回失败伪装成已有历史经验。"
     if not context.entries:
         return "史馆旧案召回：未命中旧案。"
-    return "史馆旧案召回：" + json.dumps(
+    serialized = json.dumps(
         [entry.model_dump() for entry in context.entries],
         ensure_ascii=False,
+    )
+    return "史馆旧案召回：" + _bounded_prompt_text(serialized, max_bytes=1200)
+
+
+def _bounded_prompt_text(value: str, *, max_bytes: int) -> str:
+    """Bound model-visible history while retaining the full stored artifact."""
+
+    encoded = value.encode("utf-8")
+    if len(encoded) <= max_bytes:
+        return value
+    return (
+        encoded[:max_bytes].decode("utf-8", errors="ignore")
+        + "…（内容已截断，完整记录留存于史馆）"
     )
 
 
@@ -185,6 +198,7 @@ def invoke_ministry_skill_with_report(
     bureau_invoker: Callable[[str, str], BureauAgentInvocationResult],
     recall_context: RecallContext | None = None,
     market_evidence_required: bool = False,
+    route_is_authoritative: bool = False,
 ) -> MinistryAgentInvocationResult:
     """Consult selected bureaus serially, then produce a ministry synthesis.
 
@@ -237,7 +251,10 @@ def invoke_ministry_skill_with_report(
         recall_context = safe_recall_context_for_department(department)
     recall_context_text = _format_recall_context(recall_context)
 
-    if department == "户部" and is_mainland_last_price_intent(decree_text):
+    if route_is_authoritative:
+        route_rationale = rationale.strip() or "依已批准司级路由办理。"
+        selected_bureaus = list(required_bureaus)
+    elif department == "户部" and is_mainland_last_price_intent(decree_text):
         route_rationale = "明确的中国大陆证券最新价查询，由投资司办理。"
         selected_bureaus = ["投资司"]
     else:
@@ -375,10 +392,13 @@ def invoke_ministry_skill_with_report(
         {
             "bureau": bureau,
             "report_ref": report.report_id,
-            "opinion": report.executive_summary,
+            "opinion": _bounded_prompt_text(report.executive_summary, max_bytes=800),
             "status": report.status.value,
             "evidence_refs": report.evidence_refs,
-            "data_gaps": report.data_gaps,
+            "data_gaps": [
+                _bounded_prompt_text(item, max_bytes=240)
+                for item in report.data_gaps[:6]
+            ],
         }
         for bureau, report in bureau_report_entries
     ]
@@ -390,10 +410,11 @@ def invoke_ministry_skill_with_report(
         {
             "role": "user",
             "content": (
-                f"原始旨意：{decree_text}\n\n"
-                f"丞相判断说明：{rationale}\n\n"
+                f"原始旨意：{_bounded_prompt_text(decree_text, max_bytes=1600)}\n\n"
+                f"丞相判断说明：{_bounded_prompt_text(rationale, max_bytes=800)}\n\n"
                 f"{recall_context_text}\n\n"
-                f"本部司级路由说明：{route_rationale.strip()}\n\n"
+                "本部司级路由说明："
+                f"{_bounded_prompt_text(route_rationale.strip(), max_bytes=800)}\n\n"
                 "已调用司级报告摘要与引用（按路由顺序，JSON）："
                 f"{json.dumps(compact_bureau_reports, ensure_ascii=False)}"
             ),
@@ -462,6 +483,11 @@ def invoke_ministry_skill_with_report(
                 synthesis_messages,
                 parse_synthesis,
                 stage="ministry_synthesis",
+                # Ministry synthesis already has a deterministic, auditable
+                # degradation path below. A single provider attempt prevents
+                # schema retries from reserving the same 2,500-token output
+                # ceiling repeatedly under the task's hard budget.
+                max_attempts=1 if market_evidence_required else 3,
             )
         except StructuredInvocationError as exc:
             error = MinistryAgentInvocationError(f"{department} agent ministry synthesis failed.")
@@ -622,6 +648,7 @@ def invoke_ministry_agent_with_report(
     report_session: AccountingReportSession | None = None,
     requirement_data_refs_by_bureau: Mapping[str, Mapping[str, tuple[str, ...]]] | None = None,
     approved_data_refs: Sequence[str] = (),
+    route_is_authoritative: bool = False,
 ) -> MinistryAgentInvocationResult:
     """Authorize bureau access before routing, bureau, or model side effects."""
 
@@ -731,6 +758,7 @@ def invoke_ministry_agent_with_report(
             bureau_invoker=restricted_bureau_invoker,
             recall_context=recall_context,
             market_evidence_required=market_evidence_required,
+            route_is_authoritative=route_is_authoritative,
         ),
     )
     if (
@@ -761,6 +789,7 @@ def invoke_ministry_agent(
     recall_context: RecallContext | None = None,
     evidence_session: AgentEvidenceSession | None = None,
     report_session: AccountingReportSession | None = None,
+    route_is_authoritative: bool = False,
 ) -> MinistryOpinion:
     """Preserve the exact legacy MinistryOpinion API."""
     return invoke_ministry_agent_with_report(
@@ -772,4 +801,5 @@ def invoke_ministry_agent(
         recall_context=recall_context,
         evidence_session=evidence_session,
         report_session=report_session,
+        route_is_authoritative=route_is_authoritative,
     ).opinion

@@ -49,6 +49,7 @@ const EXPECTED_TOOLS = Object.freeze({
   grype: "0.117.0",
 });
 const UTF8_DECODER = new TextDecoder("utf-8", { fatal: true });
+const IS_WINDOWS = process.platform === "win32";
 const FILE_KINDS = new Set(["deployment", "documentation", "lock", "oci-archive", "provenance", "sbom"]);
 const REQUIRED_FILE_KINDS = new Map([
   ["deploy/Caddyfile", "deployment"],
@@ -74,6 +75,10 @@ export class ReleaseVerificationError extends Error {
 
 function fail(code) {
   throw new ReleaseVerificationError(code);
+}
+
+function hasUnsafePosixPermissions(info, mask) {
+  return !IS_WINDOWS && (info.mode & mask) !== 0;
 }
 
 function isPlainObject(value) {
@@ -960,7 +965,7 @@ export async function inventoryBundle(root) {
     !rootInfo.isDirectory() ||
     rootInfo.isSymbolicLink() ||
     (euid !== null && rootInfo.uid !== euid) ||
-    (rootInfo.mode & 0o022) !== 0
+    hasUnsafePosixPermissions(rootInfo, 0o022)
   ) fail("UNSAFE_BUNDLE_ENTRY");
   if (await realpath(root) !== root) fail("UNSAFE_BUNDLE_ENTRY");
   const entries = new Map();
@@ -984,7 +989,7 @@ export async function inventoryBundle(root) {
         if (
           await realpath(path) !== path ||
           (euid !== null && info.uid !== euid) ||
-          (info.mode & 0o022) !== 0
+          hasUnsafePosixPermissions(info, 0o022)
         ) fail("UNSAFE_BUNDLE_ENTRY");
         await visit(path, relativePath);
         continue;
@@ -993,7 +998,7 @@ export async function inventoryBundle(root) {
         !info.isFile() ||
         info.nlink !== 1 ||
         (euid !== null && info.uid !== euid) ||
-        (info.mode & 0o022) !== 0
+        hasUnsafePosixPermissions(info, 0o022)
       ) fail("UNSAFE_BUNDLE_ENTRY");
       if (info.size > MAX_ENTRY_BYTES) fail("BUNDLE_LIMIT_EXCEEDED");
       totalBytes += info.size;

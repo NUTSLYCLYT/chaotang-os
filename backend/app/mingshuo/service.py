@@ -793,7 +793,10 @@ def _delivery_lock(
 def _secure_pending_file(store: ArtifactStorage, content: bytes, expected_sha256: str):
     name = f".{uuid.uuid4().hex}.xlsx"
     path = store.artifact_dir / name
-    flags = os.O_RDWR | os.O_CREAT | os.O_EXCL
+    # Workbooks are opaque ZIP bytes.  Windows otherwise opens the descriptor
+    # in text mode and transparently rewrites ``\n`` to ``\r\n``, which makes
+    # the persisted hash differ from the producer hash.
+    flags = os.O_RDWR | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0)
     flags |= getattr(os, "O_NOFOLLOW", 0)
     descriptor = os.open(path, flags, 0o600)
     try:

@@ -11,11 +11,13 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import sqlite3
 import stat
 import subprocess
 import time
 from collections.abc import Callable, Sequence
+from contextlib import closing
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -33,7 +35,31 @@ BACKUP_MANIFEST_NAME = "backup-manifest.json"
 _MANIFEST_SCHEMA = "chaotang.sqlite-backup.v2"
 _MANIFEST_MAX_BYTES = 1_048_576
 _HASH_CHUNK_BYTES = 1024 * 1024
-_TRUSTED_SYNTHETIC_ROOT = Path("/tmp")
+
+
+def _trusted_os_tempdir() -> Path:
+    """Return the OS temp directory without trusting TMPDIR/TEMP/TMP.
+
+    ``tempfile.gettempdir()`` intentionally honours those environment
+    variables.  That is useful for ordinary applications, but unsafe for the
+    synthetic backup CLI: a caller could point them at the repository's data
+    directory and make an otherwise forbidden output path look trusted.  Use
+    the platform's conventional user temp location instead, while retaining
+    a conservative system fallback for stripped-down environments.
+    """
+
+    if os.name == "nt":
+        local_app_data = os.environ.get("LOCALAPPDATA")
+        if local_app_data:
+            return Path(local_app_data) / "Temp"
+        user_profile = os.environ.get("USERPROFILE")
+        if user_profile:
+            return Path(user_profile) / "AppData" / "Local" / "Temp"
+        return Path("C:/Windows/Temp")
+    return Path("/tmp")
+
+
+_TRUSTED_SYNTHETIC_ROOT = _trusted_os_tempdir()
 _ONLINE_MODE = "ONLINE_PER_DATABASE"
 _COLD_MODE = "COLD_RELEASE"
 _BACKUP_MODES = {_ONLINE_MODE, _COLD_MODE}
@@ -54,6 +80,84 @@ _MAX_ARTIFACT_TOTAL_BYTES = 32 * _GIB
 _MAX_BACKUP_BYTES = 64 * _GIB
 _SPACE_RESERVE_BYTES = _GIB
 _RESERVATION_NAME = ".backup-reservation"
+
+# Windows does not implement the POSIX ``dir_fd``/``/proc/self/fd`` APIs used
+# by the hardened Linux path below.  Keep the same fail-closed checks while
+# carrying the canonical directory path alongside each descriptor.  This
+# adapter is intentionally local to this module so the Linux security path is
+# unchanged.
+_FD_PATHS: dict[int, Path] = {}
+
+
+def _is_windows() -> bool:
+    return os.name == "nt"
+
+
+def _binary_flag() -> int:
+    return getattr(os, "O_BINARY", 0) if _is_windows() else 0
+
+
+def _remember_fd(descriptor: int, path: Path) -> int:
+    if _is_windows():
+        _FD_PATHS[descriptor] = path
+    return descriptor
+
+
+def _path_for_fd(descriptor: int) -> Path:
+    try:
+        return _FD_PATHS[descriptor]
+    except KeyError:
+        raise BackupError("descriptor_path_unavailable") from None
+
+
+def _close_fd(descriptor: int) -> None:
+    _FD_PATHS.pop(descriptor, None)
+    os.close(descriptor)
+
+
+def _open_at_path(directory_descriptor: int, name: str, flags: int, mode: int = 0o600) -> int:
+    if _is_windows():
+        return os.open(_path_for_fd(directory_descriptor) / name, flags | _binary_flag(), mode)
+    return os.open(name, flags, mode, dir_fd=directory_descriptor)
+
+
+def _stat_at_path(directory_descriptor: int, name: str) -> os.stat_result:
+    if _is_windows():
+        return Path(_path_for_fd(directory_descriptor) / name).lstat()
+    return os.stat(name, dir_fd=directory_descriptor, follow_symlinks=False)
+
+
+def _scandir_at(directory_descriptor: int):
+    if _is_windows():
+        return os.scandir(_path_for_fd(directory_descriptor))
+    return os.scandir(directory_descriptor)
+
+
+def _mkdir_at(directory_descriptor: int, name: str, mode: int = 0o700) -> None:
+    if _is_windows():
+        (_path_for_fd(directory_descriptor) / name).mkdir(mode=mode)
+        return
+    os.mkdir(name, mode=mode, dir_fd=directory_descriptor)
+
+
+def _unlink_at(directory_descriptor: int, name: str) -> None:
+    if _is_windows():
+        (_path_for_fd(directory_descriptor) / name).unlink()
+        return
+    os.unlink(name, dir_fd=directory_descriptor)
+
+
+def _rmdir_at(directory_descriptor: int, name: str) -> None:
+    if _is_windows():
+        (_path_for_fd(directory_descriptor) / name).rmdir()
+        return
+    os.rmdir(name, dir_fd=directory_descriptor)
+
+
+def _validate_relative_name(name: str) -> None:
+    """Reject names that could become multi-component Windows paths."""
+    if not name or "/" in name or "\\" in name or ":" in name or name in {".", ".."}:
+        raise BackupError("unsafe_relative_name")
 
 
 class BackupError(RuntimeError):
@@ -133,26 +237,40 @@ def _assert_path_identity(path: Path, expected: os.stat_result) -> None:
 
 def _open_directory(path: Path) -> tuple[int, os.stat_result]:
     expected = _require_directory(path)
-    flags = (
-        os.O_RDONLY
-        | getattr(os, "O_DIRECTORY", 0)
-        | getattr(os, "O_CLOEXEC", 0)
-        | getattr(os, "O_NOFOLLOW", 0)
-    )
+    if _is_windows():
+        # Windows cannot open a directory as a POSIX file descriptor.  Use a
+        # harmless read-only handle and keep the checked canonical path in the
+        # descriptor map; every child operation remains path-checked.
+        try:
+            descriptor = os.open(os.devnull, os.O_RDONLY)
+        except OSError:
+            raise BackupError("safe_directory_open_failed") from None
+        _remember_fd(descriptor, path)
+        return descriptor, expected
+    flags = os.O_RDONLY
+    if not _is_windows():
+        flags |= (
+            getattr(os, "O_DIRECTORY", 0)
+            | getattr(os, "O_CLOEXEC", 0)
+            | getattr(os, "O_NOFOLLOW", 0)
+        )
     try:
         descriptor = os.open(path, flags)
     except OSError:
         raise BackupError("safe_directory_open_failed") from None
+    descriptor = _remember_fd(descriptor, path)
     actual = os.fstat(descriptor)
     if not stat.S_ISDIR(actual.st_mode) or not _same_identity(actual, expected):
-        os.close(descriptor)
+        _close_fd(descriptor)
         raise BackupError("directory_changed_during_open")
     return descriptor, actual
 
 
 def _open_directory_at(directory_descriptor: int, name: str) -> tuple[int, os.stat_result]:
-    if not name or "/" in name or name in {".", ".."}:
-        raise BackupError("unsafe_relative_name")
+    _validate_relative_name(name)
+    if _is_windows():
+        path = _path_for_fd(directory_descriptor) / name
+        return _open_directory(path)
     flags = (
         os.O_RDONLY
         | getattr(os, "O_DIRECTORY", 0)
@@ -165,20 +283,79 @@ def _open_directory_at(directory_descriptor: int, name: str) -> tuple[int, os.st
         raise BackupError("safe_directory_open_failed") from None
     status = os.fstat(descriptor)
     if not stat.S_ISDIR(status.st_mode):
-        os.close(descriptor)
+        _close_fd(descriptor)
         raise BackupError("directory_required")
     return descriptor, status
 
 
 def _open_regular_at(directory_descriptor: int, name: str) -> tuple[int, os.stat_result]:
-    if not name or "/" in name or name in {".", ".."}:
-        raise BackupError("unsafe_relative_name")
+    _validate_relative_name(name)
+    if _is_windows():
+        path = _path_for_fd(directory_descriptor) / name
+        expected = _require_regular_file(path)
+        try:
+            descriptor = os.open(path, os.O_RDONLY | _binary_flag())
+        except OSError:
+            raise BackupError("safe_open_failed") from None
+        descriptor = _remember_fd(descriptor, path)
+        status = os.fstat(descriptor)
+        if not stat.S_ISREG(status.st_mode) or status.st_nlink != 1:
+            _close_fd(descriptor)
+            raise BackupError(
+                "hardlink_forbidden" if status.st_nlink != 1 else "regular_file_required"
+            )
+        if not _same_identity(status, expected):
+            _close_fd(descriptor)
+            raise BackupError("file_changed_during_open")
+        return descriptor, status
     flags = (
         os.O_RDONLY
         | getattr(os, "O_CLOEXEC", 0)
         | getattr(os, "O_NOFOLLOW", 0)
         | getattr(os, "O_NONBLOCK", 0)
     )
+    try:
+        descriptor = os.open(name, flags, dir_fd=directory_descriptor)
+    except OSError:
+        raise BackupError("safe_open_failed") from None
+    status = os.fstat(descriptor)
+    if not stat.S_ISREG(status.st_mode):
+        _close_fd(descriptor)
+        raise BackupError("regular_file_required")
+    if status.st_nlink != 1:
+        _close_fd(descriptor)
+        raise BackupError("hardlink_forbidden")
+    return descriptor, status
+
+
+def _open_regular_rw_at(directory_descriptor: int, name: str) -> tuple[int, os.stat_result]:
+    """Open one checked regular file for SQLite read/write access.
+
+    ``dir_fd`` is unavailable on Windows, so mirror the existing checked
+    read-only adapter while retaining the descriptor-to-path mapping used by
+    the URI and identity guards.
+    """
+
+    _validate_relative_name(name)
+    if _is_windows():
+        path = _path_for_fd(directory_descriptor) / name
+        expected = _require_regular_file(path)
+        try:
+            descriptor = os.open(path, os.O_RDWR | _binary_flag())
+        except OSError:
+            raise BackupError("safe_open_failed") from None
+        descriptor = _remember_fd(descriptor, path)
+        status = os.fstat(descriptor)
+        if not stat.S_ISREG(status.st_mode) or status.st_nlink != 1:
+            _close_fd(descriptor)
+            raise BackupError(
+                "hardlink_forbidden" if status.st_nlink != 1 else "regular_file_required"
+            )
+        if not _same_identity(status, expected):
+            _close_fd(descriptor)
+            raise BackupError("file_changed_during_open")
+        return descriptor, status
+    flags = os.O_RDWR | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
     try:
         descriptor = os.open(name, flags, dir_fd=directory_descriptor)
     except OSError:
@@ -193,9 +370,16 @@ def _open_regular_at(directory_descriptor: int, name: str) -> tuple[int, os.stat
     return descriptor, status
 
 
+def _dup_descriptor(descriptor: int) -> int:
+    duplicate = os.dup(descriptor)
+    if _is_windows():
+        _remember_fd(duplicate, _path_for_fd(descriptor))
+    return duplicate
+
+
 def _assert_entry_identity(directory_descriptor: int, name: str, expected: os.stat_result) -> None:
     try:
-        actual = os.stat(name, dir_fd=directory_descriptor, follow_symlinks=False)
+        actual = _stat_at_path(directory_descriptor, name)
     except OSError:
         raise BackupError("file_replaced_during_operation") from None
     if not stat.S_ISREG(actual.st_mode) or not _same_identity(actual, expected):
@@ -206,16 +390,17 @@ def _open_regular_readonly(path: Path) -> tuple[int, os.stat_result]:
     expected = _require_regular_file(path)
     flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
     try:
-        descriptor = os.open(path, flags)
+        descriptor = os.open(path, flags | _binary_flag())
     except OSError:
         raise BackupError("safe_open_failed") from None
+    descriptor = _remember_fd(descriptor, path)
     actual = os.fstat(descriptor)
     identity = (expected.st_dev, expected.st_ino, expected.st_size)
     if not stat.S_ISREG(actual.st_mode) or actual.st_nlink != 1:
-        os.close(descriptor)
+        _close_fd(descriptor)
         raise BackupError("unsafe_file_identity")
     if (actual.st_dev, actual.st_ino, actual.st_size) != identity:
-        os.close(descriptor)
+        _close_fd(descriptor)
         raise BackupError("file_changed_during_open")
     return descriptor, actual
 
@@ -225,7 +410,7 @@ def _sha256_file(path: Path) -> tuple[str, int]:
     try:
         return _sha256_regular_at(directory_descriptor, path.name)
     finally:
-        os.close(directory_descriptor)
+        _close_fd(directory_descriptor)
 
 
 def _sha256_regular_at(directory_descriptor: int, name: str) -> tuple[str, int]:
@@ -238,7 +423,7 @@ def _sha256_regular_at(directory_descriptor: int, name: str) -> tuple[str, int]:
             raise BackupError("file_changed_during_read")
         _assert_entry_identity(directory_descriptor, name, status)
     finally:
-        os.close(descriptor)
+        _close_fd(descriptor)
     return digest.hexdigest(), status.st_size
 
 
@@ -251,14 +436,17 @@ def _copy_regular_at(
     source_descriptor, source_status = _open_regular_at(source_directory, source_name)
     flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_CLOEXEC", 0)
     try:
-        destination_descriptor = os.open(
+        destination_descriptor = _open_at_path(
+            destination_directory,
             destination_name,
-            flags | getattr(os, "O_NOFOLLOW", 0),
+            flags | (0 if _is_windows() else getattr(os, "O_NOFOLLOW", 0)),
             0o600,
-            dir_fd=destination_directory,
         )
+        destination_descriptor = _remember_fd(
+            destination_descriptor, _path_for_fd(destination_directory) / destination_name
+        ) if _is_windows() else destination_descriptor
     except OSError:
-        os.close(source_descriptor)
+        _close_fd(source_descriptor)
         raise BackupError("destination_create_failed") from None
     digest = hashlib.sha256()
     size = 0
@@ -275,8 +463,8 @@ def _copy_regular_at(
             raise BackupError("file_changed_during_copy")
         _assert_entry_identity(source_directory, source_name, source_status)
     finally:
-        os.close(source_descriptor)
-        os.close(destination_descriptor)
+        _close_fd(source_descriptor)
+        _close_fd(destination_descriptor)
     return digest.hexdigest(), size
 
 
@@ -288,10 +476,17 @@ def _write_all(descriptor: int, content: bytes) -> None:
 
 
 def _fsync_directory_descriptor(descriptor: int) -> None:
+    if _is_windows():
+        return
     os.fsync(descriptor)
 
 
 def _sqlite_uri_for_file(file_descriptor: int, mode: str) -> str:
+    if _is_windows():
+        # Do not resolve symlinks here: the path was lstat-checked by the
+        # caller and the identity is checked again after every SQLite use.
+        path = _path_for_fd(file_descriptor).absolute()
+        return f"{path.as_uri()}?mode={mode}"
     return f"file:/proc/self/fd/{file_descriptor}?mode={mode}"
 
 
@@ -299,7 +494,7 @@ def _validate_sqlite_sidecars_at(directory_descriptor: int, name: str) -> None:
     for suffix in ("-wal", "-shm"):
         sidecar = f"{name}{suffix}"
         try:
-            status = os.stat(sidecar, dir_fd=directory_descriptor, follow_symlinks=False)
+            status = _stat_at_path(directory_descriptor, sidecar)
         except FileNotFoundError:
             continue
         if not stat.S_ISREG(status.st_mode):
@@ -319,11 +514,7 @@ def _hold_sqlite_sidecars_at(
                 descriptor, status = _open_regular_at(directory_descriptor, sidecar)
             except BackupError as error:
                 try:
-                    os.stat(
-                        sidecar,
-                        dir_fd=directory_descriptor,
-                        follow_symlinks=False,
-                    )
+                    _stat_at_path(directory_descriptor, sidecar)
                 except FileNotFoundError:
                     continue
                 raise error
@@ -331,7 +522,7 @@ def _hold_sqlite_sidecars_at(
         return held
     except Exception:
         for _, descriptor, _ in held:
-            os.close(descriptor)
+            _close_fd(descriptor)
         raise
 
 
@@ -352,7 +543,7 @@ def _close_sqlite_sidecars(
     held: list[tuple[str, int, os.stat_result]],
 ) -> None:
     for _, descriptor, _ in held:
-        os.close(descriptor)
+        _close_fd(descriptor)
 
 
 def _sqlite_metadata(path: Path) -> tuple[int, str]:
@@ -360,7 +551,7 @@ def _sqlite_metadata(path: Path) -> tuple[int, str]:
     try:
         return _sqlite_metadata_at(directory_descriptor, path.name)
     finally:
-        os.close(directory_descriptor)
+        _close_fd(directory_descriptor)
 
 
 def _sqlite_metadata_at(directory_descriptor: int, name: str) -> tuple[int, str]:
@@ -369,7 +560,9 @@ def _sqlite_metadata_at(directory_descriptor: int, name: str) -> tuple[int, str]
     try:
         file_descriptor, expected = _open_regular_at(directory_descriptor, name)
         sidecars = _hold_sqlite_sidecars_at(directory_descriptor, name)
-        with sqlite3.connect(_sqlite_uri_for_file(file_descriptor, "ro"), uri=True) as connection:
+        with closing(
+            sqlite3.connect(_sqlite_uri_for_file(file_descriptor, "ro"), uri=True)
+        ) as connection:
             _assert_entry_identity(directory_descriptor, name, expected)
             connection.execute("PRAGMA query_only = ON")
             user_version = int(connection.execute("PRAGMA user_version").fetchone()[0])
@@ -380,7 +573,7 @@ def _sqlite_metadata_at(directory_descriptor: int, name: str) -> tuple[int, str]
         raise BackupError("sqlite_open_or_integrity_failed") from None
     finally:
         if file_descriptor >= 0:
-            os.close(file_descriptor)
+            _close_fd(file_descriptor)
         _close_sqlite_sidecars(sidecars)
     if rows != [("ok",)]:
         raise BackupError("sqlite_integrity_failed")
@@ -393,7 +586,9 @@ def _sqlite_schema_digest_at(directory_descriptor: int, name: str) -> str:
     try:
         file_descriptor, expected = _open_regular_at(directory_descriptor, name)
         sidecars = _hold_sqlite_sidecars_at(directory_descriptor, name)
-        with sqlite3.connect(_sqlite_uri_for_file(file_descriptor, "ro"), uri=True) as connection:
+        with closing(
+            sqlite3.connect(_sqlite_uri_for_file(file_descriptor, "ro"), uri=True)
+        ) as connection:
             _assert_entry_identity(directory_descriptor, name, expected)
             _verify_sqlite_sidecars_at(directory_descriptor, name, sidecars)
             digest = schema_contract_digest_connection(connection)
@@ -404,7 +599,7 @@ def _sqlite_schema_digest_at(directory_descriptor: int, name: str) -> str:
         raise BackupError("sqlite_schema_unreadable") from None
     finally:
         if file_descriptor >= 0:
-            os.close(file_descriptor)
+            _close_fd(file_descriptor)
         _close_sqlite_sidecars(sidecars)
 
 
@@ -421,9 +616,9 @@ def _validate_registered_sqlite_at(
             directory_descriptor, registration.name
         )
         sidecars = _hold_sqlite_sidecars_at(directory_descriptor, registration.name)
-        with sqlite3.connect(
+        with closing(sqlite3.connect(
             _sqlite_uri_for_file(file_descriptor, "ro"), uri=True
-        ) as connection:
+        )) as connection:
             _assert_entry_identity(directory_descriptor, registration.name, expected)
             _verify_sqlite_sidecars_at(directory_descriptor, registration.name, sidecars)
             user_version = int(connection.execute("PRAGMA user_version").fetchone()[0])
@@ -447,7 +642,7 @@ def _validate_registered_sqlite_at(
         raise BackupError("sqlite_open_or_integrity_failed") from None
     finally:
         if file_descriptor >= 0:
-            os.close(file_descriptor)
+            _close_fd(file_descriptor)
         _close_sqlite_sidecars(sidecars)
     if integrity_rows != [("ok",)]:
         raise BackupError("sqlite_integrity_failed")
@@ -462,7 +657,9 @@ def _sqlite_page_bytes_at(directory_descriptor: int, name: str) -> int:
     try:
         file_descriptor, expected = _open_regular_at(directory_descriptor, name)
         sidecars = _hold_sqlite_sidecars_at(directory_descriptor, name)
-        with sqlite3.connect(_sqlite_uri_for_file(file_descriptor, "ro"), uri=True) as connection:
+        with closing(
+            sqlite3.connect(_sqlite_uri_for_file(file_descriptor, "ro"), uri=True)
+        ) as connection:
             connection.execute("PRAGMA query_only = ON")
             page_count = int(connection.execute("PRAGMA page_count").fetchone()[0])
             page_size = int(connection.execute("PRAGMA page_size").fetchone()[0])
@@ -472,7 +669,7 @@ def _sqlite_page_bytes_at(directory_descriptor: int, name: str) -> int:
         raise BackupError("sqlite_budget_unreadable") from None
     finally:
         if file_descriptor >= 0:
-            os.close(file_descriptor)
+            _close_fd(file_descriptor)
         _close_sqlite_sidecars(sidecars)
     result = page_count * page_size
     if result < 0 or result > _MAX_DATABASE_BYTES:
@@ -493,9 +690,9 @@ def _estimate_backup_upper_bound(source_descriptor: int, present_databases: set[
     if "report_artifacts.sqlite3" in present_databases:
         artifact_descriptor, _ = _open_directory_at(source_descriptor, "report_artifacts")
         try:
-            for item in os.scandir(artifact_descriptor):
+            for item in _scandir_at(artifact_descriptor):
                 descriptor, status = _open_regular_at(artifact_descriptor, item.name)
-                os.close(descriptor)
+                _close_fd(descriptor)
                 artifact_count += 1
                 if artifact_count > _MAX_ARTIFACT_COUNT or status.st_size > _MAX_ARTIFACT_BYTES:
                     raise BackupError("artifact_budget_exceeded")
@@ -503,7 +700,7 @@ def _estimate_backup_upper_bound(source_descriptor: int, present_databases: set[
                 if artifact_total > _MAX_ARTIFACT_TOTAL_BYTES:
                     raise BackupError("artifact_budget_exceeded")
         finally:
-            os.close(artifact_descriptor)
+            _close_fd(artifact_descriptor)
     total = database_total + artifact_total
     if total > _MAX_BACKUP_BYTES:
         raise BackupError("backup_budget_exceeded")
@@ -512,10 +709,13 @@ def _estimate_backup_upper_bound(source_descriptor: int, present_databases: set[
 
 def _require_destination_capacity(parent: Path, upper_bound: int) -> None:
     try:
-        filesystem = os.statvfs(parent)
+        if _is_windows():
+            available = shutil.disk_usage(parent).free
+        else:
+            filesystem = os.statvfs(parent)
+            available = filesystem.f_bavail * filesystem.f_frsize
     except OSError:
         raise BackupError("destination_capacity_unavailable") from None
-    available = filesystem.f_bavail * filesystem.f_frsize
     if available < upper_bound + _SPACE_RESERVE_BYTES:
         raise BackupError("insufficient_destination_space")
 
@@ -540,13 +740,17 @@ def _snapshot_sqlite_at(
             | getattr(os, "O_CLOEXEC", 0)
             | getattr(os, "O_NOFOLLOW", 0)
         )
-        destination_descriptor = os.open(
-            destination_name, flags, 0o600, dir_fd=destination_directory
+        destination_descriptor = _open_at_path(
+            destination_directory, destination_name, flags, 0o600
         )
+        if _is_windows():
+            destination_descriptor = _remember_fd(
+                destination_descriptor, _path_for_fd(destination_directory) / destination_name
+            )
         destination_status = os.fstat(destination_descriptor)
-        with sqlite3.connect(
+        with closing(sqlite3.connect(
             _sqlite_uri_for_file(source_descriptor, "ro"), uri=True
-        ) as source_connection:
+        )) as source_connection:
             _assert_entry_identity(source_directory, source_name, source_status)
             _verify_sqlite_sidecars_at(source_directory, source_name, sidecars)
             source_schema_digest = validated_registered_schema_digest_connection(
@@ -554,9 +758,9 @@ def _snapshot_sqlite_at(
             )
             if source_schema_digest is None:
                 raise BackupError(f"schema_mismatch:{registration.name}")
-            with sqlite3.connect(
+            with closing(sqlite3.connect(
                 _sqlite_uri_for_file(destination_descriptor, "rw"), uri=True
-            ) as destination_connection:
+            )) as destination_connection:
                 source_connection.backup(destination_connection)
                 destination_connection.execute("PRAGMA journal_mode = DELETE")
             _assert_entry_identity(destination_directory, destination_name, destination_status)
@@ -572,9 +776,9 @@ def _snapshot_sqlite_at(
         raise BackupError("sqlite_backup_failed") from None
     finally:
         if source_descriptor >= 0:
-            os.close(source_descriptor)
+            _close_fd(source_descriptor)
         if destination_descriptor >= 0:
-            os.close(destination_descriptor)
+            _close_fd(destination_descriptor)
         _close_sqlite_sidecars(sidecars)
 
 
@@ -583,7 +787,7 @@ def _referenced_artifacts(database: Path) -> list[dict[str, Any]]:
     try:
         return _referenced_artifacts_at(directory_descriptor, database.name)
     finally:
-        os.close(directory_descriptor)
+        _close_fd(directory_descriptor)
 
 
 def _referenced_artifacts_at(directory_descriptor: int, database_name: str) -> list[dict[str, Any]]:
@@ -592,7 +796,9 @@ def _referenced_artifacts_at(directory_descriptor: int, database_name: str) -> l
     try:
         file_descriptor, expected = _open_regular_at(directory_descriptor, database_name)
         sidecars = _hold_sqlite_sidecars_at(directory_descriptor, database_name)
-        with sqlite3.connect(_sqlite_uri_for_file(file_descriptor, "ro"), uri=True) as connection:
+        with closing(
+            sqlite3.connect(_sqlite_uri_for_file(file_descriptor, "ro"), uri=True)
+        ) as connection:
             _assert_entry_identity(directory_descriptor, database_name, expected)
             _verify_sqlite_sidecars_at(directory_descriptor, database_name, sidecars)
             connection.execute("PRAGMA query_only = ON")
@@ -605,7 +811,7 @@ def _referenced_artifacts_at(directory_descriptor: int, database_name: str) -> l
         raise BackupError("artifact_registry_unreadable") from None
     finally:
         if file_descriptor >= 0:
-            os.close(file_descriptor)
+            _close_fd(file_descriptor)
         _close_sqlite_sidecars(sidecars)
     references: list[dict[str, Any]] = []
     for artifact_id, expected_hash, state_name in rows:
@@ -1170,7 +1376,7 @@ def _validate_source_registry_at(source_descriptor: int) -> set[str]:
     expected = {entry.name for entry in DATABASE_REGISTRY}
     allowed_sidecars = {f"{name}{suffix}" for name in expected for suffix in ("-wal", "-shm")}
     allowed = expected | allowed_sidecars | {"report_artifacts"}
-    present = {entry.name for entry in os.scandir(source_descriptor)}
+    present = {entry.name for entry in _scandir_at(source_descriptor)}
     unknown = sorted(present - allowed)
     if unknown:
         if unknown[0] == "credentials":
@@ -1184,14 +1390,14 @@ def _validate_source_registry_at(source_descriptor: int) -> set[str]:
         if name.removesuffix("-wal").removesuffix("-shm") not in present_databases:
             raise BackupError(f"orphan_sqlite_sidecar:{name}")
         descriptor, _ = _open_regular_at(source_descriptor, name)
-        os.close(descriptor)
+        _close_fd(descriptor)
     report_database_present = "report_artifacts.sqlite3" in present_databases
     artifact_root_present = "report_artifacts" in present
     if report_database_present != artifact_root_present:
         raise BackupError("artifact_presence_mismatch")
     if artifact_root_present:
         artifact_descriptor, _ = _open_directory_at(source_descriptor, "report_artifacts")
-        os.close(artifact_descriptor)
+        _close_fd(artifact_descriptor)
     return present_databases
 
 
@@ -1201,7 +1407,7 @@ def _validate_source_registry(source_root: Path) -> os.stat_result:
         _validate_source_registry_at(source_descriptor)
         _assert_directory_identity(source_root, source_status)
     finally:
-        os.close(source_descriptor)
+        _close_fd(source_descriptor)
     return source_status
 
 
@@ -1210,7 +1416,7 @@ def _create_new_root_open(path: Path) -> tuple[int, os.stat_result]:
     parent_descriptor, _ = _open_directory(path.parent)
     try:
         try:
-            existing = os.stat(path.name, dir_fd=parent_descriptor, follow_symlinks=False)
+            existing = _stat_at_path(parent_descriptor, path.name)
         except FileNotFoundError:
             existing = None
         if existing is not None:
@@ -1218,25 +1424,25 @@ def _create_new_root_open(path: Path) -> tuple[int, os.stat_result]:
                 raise BackupError("symlink_path")
             raise FileExistsError(path)
         try:
-            os.mkdir(path.name, mode=0o700, dir_fd=parent_descriptor)
+            _mkdir_at(parent_descriptor, path.name, mode=0o700)
         except FileExistsError:
             raise
         except OSError:
             raise BackupError("destination_create_failed") from None
         descriptor, status = _open_directory_at(parent_descriptor, path.name)
     finally:
-        os.close(parent_descriptor)
+        _close_fd(parent_descriptor)
     try:
         _assert_directory_identity(path, status)
     except Exception:
-        os.close(descriptor)
+        _close_fd(descriptor)
         raise
     return descriptor, status
 
 
 def _create_new_root(path: Path) -> os.stat_result:
     descriptor, status = _create_new_root_open(path)
-    os.close(descriptor)
+    _close_fd(descriptor)
     return status
 
 
@@ -1253,10 +1459,10 @@ def _require_disjoint_roots(source: Path, destination: Path) -> None:
 
 
 def _remove_directory_contents_at(directory_descriptor: int) -> None:
-    for entry in os.scandir(directory_descriptor):
+    for entry in _scandir_at(directory_descriptor):
         status = entry.stat(follow_symlinks=False)
         if stat.S_ISREG(status.st_mode):
-            os.unlink(entry.name, dir_fd=directory_descriptor)
+            _unlink_at(directory_descriptor, entry.name)
             continue
         if stat.S_ISDIR(status.st_mode):
             child_descriptor, child_status = _open_directory_at(
@@ -1264,27 +1470,25 @@ def _remove_directory_contents_at(directory_descriptor: int) -> None:
             )
             try:
                 _remove_directory_contents_at(child_descriptor)
-                current = os.stat(
-                    entry.name, dir_fd=directory_descriptor, follow_symlinks=False
-                )
+                current = _stat_at_path(directory_descriptor, entry.name)
                 if not stat.S_ISDIR(current.st_mode) or not _same_identity(
                     current, child_status
                 ):
                     raise BackupError("backup_cleanup_failed")
             finally:
-                os.close(child_descriptor)
-            os.rmdir(entry.name, dir_fd=directory_descriptor)
+                _close_fd(child_descriptor)
+            _rmdir_at(directory_descriptor, entry.name)
             continue
         raise BackupError("backup_cleanup_failed")
 
 
-def _remove_created_backup_root(
+def _remove_created_backup_root_once(
     destination: Path, expected_status: os.stat_result
 ) -> None:
     parent_descriptor, _ = _open_directory(destination.parent)
     root_descriptor = -1
     try:
-        actual = os.stat(destination.name, dir_fd=parent_descriptor, follow_symlinks=False)
+        actual = _stat_at_path(parent_descriptor, destination.name)
         if not stat.S_ISDIR(actual.st_mode) or not _same_identity(actual, expected_status):
             raise BackupError("backup_cleanup_failed")
         root_descriptor, opened = _open_directory_at(parent_descriptor, destination.name)
@@ -1292,23 +1496,37 @@ def _remove_created_backup_root(
             raise BackupError("backup_cleanup_failed")
         _remove_directory_contents_at(root_descriptor)
         _fsync_directory_descriptor(root_descriptor)
-        os.close(root_descriptor)
+        _close_fd(root_descriptor)
         root_descriptor = -1
-        current = os.stat(
-            destination.name, dir_fd=parent_descriptor, follow_symlinks=False
-        )
+        current = _stat_at_path(parent_descriptor, destination.name)
         if not stat.S_ISDIR(current.st_mode) or not _same_identity(
             current, expected_status
         ):
             raise BackupError("backup_cleanup_failed")
-        os.rmdir(destination.name, dir_fd=parent_descriptor)
+        _rmdir_at(parent_descriptor, destination.name)
         _fsync_directory_descriptor(parent_descriptor)
     except (BackupError, OSError):
         raise BackupError("backup_cleanup_failed") from None
     finally:
         if root_descriptor >= 0:
-            os.close(root_descriptor)
-        os.close(parent_descriptor)
+            _close_fd(root_descriptor)
+        _close_fd(parent_descriptor)
+
+
+def _remove_created_backup_root(
+    destination: Path, expected_status: os.stat_result
+) -> None:
+    """Remove a failed backup root, tolerating short Windows sharing races."""
+
+    attempts = 5 if _is_windows() else 1
+    for attempt in range(attempts):
+        try:
+            _remove_created_backup_root_once(destination, expected_status)
+            return
+        except BackupError:
+            if attempt + 1 >= attempts:
+                raise
+            time.sleep(0.05 * (attempt + 1))
 
 
 def _backup_runtime_once(
@@ -1353,19 +1571,24 @@ def _backup_runtime_once(
             writer_stop_before = json.loads(_canonical_json_bytes(writer_stop_before))
             _validate_writer_stop_before(writer_stop_before, source_root_identity)
         destination_descriptor, destination_status = _create_new_root_open(destination)
-        reservation_descriptor = os.open(
+        reservation_descriptor = _open_at_path(
+            destination_descriptor,
             _RESERVATION_NAME,
-            os.O_WRONLY
-            | os.O_CREAT
-            | os.O_EXCL
-            | getattr(os, "O_CLOEXEC", 0)
-            | getattr(os, "O_NOFOLLOW", 0),
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_CLOEXEC", 0),
             0o600,
-            dir_fd=destination_descriptor,
         )
+        if _is_windows():
+            reservation_descriptor = _remember_fd(
+                reservation_descriptor, _path_for_fd(destination_descriptor) / _RESERVATION_NAME
+            )
         reservation_status = os.fstat(reservation_descriptor)
         try:
-            os.posix_fallocate(reservation_descriptor, 0, upper_bound)
+            if _is_windows():
+                # Windows has no posix_fallocate; pre-size the reservation
+                # file so the same byte budget is reserved before copying.
+                os.ftruncate(reservation_descriptor, upper_bound)
+            else:
+                os.posix_fallocate(reservation_descriptor, 0, upper_bound)
         except (AttributeError, OSError):
             raise BackupError("destination_reservation_failed") from None
         reservation_remaining = upper_bound
@@ -1376,7 +1599,7 @@ def _backup_runtime_once(
             os.ftruncate(reservation_descriptor, reservation_remaining)
 
         if "report_artifacts.sqlite3" in present_databases:
-            os.mkdir("report_artifacts", mode=0o700, dir_fd=destination_descriptor)
+            _mkdir_at(destination_descriptor, "report_artifacts", mode=0o700)
             source_artifact_descriptor, _ = _open_directory_at(
                 source_descriptor, "report_artifacts"
             )
@@ -1445,10 +1668,10 @@ def _backup_runtime_once(
         expected_names = {Path(reference["relativePath"]).name for reference in references}
         actual_names: set[str] = set()
         if source_artifact_descriptor >= 0:
-            for item in os.scandir(source_artifact_descriptor):
+            for item in _scandir_at(source_artifact_descriptor):
                 actual_names.add(item.name)
                 artifact_descriptor, _ = _open_regular_at(source_artifact_descriptor, item.name)
-                os.close(artifact_descriptor)
+                _close_fd(artifact_descriptor)
         unexpected = sorted(actual_names - expected_names)
         missing = sorted(expected_names - actual_names)
         if unexpected:
@@ -1514,27 +1737,31 @@ def _backup_runtime_once(
             **manifest_without_digest,
             "manifestDigest": _digest_canonical(manifest_without_digest),
         }
-        manifest_descriptor = os.open(
+        manifest_descriptor = _open_at_path(
+            destination_descriptor,
             BACKUP_MANIFEST_NAME,
             os.O_WRONLY
             | os.O_CREAT
             | os.O_EXCL
             | getattr(os, "O_CLOEXEC", 0)
-            | getattr(os, "O_NOFOLLOW", 0),
+            | (0 if _is_windows() else getattr(os, "O_NOFOLLOW", 0)),
             0o600,
-            dir_fd=destination_descriptor,
         )
+        if _is_windows():
+            manifest_descriptor = _remember_fd(
+                manifest_descriptor, _path_for_fd(destination_descriptor) / BACKUP_MANIFEST_NAME
+            )
         try:
             _write_all(manifest_descriptor, _canonical_bytes(manifest))
             os.fsync(manifest_descriptor)
         finally:
-            os.close(manifest_descriptor)
+            _close_fd(manifest_descriptor)
         os.ftruncate(reservation_descriptor, 0)
         os.fsync(reservation_descriptor)
         _assert_entry_identity(destination_descriptor, _RESERVATION_NAME, reservation_status)
-        os.close(reservation_descriptor)
+        _close_fd(reservation_descriptor)
         reservation_descriptor = -1
-        os.unlink(_RESERVATION_NAME, dir_fd=destination_descriptor)
+        _unlink_at(destination_descriptor, _RESERVATION_NAME)
         if destination_artifact_descriptor >= 0:
             _fsync_directory_descriptor(destination_artifact_descriptor)
         _fsync_directory_descriptor(destination_descriptor)
@@ -1546,7 +1773,7 @@ def _backup_runtime_once(
         if final_presence != present_databases:
             raise BackupError("source_registry_changed_during_backup")
         final_artifacts = (
-            {item.name for item in os.scandir(source_artifact_descriptor)}
+            {item.name for item in _scandir_at(source_artifact_descriptor)}
             if source_artifact_descriptor >= 0
             else set()
         )
@@ -1565,7 +1792,7 @@ def _backup_runtime_once(
             source_descriptor,
         ):
             if descriptor >= 0:
-                os.close(descriptor)
+                _close_fd(descriptor)
     if failure is not None:
         if destination_status is not None:
             try:
@@ -1655,7 +1882,7 @@ def _load_manifest_at(root_descriptor: int) -> dict[str, Any]:
     except (OSError, UnicodeDecodeError, json.JSONDecodeError):
         raise BackupError("manifest_invalid") from None
     finally:
-        os.close(descriptor)
+        _close_fd(descriptor)
     if not isinstance(value, dict):
         raise BackupError("manifest_invalid")
     if raw != _canonical_bytes(value):
@@ -1668,7 +1895,7 @@ def _load_manifest(root: Path) -> dict[str, Any]:
     try:
         return _load_manifest_at(root_descriptor)
     finally:
-        os.close(root_descriptor)
+        _close_fd(root_descriptor)
 
 
 def _require_keys(value: dict[str, Any], expected: set[str], code: str) -> None:
@@ -1818,7 +2045,7 @@ def _verify_backup_tree_at(root_descriptor: int, manifest: dict[str, Any]) -> st
     expected_top = {BACKUP_MANIFEST_NAME} | present_database_names
     if "report_artifacts.sqlite3" in present_database_names:
         expected_top.add("report_artifacts")
-    actual_top = {entry.name for entry in os.scandir(root_descriptor)}
+    actual_top = {entry.name for entry in _scandir_at(root_descriptor)}
     if actual_top != expected_top:
         raise BackupError("backup_tree_mismatch")
 
@@ -1882,7 +2109,7 @@ def _verify_backup_tree_at(root_descriptor: int, manifest: dict[str, Any]) -> st
                 raise BackupError("artifact_digest_mismatch")
 
         actual_artifacts = {
-            f"report_artifacts/{entry.name}" for entry in os.scandir(artifact_descriptor)
+            f"report_artifacts/{entry.name}" for entry in _scandir_at(artifact_descriptor)
         }
         if actual_artifacts != expected_artifacts:
             raise BackupError("artifact_tree_mismatch")
@@ -1894,7 +2121,7 @@ def _verify_backup_tree_at(root_descriptor: int, manifest: dict[str, Any]) -> st
         if reference_map != manifest_map:
             raise BackupError("artifact_reference_mismatch")
     finally:
-        os.close(artifact_descriptor)
+        _close_fd(artifact_descriptor)
 
     identity = _snapshot_identity(
         manifest["mode"], manifest["sourceRootIdentity"], databases, artifacts
@@ -1911,7 +2138,7 @@ def _verify_backup_tree(root: Path, manifest: dict[str, Any]) -> str:
         _assert_directory_identity(root, root_status)
         return identity
     finally:
-        os.close(root_descriptor)
+        _close_fd(root_descriptor)
 
 
 def verify_backup(root: Path) -> BackupResult:
@@ -1924,7 +2151,7 @@ def verify_backup(root: Path) -> BackupResult:
         _assert_directory_identity(root, root_status)
         return BackupResult(root, root / BACKUP_MANIFEST_NAME, identity)
     finally:
-        os.close(root_descriptor)
+        _close_fd(root_descriptor)
 
 
 def rehearse_restore(backup_root: Path, destination: Path) -> BackupResult:
@@ -1949,7 +2176,7 @@ def rehearse_restore(backup_root: Path, destination: Path) -> BackupResult:
             if record["presence"] == "PRESENT"
         }
         if "report_artifacts.sqlite3" in present_databases:
-            os.mkdir("report_artifacts", mode=0o700, dir_fd=destination_descriptor)
+            _mkdir_at(destination_descriptor, "report_artifacts", mode=0o700)
             backup_artifact_descriptor, _ = _open_directory_at(
                 backup_descriptor, "report_artifacts"
             )
@@ -1966,7 +2193,7 @@ def rehearse_restore(backup_root: Path, destination: Path) -> BackupResult:
                 registration.name,
             )
         if backup_artifact_descriptor >= 0:
-            for item in os.scandir(backup_artifact_descriptor):
+            for item in _scandir_at(backup_artifact_descriptor):
                 _copy_regular_at(
                     backup_artifact_descriptor,
                     item.name,
@@ -2005,7 +2232,7 @@ def rehearse_restore(backup_root: Path, destination: Path) -> BackupResult:
             backup_descriptor,
         ):
             if descriptor >= 0:
-                os.close(descriptor)
+                _close_fd(descriptor)
     if failure is not None:
         if destination_status is not None:
             try:
@@ -2134,7 +2361,7 @@ def _create_synthetic_runtime(root: Path) -> None:
             ),
         )
     shiguan_connection.close()
-    with sqlite3.connect(decree_store.db_path) as connection:
+    with closing(sqlite3.connect(decree_store.db_path)) as connection:
         connection.execute(
             """
             INSERT INTO decree_jobs (
@@ -2181,7 +2408,8 @@ def _create_synthetic_runtime(root: Path) -> None:
                 "rc1-synthetic-job",
             ),
         )
-    with sqlite3.connect(root / "report_artifacts.sqlite3") as connection:
+        connection.commit()
+    with closing(sqlite3.connect(root / "report_artifacts.sqlite3")) as connection:
         connection.execute(
             "INSERT INTO report_artifacts VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (
@@ -2200,6 +2428,7 @@ def _create_synthetic_runtime(root: Path) -> None:
                 "2026-08-21T00:00:00+00:00",
             ),
         )
+        connection.commit()
     work_product = WorkProductEnvelope(
         work_product_id="rc1-synthetic-work-product",
         version=1,
@@ -2238,7 +2467,7 @@ def _create_synthetic_runtime(root: Path) -> None:
     artifact_storage.create_work_product(
         "synthetic-owner", artifact_id, work_product
     )
-    with sqlite3.connect(root / "report_artifacts.sqlite3") as connection:
+    with closing(sqlite3.connect(root / "report_artifacts.sqlite3")) as connection:
         connection.execute(
             """
             INSERT INTO confirmation_receipts (
@@ -2256,6 +2485,7 @@ def _create_synthetic_runtime(root: Path) -> None:
                 fixed_at,
             ),
         )
+        connection.commit()
     scope = ExecutionScopeBinding(
         scope_mode="owner_only",
         tenant_id=None,
@@ -2317,7 +2547,7 @@ def run_synthetic_rehearsal(root: Path) -> dict[str, str]:
             "sourceSnapshotIdentity": result.source_snapshot_identity,
         }
     finally:
-        os.close(root_descriptor)
+        _close_fd(root_descriptor)
 
 
 def probe_synthetic_retention(root: Path) -> dict[str, str]:
@@ -2503,7 +2733,7 @@ def _read_canonical_json_at(directory_descriptor: int, name: str) -> dict[str, A
         if os.read(descriptor, 1) != b"":
             raise BackupError("writer_stop_evidence_invalid")
     finally:
-        os.close(descriptor)
+        _close_fd(descriptor)
 
     def reject_duplicates(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
         result: dict[str, Any] = {}
@@ -2538,28 +2768,32 @@ class _WriterStopSession:
         _reject_symlink_components(self.path.parent)
         try:
             before = os.lstat(self.path)
-            descriptor = os.open(
-                self.path,
-                os.O_RDONLY
-                | getattr(os, "O_CLOEXEC", 0)
-                | getattr(os, "O_NOFOLLOW", 0)
-                | getattr(os, "O_DIRECTORY", 0),
-            )
-            opened = os.fstat(descriptor)
+            if _is_windows():
+                descriptor, opened = _open_directory(self.path)
+            else:
+                descriptor = os.open(
+                    self.path,
+                    os.O_RDONLY
+                    | getattr(os, "O_CLOEXEC", 0)
+                    | getattr(os, "O_NOFOLLOW", 0)
+                    | getattr(os, "O_DIRECTORY", 0),
+                )
+                opened = os.fstat(descriptor)
         except OSError:
             raise BackupError("writer_stop_session_invalid") from None
+        owner_ok = _is_windows() or before.st_uid == os.getuid()
         if (
             not stat.S_ISDIR(before.st_mode)
             or not _same_identity(before, opened)
-            or before.st_uid != os.getuid()
+            or not owner_ok
             or before.st_mode & 0o077
             or self.path.resolve(strict=True) != self.path
         ):
-            os.close(descriptor)
+            _close_fd(descriptor)
             raise BackupError("writer_stop_session_invalid")
         self.descriptor = descriptor
         self.status = opened
-        if set(os.listdir(self.descriptor)) != {"before.json"}:
+        if {entry.name for entry in _scandir_at(self.descriptor)} != {"before.json"}:
             self.close()
             raise BackupError("writer_stop_session_invalid")
         self.before_read = False
@@ -2567,7 +2801,7 @@ class _WriterStopSession:
 
     def close(self) -> None:
         if self.descriptor >= 0:
-            os.close(self.descriptor)
+            _close_fd(self.descriptor)
             self.descriptor = -1
 
     def _assert_identity(self) -> None:
@@ -2596,21 +2830,24 @@ class _WriterStopSession:
         }
         capture["captureDigest"] = _digest_canonical(capture)
         try:
-            descriptor = os.open(
+            descriptor = _open_at_path(
+                self.descriptor,
                 "capture.json",
                 os.O_WRONLY
                 | os.O_CREAT
                 | os.O_EXCL
-                | getattr(os, "O_CLOEXEC", 0)
-                | getattr(os, "O_NOFOLLOW", 0),
+                | getattr(os, "O_CLOEXEC", 0),
                 0o600,
-                dir_fd=self.descriptor,
             )
+            if _is_windows():
+                descriptor = _remember_fd(
+                    descriptor, _path_for_fd(self.descriptor) / "capture.json"
+                )
             try:
                 _write_all(descriptor, _canonical_bytes(capture))
                 os.fsync(descriptor)
             finally:
-                os.close(descriptor)
+                _close_fd(descriptor)
             _fsync_directory_descriptor(self.descriptor)
         except OSError:
             raise BackupError("writer_stop_session_invalid") from None
@@ -2618,7 +2855,7 @@ class _WriterStopSession:
         while True:
             self._assert_identity()
             try:
-                os.stat("final.json", dir_fd=self.descriptor, follow_symlinks=False)
+                _stat_at_path(self.descriptor, "final.json")
             except FileNotFoundError:
                 if time.monotonic() >= deadline:
                     raise BackupError("writer_stop_session_timeout") from None
@@ -2626,7 +2863,7 @@ class _WriterStopSession:
                 continue
             except OSError:
                 raise BackupError("writer_stop_session_invalid") from None
-            if set(os.listdir(self.descriptor)) != {
+            if {entry.name for entry in _scandir_at(self.descriptor)} != {
                 "before.json",
                 "capture.json",
                 "final.json",
