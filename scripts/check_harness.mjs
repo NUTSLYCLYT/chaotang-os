@@ -2588,6 +2588,7 @@ Escalation: name observable evidence
           ["sha256:33baa33eebcbefbb09f85fb09b4f49baf145b667eabdfe2be3c245f43f39f2f7", "sha256:d4e78e42b89022088bb6687a7ab5cc57bcd908a3017b2b4a2e2611497d04def2"],
           ["sha256:7a1220fa7c583de7248eca3ef6deac9b50635f73bf08d569190a3505b62db628", "sha256:d4e78e42b89022088bb6687a7ab5cc57bcd908a3017b2b4a2e2611497d04def2"],
           integrationPair,
+          ["sha256:9b9927bb53cccc26e074c1f382630d94445d0b207cddfa88930dcfc3f7b705a0", "sha256:d4e78e42b89022088bb6687a7ab5cc57bcd908a3017b2b4a2e2611497d04def2"],
         ];
         const validPairs = new Set(
           SIX_MINISTRY_CONTENT_FINGERPRINT_PAIRS.map(([runtime, successor]) => (
