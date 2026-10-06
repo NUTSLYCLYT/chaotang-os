@@ -22,15 +22,15 @@ Ready
 
 ## Affected Modules
 
-- 模块：decree job SQLite storage、runtime data registry、readiness/backup/storage tests、六部 Runtime fingerprint gate。
-- 允许路径：`backend/app/decree_jobs/storage.py`、`backend/app/operations/runtime_data_registry.py`、`backend/tests/test_decree_job_storage.py`、`backend/tests/test_readiness.py`、`backend/tests/test_six_ministry_readiness_report.py`、`backend/tests/test_sqlite_backup.py`、`scripts/check_harness.mjs`。
+- 模块：decree job SQLite storage、runtime data registry、readiness/backup/storage tests。
+- 允许路径：`backend/app/decree_jobs/storage.py`、`backend/app/operations/runtime_data_registry.py`、`backend/tests/test_decree_job_storage.py`、`backend/tests/test_readiness.py`、`backend/tests/test_six_ministry_readiness_report.py`、`backend/tests/test_sqlite_backup.py`。
 
 ## Technical Plan
 
 1. 为现有 history schema 与两个固定预算表记录确定性 storage/runtime schema digest。
 2. 在 `DecreeJobStore` 中只允许该精确组合直接重开；未知 schema 继续拒绝。
 3. 在 runtime registry/readiness/backup 中按有序 digest 接受该精确兼容状态。
-4. 将本次实际实现 fingerprint 与既有 successor fingerprint 绑定为一个明确兼容对，并补齐 Harness 自测与报告测试。
+4. 使用基线中已经完成的精确 Runtime fingerprint 绑定，并在报告测试中保留当前实现的回归证据；不在产品候选中修改 Harness。
 5. 运行 focused、backend full、ruff、六部报告、Harness 及隔离重开证据。
 
 ## Rollback

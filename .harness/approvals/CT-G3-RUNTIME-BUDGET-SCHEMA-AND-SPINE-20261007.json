@@ -20,8 +20,7 @@
       "backend/tests/test_decree_job_storage.py",
       "backend/tests/test_readiness.py",
       "backend/tests/test_six_ministry_readiness_report.py",
-      "backend/tests/test_sqlite_backup.py",
-      "scripts/check_harness.mjs"
+      "backend/tests/test_sqlite_backup.py"
     ]
   },
   "nonGoals": [
