@@ -1,0 +1,49 @@
+name: ext-dev Guardrails
+
+# 目的：让治理门禁在团队真实主干 ext-dev 上强制执行。
+# 背景：`.github/workflows/harness.yml` 的触发条件为 pull_request + push:[main]，
+#       而团队 100% 直推 ext-dev，导致门禁从未在真实主线上运行（GitHub Actions
+#       运行记录 total_count=0）。harness.yml 被六部实现指纹逐字节锁定，不可改其
+#       触发条件（改动会破坏 SIX_MINISTRY_CONTENT_FINGERPRINT_PAIRS 白名单）。
+#       因此以本独立工作流补上 ext-dev 触发，门禁步骤与 harness.yml 的 validate 作业等价。
+# 关系：PR 与 main 由 harness.yml 覆盖；ext-dev 直推由本工作流覆盖，互为补充、不重复。
+
+on:
+  push:
+    branches: [ext-dev]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Root Harness verifies the immutable EXT capability provenance.
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Validate agentic baseline
+        run: node scripts/check_harness.mjs
+      - name: Test baseline checker
+        run: node scripts/check_harness.mjs --self-test
+      - name: Test six-ministry capability governance
+        run: >-
+          node --test
+          scripts/stocktake_external_capabilities.test.mjs
+          scripts/capability_capsule.test.mjs
+          scripts/capability_eval.test.mjs
+          scripts/capability_shadow.test.mjs
+          scripts/decision_quality_gate.test.mjs
+          scripts/capability_family_matrix.test.mjs
+          scripts/six_ministry_execution_contract.test.mjs
+          scripts/six_ministry_evidence_spine_contract.test.mjs
+      - run: node --test scripts/check_migration_completeness.test.mjs
+      - run: node scripts/check_migration_completeness.mjs
+      - name: Test shared Stop hook protocol
+        run: node .agents/hooks/check-harness.mjs --self-test
+      - name: Test product-flow Claude runner
+        run: node .agents/skills/product-flow/scripts/run-claude-delivery.mjs --self-test
