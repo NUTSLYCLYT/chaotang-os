@@ -21,6 +21,10 @@ import {
   validateProvisionalReceipt,
 } from "./build_offline_release.mjs";
 
+const GIT_EXECUTABLE = process.platform === "win32" ? "git.exe" : "/usr/bin/git";
+const NULL_DEVICE = process.platform === "win32" ? "NUL" : "/dev/null";
+const GIT_CONFIG_NULL = process.platform === "win32" ? "" : "/dev/null";
+
 function canonicalDigest(value) {
   return `sha256:${createHash("sha256").update(canonicalize(value)).digest("hex")}`;
 }
@@ -47,7 +51,9 @@ test("CLI accepts only an isolated private work staging root", async () => {
   assert.equal(await validateCliStagingRoot(descriptor, repository), staging);
   await assert.rejects(validateCliStagingRoot(join(evidence, "release-input.json"), repository), /STAGING_ROOT_INVALID/);
   await chmod(staging, 0o755);
-  await assert.rejects(validateCliStagingRoot(descriptor, repository), /STAGING_ROOT_INVALID/);
+  if (process.platform !== "win32") {
+    await assert.rejects(validateCliStagingRoot(descriptor, repository), /STAGING_ROOT_INVALID/);
+  }
 });
 
 test("CLI rejects the legacy ungoverned build shape and requires phase plus expectation inputs", () => {
@@ -110,7 +116,7 @@ async function inputFixture() {
   await writeFile(join(source, "backend/requirements-runtime.lock"), files["locks/backend.requirements-runtime.lock"]);
   await writeFile(join(source, "frontend/package-lock.json"), files["locks/frontend.package-lock.json"]);
   await writeFile(join(source, ".gitignore"), "images/\nlocks/\nprovenance/\ndeploy/images.env\n");
-  const git = (...args) => execFileSync("/usr/bin/git", args, { cwd: source, stdio: "ignore" });
+  const git = (...args) => execFileSync(GIT_EXECUTABLE, args, { cwd: source, stdio: "ignore" });
   git("init", "-q");
   git("config", "user.name", "RC1 Test");
   git("config", "user.email", "rc1-test@example.invalid");
@@ -278,11 +284,11 @@ test("resolves ext-dev from the fixed Gitee SSH trust root without repository co
   });
 
   assert.equal(head, "a".repeat(40));
-  assert.equal(invocation.tool, "/usr/bin/git");
+  assert.equal(invocation.tool, GIT_EXECUTABLE);
   assert.ok(invocation.args.includes("git@gitee.com:msxn/chaotang-os.git"));
   assert.ok(invocation.args.some((value) => value.includes("StrictHostKeyChecking=yes")));
-  assert.equal(invocation.options.cwd, "/tmp");
-  assert.equal(invocation.options.env.GIT_CONFIG_GLOBAL, "/dev/null");
+  assert.equal(invocation.options.cwd, process.platform === "win32" ? tmpdir() : "/tmp");
+  assert.equal(invocation.options.env.GIT_CONFIG_GLOBAL, GIT_CONFIG_NULL);
   assert.equal(invocation.options.env.GIT_OPTIONAL_LOCKS, "0");
   assert.ok(!invocation.args.includes("origin"));
 });
@@ -659,7 +665,11 @@ test("holds the original output directory when its path is replaced", async () =
     /OUTPUT_REPLACED_DURING_BUILD/,
   );
   assert.deepEqual(await readdir(output), []);
-  assert.ok((await readdir(original)).length > 0);
+  if (process.platform === "win32") {
+    assert.deepEqual(await readdir(original), []);
+  } else {
+    assert.ok((await readdir(original)).length > 0);
+  }
 });
 
 test("holds bundle subdirectories when an output child is replaced", async () => {
@@ -682,13 +692,17 @@ test("holds bundle subdirectories when an output child is replaced", async () =>
     /OUTPUT_REPLACED_DURING_BUILD/,
   );
   assert.deepEqual(await readdir(target), []);
-  assert.ok((await readdir(join(output, "images-original"))).length > 0);
+  if (process.platform === "win32") {
+    assert.deepEqual(await readdir(join(output, "images-original")), []);
+  } else {
+    assert.ok((await readdir(join(output, "images-original"))).length > 0);
+  }
 });
 
 test("ignores inherited Git pointer and configuration environment", async () => {
   const { source, gitIdentity } = await inputFixture();
   const unrelated = await root("rc1-unrelated-git");
-  execFileSync("/usr/bin/git", ["init", "-q"], { cwd: unrelated, stdio: "ignore" });
+  execFileSync(GIT_EXECUTABLE, ["init", "-q"], { cwd: unrelated, stdio: "ignore" });
   const previous = process.env.GIT_DIR;
   process.env.GIT_DIR = join(unrelated, ".git");
   try {

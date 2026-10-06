@@ -18,6 +18,8 @@ import {
   verifyOfflineRelease as verifyOfflineReleaseRaw,
 } from "./verify_offline_release.mjs";
 
+const GIT_EXECUTABLE = process.platform === "win32" ? "git.exe" : "/usr/bin/git";
+
 const roots = new Set();
 const POLICY_DIGEST = "sha256:75054d6dc6737ff20eab02ad0a6b67ff7b64250676e9ad5087187548d50fe268";
 const BASE_IMAGES = {
@@ -118,7 +120,7 @@ async function createReleaseFixture(source) {
     await writeFile(path, value);
   }
   await writeFile(join(source, ".gitignore"), "images/\nlocks/\nprovenance/\ndeploy/images.env\n");
-  const git = (...args) => execFileSync("/usr/bin/git", args, { cwd: source, stdio: "ignore" });
+  const git = (...args) => execFileSync(GIT_EXECUTABLE, args, { cwd: source, stdio: "ignore" });
   git("init", "-q");
   git("config", "user.name", "RC1 Test");
   git("config", "user.email", "rc1-test@example.invalid");

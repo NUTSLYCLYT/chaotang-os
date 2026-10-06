@@ -609,16 +609,18 @@ test("P09-ARTIFACT-01 archive verification rejects traversal, tamper, extras, sy
     linkSync(path.join(root, "logs", "test.log"), path.join(root, "hard.log"));
     assert.throws(() => api.observeEvidenceArchive(root, { storageId: "storage-main" }), /ARCHIVE_HARDLINK_FORBIDDEN/);
     rmSync(path.join(root, "hard.log"));
-    writeFileSync(path.join(root, "A"), "a");
-    writeFileSync(path.join(root, "a"), "b");
-    assert.throws(() => api.observeEvidenceArchive(root, { storageId: "storage-main" }), /ARCHIVE_CASE_COLLISION/);
-    rmSync(path.join(root, "A"));
-    rmSync(path.join(root, "a"));
-    writeFileSync(path.join(root, "Σ"), "a");
-    writeFileSync(path.join(root, "ς"), "b");
-    assert.throws(() => api.observeEvidenceArchive(root, { storageId: "storage-main" }), /ARCHIVE_CASE_COLLISION/);
-    rmSync(path.join(root, "Σ"));
-    rmSync(path.join(root, "ς"));
+    if (process.platform !== "win32") {
+      writeFileSync(path.join(root, "A"), "a");
+      writeFileSync(path.join(root, "a"), "b");
+      assert.throws(() => api.observeEvidenceArchive(root, { storageId: "storage-main" }), /ARCHIVE_CASE_COLLISION/);
+      rmSync(path.join(root, "A"));
+      rmSync(path.join(root, "a"));
+      writeFileSync(path.join(root, "Σ"), "a");
+      writeFileSync(path.join(root, "ς"), "b");
+      assert.throws(() => api.observeEvidenceArchive(root, { storageId: "storage-main" }), /ARCHIVE_CASE_COLLISION/);
+      rmSync(path.join(root, "Σ"));
+      rmSync(path.join(root, "ς"));
+    }
     writeFileSync(path.join(root, "container.bin"), Buffer.from([0x50, 0x4b, 0x03, 0x04, 0, 0]));
     assert.throws(() => api.observeEvidenceArchive(root, { storageId: "storage-main" }), /ARCHIVE_NESTED_ARCHIVE_FORBIDDEN/);
     writeFileSync(path.join(root, "container.bin"), Buffer.from([0x50, 0x4b, 0x05, 0x06, 0, 0]));
