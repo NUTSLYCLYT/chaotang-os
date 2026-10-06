@@ -11,6 +11,7 @@ import { fileURLToPath } from "node:url";
 import { canonicalizeRfc8785 } from "./execution_authority_ext.mjs";
 
 import {
+  GIT_EXECUTABLE,
   AUTHORITY_ID,
   APPROVAL_SCHEMA_VERSION_V2,
   PATH_BINDING_CASE_RECORDS,
@@ -32,6 +33,10 @@ import {
 
 const REPOSITORY_ROOT = fileURLToPath(new URL("../", import.meta.url));
 const AUTHORITY_PATH = path.join(REPOSITORY_ROOT, "scripts", "product-authority.mjs");
+const TEST_PATH = process.platform === "win32"
+  ? (process.env.Path ?? process.env.PATH ?? "")
+  : "/usr/bin:/bin";
+const TEST_GIT_LITERAL = JSON.stringify(GIT_EXECUTABLE);
 const APPROVAL_SCHEMA_PATH = path.join(
   REPOSITORY_ROOT,
   ".harness",
@@ -46,19 +51,19 @@ const EXACT2_PATHS = [
 ];
 
 function git(cwd, args, encoding = "utf8") {
-  return execFileSync("/usr/bin/git", ["--no-replace-objects", ...args], {
+  return execFileSync(GIT_EXECUTABLE, ["--no-replace-objects", ...args], {
     cwd,
     encoding,
-    env: { PATH: "/usr/bin:/bin", GIT_CONFIG_NOSYSTEM: "1", GIT_TERMINAL_PROMPT: "0" },
+    env: { PATH: TEST_PATH, GIT_CONFIG_NOSYSTEM: "1", GIT_TERMINAL_PROMPT: "0" },
     stdio: ["ignore", "pipe", "pipe"],
   }).trim();
 }
 
 function gitBytes(cwd, args) {
-  return execFileSync("/usr/bin/git", ["--no-replace-objects", ...args], {
+  return execFileSync(GIT_EXECUTABLE, ["--no-replace-objects", ...args], {
     cwd,
     env: {
-      HOME: "/nonexistent", PATH: "/usr/bin:/bin", LANG: "C", LC_ALL: "C",
+      HOME: "/nonexistent", PATH: TEST_PATH, LANG: "C", LC_ALL: "C",
       GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: "/dev/null",
       GIT_CONFIG_SYSTEM: "/dev/null", GIT_TERMINAL_PROMPT: "0",
       GIT_NO_REPLACE_OBJECTS: "1", GIT_OPTIONAL_LOCKS: "0",
@@ -164,12 +169,12 @@ function verifyReadonlyExact2Tree(installation) {
   assert.equal(git(REPOSITORY_ROOT, ["status", "--porcelain=v1", "--untracked-files=all"]), "");
   assert.match(installation.exact4Commit, /^[0-9a-f]{40}$/);
   assert.match(installation.exact4Tree, /^[0-9a-f]{40}$/);
-  const ancestry = spawnSync("/usr/bin/git", [
+  const ancestry = spawnSync(GIT_EXECUTABLE, [
     "--no-replace-objects", "merge-base", "--is-ancestor", installation.exact4Commit, commit,
   ], {
     cwd: REPOSITORY_ROOT, stdio: "ignore", shell: false,
     env: {
-      HOME: "/nonexistent", PATH: "/usr/bin:/bin", LANG: "C", LC_ALL: "C",
+      HOME: "/nonexistent", PATH: TEST_PATH, LANG: "C", LC_ALL: "C",
       GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: "/dev/null",
       GIT_CONFIG_SYSTEM: "/dev/null", GIT_NO_REPLACE_OBJECTS: "1",
     },
@@ -180,7 +185,7 @@ function verifyReadonlyExact2Tree(installation) {
     "import os,sys;raise SystemExit(0 if os.statvfs(sys.argv[1]).f_flag & os.ST_RDONLY else 1)",
     REPOSITORY_ROOT,
   ], {
-    env: { PATH: "/usr/bin:/bin", LANG: "C.UTF-8", LC_ALL: "C.UTF-8" },
+    env: { PATH: TEST_PATH, LANG: "C.UTF-8", LC_ALL: "C.UTF-8" },
     stdio: "ignore", timeout: 5000, shell: false,
   });
   assert.equal(readonly.status, 0, "EXACT2_TREE_NOT_READ_ONLY");
@@ -592,7 +597,7 @@ test("the frozen broker execution profile compiles and embeds the closed 18-case
   ], {
     input: PREAUTH_RUNNER_SOURCE,
     encoding: "utf8",
-    env: { PATH: "/usr/bin:/bin", LANG: "C.UTF-8", LC_ALL: "C.UTF-8" },
+    env: { PATH: TEST_PATH, LANG: "C.UTF-8", LC_ALL: "C.UTF-8" },
     timeout: 5000,
     shell: false,
   });
@@ -605,6 +610,10 @@ test("the frozen broker execution profile compiles and embeds the closed 18-case
 });
 
 test("the frozen runner executes controller and verifier with their distinct sealed FD4 sources", async (t) => {
+  if (process.platform === "win32") {
+    t.skip("sealed FD runner requires POSIX descriptor passing");
+    return;
+  }
   const manifest = receiptGatedManifest({ baseCommit: "a".repeat(40), baseTree: "b".repeat(40) });
   const approval = {
     commit: "c".repeat(40), tree: "d".repeat(40), manifest,
@@ -639,7 +648,7 @@ test("the frozen runner executes controller and verifier with their distinct sea
     ], {
       cwd: root,
       encoding: "utf8",
-      env: { PATH: "/usr/bin:/bin", LANG: "C.UTF-8", LC_ALL: "C.UTF-8", TMPDIR: "/tmp", TEMP: "/tmp", TMP: "/tmp" },
+      env: { PATH: TEST_PATH, LANG: "C.UTF-8", LC_ALL: "C.UTF-8", TMPDIR: "/tmp", TEMP: "/tmp", TMP: "/tmp" },
       stdio: ["ignore", "pipe", "pipe", "ignore", "ignore", "ignore", "ignore", ambient.fd],
       timeout: 20_000,
       shell: false,
@@ -797,7 +806,7 @@ test("installed preauthorization acceptance reaches the real CLI and broker", {
     cwd: repository.root,
     encoding: "utf8",
     env: {
-      HOME: "/nonexistent", PATH: "/usr/bin:/bin", LANG: "C.UTF-8", LC_ALL: "C.UTF-8",
+      HOME: "/nonexistent", PATH: TEST_PATH, LANG: "C.UTF-8", LC_ALL: "C.UTF-8",
       TMPDIR: "/tmp", TEMP: "/tmp", TMP: "/tmp",
       GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: "/dev/null",
       GIT_CONFIG_SYSTEM: "/dev/null", GIT_TERMINAL_PROMPT: "0",
@@ -820,7 +829,7 @@ test("v2 direct authorization has no same-uid helper fallback", async (t) => {
   await publishApproval(t, repository, manifest);
   await assert.rejects(
     authorizeProductWork({ cwd: repository.root, taskId: TASK_ID }),
-    /PREAUTH_BROKER_(UNAVAILABLE|IDENTITY_INVALID)/,
+    /PREAUTH_(?:BROKER_(UNAVAILABLE|IDENTITY_INVALID)|CONTROLLER_IDENTITY_UNVERIFIED)/,
   );
   const source = await readFile(AUTHORITY_PATH, "utf8");
   assert.ok(!source.includes("PRE_AUTHORIZATION_HELPER_SOURCE"));
@@ -928,7 +937,7 @@ test("candidate verification accepts only the exact single child and emits deter
       tool: "node",
       args: [
         "-e",
-        `require('node:child_process').execFileSync('/usr/bin/git',[` +
+        `require('node:child_process').execFileSync(${TEST_GIT_LITERAL},[` +
           `'--git-dir',${JSON.stringify(remoteMovingBare)},'update-ref','refs/heads/ext-dev',` +
           `${JSON.stringify(remoteMovingRepository.baseCommit)}])`,
       ],
@@ -1015,7 +1024,7 @@ test("verification commands run without a shell and fail closed on errors or rep
       tool: "node",
       args: [
         "-e",
-        "require('node:child_process').execFileSync('/usr/bin/git',['reset','--hard','HEAD^'])",
+        `require('node:child_process').execFileSync(${TEST_GIT_LITERAL},['reset','--hard','HEAD^'])`,
       ],
       cwd: ".",
       timeoutMs: 5_000,
@@ -1040,7 +1049,7 @@ test("verification commands run without a shell and fail closed on errors or rep
         tool: "node",
         args: [
           "-e",
-          "require('node:child_process').execFileSync('/usr/bin/git',['reset','--hard','HEAD^'])",
+          `require('node:child_process').execFileSync(${TEST_GIT_LITERAL},['reset','--hard','HEAD^'])`,
         ],
         cwd: ".",
         timeoutMs: 5_000,
@@ -1050,7 +1059,7 @@ test("verification commands run without a shell and fail closed on errors or rep
         tool: "node",
         args: [
           "-e",
-          "require('node:child_process').execFileSync('/usr/bin/git',['reset','--hard','HEAD@{1}'])",
+          `require('node:child_process').execFileSync(${TEST_GIT_LITERAL},['reset','--hard','HEAD@{1}'])`,
         ],
         cwd: ".",
         timeoutMs: 5_000,
@@ -1085,8 +1094,7 @@ test("candidate rejects deletion, mode drift and merge commits", async (t) => {
   const modeRepository = await initializeRepository(t, { productFile: true });
   const modeManifest = approvalManifest(modeRepository);
   await publishApproval(t, modeRepository, modeManifest);
-  await chmod(path.join(modeRepository.root, "src", "feature.txt"), 0o755);
-  git(modeRepository.root, ["add", "src/feature.txt"]);
+  git(modeRepository.root, ["update-index", "--chmod=+x", "src/feature.txt"]);
   git(modeRepository.root, ["commit", "-m", "change product mode"]);
   await assert.rejects(
     verifyProductCandidate({
@@ -1139,7 +1147,7 @@ test("CLI is closed and the landed M0 implementation remains non-authorizing", a
   const invoke = (args) => spawnSync(process.execPath, [AUTHORITY_PATH, ...args], {
     cwd: cleanRepository.root,
     encoding: "utf8",
-    env: { PATH: "/usr/bin:/bin", GIT_TERMINAL_PROMPT: "0" },
+    env: { PATH: TEST_PATH, GIT_TERMINAL_PROMPT: "0" },
   });
   const status = invoke(["--status"]);
   assert.equal(status.status, 0, status.stderr);
@@ -1184,7 +1192,7 @@ test("CLI authorizes and verifies the full flow against a local immutable remote
   const invoke = (args) => spawnSync(process.execPath, [AUTHORITY_PATH, ...args], {
     cwd: repository.root,
     encoding: "utf8",
-    env: { PATH: "/usr/bin:/bin", GIT_TERMINAL_PROMPT: "0" },
+    env: { PATH: TEST_PATH, GIT_TERMINAL_PROMPT: "0" },
     timeout: 15_000,
   });
   const authorized = invoke(["--authorize", "--task", TASK_ID]);
