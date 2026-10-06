@@ -7,8 +7,8 @@
     "targetBranch": "ext-dev"
   },
   "request": {
-    "baseCommit": "04d5a4d1c28d89297a12a65944e409e98ef30e16",
-    "baseTree": "99b2603e8eec1045f019432e51d3d4f12ef1d7b5",
+    "baseCommit": "70c6db17cb943dadd10ed58387503df2dc7df630",
+    "baseTree": "d15fa4abfe15269e4496fcab46bbe2e79e887f14",
     "approvalPath": ".harness/approvals/CT-G3-RELEASE-CANDIDATE-20261007.json",
     "approvalCommitPaths": [
       ".harness/approvals/CT-G3-RELEASE-CANDIDATE-20261007.json"
@@ -19,18 +19,6 @@
       "backend/app/jinyiwei/extractor.py",
       "backend/app/jinyiwei/source_registry.py",
       "backend/app/jinyiwei/sources/public_api.py",
-      "backend/harness/capability_candidates/candidates/decision-quality-gate/capsule.json",
-      "backend/harness/capability_candidates/candidates/decision-quality-gate/capsule.lock.json",
-      "backend/harness/capability_candidates/candidates/hubu-financial-grounding/capsule.json",
-      "backend/harness/capability_candidates/candidates/hubu-financial-grounding/capsule.lock.json",
-      "backend/harness/capability_candidates/candidates/hubu-payment-three-gates/capsule.json",
-      "backend/harness/capability_candidates/candidates/hubu-payment-three-gates/capsule.lock.json",
-      "backend/harness/capability_candidates/candidates/libu-responsibility-authority-chain/capsule.json",
-      "backend/harness/capability_candidates/candidates/libu-responsibility-authority-chain/capsule.lock.json",
-      "backend/harness/capability_candidates/candidates/rites-war-truthfulness/capsule.json",
-      "backend/harness/capability_candidates/candidates/rites-war-truthfulness/capsule.lock.json",
-      "backend/harness/capability_candidates/rites-message-quality-gate/capsule.json",
-      "backend/harness/capability_candidates/rites-message-quality-gate/capsule.lock.json",
       "backend/tests/run_accounting_synthetic_acceptance.py",
       "backend/tests/synthetic_accounting_acceptance_app.py",
       "backend/tests/synthetic_accounting_dynamic_layout.py",
