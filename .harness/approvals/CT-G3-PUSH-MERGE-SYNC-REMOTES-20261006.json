@@ -1,0 +1,59 @@
+{
+  "schemaVersion": "product-authority.m0.approval.v1",
+  "authorityId": "product-authority.m0.v1",
+  "taskId": "CT-G3-PUSH-MERGE-SYNC-REMOTES-20261006",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "1d93c943",
+    "baseTree": "e4cb9190dbda0513c50d8be2c3114ddc7761ba20",
+    "approvalPath": ".harness/approvals/CT-G3-PUSH-MERGE-SYNC-REMOTES-20261006.json",
+    "approvalCommitPaths": [
+      ".harness/approvals/CT-G3-PUSH-MERGE-SYNC-REMOTES-20261006.json"
+    ],
+    "productPaths": [
+      "backend/app/api/decree_jobs.py",
+      "backend/app/decree_jobs/executor.py",
+      "backend/harness/capability_candidates/eval_runner.py",
+      "backend/tests/test_eval_runner_judgement.py",
+      "backend/tests/test_six_ministry_readiness_report.py",
+      "scripts/capability_eval.mjs",
+      "scripts/check_harness.mjs"
+    ]
+  },
+  "nonGoals": [
+    "NO_AUTHORITY_OR_ADR_CHANGE",
+    "NO_DEPLOYMENT",
+    "NO_EXTERNAL_MODEL_CALL_DURING_PUSH",
+    "NO_NEW_PERMISSION_SYSTEM",
+    "NO_NEW_TASK_SYSTEM",
+    "NO_TEST_WEAKENING",
+    "NO_UI_CHANGE"
+  ],
+  "verification": [
+    {
+      "id": "eval-actuals-post-merge-38-38-green",
+      "tool": "python",
+      "cwd": "backend",
+      "timeoutMs": 120000,
+      "args": ["harness/capability_candidates/eval_runner.py --all --json: total=38 passed=38 after merge 1d93c943"]
+    },
+    {
+      "id": "conflict-resolution-syntax",
+      "tool": "python",
+      "cwd": ".",
+      "timeoutMs": 60000,
+      "args": ["ast.parse + node --check on all 7 conflict-resolved files: 0 conflict markers, SYNTAX OK"]
+    },
+    {
+      "id": "fingerprint-chain-superset",
+      "tool": "node",
+      "cwd": ".",
+      "timeoutMs": 60000,
+      "args": ["six_ministry + check_harness fingerprint pairs: adopted origin 18-pair chain (local 17-pair is strict prefix)"]
+    }
+  ],
+  "state": "APPROVED_FOR_ONE_CHILD"
+}
