@@ -19,6 +19,7 @@ test("local launcher binds loopback only and waits for both real services", () =
   assert.match(script, /--hostname 127\.0\.0\.1 --port \$FrontendPort/);
   assert.match(script, /Wait-Http "http:\/\/127\.0\.0\.1:\$BackendPort\/health"/);
   assert.match(script, /Wait-Http "http:\/\/127\.0\.0\.1:\$FrontendPort\/"/);
+  assert.match(script, /StatusCode -eq 200/);
 });
 
 test("local launcher never invents model credentials or opens a browser", () => {

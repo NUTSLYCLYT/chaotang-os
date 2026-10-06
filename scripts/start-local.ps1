@@ -138,7 +138,7 @@ function Wait-Http {
     while ((Get-Date) -lt $deadline) {
         try {
             $response = Invoke-WebRequest -UseBasicParsing -Uri $Url -TimeoutSec 3
-            if ($response.StatusCode -ge 200 -and $response.StatusCode -lt 500) { return $response.StatusCode }
+            if ($response.StatusCode -eq 200) { return $response.StatusCode }
         }
         catch { $lastError = $_.Exception.Message }
         Start-Sleep -Milliseconds 250
