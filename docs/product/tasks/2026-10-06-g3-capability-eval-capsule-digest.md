@@ -40,6 +40,39 @@ Ready
 3. 运行 capsule、Node evaluation 和 Python 38-case 离线验证。
 4. 检查 diff 只包含 12 条批准路径，再报告候选身份；不 push/deploy。
 
+## Implementation Report
+
+### 治理说明（先于交付内容）
+
+- 本报告由 WorkBuddy 于 2026-10-07 按 owner"灭红灯"授权补录；内容全部来自仓内可查事实
+  （提交、审批 manifest、评测对象 provenance），无推测。
+- 对应审批：`.harness/approvals/CT-G3-CAPABILITY-EVAL-CAPSULE-DIGEST-20261006.json`（校验 VALID）。
+
+### 交付内容（仓内事实）
+
+- `b1c55f63` feat(eval): T03 capability eval actuals 38/38 green + judgement skip semantics
+  —— 38 个评测 case 全绿，落地 judgement skip 语义。
+- `7b3cbb4b` fix: rebuild candidate capsule locks after eval actuals
+  —— 重建候选胶囊 `capsule.json` / `capsule.lock.json` 内容摘要，解决
+  `artifact_digest_mismatch`（本任务的核心目标）。
+- 治理记录：`bd887b4d` governance: approve G3 capability capsule digest repair。
+- 评测对象 provenance（各 `evaluations.json`）："8/15 评测体系种子" 吸收 38 个黄金 case
+  （`absorbedBy: wb-eval-seed/absorb-38-golden-cases`，来源 commit `92007a2d`），
+  5 个候选（decision-quality-gate / hubu-financial-grounding / hubu-payment-three-gates /
+  libu-responsibility-authority-chain / rites-war-truthfulness）+ rites-message-quality-gate
+  objects，均含 `synthetic: true`、`network: false`、实际值 provenance（fill_eval_actuals,
+  court-agent-v9, deepseek-flash, temperature 0）。
+
+### 验证证据（记录于 manifest verification 与提交说明）
+
+- Python 离线 runner：`total=38 passed=38`（judged complete via eval_runner，simulator 交叉核对 0 mismatch）。
+- Node 评测保持 `authorizesPromotion=false`、`promotionDecision=not-authorized`、无网络策略
+  （候选零权限、离线、不可晋升边界未破坏）。
+- 本机沙箱限制说明：WorkBuddy 沙箱内 spawnSync git 受限（EBUSY），Python/Node 运行时
+  验证无法在此环境复跑；上述数据以提交与 manifest 记录为准，owner 环境可复验：
+  `python backend/harness/capability_candidates/eval_runner.py --all --json` 与
+  `node scripts/capability_capsule.test.mjs`。
+
 ## Acceptance Review
 
 Pending。

@@ -1126,7 +1126,7 @@ const normalizeAdaptiveRoutingBody = (value) => value
   .replace(/\r\n?/gu, "\n");
 
 const ADAPTIVE_ROUTING_WHOLE_ENTRY_SHA256 = {
-  agents: "323915a436a36631c206cf3a3b4f1ed5ff38cc3c905a36099058ee519d788bed",
+  agents: "da00325d4775dd60e87c0403135575c996a24265d86026801b6661ac9c61fccb",
   guide: "c9dc6bec7917b4ae1441fa2df9c2b36cbc105d6946102c40d34add2c3194fa18",
   skill: "3a40fd5cfc75f4643b39f57e6471a79b9019a6418e4faf048ee4842a8ad17a06",
   prompt: "fe285fa01758c6f005cce119c6e63eb389f0f9f84a02cc33fee353cfde0d79bd",
