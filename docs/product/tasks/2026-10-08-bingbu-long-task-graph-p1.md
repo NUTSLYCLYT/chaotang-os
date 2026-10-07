@@ -80,3 +80,4 @@ Ready
 
 Approval lineage: re-anchored to latest ext-dev before product execution; product scope and non-goals are unchanged.
 Approval lineage: synchronized to ext-dev head 343deeff8573d9943cbcbe00803800182e527294 before candidate generation.
+Approval verification uses repository-pinned uv through Node on Windows authority hosts.

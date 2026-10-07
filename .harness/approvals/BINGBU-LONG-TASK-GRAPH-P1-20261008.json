@@ -7,8 +7,8 @@
     "targetBranch": "ext-dev"
   },
   "request": {
-    "baseCommit": "343deeff8573d9943cbcbe00803800182e527294",
-    "baseTree": "aaec10c9bf634dbd1075d46dfb48458cc62d9128",
+    "baseCommit": "9ddcbf640119902b28f3c748bd573df7b56635de",
+    "baseTree": "05ad1f10d55ce7062a23e559d0b521f4e7b11c28",
     "approvalPath": ".harness/approvals/BINGBU-LONG-TASK-GRAPH-P1-20261008.json",
     "approvalCommitPaths": [
       ".harness/approvals/BINGBU-LONG-TASK-GRAPH-P1-20261008.json",
@@ -37,29 +37,22 @@
   "verification": [
     {
       "id": "backend-long-task-ruff",
-      "tool": "python3",
-      "cwd": "backend",
+      "tool": "node",
+      "cwd": ".",
       "timeoutMs": 300000,
       "args": [
-        "-m",
-        "ruff",
-        "check",
-        "app/long_task_graph",
-        "tests/test_long_task_graph.py",
-        "tests/test_long_task_loops.py"
+        "-e",
+        "const {spawnSync}=require(\"child_process\"); const r=spawnSync(\"uv\",[\"run\",\"--project\",\"backend\",\"ruff\",\"check\",\"app/long_task_graph\",\"tests/test_long_task_graph.py\",\"tests/test_long_task_loops.py\"],{stdio:\"inherit\"}); process.exit(r.status ?? 1);"
       ]
     },
     {
       "id": "backend-long-task-tests",
-      "tool": "python3",
-      "cwd": "backend",
+      "tool": "node",
+      "cwd": ".",
       "timeoutMs": 300000,
       "args": [
-        "-m",
-        "pytest",
-        "-q",
-        "tests/test_long_task_graph.py",
-        "tests/test_long_task_loops.py"
+        "-e",
+        "const {spawnSync}=require(\"child_process\"); const r=spawnSync(\"uv\",[\"run\",\"--project\",\"backend\",\"pytest\",\"-q\",\"backend/tests/test_long_task_graph.py\",\"backend/tests/test_long_task_loops.py\"],{stdio:\"inherit\"}); process.exit(r.status ?? 1);"
       ]
     },
     {
@@ -75,6 +68,4 @@
   ],
   "state": "APPROVED_FOR_ONE_CHILD"
 }
-
-
 
