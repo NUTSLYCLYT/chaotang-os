@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "product-authority.m0.approval.v1",
+  "authorityId": "product-authority.m0.v1",
+  "taskId": "CT-G3-JINYIWEI-REPLAY-FOUNDATION-SUCCESSOR16-20261008",
+  "repository": {"identity": "gitee.com/msxn/chaotang-os", "targetBranch": "ext-dev"},
+  "request": {
+    "baseCommit": "913fe4db7bbf52762a671ca0b708d416eb8f4ec5",
+    "baseTree": "60067f7171271a772177664cdfa83ec8b1d05b46",
+    "approvalPath": ".harness/approvals/CT-G3-JINYIWEI-REPLAY-FOUNDATION-SUCCESSOR16-20261008.json",
+    "approvalCommitPaths": [".harness/approvals/CT-G3-JINYIWEI-REPLAY-FOUNDATION-SUCCESSOR16-20261008.json", "docs/product/tasks/2026-10-08-ct-g3-jinyiwei-replay-foundation-successor16.md"],
+    "productPaths": ["backend/app/api/jinyiwei.py", "backend/app/jinyiwei/coordinator.py", "backend/app/jinyiwei/db.py", "backend/app/jinyiwei/long_tasks.py", "backend/app/jinyiwei/models.py", "backend/app/jinyiwei/read_models.py", "backend/app/jinyiwei/replay.py", "backend/app/jinyiwei/storage.py", "backend/tests/test_jinyiwei_long_tasks.py", "backend/tests/test_jinyiwei_replay.py"]
+  },
+  "nonGoals": ["NO_EXTERNAL_NETWORK_ENABLEMENT", "NO_FRONTEND_ROUTE_CHANGE", "NO_NEWS_CRAWLER", "NO_OPENFGA", "NO_PUBLIC_DEPLOYMENT", "NO_TEMPORAL"],
+  "verification": [
+    {"id": "backend-jinyiwei-tests", "tool": "python3", "cwd": "backend", "timeoutMs": 300000, "args": ["-m", "pytest", "-q", "tests/test_jinyiwei_replay.py", "tests/test_jinyiwei_long_tasks.py"]},
+    {"id": "backend-ruff", "tool": "python3", "cwd": "backend", "timeoutMs": 300000, "args": ["-m", "ruff", "check", "app/jinyiwei", "tests/test_jinyiwei_replay.py", "tests/test_jinyiwei_long_tasks.py"]}
+  ],
+  "state": "APPROVED_FOR_ONE_CHILD"
+}
