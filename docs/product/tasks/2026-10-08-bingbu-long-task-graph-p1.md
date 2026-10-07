@@ -77,3 +77,5 @@ Ready
 - 验收结果：Pending
 - 验收证据：Pending
 - 未通过项：Pending
+
+Approval lineage: re-anchored to latest ext-dev before product execution; product scope and non-goals are unchanged.
