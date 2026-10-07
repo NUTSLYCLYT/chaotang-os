@@ -114,6 +114,10 @@ _CONTENT_FINGERPRINT_PAIRS = (
         "sha256:48819e3927b9e794fa5a1c24de9768c5b20b25feba1880e89394a66d33eff9e9",
         "sha256:d4e78e42b89022088bb6687a7ab5cc57bcd908a3017b2b4a2e2611497d04def2",
     ),
+    (
+        "sha256:6c02b1ccf7fbad840641ef5b26f5517755d4a4d9c3780cf3864b20947cddfc2c",
+        "sha256:d4e78e42b89022088bb6687a7ab5cc57bcd908a3017b2b4a2e2611497d04def2",
+    ),
 )
 _HISTORICAL_REVIEW_STATUS = "approved-with-notes"
 _HISTORICAL_FILE_COUNT = 69
@@ -284,7 +288,7 @@ def test_content_pair_rejects_mixed_or_third_state() -> None:
     runtime_fingerprints = {*(pair[0] for pair in valid_pairs), unknown}
     successor_fingerprints = {*(pair[1] for pair in valid_pairs), unknown}
 
-    assert len(valid_pairs) == len(_CONTENT_FINGERPRINT_PAIRS) == 21
+    assert len(valid_pairs) == len(_CONTENT_FINGERPRINT_PAIRS) == 22
     for runtime_fingerprint in runtime_fingerprints:
         for successor_fingerprint in successor_fingerprints:
             candidate = (runtime_fingerprint, successor_fingerprint)
@@ -657,8 +661,12 @@ def test_integration_pair_preserves_all_predecessors_and_rejects_cross_pairs() -
         expected_pair,
         new_pair,
         successor_pair,
+        (
+            "sha256:6c02b1ccf7fbad840641ef5b26f5517755d4a4d9c3780cf3864b20947cddfc2c",
+            "sha256:d4e78e42b89022088bb6687a7ab5cc57bcd908a3017b2b4a2e2611497d04def2",
+        ),
     )
-    assert len(set(_CONTENT_FINGERPRINT_PAIRS)) == 21
+    assert len(set(_CONTENT_FINGERPRINT_PAIRS)) == 22
     unknown = "sha256:" + "0" * 64
     rejected = [(expected_pair[0], unknown), (unknown, expected_pair[1])]
     rejected += [(runtime, expected_pair[1]) for runtime, _ in predecessors]
@@ -668,7 +676,16 @@ def test_integration_pair_preserves_all_predecessors_and_rejects_cross_pairs() -
         value = tampered[index]
         tampered[index] = value[:-1] + ("1" if value[-1] == "0" else "0")
         rejected.append(tuple(tampered))
-    accepted = {*predecessors, expected_pair, new_pair, successor_pair}
+    accepted = {
+        *predecessors,
+        expected_pair,
+        new_pair,
+        successor_pair,
+        (
+            "sha256:6c02b1ccf7fbad840641ef5b26f5517755d4a4d9c3780cf3864b20947cddfc2c",
+            "sha256:d4e78e42b89022088bb6687a7ab5cc57bcd908a3017b2b4a2e2611497d04def2",
+        ),
+    }
     assert all(
         candidate in accepted or candidate not in _CONTENT_FINGERPRINT_PAIRS
         for candidate in rejected

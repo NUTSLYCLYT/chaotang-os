@@ -437,6 +437,7 @@ def run_junjichu_council_with_report(
     processing_path: list[str] | None = None,
     execution_boundary: Callable[[], None] | None = None,
     route_is_authoritative: bool = False,
+    record_council_checkpoint: bool = True,
 ) -> JunjichuCouncilInvocationResult:
     """Compatibility orchestration boundary that owns privileged ministry context."""
 
@@ -489,13 +490,14 @@ def run_junjichu_council_with_report(
         )
         if record_council_report is not None:
             record_council_report(result.runtime_report)
-        council_path = [node for node in (processing_path or []) if node != "军机处（会审）"]
-        council_path.append("军机处（会审）")
-        lifecycle_observer.record_checkpoint(
-            status="COUNCIL_REVIEWING",
-            processing_path=council_path,
-            council_verdict=result.verdict,
-        )
+        if record_council_checkpoint:
+            council_path = [node for node in (processing_path or []) if node != "军机处（会审）"]
+            council_path.append("军机处（会审）")
+            lifecycle_observer.record_checkpoint(
+                status="COUNCIL_REVIEWING",
+                processing_path=council_path,
+                council_verdict=result.verdict,
+            )
     return result
 
 

@@ -6,7 +6,7 @@ Implemented
 
 ## Goal
 
-在单次真实任务不超过 20,000 token 的硬上限内，跑通“户部＋工部→军机处→丞相”的真实 DeepSeek 多部门流程，并保留失败闭环。
+在单次真实任务不超过 20,000 token 的硬上限内，跑通“上书房→户部＋工部→军机处→丞相→史馆”的真实 DeepSeek 多部门流程，并保留失败闭环。
 
 ## Product Definition
 
@@ -39,35 +39,40 @@ Implemented
 1. 任务账本存在时，在预留前按保守输入界限计算本轮可用输出额度。
 2. 已批准的真实路由在军机处转发给部门执行器，跳过重复的司级路由模型轮次。
 3. 用离线契约测试、Harness 和一次真实规范性多部门探针验证。
+4. 让图层只写一次规范化的军机处会审检查点；兼容编排层继续保存军机处报告，但不重复写入较短路径。
 
 ## Acceptance
 
 - `node scripts/check_harness.mjs` 通过。
+- `node scripts/check_harness.mjs --self-test` 通过（175 项）。
 - `backend/tests/test_deepseek_task_token_budget.py`、`backend/tests/test_deepseek_client.py`、`backend/tests/test_chancellor_graph.py`、`backend/tests/test_junjichu_runtime_skill.py` 通过（120 tests）。
 - 真实 DeepSeek 多部门探针成功：`C:\Users\Administrator\Desktop\Chaotang-G3-Real-Multi-Agent-Evidence-20261007.json`，SHA256 `8988A6B2966FCA35EDC8E788C44E62B0FC80ABF354AF9CF85ABFF6966A8C3CB2`。
 - 探针路径包含上书房、丞相、军机处、户部·预算司、工部·技术司、军机处会审和丞相最终汇总；实际计费 10,976 / 20,000 token，7 次 provider 调用。
+- 真实 DecreeJob worker 通过：任务 `SUCCEEDED`，8 次 provider attempt，预算 11,709 / 20,000；军机处 1 个案卷为 `ARCHIVED`，史馆写入 1 条与 `reply_id` 同源的 `REPLY`。本次使用临时 SQLite，未写入产品运行库。
 
 ## Acceptance Criteria
 
 - [x] 真实多部门流程在 20,000 token 内返回两部意见、会审结论和丞相最终回奏。
 - [x] 预算适配在剩余额度不足时仍 fail-closed，不发送无额度请求。
 - [x] 已批准路由不被真实执行中的重复模型路由覆盖。
+- [x] 持久化 worker 能完成执行、结果检查点、军机处归档和史馆回奏归档。
+- [x] 同一 `COUNCIL_REVIEWING` 状态不会因兼容层重复回写而产生路径冲突。
 - [x] Harness 指纹与运行时实现精确匹配。
 
 ## Limits
 
-- 本次使用规范性内部任务和零公网调查，未宣称锦衣卫公网证据能力。
-- 本次探针直接验证真实 Graph 和任务账本，持久化 Junjichu/史馆回奏仍需在 DecreeJob worker 中单独验收。
+- 本轮使用规范性内部任务和零公网调查，锦衣卫公网证据能力仍未宣称开放。
+- 持久化验收使用隔离临时 SQLite；客户试用前仍需配置自己的 DeepSeek 凭据、明确网络策略并按本地启动说明运行。
 
 ## Implementation Report
 
-- 动态输出上限和真实路由转发已落地；既有 2,500 上限在无任务预算的离线调用中保持不变。
-- 本轮 focused pytest 共 304 项通过，Harness 通过。
+- 动态输出上限、真实路由转发和会审检查点幂等已落地；既有 2,500 上限在无任务预算的离线调用中保持不变。
+- 本轮 focused pytest 共 304 项通过；针对会审、持久化 worker、异步整合和六部治理的回归 163 项通过；Harness 基线 159 文件、自测 175 项通过。
 
 ## Acceptance Review
 
-- 翰林院验收范围：预算账本、路由不可变性、真实 Graph 路径和失败闭环。
-- 史馆留存：真实探针 JSON 与 SHA256；持久化归档验收列为下一道门。
+- 翰林院验收范围：预算账本、路由不可变性、真实 Graph 路径、会审检查点幂等和失败闭环。
+- 史馆留存：真实探针 JSON 与 SHA256；持久化 worker 的隔离 SQLite 结果包含任务、案卷和回奏同源 ID。
 
 ## Rollback
 

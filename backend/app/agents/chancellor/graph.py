@@ -610,6 +610,12 @@ def build_chancellor_graph(
                     **council_kwargs,
                 )
             else:
+                if lifecycle_observer is not None:
+                    # The graph owns the canonical layered council checkpoint
+                    # below. The compatibility wrapper still records ministry
+                    # opinions/reports, but must not write a second, shorter
+                    # COUNCIL_REVIEWING path for the same case.
+                    council_kwargs["record_council_checkpoint"] = False
                 typed_result = run_junjichu_council_with_report(
                     state["decree_text"],
                     state["chancellor_rationale"],
