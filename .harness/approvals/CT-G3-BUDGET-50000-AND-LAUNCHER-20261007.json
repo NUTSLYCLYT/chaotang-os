@@ -1,0 +1,73 @@
+{
+  "schemaVersion": "product-authority.m0.approval.v1",
+  "authorityId": "product-authority.m0.v1",
+  "taskId": "CT-G3-BUDGET-50000-AND-LAUNCHER-20261007",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "54258323ba00165de75c495d94b33fa324022660",
+    "baseTree": "3bbfdb7ce9daa6cd4831a1b8d9419eb63bb55a1e",
+    "approvalPath": ".harness/approvals/CT-G3-BUDGET-50000-AND-LAUNCHER-20261007.json",
+    "approvalCommitPaths": [
+      ".harness/approvals/CT-G3-BUDGET-50000-AND-LAUNCHER-20261007.json",
+      "docs/product/tasks/2026-10-07-g3-budget-50000-and-launcher.md"
+    ],
+    "productPaths": [
+      "backend/app/decree_jobs/executor.py",
+      "backend/tests/test_decree_job_executor.py",
+      "scripts/start-local.ps1",
+      "scripts/start-local.test.mjs"
+    ]
+  },
+  "nonGoals": [
+    "DATABASE_OR_TASK_PERMISSION_SYSTEM_REBUILD",
+    "DESKTOP_WINDOW_OPERATION",
+    "EXTERNAL_MODEL_CREDENTIAL_OR_NETWORK_GATE_CHANGE",
+    "FRONTEND_DEPARTMENT_WORKBENCH_UI",
+    "HTTP_API_OR_SCHEMA_CHANGE",
+    "OLD_TASK_CAP_MIGRATION_OR_SILENT_BUDGET_EXPANSION",
+    "PUBLIC_DEPLOYMENT_OR_EXTERNAL_RELEASE",
+    "RESULT_OR_EVIDENCE_FABRICATION",
+    "TEST_STANDARD_WEAKENING"
+  ],
+  "verification": [
+    {
+      "id": "backend-executor-tests",
+      "tool": "python3",
+      "args": ["-m", "pytest", "tests/test_decree_job_executor.py", "tests/test_fusion_task_token_budget.py", "-q"],
+      "cwd": "backend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "backend-lint",
+      "tool": "python3",
+      "args": ["-m", "ruff", "check", "app/decree_jobs/executor.py", "tests/test_decree_job_executor.py"],
+      "cwd": "backend",
+      "timeoutMs": 120000
+    },
+    {
+      "id": "diff-check",
+      "tool": "node",
+      "args": ["--input-type=module", "-e", "import{execFileSync}from'node:child_process';execFileSync('git',['diff','--check'],{stdio:'inherit'});"] ,
+      "cwd": ".",
+      "timeoutMs": 10000
+    },
+    {
+      "id": "harness-check",
+      "tool": "node",
+      "args": ["scripts/check_harness.mjs", "--check"],
+      "cwd": ".",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "launcher-tests",
+      "tool": "node",
+      "args": ["--test", "scripts/start-local.test.mjs"],
+      "cwd": ".",
+      "timeoutMs": 300000
+    }
+  ],
+  "state": "APPROVED_FOR_ONE_CHILD"
+}
