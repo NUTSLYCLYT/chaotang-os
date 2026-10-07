@@ -208,6 +208,60 @@ export async function logoutUser(options: AuthenticatedRequestOptions): Promise<
   return requestAuth("/api/v1/auth/logout", { method: "POST" }, options);
 }
 
+export interface BingbuRequestOptions extends AuthenticatedRequestOptions {
+  method?: "GET" | "POST";
+  body?: unknown;
+}
+
+export type BingbuResult =
+  | { ok: true; status: number; data: unknown }
+  | {
+      ok: false;
+      status?: number;
+      kind: "unauthenticated" | "forbidden" | "validation" | "conflict" | "not_found" | "unavailable" | "network" | "unknown";
+    };
+
+/** Provider-neutral BFF client; model/provider selection stays behind the backend harness. */
+export async function requestBingbu(path: string, options: BingbuRequestOptions = {}): Promise<BingbuResult> {
+  const baseUrl = (options.baseUrl ?? getBackendBaseUrl()).replace(/\/+$/, "");
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), options.timeoutMs ?? 10000);
+  try {
+    const response = await fetch(`${baseUrl}${path}`, {
+      method: options.method ?? "GET",
+      ...(options.body === undefined ? {} : { body: JSON.stringify(options.body) }),
+      headers: {
+        ...(options.body === undefined ? {} : { "content-type": "application/json" }),
+        ...(options.sessionId ? { authorization: `Bearer ${options.sessionId}` } : {}),
+      },
+      signal: controller.signal,
+      cache: "no-store",
+    });
+    const data = await response.json().catch(() => null);
+    if (!response.ok) {
+      const kind = response.status === 401
+        ? "unauthenticated"
+        : response.status === 403
+          ? "forbidden"
+          : response.status === 404
+            ? "not_found"
+            : response.status === 422
+              ? "validation"
+              : response.status === 409
+                ? "conflict"
+                : response.status >= 500
+                  ? "unavailable"
+                  : "unknown";
+      return { ok: false, status: response.status, kind };
+    }
+    return { ok: true, status: response.status, data };
+  } catch {
+    return { ok: false, kind: "network" };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /** 一个司级意见，按所属部的咨询顺序保留。 */
 export interface BureauOpinion {
   bureau: string;
