@@ -1,0 +1,68 @@
+{
+  "schemaVersion": "product-authority.m0.approval.v1",
+  "authorityId": "product-authority.m0.v1",
+  "taskId": "CT-G3-CDESKTOP-F05-RECONCILE-20261007",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "1e85c1b4c7e9d209b3cd966ac5462748bc8800d7",
+    "baseTree": "cf7704759dd72786ed87564ad5079c5708ba35c1",
+    "approvalPath": ".harness/approvals/CT-G3-CDESKTOP-F05-RECONCILE-20261007.json",
+    "approvalCommitPaths": [
+      ".harness/approvals/CT-G3-CDESKTOP-F05-RECONCILE-20261007.json"
+    ],
+    "productPaths": [
+      "docs/evidence/cdesktop-f05-dispatch-reconciliation-20261007.json"
+    ]
+  },
+  "nonGoals": [
+    "NO_API_CHANGE",
+    "NO_DATABASE_CHANGE",
+    "NO_EXTERNAL_MODEL_CALL",
+    "NO_NEW_PERMISSION_SYSTEM",
+    "NO_PAGE_REDESIGN",
+    "NO_ROUTE_RENAME",
+    "NO_STATUS_OVERCLAIM",
+    "NO_UI_BEHAVIOR_CHANGE"
+  ],
+  "verification": [
+    {
+      "id": "f05-focused-tests",
+      "tool": "node",
+      "cwd": "frontend",
+      "timeoutMs": 120000,
+      "args": ["--test", "src/features/jinyiwei-visual/JinyiweiScrollDesk.test.ts"]
+    },
+    {
+      "id": "frontend-build",
+      "tool": "node",
+      "cwd": "frontend",
+      "timeoutMs": 180000,
+      "args": ["node_modules/next/dist/bin/next", "build"]
+    },
+    {
+      "id": "frontend-lint",
+      "tool": "node",
+      "cwd": "frontend",
+      "timeoutMs": 120000,
+      "args": ["node_modules/eslint/bin/eslint.js", "."]
+    },
+    {
+      "id": "frontend-typecheck",
+      "tool": "node",
+      "cwd": "frontend",
+      "timeoutMs": 120000,
+      "args": ["node_modules/typescript/bin/tsc", "--noEmit"]
+    },
+    {
+      "id": "harness-check",
+      "tool": "node",
+      "cwd": ".",
+      "timeoutMs": 120000,
+      "args": ["scripts/check_harness.mjs", "--check"]
+    }
+  ],
+  "state": "APPROVED_FOR_ONE_CHILD"
+}
