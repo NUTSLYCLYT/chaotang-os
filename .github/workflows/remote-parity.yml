@@ -1,0 +1,27 @@
+name: Remote parity
+
+on:
+  push:
+    branches: [ext-dev, main]
+  workflow_dispatch:
+  schedule:
+    - cron: '17 * * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  parity:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Compare Gitee and GitHub refs
+        shell: bash
+        run: |
+          set -euo pipefail
+          gitee="$(git ls-remote https://gitee.com/msxn/chaotang-os.git refs/heads/ext-dev | awk '{print $1}')"
+          github_ext="$(git ls-remote https://github.com/NUTSLYCLYT/chaotang-os.git refs/heads/ext-dev | awk '{print $1}')"
+          github_main="$(git ls-remote https://github.com/NUTSLYCLYT/chaotang-os.git refs/heads/main | awk '{print $1}')"
+          test -n "$gitee" && test -n "$github_ext" && test -n "$github_main"
+          printf 'Gitee ext-dev: %s\nGitHub ext-dev: %s\nGitHub main: %s\n' "$gitee" "$github_ext" "$github_main"
+          test "$gitee" = "$github_ext"
+          test "$gitee" = "$github_main"
