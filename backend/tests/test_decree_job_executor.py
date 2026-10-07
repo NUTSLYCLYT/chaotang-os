@@ -599,7 +599,7 @@ def test_executor_charges_process_and_persistent_budget_once_per_dispatch(
         configure_provider_attempt_budget(None)
 
 
-def test_persistent_executor_uses_governed_twenty_thousand_token_cap(
+def test_persistent_executor_uses_fusion_default_for_new_tasks(
     monkeypatch, tmp_path
 ) -> None:
     executor_module = _executor_module()
@@ -632,7 +632,7 @@ def test_persistent_executor_uses_governed_twenty_thousand_token_cap(
 
     executor_module.PersistentDecreeJobExecutor().execute(_job(), control)
 
-    assert captured == [20_000]
+    assert captured == [None]
 
 
 def test_executor_does_not_prepare_accounting_before_agent_execution(

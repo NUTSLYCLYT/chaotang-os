@@ -97,6 +97,35 @@ function Invoke-NpmBuild {
     }
 }
 
+function Sync-StandaloneDirectory {
+    param(
+        [Parameter(Mandatory = $true)][string]$Source,
+        [Parameter(Mandatory = $true)][string]$Destination
+    )
+    if (-not (Test-Path -LiteralPath $Source -PathType Container)) {
+        throw "standalone 资源源目录不存在：$Source"
+    }
+    if (Test-Path -LiteralPath $Destination) {
+        Remove-Item -LiteralPath $Destination -Recurse -Force
+    }
+    [System.IO.Directory]::CreateDirectory($Destination) | Out-Null
+    Get-ChildItem -LiteralPath $Source -Force | ForEach-Object {
+        Copy-Item -LiteralPath $_.FullName -Destination $Destination -Recurse -Force
+    }
+}
+
+function Ensure-StandaloneAssets {
+    $standaloneRoot = Join-Path $frontendRoot ".next\standalone"
+    if (-not (Test-Path -LiteralPath $standaloneRoot -PathType Container)) {
+        throw "未找到 standalone 输出目录：$standaloneRoot。请使用 -Build 重新构建前端。"
+    }
+    Sync-StandaloneDirectory (Join-Path $frontendRoot ".next\static") (Join-Path $standaloneRoot ".next\static")
+    $publicRoot = Join-Path $frontendRoot "public"
+    if (Test-Path -LiteralPath $publicRoot -PathType Container) {
+        Sync-StandaloneDirectory $publicRoot (Join-Path $standaloneRoot "public")
+    }
+}
+
 function Start-ManagedProcess {
     param(
         [string]$Name,
@@ -192,6 +221,8 @@ $buildId = Join-Path $frontendRoot ".next\BUILD_ID"
 if ($Build) { Invoke-NpmBuild; $frontendMode = "production" }
 elseif (Test-Path -LiteralPath $buildId -PathType Leaf) { $frontendMode = "production" }
 else { Write-Output "未找到 frontend/.next/BUILD_ID，切换为 Next.js 开发模式；如需生产模式请使用 -Build。"; $frontendMode = "development" }
+
+if ($frontendMode -eq "production") { Ensure-StandaloneAssets }
 
 $backendEnv = @{ PYTHONDONTWRITEBYTECODE = "1"; CHAOTANG_DECREE_JOB_WORKER_ENABLED = "1" }
 $frontendEnv = @{

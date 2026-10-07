@@ -25,6 +25,14 @@ test("local launcher binds loopback only and waits for both real services", () =
   assert.match(script, /StatusCode -eq 200/);
 });
 
+test("local production launcher copies standalone static and public assets", () => {
+  assert.match(script, /function Sync-StandaloneDirectory/);
+  assert.match(script, /function Ensure-StandaloneAssets/);
+  assert.match(script, /Ensure-StandaloneAssets/);
+  assert.match(script, /\.next\\static/);
+  assert.match(script, /Join-Path \$standaloneRoot "public"/);
+});
+
 test("local launcher never invents model credentials or opens a browser", () => {
   assert.doesNotMatch(script, /DEEPSEEK_API_KEY\s*=/);
   assert.doesNotMatch(script, /OPENAI_API_KEY\s*=/);
