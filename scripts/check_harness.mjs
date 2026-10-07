@@ -2512,7 +2512,7 @@ Escalation: name observable evidence
           && SIX_MINISTRY_RUNTIME_CONTENT_FILES.length === SIX_MINISTRY_RUNTIME_CONTENT_FILE_COUNT
           && SIX_MINISTRY_RUNTIME_CONTENT_EXCLUSIONS.length === 4
           && SIX_MINISTRY_SUCCESSOR_CONTENT_PATHS.length === 2
-          && SIX_MINISTRY_CONTENT_FINGERPRINT_PAIRS.length === 20
+          && SIX_MINISTRY_CONTENT_FINGERPRINT_PAIRS.length === 21
           && SIX_MINISTRY_CONTENT_FINGERPRINT_PAIRS.every(
             (pair) => Array.isArray(pair) && pair.length === 2,
           )
@@ -2526,7 +2526,7 @@ Escalation: name observable evidence
       true,
     ],
     [
-      "六部 Runtime 指纹门禁只接受二十组精确兼容对并拒绝单边、混搭、篡改与未知状态",
+      "六部 Runtime 指纹门禁只接受二十一组精确兼容对并拒绝单边、混搭、篡改与未知状态",
       (() => {
         const unknown = `sha256:${"0".repeat(64)}`;
         const fifthPair = [
@@ -2570,6 +2570,10 @@ Escalation: name observable evidence
           "sha256:6b9521165b821729a3548f3535b90c30aab9b874c81b1b1b437bb5af64d06e34",
         ];
         const integrationPair = ["sha256:da31d9d44a2d9fc81e562d0f59027b5a7114afacbdd9f6803b5511350d9c9666", "sha256:8c4e1669489eb5ec90a79e8e123a390a6e5b74fcc369adcd249493c5ba7c326e"];
+        const budgetAdaptationPair = [
+          "sha256:48819e3927b9e794fa5a1c24de9768c5b20b25feba1880e89394a66d33eff9e9",
+          "sha256:d4e78e42b89022088bb6687a7ab5cc57bcd908a3017b2b4a2e2611497d04def2",
+        ];
         const expectedPairs = [
           ["sha256:013bfb8272e936be85c2d470033787c3b7f105ad6eae2dfe680373df023b5e69", "sha256:709ebaf18862a4c2d78422756ca1e353eeb8dd5925c624ee74d9ebdaf43cc924"],
           ["sha256:c95630be3d79f2641ff6e483f4096b0763b9e5071544f1e0ead0d7e24eb1cba5", "sha256:268cab13e516d0f716f600819f2bddc8242269312d392eca4ed1be2de05ce051"],
@@ -2591,6 +2595,7 @@ Escalation: name observable evidence
           ["sha256:9b9927bb53cccc26e074c1f382630d94445d0b207cddfa88930dcfc3f7b705a0", "sha256:d4e78e42b89022088bb6687a7ab5cc57bcd908a3017b2b4a2e2611497d04def2"],
           ["sha256:c711c32fea39b31177e49f836455102a25fc4b9662363075b24fc25efb73991f", "sha256:d4e78e42b89022088bb6687a7ab5cc57bcd908a3017b2b4a2e2611497d04def2"],
           ["sha256:9a78e2b67840d116179d755fd3d9949643d7dec1942e60e93ae15b393be0e018", "sha256:d4e78e42b89022088bb6687a7ab5cc57bcd908a3017b2b4a2e2611497d04def2"],
+          budgetAdaptationPair,
         ];
         const validPairs = new Set(
           SIX_MINISTRY_CONTENT_FINGERPRINT_PAIRS.map(([runtime, successor]) => (
