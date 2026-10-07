@@ -16,7 +16,10 @@ test("local launcher exposes explicit start/stop/status actions", () => {
 
 test("local launcher binds loopback only and waits for both real services", () => {
   assert.match(script, /--host 127\.0\.0\.1 --port \$BackendPort/);
-  assert.match(script, /--hostname 127\.0\.0\.1 --port \$FrontendPort/);
+  assert.match(script, /HOSTNAME = "127\.0\.0\.1"/);
+  assert.match(script, /PORT = "\$FrontendPort"/);
+  assert.match(script, /Start-ManagedProcess "frontend" \$npm "run start"/);
+  assert.doesNotMatch(script, /run start -- --hostname/);
   assert.match(script, /Wait-Http "http:\/\/127\.0\.0\.1:\$BackendPort\/health"/);
   assert.match(script, /Wait-Http "http:\/\/127\.0\.0\.1:\$FrontendPort\/"/);
   assert.match(script, /StatusCode -eq 200/);

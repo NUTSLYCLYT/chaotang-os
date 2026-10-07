@@ -54,6 +54,21 @@ export function OfficeScene({
         style={{ "--accent": department.accent } as CSSProperties}
         data-view-state={replyView.status}
       >
+        <div className={styles.departmentStatusBar} data-office-status-bar>
+          <span className={styles.departmentStatusWho}>
+            <i aria-hidden="true" />
+            <strong>{department.name} / {office.name}</strong>
+            <em>司级办事台</em>
+          </span>
+          <span className={styles.departmentStatusSep} aria-hidden="true" />
+          <span className={styles.departmentStatusStat}>
+            <b>{office.responsibilities.length}</b>本司职掌
+          </span>
+          <span className={styles.departmentStatusStat}>
+            <b>{replyView.countLabel}</b>部门回奏
+          </span>
+          <span className={styles.departmentStatusSource}>数据源 · 当前用户史馆 REPLY</span>
+        </div>
         <header className={styles.departmentPageHeader}>
           <div>
             <div className={styles.departmentBreadcrumb}>

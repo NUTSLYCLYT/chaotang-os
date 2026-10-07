@@ -55,6 +55,21 @@ export function DepartmentScene({
         style={{ "--accent": department.accent } as CSSProperties}
         data-view-state={replyView.status}
       >
+        <div className={styles.departmentStatusBar} data-department-status-bar>
+          <span className={styles.departmentStatusWho}>
+            <i aria-hidden="true" />
+            <strong>{department.name}</strong>
+            <em>部级工作台</em>
+          </span>
+          <span className={styles.departmentStatusSep} aria-hidden="true" />
+          <span className={styles.departmentStatusStat}>
+            <b>{department.offices.length}</b>下属专司
+          </span>
+          <span className={styles.departmentStatusStat}>
+            <b>{replyView.countLabel}</b>部门回奏
+          </span>
+          <span className={styles.departmentStatusSource}>数据源 · 当前用户史馆 REPLY</span>
+        </div>
         <header className={styles.departmentPageHeader}>
           <div>
             <Link href="/liubu">← 六部</Link>

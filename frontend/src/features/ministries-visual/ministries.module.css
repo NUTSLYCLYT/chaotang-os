@@ -94,8 +94,7 @@
 .departmentRailList li > a { align-self: stretch; display: grid; place-items: center; padding: 7px; color: var(--accent); text-decoration: none; }
 .departmentEdictStage { min-height: 580px; }
 .departmentEdictBody { color: #3d2c18; }
-.departmentEdictActions { display: flex; flex-wrap: wrap; justify-content: center; gap: 7px; }
-.departmentEdictActions button { padding: 7px 9px; }
+.departmentEdictActions { display: flex; flex-wrap: wrap; justify-content: center; gap: 9px; }
 .edictFacts { display: grid; gap: 12px; margin: 0; }
 .edictFacts div { padding-bottom: 10px; border-bottom: 1px solid #6d4c2a3d; }
 .edictFacts dt { color: #805d34; font-size: 12px; }
@@ -117,6 +116,146 @@
 .departmentOpinionNotice h2, .departmentOpinionNotice p { margin: 0; }
 .departmentOpinionNotice p { margin-top: 7px; color: #c6b79d; line-height: 1.6; overflow-wrap: anywhere; }
 .departmentSrOnly { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+/* ==================================================================
+   工作台视觉升级（2026-10-07，owner 拍板）：顶部状态条 / 匾额面板 / 案卷行项
+   艺术风格不变：仍为墨底 + 金 + 部色 + 发丝金线；只补骨架与层级，未引入新色系。
+   ================================================================== */
+
+/* —— 顶部状态条：把既有字段提到台前 —— */
+.departmentStatusBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 11px 15px;
+  border: 1px solid #ffffff1f;
+  background: rgba(8, 10, 16, .78);
+}
+.departmentStatusWho {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  color: #f6ead1;
+}
+.departmentStatusWho strong {
+  font: 700 13.5px/1.2 var(--font-serif, serif);
+  letter-spacing: .1em;
+}
+.departmentStatusWho i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 10px var(--accent);
+}
+.departmentStatusWho em {
+  color: #8f8574;
+  font: 400 11px/1.2 var(--font-sans, sans-serif);
+  font-style: normal;
+  letter-spacing: .02em;
+}
+.departmentStatusSep { width: 1px; height: 20px; background: #ffffff24; }
+.departmentStatusStat { color: #c1b49c; font-size: 12px; }
+.departmentStatusStat b {
+  margin-right: 5px;
+  color: #f0c66a;
+  font: 700 13px/1 var(--font-mono, monospace);
+}
+.departmentStatusSource { margin-left: auto; color: #6f685a; font-size: 11.5px; }
+
+/* —— 匾额面板：四角金飾 + 发丝金线，与卷轴/匾额同源 —— */
+.departmentRailPanel { position: relative; }
+.departmentRailPanel::after {
+  position: absolute;
+  inset: 5px;
+  opacity: .5;
+  background:
+    linear-gradient(#d4a84b, #d4a84b) left top / 12px 1px no-repeat,
+    linear-gradient(#d4a84b, #d4a84b) left top / 1px 12px no-repeat,
+    linear-gradient(#d4a84b, #d4a84b) right top / 12px 1px no-repeat,
+    linear-gradient(#d4a84b, #d4a84b) right top / 1px 12px no-repeat,
+    linear-gradient(#d4a84b, #d4a84b) left bottom / 12px 1px no-repeat,
+    linear-gradient(#d4a84b, #d4a84b) left bottom / 1px 12px no-repeat,
+    linear-gradient(#d4a84b, #d4a84b) right bottom / 12px 1px no-repeat,
+    linear-gradient(#d4a84b, #d4a84b) right bottom / 1px 12px no-repeat;
+  content: "";
+  pointer-events: none;
+}
+.departmentRailHeader {
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  background: linear-gradient(180deg, #d4a84b0f, transparent);
+}
+.departmentRailHeader::before {
+  width: 3px;
+  height: 15px;
+  flex: 0 0 auto;
+  background: linear-gradient(180deg, var(--accent), color-mix(in srgb, var(--accent), transparent 55%));
+  content: "";
+}
+.departmentRailHeader span { margin-left: auto; }
+.departmentRailHeader strong { letter-spacing: .1em; color: #f6ead1; }
+
+/* —— 案卷行项：部色竖条 + 选中态 —— */
+.departmentRailList li {
+  position: relative;
+  overflow: hidden;
+  background: rgba(255, 255, 255, .015);
+  transition: border-color 200ms ease, background 200ms ease;
+}
+.departmentRailList li::before {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 2px;
+  background: color-mix(in srgb, var(--accent), transparent 55%);
+  content: "";
+  transition: background 200ms ease, width 200ms ease;
+}
+.departmentRailList li:hover {
+  border-color: color-mix(in srgb, var(--accent), transparent 42%);
+  background: rgba(255, 255, 255, .04);
+}
+.departmentRailList li:hover::before { background: var(--accent); }
+.departmentRailList li[data-selected] {
+  background: color-mix(in srgb, var(--accent), transparent 92%);
+}
+.departmentRailList li[data-selected]::before { width: 3px; background: var(--accent); }
+.departmentRailList button strong { color: #f6ead1; letter-spacing: .04em; }
+.departmentRailList button:focus-visible,
+.departmentRailList li > a:focus-visible { outline: 2px solid #f0c66a; outline-offset: 2px; }
+
+/* —— 导航按钮：素牍语汇（悬停才浮金） —— */
+.departmentNavigation a,
+.officeNavigation a {
+  transition:
+    border-color 200ms cubic-bezier(0.16, 1, 0.3, 1),
+    color 200ms cubic-bezier(0.16, 1, 0.3, 1),
+    background 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.departmentNavigation a:hover,
+.officeNavigation a:hover { border-color: #d4a84b; background: rgba(212, 168, 75, .08); color: #fff1ca; }
+.departmentNavigation a[data-current],
+.officeNavigation a[data-current] {
+  background: color-mix(in srgb, var(--accent), transparent 90%);
+}
+
+/* —— 重试按钮：纳入统一按钮语汇 —— */
+.departmentReadError button {
+  padding: 8px 14px;
+  border: 1px solid #ffffff28;
+  background: rgba(255, 255, 255, .03);
+  color: #e5c3b9;
+  font-family: var(--font-serif, serif);
+  letter-spacing: .08em;
+  cursor: pointer;
+  transition: border-color 200ms ease, background 200ms ease;
+}
+.departmentReadError button:hover { border-color: #c08070; background: rgba(255, 255, 255, .06); }
 
 :is(.overview, .departmentWorkspace) button:focus-visible,
 :is(.overview, .departmentWorkspace) a:focus-visible { outline: 2px solid #f0c66a; outline-offset: 3px; }
