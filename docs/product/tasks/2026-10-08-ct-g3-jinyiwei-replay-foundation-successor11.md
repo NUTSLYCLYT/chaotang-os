@@ -1,4 +1,4 @@
-# 任务：锦衣卫可回放证据工作流基础层（successor10）
+# 任务：锦衣卫可回放证据工作流基础层（successor11）
 
 ## Status
 
@@ -7,7 +7,7 @@ In Progress
 ## Product Definition
 
 - 用户已明确授权“全部授权批准”，要求最终看到完整可验收结果。
-- 目标：在不破坏 ADR 0028 的前提下，建立不可变调查事件账本、确定性离线回放、解释性 replay diff 和可恢复长任务 graph 基础。
+- 目标：建立不可变调查事件账本、确定性离线回放、解释性 replay diff 和可恢复长任务 graph 基础，同时保持 ADR 0028 边界。
 - 非目标：新闻抓取、地图 UI、外网开关、Temporal、OpenFGA、公开部署和前端路由改造。
 
 ## Delivery Constraints
