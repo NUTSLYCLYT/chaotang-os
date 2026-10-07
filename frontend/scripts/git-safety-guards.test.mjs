@@ -12,17 +12,22 @@ function resolveBash() {
   if (process.platform !== 'win32') return 'bash';
   const candidates = [
     process.env.BASH,
+    process.env.CHAOTANG_GIT_BASH,
     process.env.ProgramFiles ? join(process.env.ProgramFiles, 'Git', 'bin', 'bash.exe') : null,
     process.env['ProgramFiles(x86)']
       ? join(process.env['ProgramFiles(x86)'], 'Git', 'bin', 'bash.exe')
       : null,
+    'C:\\Tools\\PortableGit\\bin\\bash.exe',
+    'C:\\Tools\\PortableGit\\usr\\bin\\bash.exe',
   ].filter((candidate) => candidate && existsSync(candidate));
   return candidates[0] ?? 'bash';
 }
 
 function run(cwd, command, args) {
   const executable = command === 'bash' ? resolveBash() : command;
-  return spawnSync(executable, args, { cwd, encoding: 'utf8' });
+  const result = spawnSync(executable, args, { cwd, encoding: 'utf8' });
+  assert.ifError(result.error);
+  return result;
 }
 
 function git(cwd, ...args) {

@@ -224,6 +224,83 @@ def test_extractor_deterministically_maps_exact_wikidata_entity_result() -> None
     assert evidence[0].quality is EvidenceQuality.SECONDARY
 
 
+def test_extractor_deterministically_maps_github_repository_metadata() -> None:
+    fact = RequiredFact(
+        key="github_repository:metadata",
+        description="核查 GitHub 开源项目元数据",
+        category=FactCategory.ENTITY_REFERENCE,
+        data_scope="EXTERNAL_PUBLIC",
+        subject="github:promptfoo/promptfoo",
+        expected_shape="object",
+    )
+    request = DataGapRequest(
+        request_id="req-github",
+        requesting_agent="bureau:礼部:内容司",
+        question="核查 GitHub 开源项目",
+        required_facts=(fact,),
+        decision_context="项目接入评估",
+        freshness=FreshnessRequirement(max_age_seconds=86400),
+        timeout_seconds=30,
+        source_scope=(SourceType.PUBLIC_API,),
+    )
+    query = SourceQuery(
+        request=request,
+        unresolved_fact_keys=(fact.key,),
+        max_items=3,
+        deadline_at="2099-07-20T12:00:00Z",
+    )
+    document = SourceDocument(
+        source_type=SourceType.PUBLIC_API,
+        source_name="github_repository_search",
+        source_url=(
+            "https://api.github.com/search/repositories?q=repo%3Apromptfoo%2Fpromptfoo"
+            "&per_page=1"
+        ),
+        publisher="GitHub",
+        title="promptfoo/promptfoo",
+        retrieved_at="2026-07-20T12:00:00Z",
+        as_of="2026-07-20T11:00:00Z",
+        text=(
+            "promptfoo/promptfoo: Test and evaluate LLM apps. License: MIT. "
+            "Updated: 2026-07-20T11:00:00Z. Pushed: 2026-07-20T10:00:00Z. "
+            "Stars: 12345. Open issues: 12. Default branch: main."
+        ),
+        quality_ceiling=EvidenceQuality.AUTHORITATIVE,
+        license_note=(
+            "Repository license is publisher-declared; verify the repository "
+            "license before reuse."
+        ),
+        metadata={
+            "connector": "github_repository_search",
+            "repository": {
+                "full_name": "promptfoo/promptfoo",
+                "html_url": "https://github.com/promptfoo/promptfoo",
+                "description": "Test and evaluate LLM apps.",
+                "license_spdx_id": "MIT",
+                "license_name": "MIT License",
+                "updated_at": "2026-07-20T11:00:00Z",
+                "pushed_at": "2026-07-20T10:00:00Z",
+                "created_at": "2024-01-01T00:00:00Z",
+                "stargazers_count": 12345,
+                "open_issues_count": 12,
+                "default_branch": "main",
+            },
+        },
+    )
+
+    calls: list[str] = []
+    evidence = StructuredEvidenceExtractor(
+        model=lambda prompt: calls.append(prompt) or "{}"
+    ).extract(query, (document,))
+
+    assert calls == []
+    assert len(evidence) == 1
+    assert evidence[0].value["full_name"] == "promptfoo/promptfoo"
+    assert evidence[0].value["license_spdx_id"] == "MIT"
+    assert evidence[0].access_url == "https://github.com/promptfoo/promptfoo"
+    assert evidence[0].quality is EvidenceQuality.AUTHORITATIVE
+
+
 def test_extractor_derives_provenance_hash_confidence_and_deterministic_id() -> None:
     prompts: list[str] = []
 

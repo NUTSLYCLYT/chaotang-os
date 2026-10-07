@@ -1,0 +1,81 @@
+{
+  "schemaVersion": "product-authority.m0.approval.v1",
+  "authorityId": "product-authority.m0.v1",
+  "taskId": "CT-G3-JINYIWEI-DISPATCH-VIEW-20261007",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "7816746ba0b51ae15bba459acd28859f479e23a7",
+    "baseTree": "f5b800a7da0b84c07d210266f5a903f5ef2d1202",
+    "approvalPath": ".harness/approvals/CT-G3-JINYIWEI-DISPATCH-VIEW-20261007.json",
+    "approvalCommitPaths": [
+      ".harness/approvals/CT-G3-JINYIWEI-DISPATCH-VIEW-20261007.json",
+      "docs/product/tasks/2026-10-07-g3-jinyiwei-dispatch-view.md"
+    ],
+    "productPaths": [
+      "frontend/src/features/jinyiwei-visual/JinyiweiScrollDesk.module.css",
+      "frontend/src/features/jinyiwei-visual/JinyiweiScrollDesk.test.ts",
+      "frontend/src/features/jinyiwei-visual/JinyiweiScrollDesk.tsx",
+      "frontend/src/features/jinyiwei-visual/jinyiweiDispatch.ts"
+    ]
+  },
+  "nonGoals": [
+    "NO_AUTHORITY_OR_ADR_CHANGE",
+    "NO_BACKEND_API_OR_SCHEMA_CHANGE",
+    "NO_DATABASE_OR_RESULT_LEDGER_WRITE",
+    "NO_DESKTOP_WINDOW_OPERATION",
+    "NO_EXTERNAL_MODEL_OR_NETWORK_CALL",
+    "NO_NEW_TASK_OR_PERMISSION_SYSTEM",
+    "NO_PUBLIC_DEPLOYMENT",
+    "NO_ROUTE_OR_SCENE_PACK_CONTRACT_CHANGE",
+    "NO_TEST_WEAKENING",
+    "NO_VISUAL_THEME_REDESIGN"
+  ],
+  "verification": [
+    {
+      "id": "frontend-build",
+      "tool": "node",
+      "cwd": "frontend",
+      "timeoutMs": 300000,
+      "args": ["node_modules/next/dist/bin/next", "build"]
+    },
+    {
+      "id": "frontend-full-tests",
+      "tool": "node",
+      "cwd": "frontend",
+      "timeoutMs": 300000,
+      "args": ["--test"]
+    },
+    {
+      "id": "frontend-lint",
+      "tool": "node",
+      "cwd": "frontend",
+      "timeoutMs": 300000,
+      "args": ["node_modules/eslint/bin/eslint.js", "."]
+    },
+    {
+      "id": "frontend-typecheck",
+      "tool": "node",
+      "cwd": "frontend",
+      "timeoutMs": 300000,
+      "args": ["node_modules/typescript/bin/tsc", "--noEmit"]
+    },
+    {
+      "id": "harness-check",
+      "tool": "node",
+      "cwd": ".",
+      "timeoutMs": 300000,
+      "args": ["scripts/check_harness.mjs", "--check"]
+    },
+    {
+      "id": "jinyiwei-dispatch-tests",
+      "tool": "node",
+      "cwd": "frontend",
+      "timeoutMs": 300000,
+      "args": ["--test", "src/features/jinyiwei-visual/JinyiweiScrollDesk.test.ts"]
+    }
+  ],
+  "state": "APPROVED_FOR_ONE_CHILD"
+}

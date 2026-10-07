@@ -25,7 +25,13 @@ export function readSessionId(request: Request): string | null {
 }
 
 function cookieAttributes(maxAge?: number): string {
-  const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
+  // The production build is also used by the local Windows launcher over
+  // http://127.0.0.1. Keep Secure as the safe default, but let that launcher
+  // explicitly opt out; browsers otherwise refuse to send the session cookie
+  // back over its local HTTP connection and every protected page redirects to
+  // login. Public HTTPS deployments must leave this unset or set it to true.
+  const localHttpOverride = process.env.CHAOTANG_COOKIE_SECURE?.trim().toLowerCase() === "false";
+  const secure = process.env.NODE_ENV === "production" && !localHttpOverride ? "; Secure" : "";
   const expiration = maxAge === undefined ? "" : `; Max-Age=${maxAge}`;
   return `Path=/; HttpOnly; SameSite=Lax${secure}${expiration}`;
 }

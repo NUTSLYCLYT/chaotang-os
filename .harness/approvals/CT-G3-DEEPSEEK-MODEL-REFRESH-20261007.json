@@ -1,0 +1,65 @@
+{
+  "schemaVersion": "product-authority.m0.approval.v1",
+  "authorityId": "product-authority.m0.v1",
+  "taskId": "CT-G3-DEEPSEEK-MODEL-REFRESH-20261007",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "18ae2406b31c42fd3f7cf13253139b5cdb0bebb3",
+    "baseTree": "79c80c9e64370349f64ef6e97be8df4ad0862b5f",
+    "approvalPath": ".harness/approvals/CT-G3-DEEPSEEK-MODEL-REFRESH-20261007.json",
+    "approvalCommitPaths": [
+      ".harness/approvals/CT-G3-DEEPSEEK-MODEL-REFRESH-20261007.json",
+      "docs/product/tasks/2026-10-07-g3-deepseek-model-refresh.md"
+    ],
+    "productPaths": [
+      "backend/config/providers.yaml",
+      "backend/tests/test_deepseek_config.py",
+      "docs/evidence/g3-deepseek-model-refresh-20261007.json"
+    ]
+  },
+  "nonGoals": [
+    "NO_API_OR_DATABASE_CHANGE",
+    "NO_DESKTOP_WINDOW_OPERATION",
+    "NO_EXTERNAL_ACCOUNT_OR_CREDENTIAL_CHANGE",
+    "NO_FRONTEND_OR_UI_CHANGE",
+    "NO_NEW_PROVIDER_OR_TASK_SYSTEM",
+    "NO_PERMISSION_BOUNDARY_CHANGE",
+    "NO_PUBLIC_DEPLOYMENT",
+    "NO_RESULT_CONTRACT_CHANGE",
+    "NO_TEST_WEAKENING"
+  ],
+  "verification": [
+    {
+      "id": "deepseek-config-structural",
+      "tool": "node",
+      "args": ["--input-type=module", "-e", "import fs from'node:fs';const s=fs.readFileSync('backend/config/providers.yaml','utf8');if(!s.includes('default_model: openai/deepseek-flash')||!s.includes('- openai/deepseek-flash')||!s.includes('- openai/deepseek-v4-pro'))process.exit(1);"],
+      "cwd": ".",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "diff-check",
+      "tool": "node",
+      "args": ["--input-type=module", "-e", "import{execFileSync}from'node:child_process';execFileSync('git',['diff','--check'],{stdio:'inherit'});"],
+      "cwd": ".",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "harness-check",
+      "tool": "node",
+      "args": ["scripts/check_harness.mjs", "--check"],
+      "cwd": ".",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "product-authority-regression",
+      "tool": "node",
+      "args": ["--test", "scripts/product-authority.test.mjs"],
+      "cwd": ".",
+      "timeoutMs": 300000
+    }
+  ],
+  "state": "APPROVED_FOR_ONE_CHILD"
+}

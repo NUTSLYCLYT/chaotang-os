@@ -192,6 +192,57 @@ function AcceptanceList({
   );
 }
 
+function resultFollowUpText(
+  mode: "revise" | "reuse",
+  decreeText: string,
+  finalVerdict: string,
+): string {
+  const instruction = mode === "revise"
+    ? "请基于上一回奏提出修改方案，先由丞相复述修改目标，再让我确认后办理。"
+    : "请基于上一回奏继续办理一个新任务，先由丞相复述目标，再让我确认后办理。";
+  const source = decreeText.trim().slice(0, 760);
+  const verdict = finalVerdict.trim().slice(0, 760);
+  return [instruction, source ? `原任务：${source}` : "", verdict ? `上一回奏结论：${verdict}` : ""]
+    .filter(Boolean)
+    .join("\n\n")
+    .slice(0, 2000);
+}
+
+function ResultFollowUpActions({
+  decreeText,
+  finalVerdict,
+  onPrepare,
+}: {
+  decreeText: string;
+  finalVerdict: string;
+  onPrepare(value: string): void;
+}) {
+  return (
+    <section aria-label="成果下一步" data-testid="result-follow-up-actions">
+      <h2>下一步</h2>
+      <p>以下操作只会把上下文带回上书房，仍需您编辑、确认拟旨并主动下旨。</p>
+      <div>
+        <button
+          type="button"
+          className={styles.recoverySecondary}
+          data-testid="result-revise-button"
+          onClick={() => onPrepare(resultFollowUpText("revise", decreeText, finalVerdict))}
+        >
+          提出修改 · 回到上书房
+        </button>
+        <button
+          type="button"
+          className={styles.recoverySecondary}
+          data-testid="result-reuse-button"
+          onClick={() => onPrepare(resultFollowUpText("reuse", decreeText, finalVerdict))}
+        >
+          复用为新任务 · 回到上书房
+        </button>
+      </div>
+    </section>
+  );
+}
+
 function VerifiedJobProgress({
   progress,
   freshness = "current",
@@ -647,6 +698,11 @@ export function DevStudyWorkspace(props: DevStudyWorkspaceProps) {
                   {artifactView.map((artifact) => (
                     <StudyArtifactConfirmation key={artifact.artifactId} artifactId={artifact.artifactId} />
                   ))}
+                  <ResultFollowUpActions
+                    decreeText={props.decreeText}
+                    finalVerdict={props.uiState.finalVerdict}
+                    onPrepare={props.onDecreeTextChange}
+                  />
                 </div>
               </section>
             </EdictStage>

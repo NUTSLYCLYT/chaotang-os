@@ -293,7 +293,7 @@ export function StudyArtifactLinks(
           "data-testid": `decree-artifact-${artifact.artifactId}`,
           href: `/api/report-artifacts/${encodeURIComponent(artifact.artifactId)}`,
         },
-        `下载财务报告：${artifact.displayName}（${artifact.periodStart}–${artifact.periodEnd}）`,
+        `下载成果：${artifact.displayName}（${artifact.periodStart}–${artifact.periodEnd}）`,
       ),
     )),
   );

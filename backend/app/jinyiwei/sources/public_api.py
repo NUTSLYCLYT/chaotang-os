@@ -135,7 +135,7 @@ class PublicApiSource:
                             license_note=record.license_note,
                             text=record.text,
                             quality_ceiling=connector.quality_ceiling,
-                            metadata={"connector": connector.name},
+                            metadata={"connector": connector.name, **dict(record.metadata)},
                         )
                     )
                     if is_news:

@@ -56,6 +56,24 @@ test("sets Secure on the production session cookie", () => {
   }
 });
 
+test("allows the local HTTP runtime to opt out of Secure in production mode", () => {
+  const environment = process.env as Record<string, string | undefined>;
+  const originalNodeEnv = environment.NODE_ENV;
+  const originalCookieSecure = environment.CHAOTANG_COOKIE_SECURE;
+  environment.NODE_ENV = "production";
+  environment.CHAOTANG_COOKIE_SECURE = "false";
+  try {
+    const response = new Response(null);
+    setSessionCookie(response, "test-session");
+    assert.doesNotMatch(response.headers.get("set-cookie") ?? "", /; Secure/);
+  } finally {
+    if (originalNodeEnv === undefined) delete environment.NODE_ENV;
+    else environment.NODE_ENV = originalNodeEnv;
+    if (originalCookieSecure === undefined) delete environment.CHAOTANG_COOKIE_SECURE;
+    else environment.CHAOTANG_COOKIE_SECURE = originalCookieSecure;
+  }
+});
+
 test("clears the session cookie at the same path", () => {
   const response = new Response(null);
   clearSessionCookie(response);

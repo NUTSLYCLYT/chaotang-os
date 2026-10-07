@@ -22,6 +22,7 @@ import app.operations.sqlite_backup as sqlite_backup
 from app.accounting_reports.storage import ArtifactStorage
 from app.agents.runtime_skills.execution_ledger import RuntimeBindingLedger
 from app.decree_jobs.storage import DecreeJobStore
+from app.fusion.task_token_budget import TaskTokenBudget
 from app.jinyiwei import db as jinyiwei_db
 from app.junjichu_cases import storage as junjichu_storage
 from app.mingshuo import storage as mingshuo_storage
@@ -48,6 +49,9 @@ _DECREE_SCHEMA_OLD = (
 )
 _DECREE_SCHEMA_NEW = (
     "sha256:3c3599af569b192c3cd038a43038a071b2e3575c4cdc34bf748938ae1b2f3fb2"
+)
+_DECREE_SCHEMA_WITH_TASK_BUDGET = (
+    "sha256:b22124059f732c39b895302cd28a704150399301692133b47542e8e50efb8b30"
 )
 
 
@@ -552,6 +556,28 @@ def test_backup_manifest_binds_the_actual_allowed_decree_schema(
     assert rehearse_restore(backup, tmp_path / "restored").source_snapshot_identity == (
         result.source_snapshot_identity
     )
+
+
+def test_backup_and_restore_accept_the_exact_task_budget_schema(tmp_path: Path) -> None:
+    source = _create_runtime(tmp_path / "source")
+    TaskTokenBudget(
+        source / "decree_jobs.sqlite3",
+        owner_id="owner-a",
+        task_id="task-a",
+        max_tokens=20_000,
+    )
+    with sqlite3.connect(source / "decree_jobs.sqlite3") as connection:
+        assert schema_contract_digest_connection(connection) == _DECREE_SCHEMA_WITH_TASK_BUDGET
+
+    backup = tmp_path / "backup"
+    restored = tmp_path / "restored"
+    result = backup_runtime(source, backup)
+    verified = verify_backup(backup)
+    rehearsed = rehearse_restore(backup, restored)
+
+    assert verified.source_snapshot_identity == result.source_snapshot_identity
+    assert rehearsed.source_snapshot_identity == result.source_snapshot_identity
+    DecreeJobStore(restored / "decree_jobs.sqlite3")
 
 
 @pytest.mark.parametrize(

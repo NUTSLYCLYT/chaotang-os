@@ -78,6 +78,17 @@
 .caseBody section { margin-top: 21px; border-top: 1px solid rgba(94, 60, 31, .32); }
 .caseBody h3 { margin: 13px 0 2px; color: #5d291d; font-size: 20px; }
 .caseBody p { margin: 0; }
+.dispatchSpine { display: grid; gap: 9px; margin: 12px 0 0; padding: 0; list-style: none; }
+.dispatchRow { display: flex; justify-content: space-between; gap: 14px; border: 1px solid rgba(94, 60, 31, .28); background: rgba(255, 252, 240, .55); padding: 10px 12px; }
+.dispatchRow > div:first-child { display: grid; gap: 2px; min-width: 0; }
+.dispatchRow strong { color: #5d291d; font-size: 16px; overflow-wrap: anywhere; }
+.dispatchRow span { color: #6b5c4e; font-size: 13px; }
+.dispatchMeta { display: grid; flex: 0 0 auto; justify-items: end; gap: 4px; text-align: right; }
+.dispatchMeta small { color: #806f5d; font: 12px/1.4 ui-monospace, monospace; white-space: nowrap; }
+.dispatchStatus { font-size: 12px; letter-spacing: .08em; }
+.dispatchRESOLVED { color: #25664e; }
+.dispatchPENDING { color: #9a6a2c; }
+.dispatchNO_EVIDENCE { color: #a14335; }
 
 .facts { display: grid; gap: 13px; margin: 18px 0; }
 .facts div { display: flex; justify-content: space-between; gap: 10px; border-bottom: 1px solid rgba(194, 144, 76, .17); padding-bottom: 8px; }
