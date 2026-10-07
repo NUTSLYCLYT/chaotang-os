@@ -22,6 +22,9 @@ Ready
 
 ## Affected Modules
 
+- 模块：锦衣卫只读案卷台、事实分发展示与对应契约测试。
+- 允许路径：`frontend/src/features/jinyiwei-visual/JinyiweiScrollDesk.tsx`、`frontend/src/features/jinyiwei-visual/JinyiweiScrollDesk.module.css`、`frontend/src/features/jinyiwei-visual/jinyiweiDispatch.ts`、`frontend/src/features/jinyiwei-visual/JinyiweiScrollDesk.test.ts`。
+
 - `frontend/src/features/jinyiwei-visual/JinyiweiScrollDesk.tsx`
 - `frontend/src/features/jinyiwei-visual/JinyiweiScrollDesk.module.css`
 - `frontend/src/features/jinyiwei-visual/jinyiweiDispatch.ts`

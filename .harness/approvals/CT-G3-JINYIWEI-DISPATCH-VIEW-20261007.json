@@ -7,8 +7,8 @@
     "targetBranch": "ext-dev"
   },
   "request": {
-    "baseCommit": "431644905ff77522d27b25ce663738e542e16bdd",
-    "baseTree": "dcf63c52376f647ca56e9c8f4c5fafe1187c5cfc",
+    "baseCommit": "7816746ba0b51ae15bba459acd28859f479e23a7",
+    "baseTree": "f5b800a7da0b84c07d210266f5a903f5ef2d1202",
     "approvalPath": ".harness/approvals/CT-G3-JINYIWEI-DISPATCH-VIEW-20261007.json",
     "approvalCommitPaths": [
       ".harness/approvals/CT-G3-JINYIWEI-DISPATCH-VIEW-20261007.json",
