@@ -2,7 +2,7 @@
 
 ## Status
 
-Ready
+Verified for the protected CI gate; this does not declare the full G3 product complete.
 
 ## Product Definition
 
@@ -21,11 +21,11 @@ Ready
 
 ## Acceptance Criteria
 
-- [ ] GitHub `validate`、`backend`、`frontend` 和 `integration` 全部通过。
-- [ ] runtime-lock 的 bwrap 进程隔离测试真实执行并通过。
-- [ ] frontend standalone smoke 返回 200，并检查真实页面标识“朝堂 OS”。
-- [ ] 六部 Runtime 就绪证据的受控 fingerprint pair 与新 workflow 一致。
-- [ ] 失败时可回退到父提交 `fa2c0546f516956f21204899edd24a6eda235087`。
+- [x] GitHub `validate`、`backend`、`frontend` 和 `integration` 全部通过。
+- [x] runtime-lock 的 bwrap 进程隔离测试真实执行并通过。
+- [x] frontend standalone smoke 返回 200，并检查真实页面标识“朝堂 OS”。
+- [x] 六部 Runtime 就绪证据的受控 fingerprint pair 与新 workflow 一致。
+- [x] 失败时可回退到父提交 `fa2c0546f516956f21204899edd24a6eda235087`。
 
 ## Delivery Constraints
 
@@ -50,10 +50,10 @@ Ready
 
 ## Acceptance
 
-- GitHub `validate`、`backend`、`frontend` 和 `integration` jobs 全部通过。
-- backend runtime-lock 三个 bwrap 测试真实执行并通过。
-- frontend standalone smoke 通过并检查页面真实标识“朝堂 OS”。
-- 本地 `node scripts/check_harness.mjs` 通过；失败时回退到父提交 `fa2c0546f516956f21204899edd24a6eda235087`。
+- GitHub Actions run `37604358045`（commit `0471dfdfcb0f9e4ed666a47426985149a02b65d0`）的 `validate`、`backend`、`frontend` 和 `integration` jobs 全部 success。
+- `backend` job 的 pytest 与 bwrap runtime-lock 测试真实执行并通过；`frontend` job 的 standalone smoke 返回 200 并检查真实首页标识“朝堂 OS”。
+- `integration` job 的成功、失败降级和下旨 BFF 正反向场景全部通过；本地 `node scripts/verify_integration.mjs` 与 `node scripts/check_harness.mjs` 均通过。
+- 保护分支已同步 Gitee 与 GitHub：`g3-protected-ci-governance-20261007`，回退父提交为 `fa2c0546f516956f21204899edd24a6eda235087`。
 
 ## Rollback
 
@@ -61,7 +61,10 @@ Ready
 
 ## Implementation Report
 
-待隔离分支完成本地验证和 GitHub CI 后填写；未通过前不宣称 G3 完成。
+- 修复 `scripts/verify_integration.mjs`：standalone server 通过 `PORT`/`HOSTNAME` 接收唯一测试端口，不再传递 `next start` 专属 `-p` 参数。
+- 本地验证：三场景集成校验通过；Harness 通过（159 个基线文件）。
+- 远程验证：GitHub run `37604358045` 四 job 全部 success；原始结果已保存为 `C:\Users\Administrator\Desktop\Chaotang-G3-CI-Evidence-20261007.json`。
+- 该任务只收口 CI/集成验证门，不等同于真实模型多 Agent 用户流程、公开部署或完整 G3 产品验收。
 
 ## Acceptance Review
 
