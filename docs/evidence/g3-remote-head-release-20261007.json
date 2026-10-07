@@ -1,0 +1,68 @@
+{
+  "schemaVersion": "chaotang.g3.remote-head.release-evidence.v1",
+  "generatedAt": "2026-10-07T03:32:38.6738391Z",
+  "taskId": "CT-G3-REMOTE-HEAD-RELEASE-20261007",
+  "baseCommit": "85092c9c7679bd4d8b2a5246e240f07deae25f78",
+  "baseTree": "13531f796ec828a511fa2e2ab3c687befd890251",
+  "remote": "gitee.com/msxn/chaotang-os:ext-dev",
+  "verification": [
+    {
+      "id": "backend-full",
+      "result": "5296 passed, 32 skipped, 4 warnings"
+    },
+    {
+      "id": "frontend-full-tests",
+      "result": "903 passed, 0 failed, 0 skipped"
+    },
+    {
+      "id": "frontend-lint",
+      "result": "exit 0"
+    },
+    {
+      "id": "frontend-typecheck",
+      "result": "exit 0"
+    },
+    {
+      "id": "frontend-build",
+      "result": "exit 0"
+    },
+    {
+      "id": "backend-focused",
+      "result": "148 passed"
+    },
+    {
+      "id": "harness-check",
+      "result": "159 baseline files passed"
+    },
+    {
+      "id": "local-launcher-contract-tests",
+      "result": "5 passed"
+    },
+    {
+      "id": "diff-check",
+      "result": "exit 0"
+    }
+  ],
+  "ancestryEvidence": {
+    "remoteCookieCandidate": "3938328d1dc6fdd13d2150041bc1017826baab3b",
+    "currentHeadRecheck": "front-end and back-end regression above; no new model call",
+    "realCustomerTrial": "PASS in prior G3 evidence, real frontend HTTP/BFF/backend flow, real DeepSeek, archive REPLY, customerReady=true",
+    "realNormativeFlow": "PASS in prior G3 evidence, real DeepSeek, 上书房→丞相→工部→工部·技术司→工部部级补充→丞相汇总"
+  },
+  "cdesktop": {
+    "source": "CDesktop-85-Page-Current-Absorption-Audit-20261006-r5.json",
+    "verified": 0,
+    "mappedUnverified": 65,
+    "unmapped": 20
+  },
+  "boundaries": [
+    "No public deployment",
+    "No GitHub sync claim",
+    "Linux/CI final authority still required",
+    "Current head is a merge commit before new single-parent candidate"
+  ],
+  "rollback": "Return ext-dev to 3938328d candidate if this evidence-only closeout is rejected",
+  "modelCalls": false,
+  "externalModelNetwork": false,
+  "productWrites": false
+}
