@@ -1,0 +1,131 @@
+{
+  "schemaVersion": "product-authority.m0.approval.v1",
+  "authorityId": "product-authority.m0.v1",
+  "taskId": "CT-G3-UI-WORKBENCH-LAUNCHER-SUCCESSOR-20261007",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "3a25b4ef8f7aa48a10c9af55787c964f7d27818a",
+    "baseTree": "016eeb23fb814caa2296143757e4a3462b0c6219",
+    "approvalPath": ".harness/approvals/CT-G3-UI-WORKBENCH-LAUNCHER-SUCCESSOR-20261007.json",
+    "approvalCommitPaths": [
+      ".harness/approvals/CT-G3-UI-WORKBENCH-LAUNCHER-SUCCESSOR-20261007.json",
+      "docs/product/tasks/2026-10-07-g3-ui-workbench-launcher-successor.md"
+    ],
+    "productPaths": [
+      "frontend/src/features/court-visuals/CourtCapabilityButton.module.css",
+      "frontend/src/features/court-visuals/CourtCapabilityButton.tsx",
+      "frontend/src/features/ministries-visual/DepartmentScene.tsx",
+      "frontend/src/features/ministries-visual/OfficeScene.tsx",
+      "frontend/src/features/ministries-visual/ministries.module.css",
+      "scripts/start-local.ps1",
+      "scripts/start-local.test.mjs"
+    ]
+  },
+  "nonGoals": [
+    "NO_AUTHORITY_OR_ADR_CHANGE",
+    "NO_BACKEND_API_OR_SCHEMA_CHANGE",
+    "NO_DATABASE_OR_RESULT_LEDGER_WRITE",
+    "NO_DESKTOP_WINDOW_OPERATION",
+    "NO_EXTERNAL_MODEL_OR_NETWORK_CALL",
+    "NO_NEW_TASK_OR_PERMISSION_SYSTEM",
+    "NO_PUBLIC_DEPLOYMENT",
+    "NO_RESULT_OR_EVIDENCE_FABRICATION",
+    "NO_TEST_WEAKENING"
+  ],
+  "verification": [
+    {
+      "id": "diff-check",
+      "tool": "node",
+      "cwd": ".",
+      "timeoutMs": 10000,
+      "args": [
+        "--input-type=module",
+        "-e",
+        "import{execFileSync}from'node:child_process';execFileSync('git',['diff','--check'],{stdio:'inherit'});"
+      ]
+    },
+    {
+      "id": "frontend-build",
+      "tool": "node",
+      "cwd": "frontend",
+      "timeoutMs": 300000,
+      "args": [
+        "node_modules/next/dist/bin/next",
+        "build"
+      ]
+    },
+    {
+      "id": "frontend-full-tests",
+      "tool": "node",
+      "cwd": "frontend",
+      "timeoutMs": 300000,
+      "args": [
+        "--test"
+      ]
+    },
+    {
+      "id": "frontend-lint",
+      "tool": "node",
+      "cwd": "frontend",
+      "timeoutMs": 300000,
+      "args": [
+        "node_modules/eslint/bin/eslint.js",
+        "."
+      ]
+    },
+    {
+      "id": "frontend-typecheck",
+      "tool": "node",
+      "cwd": "frontend",
+      "timeoutMs": 300000,
+      "args": [
+        "node_modules/typescript/bin/tsc",
+        "--noEmit"
+      ]
+    },
+    {
+      "id": "harness-check",
+      "tool": "node",
+      "cwd": ".",
+      "timeoutMs": 300000,
+      "args": [
+        "scripts/check_harness.mjs",
+        "--check"
+      ]
+    },
+    {
+      "id": "local-launcher-contract-tests",
+      "tool": "node",
+      "cwd": ".",
+      "timeoutMs": 300000,
+      "args": [
+        "--test",
+        "scripts/start-local.test.mjs"
+      ]
+    },
+    {
+      "id": "local-startup-integration",
+      "tool": "node",
+      "cwd": ".",
+      "timeoutMs": 300000,
+      "args": [
+        "scripts/verify_integration.mjs"
+      ]
+    },
+    {
+      "id": "ui-workbench-tests",
+      "tool": "node",
+      "cwd": "frontend",
+      "timeoutMs": 300000,
+      "args": [
+        "--test",
+        "src/features/court-visuals/courtVisuals.test.ts",
+        "src/features/ministries-visual/ministriesVisual.test.ts"
+      ]
+    }
+  ],
+  "state": "APPROVED_FOR_ONE_CHILD"
+}
