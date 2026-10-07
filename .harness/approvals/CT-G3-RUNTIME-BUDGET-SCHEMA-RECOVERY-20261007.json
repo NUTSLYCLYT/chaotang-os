@@ -1,0 +1,91 @@
+{
+  "schemaVersion": "product-authority.m0.approval.v1",
+  "authorityId": "product-authority.m0.v1",
+  "taskId": "CT-G3-RUNTIME-BUDGET-SCHEMA-RECOVERY-20261007",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "ab76b122d599995c939e083ceed166351ceeda4d",
+    "baseTree": "6e474563c4946ae587516585233534cd84a0f886",
+    "approvalPath": ".harness/approvals/CT-G3-RUNTIME-BUDGET-SCHEMA-RECOVERY-20261007.json",
+    "approvalCommitPaths": [
+      ".harness/approvals/CT-G3-RUNTIME-BUDGET-SCHEMA-RECOVERY-20261007.json",
+      "docs/product/tasks/2026-10-07-g3-runtime-budget-schema-recovery.md"
+    ],
+    "productPaths": [
+      "backend/app/decree_jobs/storage.py",
+      "backend/app/operations/runtime_data_registry.py",
+      "backend/tests/test_decree_job_storage.py",
+      "backend/tests/test_readiness.py",
+      "backend/tests/test_sqlite_backup.py"
+    ]
+  },
+  "nonGoals": [
+    "NO_AUTHORITY_OR_ADR_CHANGE",
+    "NO_DATABASE_DELETION_OR_DATA_REWRITE",
+    "NO_EXTERNAL_MODEL_OR_NETWORK_CALL",
+    "NO_FRONTEND_OR_UI_CHANGE",
+    "NO_NEW_TASK_OR_PERMISSION_SYSTEM",
+    "NO_PUBLIC_DEPLOYMENT",
+    "NO_SCHEMA_ALLOWLIST_WILDCARD",
+    "NO_TEST_WEAKENING"
+  ],
+  "verification": [
+    {
+      "id": "backend-full",
+      "tool": "python3",
+      "args": ["-m", "pytest", "-q"],
+      "cwd": "backend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "backend-ruff",
+      "tool": "python3",
+      "args": ["-m", "ruff", "check", "."],
+      "cwd": "backend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "backend-storage-readiness-backup-focused",
+      "tool": "python3",
+      "args": [
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_decree_job_storage.py",
+        "tests/test_readiness.py",
+        "tests/test_sqlite_backup.py"
+      ],
+      "cwd": "backend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "diff-check",
+      "tool": "node",
+      "args": ["--input-type=module", "--eval", "import{execFileSync}from'node:child_process';execFileSync('git',['diff','--check'],{stdio:'inherit'})"],
+      "cwd": ".",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "root-harness",
+      "tool": "node",
+      "args": ["scripts/check_harness.mjs", "--check"],
+      "cwd": ".",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "runtime-reopen-regression",
+      "tool": "python3",
+      "args": [
+        "-I",
+        "-c",
+        "import tempfile,sys; from pathlib import Path; sys.path.insert(0,'.'); from app.decree_jobs.storage import DecreeJobStore; from app.fusion.task_token_budget import TaskTokenBudget; p=Path(tempfile.mkdtemp())/'decree_jobs.sqlite3'; DecreeJobStore(p); TaskTokenBudget(p,owner_id='owner',task_id='task',max_tokens=20000); DecreeJobStore(p); print('PASS: budget schema survives reopen')"
+      ],
+      "cwd": "backend",
+      "timeoutMs": 180000
+    }
+  ],
+  "state": "APPROVED_FOR_ONE_CHILD"
+}

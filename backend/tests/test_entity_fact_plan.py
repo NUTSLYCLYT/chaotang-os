@@ -1,4 +1,7 @@
-from app.agents.entity_fact_plan import compile_entity_reference_plan
+from app.agents.entity_fact_plan import (
+    compile_entity_reference_plan,
+    compile_github_repository_plan,
+)
 from app.agents.fact_plans import FactPlanDisposition
 from app.jinyiwei.models import DataScope, FactCategory, SourceType
 
@@ -73,3 +76,45 @@ def test_entity_plan_rejects_ambiguous_subject() -> None:
 
     assert result.disposition is FactPlanDisposition.REJECTED
     assert result.reason == "entity_ambiguous"
+
+
+def test_github_repository_plan_compiles_an_explicit_repository_request() -> None:
+    result = compile_github_repository_plan(
+        decree_text=(
+            "请通过锦衣卫外网调查核查 GitHub 仓库 promptfoo/promptfoo 的开源项目资料，"
+            "只需要一个 ENTITY_REFERENCE"
+        ),
+        node_id="bureau:礼部:内容司",
+    )
+
+    assert result.disposition is FactPlanDisposition.PLANNED
+    assert result.source_scope == (SourceType.SHIGUAN, SourceType.PUBLIC_API)
+    assert result.draft is not None
+    fact = result.draft.required_facts[0]
+    assert fact.key == "github_repository:metadata"
+    assert fact.subject == "github:promptfoo/promptfoo"
+    assert fact.category is FactCategory.ENTITY_REFERENCE
+    assert fact.data_scope is DataScope.EXTERNAL_PUBLIC
+    assert fact.expected_shape == "object"
+    assert fact.jurisdiction is None
+
+
+def test_github_repository_plan_requires_a_single_explicit_reference() -> None:
+    result = compile_github_repository_plan(
+        decree_text="请调查 GitHub 仓库 promptfoo/promptfoo 的许可证",
+        node_id="bureau:礼部:内容司",
+    )
+
+    assert result.disposition is FactPlanDisposition.NOT_APPLICABLE
+
+
+def test_github_repository_plan_rejects_a_malformed_explicit_repository() -> None:
+    result = compile_github_repository_plan(
+        decree_text=(
+            "请通过锦衣卫外网调查核查 GitHub 仓库 ??? 的资料，只需要一个 ENTITY_REFERENCE"
+        ),
+        node_id="bureau:礼部:内容司",
+    )
+
+    assert result.disposition is FactPlanDisposition.REJECTED
+    assert result.reason == "github_repository_ambiguous"

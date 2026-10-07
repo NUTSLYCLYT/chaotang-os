@@ -1,0 +1,44 @@
+#!/bin/sh
+# chaotang-os pre-push 质量门禁
+#
+# 性质：质量门禁（quality gate），不是"变更冻结"。
+# 授权：owner 于 2026-10-07 通过 WorkBuddy 选项 A 明确授权创建。
+#       原被 owner 按治理流程移除的 pre-push 冻结钩子属另一机制，本钩子不恢复它。
+# 启用（每台机器一次性）：
+#       git config core.hooksPath .githooks
+# 紧急绕过（须事后向 owner 报备；仅限确知为环境限制而非真实失败时）：
+#       CHAOTANG_SKIP_PREPUSH=1 git push ...
+#
+# 门禁内容（快速项；重型能力测试由 CI 在远端执行）：
+#   1) worktree 卫生（越界目录直接拦）
+#   2) 治理基线 check_harness（canonical hash / ADR 结构 / 保护路径 …）
+
+set -eu
+
+if [ "${CHAOTANG_SKIP_PREPUSH:-}" = "1" ]; then
+  echo "[pre-push] CHAOTANG_SKIP_PREPUSH=1 —— 跳过门禁（完成后须向 owner 报备）" >&2
+  exit 0
+fi
+
+root=$(git rev-parse --show-toplevel)
+cd "$root"
+
+if ! command -v node >/dev/null 2>&1; then
+  echo "[pre-push] 未找到 node，无法执行门禁。请将 node 加入 PATH，或用 CHAOTANG_SKIP_PREPUSH=1 临时绕过（须报备）。" >&2
+  exit 1
+fi
+
+echo "[pre-push] 1/2 worktree 卫生检查…"
+if ! node scripts/check-worktrees.mjs; then
+  echo "[pre-push] 失败：存在越界 worktree。请按 docs/worktree-governance.md 收敛后重试。" >&2
+  exit 1
+fi
+
+echo "[pre-push] 2/2 治理门禁检查…"
+if ! node scripts/check_harness.mjs; then
+  echo "[pre-push] 失败：治理门禁未通过。修复后重试（勿强推）。" >&2
+  exit 1
+fi
+
+echo "[pre-push] 通过。"
+exit 0

@@ -67,3 +67,13 @@
 
 所有 AI、自动化和实现任务必须遵守 ADR 0028；未经用户单独明确授权，不得修改、绕过或用旧
 `dev` 代码替代。前后端 setup、lint、typecheck、test、build/run 命令以各自 `AGENTS.md` 为准。
+
+## 多 AI 协调铁律（全文见 docs/multi-ai-coordination-rules.md，2026-10-06 owner 拍板）
+
+remote URL/钩子/推送/会话开场五条铁律：禁止改 remote URL、禁止重建 owner 移除的钩子、
+推送前 fetch+merge 勿 rebase 勿 force、脏工作区先确认归属、会话开场先读治理状态。
+
+## 工部标准开发模式（全项目强制，2026-10-07 owner 拍板，ADR 0046）
+
+正本 `docs/gongbu-standard-dev-mode.md`。三层架构：Orca 编排 → Codex/OpenCode 执行 → LiteLLM 网关弹药。红蓝互审为合并前置条件：A 模型产出必须异构模型 review（同后端自审不算数），审必留痕，结论须 owner/期限/来源。
+执行位不得绕过网关直连模型 API。豁免需任务合同显式 `dev-mode: exempt`。违反本模式产出的代码不得进入候选合并。

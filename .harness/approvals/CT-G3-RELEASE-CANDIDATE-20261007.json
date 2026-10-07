@@ -1,0 +1,98 @@
+{
+  "schemaVersion": "product-authority.m0.approval.v1",
+  "authorityId": "product-authority.m0.v1",
+  "taskId": "CT-G3-RELEASE-CANDIDATE-20261007",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "70c6db17cb943dadd10ed58387503df2dc7df630",
+    "baseTree": "d15fa4abfe15269e4496fcab46bbe2e79e887f14",
+    "approvalPath": ".harness/approvals/CT-G3-RELEASE-CANDIDATE-20261007.json",
+    "approvalCommitPaths": [
+      ".harness/approvals/CT-G3-RELEASE-CANDIDATE-20261007.json"
+    ],
+    "productPaths": [
+      "backend/app/agents/bureaus/agent.py",
+      "backend/app/agents/entity_fact_plan.py",
+      "backend/app/jinyiwei/extractor.py",
+      "backend/app/jinyiwei/source_registry.py",
+      "backend/app/jinyiwei/sources/public_api.py",
+      "backend/tests/run_accounting_synthetic_acceptance.py",
+      "backend/tests/synthetic_accounting_acceptance_app.py",
+      "backend/tests/synthetic_accounting_dynamic_layout.py",
+      "backend/tests/test_entity_fact_plan.py",
+      "backend/tests/test_github_repository_flow.py",
+      "backend/tests/test_jinyiwei_extractor.py",
+      "backend/tests/test_jinyiwei_public_sources.py",
+      "backend/tests/test_synthetic_accounting_acceptance_app.py"
+    ]
+  },
+  "nonGoals": [
+    "NO_AUTHORITY_OR_ADR_CHANGE",
+    "NO_DEPLOYMENT",
+    "NO_EXTERNAL_MODEL_CALL",
+    "NO_EXTERNAL_NETWORK",
+    "NO_NEW_PERMISSION_SYSTEM",
+    "NO_NEW_TASK_SYSTEM",
+    "NO_PRODUCT_RUNTIME_CHANGE",
+    "NO_TEST_WEAKENING",
+    "NO_UI_CHANGE"
+  ],
+  "verification": [
+    {
+      "id": "capability-eval-node-tests",
+      "tool": "node",
+      "cwd": ".",
+      "timeoutMs": 300000,
+      "args": [
+        "--test",
+        "scripts/capability_eval.test.mjs"
+      ]
+    },
+    {
+      "id": "capability-lock-tests",
+      "tool": "node",
+      "cwd": ".",
+      "timeoutMs": 300000,
+      "args": [
+        "--test",
+        "scripts/capability_capsule.test.mjs"
+      ]
+    },
+    {
+      "id": "diff-check",
+      "tool": "node",
+      "cwd": ".",
+      "timeoutMs": 10000,
+      "args": [
+        "--input-type=module",
+        "-e",
+        "import{execFileSync}from'node:child_process';execFileSync('git',['diff','--check'],{stdio:'inherit'});"
+      ]
+    },
+    {
+      "id": "harness-check",
+      "tool": "node",
+      "cwd": ".",
+      "timeoutMs": 300000,
+      "args": [
+        "scripts/check_harness.mjs",
+        "--check"
+      ]
+    },
+    {
+      "id": "integration-tests",
+      "tool": "node",
+      "cwd": ".",
+      "timeoutMs": 300000,
+      "args": [
+        "--test",
+        "scripts/verify_integration.test.mjs",
+        "scripts/check_migration_completeness.test.mjs"
+      ]
+    }
+  ],
+  "state": "APPROVED_FOR_ONE_CHILD"
+}

@@ -1,0 +1,84 @@
+{
+  "schemaVersion": "product-authority.m0.approval.v1",
+  "authorityId": "product-authority.m0.v1",
+  "taskId": "CT-G3-DADIAN-ACTION-LABELS-20261007",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "28bef27b5d030883fbd29100f3c045f3e434ed73",
+    "baseTree": "bf3562483d51b175787e513305d7bf92dc05e15e",
+    "approvalPath": ".harness/approvals/CT-G3-DADIAN-ACTION-LABELS-20261007.json",
+    "approvalCommitPaths": [
+      ".harness/approvals/CT-G3-DADIAN-ACTION-LABELS-20261007.json",
+      "docs/product/tasks/2026-10-07-g3-dadian-action-labels.md"
+    ],
+    "productPaths": [
+      "frontend/src/features/dadian-visual/DadianScene.test.ts",
+      "frontend/src/features/dadian-visual/DadianScene.tsx"
+    ]
+  },
+  "nonGoals": [
+    "NO_AUTHORITY_OR_PERMISSION_CHANGE",
+    "NO_BACKEND_API_OR_SCHEMA_CHANGE",
+    "NO_DESKTOP_WINDOW_OPERATION",
+    "NO_EXTERNAL_MODEL_OR_NETWORK_CALL",
+    "NO_NEW_TASK_OR_AGENT_SYSTEM",
+    "NO_PUBLIC_DEPLOYMENT",
+    "NO_TEST_WEAKENING",
+    "NO_VISUAL_THEME_REDESIGN"
+  ],
+  "verification": [
+    {
+      "id": "authority-regression",
+      "tool": "node",
+      "cwd": ".",
+      "timeoutMs": 300000,
+      "args": [
+        "--test",
+        "scripts/product-authority.test.mjs"
+      ]
+    },
+    {
+      "id": "dadian-focused-tests",
+      "tool": "node",
+      "cwd": "frontend",
+      "timeoutMs": 300000,
+      "args": [
+        "--test",
+        "src/features/dadian-visual/DadianScene.test.ts"
+      ]
+    },
+    {
+      "id": "frontend-full-tests",
+      "tool": "node",
+      "cwd": "frontend",
+      "timeoutMs": 300000,
+      "args": [
+        "--test"
+      ]
+    },
+    {
+      "id": "frontend-typecheck",
+      "tool": "npm",
+      "cwd": "frontend",
+      "timeoutMs": 300000,
+      "args": [
+        "run",
+        "typecheck"
+      ]
+    },
+    {
+      "id": "harness-check",
+      "tool": "node",
+      "cwd": ".",
+      "timeoutMs": 300000,
+      "args": [
+        "scripts/check_harness.mjs",
+        "--check"
+      ]
+    }
+  ],
+  "state": "APPROVED_FOR_ONE_CHILD"
+}

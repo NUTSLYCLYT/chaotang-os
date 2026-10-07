@@ -113,11 +113,12 @@ export function SceneStrategyPanel() {
   }, []);
 
   return (
-    <section className={styles.strategyPanel} aria-label="朝堂战略场景">
+    <section className={styles.strategyPanel} aria-label="结果案例入口">
       <div className={styles.strategyHeader}>
         <div>
-          <p>SCENE PACK V1</p>
-          <h2>朝堂战略场景</h2>
+          <p>RESULT CASES · V1</p>
+          <h2>结果案例</h2>
+          <small>每张案例都说明你将得到的结果，再决定是否开始办理。</small>
         </div>
         <span data-source={source}>{source}</span>
       </div>
@@ -129,18 +130,18 @@ export function SceneStrategyPanel() {
               <i>{riskLabel(pack)}</i>
             </div>
             <h3>{pack.name}</h3>
-            <p>{pack.shortValue}</p>
+            <p><strong>你将得到：</strong>{pack.shortValue}</p>
             <small>适合：{pack.targetUser}</small>
             <div className={styles.cardActions}>
               <button type="button" onClick={() => router.push(`/scene-pack/${pack.slug}`)}>
-                {pack.slug === "b2b-inquiry-conversion" ? "分析询盘" : "立即开局"}
+                {pack.slug === "b2b-inquiry-conversion" ? "分析询盘" : "开始办理"}
               </button>
               <button
                 type="button"
                 className={styles.secondaryAction}
                 onClick={() => router.push(`/scene-pack/${pack.slug}?demo=1`)}
               >
-                查看样例
+                查看案例输入
               </button>
             </div>
           </article>

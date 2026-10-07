@@ -13,6 +13,8 @@ from types import SimpleNamespace
 import pytest
 
 from app.agents.runtime_skills.execution_ledger import RuntimeBindingLedger
+from app.decree_jobs.storage import DecreeJobStore
+from app.fusion.task_token_budget import TaskTokenBudget
 from app.jinyiwei import db as jinyiwei_db
 from app.main import app
 from app.operations.runtime_data_registry import (
@@ -61,6 +63,9 @@ _DECREE_SCHEMA_OLD = (
 )
 _DECREE_SCHEMA_NEW = (
     "sha256:3c3599af569b192c3cd038a43038a071b2e3575c4cdc34bf748938ae1b2f3fb2"
+)
+_DECREE_SCHEMA_WITH_TASK_BUDGET = (
+    "sha256:b22124059f732c39b895302cd28a704150399301692133b47542e8e50efb8b30"
 )
 _DEGREE_STORAGE_RAW_SCHEMA = (
     "sha256:8b38c49b719aa2a758ba037eb436d6fdf97db50e0a4b8cabd874b1a20f3059c2"
@@ -301,8 +306,12 @@ def test_readiness_checks_existing_decree_job_schema(tmp_path: Path) -> None:
 def test_registry_accepts_exact_old_and_canonical_new_decree_schemas(tmp_path: Path) -> None:
     entry = next(item for item in RUNTIME_DATA_ENTRIES if item.name == "decree_jobs.sqlite3")
 
-    assert entry.schema_contract_digests == (_DECREE_SCHEMA_OLD, _DECREE_SCHEMA_NEW)
-    assert len(entry.schema_contract_digests) == len(set(entry.schema_contract_digests)) == 2
+    assert entry.schema_contract_digests == (
+        _DECREE_SCHEMA_OLD,
+        _DECREE_SCHEMA_NEW,
+        _DECREE_SCHEMA_WITH_TASK_BUDGET,
+    )
+    assert len(entry.schema_contract_digests) == len(set(entry.schema_contract_digests)) == 3
     assert _DEGREE_STORAGE_RAW_SCHEMA not in entry.schema_contract_digests
     assert _DEGREE_SINGLE_ALTER_RUNTIME_SCHEMA not in entry.schema_contract_digests
 
@@ -341,6 +350,27 @@ def test_registry_accepts_exact_old_and_canonical_new_decree_schemas(tmp_path: P
     assert run_readiness_preflight(new_settings).codes == ()
 
 
+def test_readiness_accepts_decree_schema_after_task_budget_initialization(tmp_path: Path) -> None:
+    settings = _settings(tmp_path)
+    database = settings.data_dir / "decree_jobs.sqlite3"
+    DecreeJobStore(database)
+    TaskTokenBudget(database, owner_id="owner-a", task_id="task-a", max_tokens=20_000)
+
+    with closing(sqlite3.connect(database)) as connection:
+        observed = observe_schema_contract_connection(connection)
+    observed_digest = "sha256:" + hashlib.sha256(
+        json.dumps(
+            observed,
+            ensure_ascii=True,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    ).hexdigest()
+
+    assert observed_digest == _DECREE_SCHEMA_WITH_TASK_BUDGET
+    assert run_readiness_preflight(settings).codes == ()
+
+
 def test_registry_contract_is_plural_and_multi_digest_has_no_singular_default() -> None:
     decree_entry = next(
         item for item in RUNTIME_DATA_ENTRIES if item.name == "decree_jobs.sqlite3"
@@ -351,7 +381,11 @@ def test_registry_contract_is_plural_and_multi_digest_has_no_singular_default() 
     )
 
     assert RUNTIME_DATA_REGISTRY["schemaVersion"] == "chaotang.runtime-data-registry.v3"
-    assert document["schemaContractDigests"] == [_DECREE_SCHEMA_OLD, _DECREE_SCHEMA_NEW]
+    assert document["schemaContractDigests"] == [
+        _DECREE_SCHEMA_OLD,
+        _DECREE_SCHEMA_NEW,
+        _DECREE_SCHEMA_WITH_TASK_BUDGET,
+    ]
     assert "schemaContractDigest" not in document
     with pytest.raises(ValueError, match="multiple schema contract digests"):
         _ = decree_entry.schema_contract_digest

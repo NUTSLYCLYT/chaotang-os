@@ -102,7 +102,7 @@ test("first visit shows only the Chancellor, one blank goal input, and one prima
   ]);
   const firstVisit = source.slice(
     source.indexOf("function FirstDecreeWelcome"),
-    source.indexOf("export function DevStudyWorkspace"),
+    source.indexOf("function AcceptanceText"),
   );
 
   assert.match(source, /courtos\.onboarded/);
@@ -166,6 +166,23 @@ test("dev study workspace keeps one polished decree action without secret modes"
   assert.match(source, /disabled=\{!props\.canSubmit\}/);
   assert.match(source, /getStudyDepartmentCountLabel\(props\.uiState\)/);
   assert.doesNotMatch(source, /countLabel="1 部门"/);
+});
+
+test("successful results expose truthful revise and reuse actions without auto-submitting", async () => {
+  const source = await readFile(new URL("./DevStudyWorkspace.tsx", import.meta.url), "utf8");
+  const resultActions = source.slice(
+    source.indexOf("function ResultFollowUpActions"),
+    source.indexOf("function VerifiedJobProgress"),
+  );
+  assert.match(resultActions, /data-testid="result-follow-up-actions"/);
+  assert.match(resultActions, /提出修改 · 回到上书房/);
+  assert.match(resultActions, /复用为新任务 · 回到上书房/);
+  assert.match(resultActions, /仍需您编辑、确认拟旨并主动下旨/);
+  assert.match(resultActions, /onPrepare\(resultFollowUpText\("revise"/);
+  assert.match(resultActions, /onPrepare\(resultFollowUpText\("reuse"/);
+  assert.doesNotMatch(resultActions, /onSubmit|submitDecree|fetch\s*\(/);
+  assert.match(source, /onPrepare={props\.onDecreeTextChange}/);
+  assert.match(source, /上一回奏结论/);
 });
 
 test("composer only drafts while the completed draft scroll owns the sole issue action", async () => {

@@ -24,6 +24,7 @@ type DevHotspot =
       post: string;
       kind: "department";
       department: string;
+      actionLabel: string;
       tone: HotspotTone;
       href: string;
       x: number;
@@ -34,6 +35,7 @@ type DevHotspot =
       label: string;
       post: string;
       kind: "unavailable";
+      actionLabel: string;
       tone: HotspotTone;
       href: string;
       x: number;
@@ -41,15 +43,15 @@ type DevHotspot =
     };
 
 const DEV_HOTSPOTS: readonly DevHotspot[] = [
-  { id: "gongbu", label: "工部", post: "营造 · 修缮 · 基建", kind: "department", department: "工部", tone: "green", href: "/liubu/gongbu", x: 23.4, y: 44.5 },
-  { id: "hubu", label: "户部", post: "财政 · 度支 · 资源", kind: "department", department: "户部", tone: "amber", href: "/liubu/finance", x: 29.4, y: 35.3 },
-  { id: "libu-personnel", label: "吏部", post: "考绩 · 任免 · 文档", kind: "department", department: "吏部", tone: "green", href: "/liubu/personnel", x: 34.1, y: 29.7 },
-  { id: "libu", label: "礼部", post: "礼仪 · 公文 · 对外", kind: "department", department: "礼部", tone: "green", href: "/liubu/market", x: 41.7, y: 31.4 },
-  { id: "prime", label: "丞相", post: "总揽 · 会辅 · 裁断", kind: "unavailable", tone: "amber", href: "/study", x: 50.7, y: 37.0 },
-  { id: "xingbu", label: "刑部", post: "律令 · 刑名 · 审断", kind: "department", department: "刑部", tone: "violet", href: "/liubu/legal", x: 60.2, y: 31.4 },
-  { id: "bingbu", label: "兵部", post: "戍卫 · 情势 · 边务", kind: "department", department: "兵部", tone: "green", href: "/liubu/ops", x: 72.4, y: 35.2 },
-  { id: "jinyiwei", label: "锦衣卫", post: "情报 · 侦缉 · 暗访", kind: "unavailable", tone: "blue", href: "/jinyiwei", x: 67.5, y: 29.3 },
-  { id: "shiguan", label: "史馆", post: "史料 · 起居注 · 典藏", kind: "unavailable", tone: "blue", href: "/shiguan", x: 79.1, y: 44.4 },
+  { id: "gongbu", label: "工部", post: "营造 · 修缮 · 基建", kind: "department", department: "工部", actionLabel: "进入工部", tone: "green", href: "/liubu/gongbu", x: 23.4, y: 44.5 },
+  { id: "hubu", label: "户部", post: "财政 · 度支 · 资源", kind: "department", department: "户部", actionLabel: "进入户部", tone: "amber", href: "/liubu/finance", x: 29.4, y: 35.3 },
+  { id: "libu-personnel", label: "吏部", post: "考绩 · 任免 · 文档", kind: "department", department: "吏部", actionLabel: "进入吏部", tone: "green", href: "/liubu/personnel", x: 34.1, y: 29.7 },
+  { id: "libu", label: "礼部", post: "礼仪 · 公文 · 对外", kind: "department", department: "礼部", actionLabel: "进入礼部", tone: "green", href: "/liubu/market", x: 41.7, y: 31.4 },
+  { id: "prime", label: "丞相", post: "总揽 · 会辅 · 裁断", kind: "unavailable", actionLabel: "前往上书房", tone: "amber", href: "/study", x: 50.7, y: 37.0 },
+  { id: "xingbu", label: "刑部", post: "律令 · 刑名 · 审断", kind: "department", department: "刑部", actionLabel: "进入刑部", tone: "violet", href: "/liubu/legal", x: 60.2, y: 31.4 },
+  { id: "bingbu", label: "兵部", post: "戍卫 · 情势 · 边务", kind: "department", department: "兵部", actionLabel: "进入兵部", tone: "green", href: "/liubu/ops", x: 72.4, y: 35.2 },
+  { id: "jinyiwei", label: "锦衣卫", post: "情报 · 侦缉 · 暗访", kind: "unavailable", actionLabel: "查阅案卷", tone: "blue", href: "/jinyiwei", x: 67.5, y: 29.3 },
+  { id: "shiguan", label: "史馆", post: "史料 · 起居注 · 典藏", kind: "unavailable", actionLabel: "查阅归档", tone: "blue", href: "/shiguan", x: 79.1, y: 44.4 },
 ] as const;
 
 const TONE_COLORS: Record<HotspotTone, string> = {
@@ -213,6 +215,7 @@ function MinisterHotspot({
       data-tooltip-edge={edge}
       data-tooltip-open={tipOpen || undefined}
       type="button"
+      aria-label={`${hotspot.label}：${hotspot.actionLabel}`}
       aria-describedby={tooltipId}
       onClick={() => router.push(hotspot.href)}
       style={{
@@ -229,7 +232,7 @@ function MinisterHotspot({
       <strong>{hotspot.label}</strong>
       <span>
         <b aria-hidden="true" />
-        席位展示
+        {hotspot.actionLabel}
       </span>
       <span
         className={styles.hotspotTooltip}
