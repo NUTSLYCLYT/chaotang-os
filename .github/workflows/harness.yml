@@ -56,6 +56,8 @@ jobs:
       - name: Install backend (editable, with dev extras)
         working-directory: backend
         run: .venv/bin/python -m pip install -e ".[dev]"
+      - name: Install runtime isolation dependency
+        run: sudo apt-get update && sudo apt-get install --yes bubblewrap
       - name: Lint (ruff)
         working-directory: backend
         run: .venv/bin/python -m ruff check .
@@ -128,10 +130,10 @@ jobs:
       - name: Build
         working-directory: frontend
         run: npm run build
-      - name: Run entry smoke check (next start + GET /)
+      - name: Run entry smoke check (standalone server + GET /)
         working-directory: frontend
         run: |
-          npm run start -- -p 3000 &
+          npm run start &
           server_pid=$!
           trap 'kill "$server_pid" 2>/dev/null || true' EXIT
 
@@ -148,7 +150,7 @@ jobs:
             exit 1
           fi
 
-          if ! grep -q "chaotang-os" /tmp/index.html; then
+          if ! grep -q "朝堂 OS" /tmp/index.html; then
             echo "entry page did not render expected content" >&2
             cat /tmp/index.html
             exit 1
