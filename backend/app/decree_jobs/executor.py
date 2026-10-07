@@ -52,10 +52,6 @@ from .worker import DecreeJobControl, PermanentJobError, TransientJobError
 _TRANSIENT_PROVIDER_FAILURES = frozenset(
     {"timeout", "connection", "rate_limit", "provider_server"}
 )
-# One real customer task must stay within the product-level execution budget.
-# The fusion ledger supports a larger schema-wide ceiling for other workflows,
-# but decree jobs use this smaller governed cap.
-_MAX_REAL_TASK_TOKENS = 20_000
 _EVIDENCE_SNAPSHOT_ADAPTER = TypeAdapter(AgentEvidenceSnapshot)
 
 
@@ -364,8 +360,9 @@ class PersistentDecreeJobExecutor:
             draft_fingerprint=job.draft_fingerprint,
         )
         # Production controls expose the durable store; lightweight unit-test
-        # controls intentionally do not. Keep the old in-memory execution seam
-        # for those callers while real workers receive the governed 20k ledger.
+        # controls intentionally do not. Passing no explicit cap lets the
+        # existing Fusion ledger create new tasks at its 50k default while
+        # preserving the immutable cap of already-created tasks.
         store = getattr(control, "store", None)
         task_budget_context = nullcontext()
         if store is not None:
@@ -373,7 +370,6 @@ class PersistentDecreeJobExecutor:
                 store.db_path,
                 owner_id=job.owner_user_id,
                 task_id=store.resolve_budget_root(job.job_id, job.owner_user_id),
-                max_tokens=_MAX_REAL_TASK_TOKENS,
             )
             task_budget_context = use_task_token_budget(token_budget)
         with task_budget_context, use_provider_attempt_budget(budget):
