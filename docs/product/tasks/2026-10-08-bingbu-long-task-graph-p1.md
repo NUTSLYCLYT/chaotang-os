@@ -83,3 +83,4 @@ Approval lineage: synchronized to ext-dev head 343deeff8573d9943cbcbe00803800182
 Approval verification uses repository-pinned uv through Node on Windows authority hosts.
 Approval verification wrapper paths are repository-root relative on Windows authority hosts.
 Approval lineage: synchronized to ext-dev head 5ab87cd6ac1a65acc5e5481e80dbd13bba1c79cc before candidate generation.
+Approval lineage: synchronized to ext-dev head 1687ca5c7dc89f0de545dc6f0a87fb12106dfad7 before candidate generation.
