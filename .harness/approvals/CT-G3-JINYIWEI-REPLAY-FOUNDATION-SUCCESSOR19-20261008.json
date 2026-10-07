@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "product-authority.m0.approval.v1",
+  "authorityId": "product-authority.m0.v1",
+  "taskId": "CT-G3-JINYIWEI-REPLAY-FOUNDATION-SUCCESSOR19-20261008",
+  "repository": {"identity": "gitee.com/msxn/chaotang-os", "targetBranch": "ext-dev"},
+  "request": {
+    "baseCommit": "1199ebf906f4ccd3efa7547bdce63b000e71bc77",
+    "baseTree": "6b6eec49f3334138878694915969360ea01d03ee",
+    "approvalPath": ".harness/approvals/CT-G3-JINYIWEI-REPLAY-FOUNDATION-SUCCESSOR19-20261008.json",
+    "approvalCommitPaths": [".harness/approvals/CT-G3-JINYIWEI-REPLAY-FOUNDATION-SUCCESSOR19-20261008.json", "docs/product/tasks/2026-10-08-ct-g3-jinyiwei-replay-foundation-successor19.md"],
+    "productPaths": ["backend/app/api/jinyiwei.py", "backend/app/jinyiwei/coordinator.py", "backend/app/jinyiwei/db.py", "backend/app/jinyiwei/long_tasks.py", "backend/app/jinyiwei/models.py", "backend/app/jinyiwei/read_models.py", "backend/app/jinyiwei/replay.py", "backend/app/jinyiwei/storage.py", "backend/tests/test_jinyiwei_long_tasks.py", "backend/tests/test_jinyiwei_replay.py"]
+  },
+  "nonGoals": ["NO_EXTERNAL_NETWORK_ENABLEMENT", "NO_FRONTEND_ROUTE_CHANGE", "NO_NEWS_CRAWLER", "NO_OPENFGA", "NO_PUBLIC_DEPLOYMENT", "NO_TEMPORAL"],
+  "verification": [
+    {"id": "backend-jinyiwei-ruff", "tool": "node", "cwd": ".", "timeoutMs": 300000, "args": ["-e", "const {spawnSync}=require(\\\"child_process\\\"); const r=spawnSync(\\\"uv\\\",[\\\"run\\\",\\\"--project\\\",\\\"backend\\\",\\\"ruff\\\",\\\"check\\\",\\\"backend/app/jinyiwei\\\",\\\"backend/tests/test_jinyiwei_replay.py\\\",\\\"backend/tests/test_jinyiwei_long_tasks.py\\\"],{stdio:\\\"inherit\\\"}); process.exit(r.status ?? 1);"]},
+    {"id": "backend-jinyiwei-tests", "tool": "node", "cwd": ".", "timeoutMs": 300000, "args": ["-e", "const {spawnSync}=require(\\\"child_process\\\"); const r=spawnSync(\\\"uv\\\",[\\\"run\\\",\\\"--project\\\",\\\"backend\\\",\\\"pytest\\\",\\\"-q\\\",\\\"backend/tests/test_jinyiwei_replay.py\\\",\\\"backend/tests/test_jinyiwei_long_tasks.py\\\"],{stdio:\\\"inherit\\\"}); process.exit(r.status ?? 1);"]}
+  ],
+  "state": "APPROVED_FOR_ONE_CHILD"
+}
