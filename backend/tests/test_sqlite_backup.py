@@ -313,6 +313,15 @@ def _replace_decree_schema_with_canonical_new(path: Path) -> None:
                 )
                 """
         )
+        connection.execute(
+            """
+                CREATE TABLE IF NOT EXISTS main.decree_job_history_annotations (
+                    job_id TEXT PRIMARY KEY REFERENCES decree_jobs(job_id),
+                    archived INTEGER NOT NULL CHECK (archived IN (0, 1)),
+                    updated_at TEXT NOT NULL
+                )
+                """
+        )
         connection.commit()
 
 
@@ -370,6 +379,15 @@ def _replace_decree_schema_with_canonical_old(path: Path) -> None:
                     request_hash TEXT NOT NULL,
                     job_id TEXT NOT NULL REFERENCES decree_jobs(job_id),
                     PRIMARY KEY(owner_user_id, idempotency_key)
+                )
+                """
+        )
+        connection.execute(
+            """
+                CREATE TABLE IF NOT EXISTS main.decree_job_history_annotations (
+                    job_id TEXT PRIMARY KEY REFERENCES decree_jobs(job_id),
+                    archived INTEGER NOT NULL CHECK (archived IN (0, 1)),
+                    updated_at TEXT NOT NULL
                 )
                 """
         )

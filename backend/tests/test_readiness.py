@@ -58,6 +58,8 @@ def _settings(tmp_path: Path) -> ReadinessSettings:
     )
 
 
+# These values mirror the closed registry; the fixture builders below must
+# retain the history-annotation table when replacing the decree tables.
 _DECREE_SCHEMA_OLD = (
     "sha256:374ba3999e8e333f6ef236dccdf418506f222ebe1f07dbe1627c3a0d1b483e05"
 )

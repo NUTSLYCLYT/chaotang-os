@@ -256,7 +256,8 @@ def is_verified_migration_state(rows: Sequence[Sequence[object]]) -> bool:
     return True
 
 
-# Digests are literal observations of the accepted ext-dev storage schemas.
+# Digests are literal observations of the accepted ext-dev storage schemas,
+# including the legacy and claim-evidence variants used by the backup fixtures.
 # They are deliberately not derived from writable source modules at runtime.
 SHIGUAN_V5_PREDECESSOR = RuntimeDataEntry(
     "shiguan.sqlite3",
