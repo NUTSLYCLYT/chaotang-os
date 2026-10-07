@@ -1,0 +1,86 @@
+{
+  "schemaVersion": "product-authority.m0.approval.v1",
+  "authorityId": "product-authority.m0.v1",
+  "taskId": "BINGBU-REVENUE-OS-P0-20261007",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "2bf6b3ad97c10c1418688a5dddf47a7c5aed5c63",
+    "baseTree": "7132e73aaf396e8c48bb01742905b84ff683f691",
+    "approvalPath": ".harness/approvals/BINGBU-REVENUE-OS-P0-20261007.json",
+    "approvalCommitPaths": [
+      ".harness/approvals/BINGBU-REVENUE-OS-P0-20261007.json",
+      "docs/product/tasks/2026-10-07-bingbu-revenue-os-contract.md",
+      "docs/product/tasks/2026-10-07-bingbu-revenue-os-p0.md"
+    ],
+    "productPaths": [
+      "backend/app/api/bingbu.py",
+      "backend/app/bingbu/__init__.py",
+      "backend/app/bingbu/models.py",
+      "backend/app/bingbu/service.py",
+      "backend/app/bingbu/storage.py",
+      "backend/app/bingbu/validation.py",
+      "backend/app/main.py",
+      "backend/tests/test_bingbu_api.py",
+      "backend/tests/test_bingbu_models.py",
+      "backend/tests/test_bingbu_service.py",
+      "docs/prompts/2026-10-07-bingbu-revenue-os-codex-prompt.md",
+      "frontend/src/app/api/bingbu/[...segments]/route.test.ts",
+      "frontend/src/app/api/bingbu/[...segments]/route.ts",
+      "frontend/src/app/bingbu/import/page.tsx",
+      "frontend/src/app/bingbu/opportunities/[id]/page.tsx",
+      "frontend/src/app/bingbu/page.tsx",
+      "frontend/src/app/bingbu/war-room/[id]/page.tsx",
+      "frontend/src/features/bingbu/BingbuDashboard.tsx",
+      "frontend/src/features/bingbu/bingbu.module.css",
+      "frontend/src/lib/backendClient.bingbu.test.ts",
+      "frontend/src/lib/backendClient.ts"
+    ]
+  },
+  "nonGoals": [
+    "NO_ADR_0028_CHANGE",
+    "NO_AUTH_OR_OWNER_BOUNDARY_CHANGE",
+    "NO_CRM_WRITE_OR_EXTERNAL_SIDE_EFFECT",
+    "NO_EXTERNAL_NETWORK_OR_REAL_MODEL_CALL",
+    "NO_NEW_AGENT_RUNTIME",
+    "NO_NEW_PROVIDER",
+    "NO_PUBLIC_DEPLOYMENT",
+    "NO_REMOTE_MERGE",
+    "NO_SECRET_OR_DOTENV_ACCESS",
+    "NO_TEST_WEAKENING"
+  ],
+  "verification": [
+    {
+      "id": "bingbu-source-contract",
+      "tool": "node",
+      "args": [
+        "--input-type=module",
+        "-e",
+        "import fs from 'node:fs';const p=['backend/app/api/bingbu.py','backend/app/bingbu/__init__.py','backend/app/bingbu/models.py','backend/app/bingbu/service.py','backend/app/bingbu/storage.py','backend/app/bingbu/validation.py','backend/app/main.py','backend/tests/test_bingbu_api.py','backend/tests/test_bingbu_models.py','backend/tests/test_bingbu_service.py','frontend/src/app/api/bingbu/[...segments]/route.test.ts','frontend/src/app/api/bingbu/[...segments]/route.ts','frontend/src/app/bingbu/import/page.tsx','frontend/src/app/bingbu/opportunities/[id]/page.tsx','frontend/src/app/bingbu/page.tsx','frontend/src/app/bingbu/war-room/[id]/page.tsx','frontend/src/features/bingbu/BingbuDashboard.tsx','frontend/src/features/bingbu/bingbu.module.css','frontend/src/lib/backendClient.bingbu.test.ts','frontend/src/lib/backendClient.ts'];for(const f of p)if(!fs.existsSync(f))process.exit(1);"
+      ],
+      "cwd": ".",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "diff-check",
+      "tool": "node",
+      "args": [
+        "--input-type=module",
+        "-e",
+        "import{execFileSync}from 'node:child_process';execFileSync('git',['diff','--check'],{stdio:'inherit'});"
+      ],
+      "cwd": ".",
+      "timeoutMs": 30000
+    },
+    {
+      "id": "harness-check",
+      "tool": "node",
+      "args": ["scripts/check_harness.mjs", "--check"],
+      "cwd": ".",
+      "timeoutMs": 300000
+    }
+  ],
+  "state": "APPROVED_FOR_ONE_CHILD"
+}
