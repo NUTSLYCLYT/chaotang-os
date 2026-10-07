@@ -49,6 +49,7 @@ Ready
 
 - `backend` 配置、客户端和图构造测试。
 - 根 `check_harness` 与 `git diff --check`。
+- 候选矩阵使用跨平台 Node 结构检查；完整 pytest 仍单独运行并写入证据，避免把 Windows 上不存在的 `/usr/bin/python3` 误报为产品失败。
 - 真实 provider 接受性探针：最多一次请求、最多 64 输出 tokens、总任务预算不超过 20,000 tokens；只发送最小非敏感提示词。
 - 失败验证：记录真实 HTTP/网络/预算分类，不把失败写成成功。
 

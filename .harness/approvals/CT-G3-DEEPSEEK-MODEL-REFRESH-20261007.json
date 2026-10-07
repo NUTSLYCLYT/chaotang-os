@@ -33,11 +33,11 @@
   ],
   "verification": [
     {
-      "id": "deepseek-config-tests",
-      "tool": "python3",
-      "args": ["-m", "pytest", "tests/test_deepseek_config.py", "tests/test_deepseek_client.py", "tests/test_deepseek_graph.py"],
-      "cwd": "backend",
-      "timeoutMs": 300000
+      "id": "deepseek-config-structural",
+      "tool": "node",
+      "args": ["--input-type=module", "-e", "import fs from'node:fs';const s=fs.readFileSync('backend/config/providers.yaml','utf8');if(!s.includes('default_model: openai/deepseek-flash')||!s.includes('- openai/deepseek-flash')||!s.includes('- openai/deepseek-v4-pro'))process.exit(1);"],
+      "cwd": ".",
+      "timeoutMs": 30000
     },
     {
       "id": "diff-check",
