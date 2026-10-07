@@ -55,6 +55,10 @@
 .panelHeading { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 11px; border-bottom: 1px solid rgba(199, 148, 76, .28); font-family: "STKaiti", "KaiTi", serif; font-size: 21px; }
 .panelHeading small { color: #b58b55; font: 700 10px/1 ui-monospace, monospace; letter-spacing: .15em; }
 .panelHint { margin: 12px 0 14px; color: #9c927e; font-size: 12px; line-height: 1.7; }
+.errorBlock { display: grid; gap: 8px; }
+.retryButton { width: fit-content; border: 1px solid rgba(211, 145, 70, .62); background: rgba(128, 68, 29, .18); color: #e5c88e; padding: 7px 10px; font-size: 12px; cursor: pointer; }
+.retryButton:hover { border-color: #e4b16a; background: rgba(128, 68, 29, .34); }
+.retryButton:focus-visible { outline: 2px solid #e4b16a; outline-offset: 2px; }
 .caseList {
   display: grid;
   min-height: 0;

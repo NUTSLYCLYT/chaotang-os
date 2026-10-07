@@ -13,6 +13,10 @@ export type FactDispatchRow = {
   status: "RESOLVED" | "PENDING" | "NO_EVIDENCE";
 };
 
+export function dispatchStatusLabel(status: FactDispatchRow["status"]): string {
+  return ({ RESOLVED: "已核验", PENDING: "待核验", NO_EVIDENCE: "尚无证据" } as const)[status];
+}
+
 /**
  * Build the read-only “fact → evidence → reply” spine from the server-checked
  * case detail. An empty evidence group remains NO_EVIDENCE; it is never

@@ -8,6 +8,7 @@ import type {
 } from "../../lib/backendClient.ts";
 import {
   buildFactDispatchRows,
+  dispatchStatusLabel,
   type FactDispatchInput,
 } from "./jinyiweiDispatch.ts";
 
@@ -105,4 +106,11 @@ test("缺少事实键的证据不会被挪到另一条分发记录", () => {
   const rows = buildFactDispatchRows(detail({ evidenceByFact: { other: [evidence("e-other", "other")] } }));
   assert.equal(rows[0]?.evidenceCount, 0);
   assert.equal(rows[0]?.status, "NO_EVIDENCE");
+});
+
+test("事实分发状态文案保持与朝堂界面一致", () => {
+  assert.deepEqual(
+    [dispatchStatusLabel("RESOLVED"), dispatchStatusLabel("PENDING"), dispatchStatusLabel("NO_EVIDENCE")],
+    ["已核验", "待核验", "尚无证据"],
+  );
 });

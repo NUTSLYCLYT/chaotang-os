@@ -7,7 +7,7 @@ import { CollapsedEdictScroll, EdictStage } from "../court-visuals/edict/EdictSt
 import styles from "./JinyiweiScrollDesk.module.css";
 import {
   buildFactDispatchRows,
-  type FactDispatchRow,
+  dispatchStatusLabel,
 } from "./jinyiweiDispatch";
 
 export { buildFactDispatchRows } from "./jinyiweiDispatch";
@@ -34,12 +34,9 @@ function statusLabel(status: string) {
   return ({ RESOLVED: "已结案", PARTIAL: "部分结案", BLOCKED: "受阻", UNAVAILABLE: "不可用" } as Record<string, string>)[status] ?? status;
 }
 
-function dispatchStatusLabel(status: FactDispatchRow["status"]) {
-  return ({ RESOLVED: "已核验", PENDING: "待核验", NO_EVIDENCE: "尚无证据" } as const)[status];
-}
-
 export function JinyiweiScrollDesk() {
   const [phase, setPhase] = useState<Phase>("loading");
+  const [reloadKey, setReloadKey] = useState(0);
   const [items, setItems] = useState<Investigation[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
@@ -65,7 +62,7 @@ export function JinyiweiScrollDesk() {
       }
     })();
     return () => controller.abort();
-  }, []);
+  }, [reloadKey]);
 
   useEffect(() => {
     if (!expanded || selectedId === null) {
@@ -118,7 +115,7 @@ export function JinyiweiScrollDesk() {
           <aside className={styles.index} aria-label="已处理案卷索引">
             <div className={styles.panelHeading}><span>已处理案卷</span><small>只读</small></div>
             {phase === "loading" ? <p className={styles.panelHint}>正在核对已处理案卷…</p> : null}
-            {phase === "error" ? <p className={styles.panelHint}>案卷目录暂时无法读取。</p> : null}
+            {phase === "error" ? <div className={styles.errorBlock}><p className={styles.panelHint}>案卷目录暂时无法读取。</p><button className={styles.retryButton} type="button" onClick={() => { setPhase("loading"); setReloadKey((value) => value + 1); }}>重新读取案卷目录</button></div> : null}
             {phase === "ready" && items.length === 0 ? <p className={styles.panelHint}>暂无锦衣卫已处理案卷。</p> : null}
             <div className={styles.caseList}>
               {items.map((item) => <button className={item.investigationId === selectedId ? styles.caseActive : styles.caseButton} key={item.investigationId} onClick={() => select(item.investigationId)} type="button"><span>{statusLabel(item.status)}</span><strong>{item.question}</strong><small>证据 {item.evidenceCount} · 回奏 {item.linkedReplyCount}</small></button>)}
