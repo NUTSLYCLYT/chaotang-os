@@ -1,0 +1,77 @@
+{
+  "schemaVersion": "product-authority.m0.approval.v1",
+  "authorityId": "product-authority.m0.v1",
+  "taskId": "BINGBU-LONG-TASK-GRAPH-P1-20261008",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "0c7c3b087c1342a4396b3bb285c846d08bbac85c",
+    "baseTree": "d7ac765f1e651d4ed564c8b978568ced1d2bfd52",
+    "approvalPath": ".harness/approvals/BINGBU-LONG-TASK-GRAPH-P1-20261008.json",
+    "approvalCommitPaths": [
+      ".harness/approvals/BINGBU-LONG-TASK-GRAPH-P1-20261008.json",
+      "docs/product/tasks/2026-10-08-bingbu-long-task-graph-p1.md"
+    ],
+    "productPaths": [
+      "backend/app/long_task_graph/__init__.py",
+      "backend/app/long_task_graph/graph.py",
+      "backend/app/long_task_graph/loops.py",
+      "backend/app/long_task_graph/models.py",
+      "backend/app/long_task_graph/persistence.py",
+      "backend/tests/test_long_task_graph.py",
+      "backend/tests/test_long_task_loops.py"
+    ]
+  },
+  "nonGoals": [
+    "NO_CRM_SIDE_EFFECTS",
+    "NO_EXTERNAL_NETWORK",
+    "NO_FRONTEND_CHANGE",
+    "NO_LITELLM_CALL",
+    "NO_NEW_QUEUE",
+    "NO_PUBLIC_DEPLOYMENT",
+    "NO_REAL_DEEPSEEK",
+    "NO_TEMPORAL"
+  ],
+  "verification": [
+    {
+      "id": "backend-long-task-ruff",
+      "tool": "python3",
+      "cwd": "backend",
+      "timeoutMs": 300000,
+      "args": [
+        "-m",
+        "ruff",
+        "check",
+        "app/long_task_graph",
+        "tests/test_long_task_graph.py",
+        "tests/test_long_task_loops.py"
+      ]
+    },
+    {
+      "id": "backend-long-task-tests",
+      "tool": "python3",
+      "cwd": "backend",
+      "timeoutMs": 300000,
+      "args": [
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_long_task_graph.py",
+        "tests/test_long_task_loops.py"
+      ]
+    },
+    {
+      "id": "harness-check",
+      "tool": "node",
+      "cwd": ".",
+      "timeoutMs": 300000,
+      "args": [
+        "scripts/check_harness.mjs",
+        "--check"
+      ]
+    }
+  ],
+  "state": "APPROVED_FOR_ONE_CHILD"
+}
