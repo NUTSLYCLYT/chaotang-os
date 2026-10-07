@@ -1,0 +1,98 @@
+{
+  "schemaVersion": "chaotang.cdesktop.page-http-evidence.v1",
+  "taskId": "CT-G3-CDESKTOP-F05-HTTP-RECHECK-20261007",
+  "pageId": "F05",
+  "title": "六部分发台",
+  "observedAt": "2026-10-07 04:34:18 UTC",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "branch": "ext-dev",
+    "baseCommit": "5a8a98a712d97c93bf34b9dd5a53ad4103512edd",
+    "approvalCommit": "4020dfca",
+    "approvalDigest": "sha256:00e933adcbbafe04cd0d803ec39df4dd6db2aebe5d29e9aac7d5bd9c1dcb750f"
+  },
+  "runtime": {
+    "launcher": "scripts/start-local.ps1",
+    "backendUrl": "http://127.0.0.1:8000",
+    "frontendUrl": "http://127.0.0.1:3000",
+    "startup": "PASS",
+    "health": 200,
+    "stop": "PASS / STOPPED",
+    "nativeWindowOperated": false,
+    "modelCalls": false,
+    "networkModelCalls": false
+  },
+  "httpFlow": {
+    "anonymous": {
+      "GET /zhuanshu/jinyiwei": {
+        "status": 307,
+        "location": "/login?next=%2Fzhuanshu%2Fjinyiwei"
+      },
+      "GET /api/jinyiwei/summary": {
+        "status": 401
+      }
+    },
+    "authenticated": {
+      "registration": {
+        "status": 201,
+        "note": "创建一次性本地验收账号；用户名和邮箱不写入证据"
+      },
+      "login": {
+        "status": 200,
+        "httpOnlySessionCookiePresent": true
+      },
+      "GET /zhuanshu/jinyiwei": {
+        "status": 200,
+        "pageHasTitle": true,
+        "pageHasReadOnlyLabel": true
+      },
+      "GET /api/jinyiwei/summary": {
+        "status": 200,
+        "body": {
+          "totalInvestigations": 0,
+          "resolvedCount": 0,
+          "partialCount": 0,
+          "blockedCount": 0,
+          "unavailableCount": 0,
+          "distinctEvidenceCount": 0,
+          "pendingAdoptionCount": 0,
+          "confirmedAdoptionCount": 0
+        }
+      },
+      "GET /api/jinyiwei/investigations?limit=20&offset=0": {
+        "status": 200,
+        "body": {
+          "items": [],
+          "total": 0,
+          "limit": 20,
+          "offset": 0
+        }
+      }
+    }
+  },
+  "mapping": {
+    "status": "MAPPED_UNVERIFIED",
+    "owner": "锦衣卫指挥使",
+    "route": "/zhuanshu/jinyiwei",
+    "readApis": [
+      "/api/jinyiwei/summary",
+      "/api/jinyiwei/investigations",
+      "/api/jinyiwei/investigations/{id}"
+    ],
+    "result": "真实登录页和空案卷态可达；本次本地数据没有调查详情，未伪造事实分发行。"
+  },
+  "limitations": [
+    "空案卷状态证明页面、认证和 BFF 边界真实可用，但不能证明事实→证据→回奏行的真实数据渲染。",
+    "没有触发调查创建或外部模型调用，因此没有新的模型费用和公网来源。",
+    "F05 仍不能提升为 VERIFIED；需要上游真实多 Agent 流程产生调查详情后再复核。"
+  ],
+  "nextGate": [
+    "使用已有真实多 Agent 流程生成一条 owner-scoped 锦衣卫调查详情",
+    "在同一登录会话读取详情 BFF 并核对事实顺序、证据计数和回奏计数",
+    "记录失败/空态/回退后再更新吸收审计状态"
+  ],
+  "rollback": {
+    "revertTo": "5a8a98a712d97c93bf34b9dd5a53ad4103512edd",
+    "note": "本轮只新增 HTTP 证据文件，无 API、数据库 schema 或页面行为变更。"
+  }
+}
