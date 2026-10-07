@@ -7,8 +7,8 @@
     "targetBranch": "ext-dev"
   },
   "request": {
-    "baseCommit": "9ddcbf640119902b28f3c748bd573df7b56635de",
-    "baseTree": "05ad1f10d55ce7062a23e559d0b521f4e7b11c28",
+    "baseCommit": "b2593df6d5ea0c6f3da8f5763e8aad011dd25f28",
+    "baseTree": "178b431e1caf4557ee861f9aaf2407498a8a97a2",
     "approvalPath": ".harness/approvals/BINGBU-LONG-TASK-GRAPH-P1-20261008.json",
     "approvalCommitPaths": [
       ".harness/approvals/BINGBU-LONG-TASK-GRAPH-P1-20261008.json",
@@ -42,7 +42,7 @@
       "timeoutMs": 300000,
       "args": [
         "-e",
-        "const {spawnSync}=require(\"child_process\"); const r=spawnSync(\"uv\",[\"run\",\"--project\",\"backend\",\"ruff\",\"check\",\"app/long_task_graph\",\"tests/test_long_task_graph.py\",\"tests/test_long_task_loops.py\"],{stdio:\"inherit\"}); process.exit(r.status ?? 1);"
+        "const {spawnSync}=require(\"child_process\"); const r=spawnSync(\"uv\",[\"run\",\"--project\",\"backend\",\"ruff\",\"check\",\"backend/app/long_task_graph\",\"backend/tests/test_long_task_graph.py\",\"backend/tests/test_long_task_loops.py\"],{stdio:\"inherit\"}); process.exit(r.status ?? 1);"
       ]
     },
     {
