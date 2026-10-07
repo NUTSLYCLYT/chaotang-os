@@ -2,7 +2,7 @@
 /**
  * Cross-process integration verification for chaotang-os.
  *
- * Starts the real backend (uvicorn) and real frontend (`next start`) processes
+ * Starts the real backend (uvicorn) and real frontend standalone server processes
  * as OS-level child processes and exercises three scenarios end-to-end:
  *
  *   1. Success path: backend and frontend both running, frontend pointed at
@@ -312,11 +312,20 @@ function startBackend(port, integrationTmp) {
 }
 
 function startFrontend(port, backendBaseUrl) {
-  const { command, args, shell } = spawnNpmArgs(["run", "start", "--", "-p", String(port)]);
+  // `frontend/package.json` starts Next's standalone server.  That server reads
+  // PORT/HOSTNAME from the environment; it does not implement `next start`'s
+  // `-p` argument. Passing the port through npm's argv therefore leaves the
+  // child listening on 3000 and makes the retry loop probe the wrong port.
+  const { command, args, shell } = spawnNpmArgs(["run", "start"]);
   const child = spawn(command, args, {
     cwd: FRONTEND_DIR,
     stdio: ["ignore", "pipe", "pipe"],
-    env: { ...process.env, BACKEND_BASE_URL: backendBaseUrl },
+    env: {
+      ...process.env,
+      BACKEND_BASE_URL: backendBaseUrl,
+      HOSTNAME: "127.0.0.1",
+      PORT: String(port),
+    },
     shell,
     detached: !IS_WINDOWS,
   });

@@ -17,7 +17,7 @@ Ready
 ## Affected Modules
 
 - 模块：GitHub Actions 验证环境与前端入口 smoke 合同
-- 允许路径：`.github/workflows/harness.yml`、`scripts/check_harness.mjs`、`backend/tests/test_six_ministry_readiness_report.py`、本任务文件
+- 允许路径：`.github/workflows/harness.yml`、`scripts/verify_integration.mjs`、`scripts/check_harness.mjs`、`backend/tests/test_six_ministry_readiness_report.py`、本任务文件
 
 ## Acceptance Criteria
 
@@ -39,12 +39,13 @@ Ready
 2. 使用 `npm run start` 启动已构建的 standalone server。
 3. 将 smoke 标识改为真实首页标题片段 `朝堂 OS`。
 4. 将新 trusted-spine runtime fingerprint 加入闭合兼容对，并同步 Python/Harness 自测数量断言。
-5. 在隔离工作树运行 Harness、前端构建和本地 HTTP smoke，随后推送候选分支等待 GitHub CI。
+5. 让跨进程集成脚本按 standalone server 的 `PORT`/`HOSTNAME` 合同启动前端，不再向 standalone server 传递 `next start` 专属 `-p` 参数。
+6. 在隔离工作树运行 Harness、前端构建和本地 HTTP smoke，随后推送候选分支等待 GitHub CI。
 
 ## Scope
 
 - 只安装 Ubuntu runner 的发行版 `bubblewrap` 包，不降低 runtime-lock 测试标准，不跳过任何测试。
-- 只将前端 smoke 从失效的 `next start`/旧标识改为已构建的 standalone server 和真实页面标识。
+- 只将前端 smoke 和跨进程集成入口从失效的 `next start`/旧标识改为已构建的 standalone server、环境端口和真实页面标识。
 - 不修改业务 API、模型调用、权限、Harness authority、数据库契约或部署配置。
 
 ## Acceptance
