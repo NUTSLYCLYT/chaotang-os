@@ -24,6 +24,7 @@ Ready
 
 - `frontend/src/features/jinyiwei-visual/JinyiweiScrollDesk.tsx`
 - `frontend/src/features/jinyiwei-visual/JinyiweiScrollDesk.module.css`
+- `frontend/src/features/jinyiwei-visual/jinyiweiDispatch.ts`
 - `frontend/src/features/jinyiwei-visual/JinyiweiScrollDesk.test.ts`
 
 ## Technical Plan
