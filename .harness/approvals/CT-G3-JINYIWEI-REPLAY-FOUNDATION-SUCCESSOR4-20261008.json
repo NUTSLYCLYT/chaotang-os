@@ -7,7 +7,7 @@
     "targetBranch": "ext-dev"
   },
   "request": {
-    "baseCommit": "a10802ed1a8c8398cbfcf730d1549a9bb655d7b3",
+    "baseCommit": "e7c9016eed5c4dfaf960334cb0556395519ed3d9",
     "baseTree": "8ad26f9a80a23e391250aa318e871b737eb623f6",
     "approvalPath": ".harness/approvals/CT-G3-JINYIWEI-REPLAY-FOUNDATION-SUCCESSOR4-20261008.json",
     "approvalCommitPaths": [

@@ -45,8 +45,8 @@ Evidence 是一等对象，包含 claim、source、observed_at、freshness、qua
 - 真实 DeepSeek 接入仍需要一次单独的、最小范围的 provider smoke，并必须保留 request/trace、预算、超时、脱敏和人工审批门禁。
 - 当前 storage 是进程内实现，适合 P0 单实例验收；多实例生产化前必须迁移到 owner-scoped 持久化存储并增加迁移与并发测试。
 
-## Verification evidence
+## Verification
 
-- 产品 authority candidate verification：149a80d3063578eba0509b5bc2ce64e970f47f8，canAcceptProductCandidate=true。
-- 远端 xt-dev 已通过无 rebase 的合并提交 3dd40cba59564642cb53b2f072b1e49820f5a94 集成。
+- 产品 authority candidate verification：`e149a80d3063578eba0509b5bc2ce64e970f47f8`，canAcceptProductCandidate=true。
+- 远端 `ext-dev` 已通过无 rebase 的合并提交 `a3dd40cba59564642cb53b2f072b1e49820f5a94` 集成。
 - 离线测试、类型检查、lint、前端构建、Harness 检查均通过；具体数字见对应 review 记录。
