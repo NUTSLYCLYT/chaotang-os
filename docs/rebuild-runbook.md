@@ -62,11 +62,13 @@ DEEPSEEK_API_KEY=<你的key>
 ## 5. 治理门禁验证（重建完成的判定标准）
 
 ```bash
+git config core.hooksPath .githooks   # 每台机器一次性：启用仓内 pre-push 门禁钩子
 node scripts/check_harness.mjs       # 治理门禁，必须全绿
 node scripts/check-worktrees.mjs     # worktree 白名单合规，exit 0
 ```
 
 两条全绿 = 重建完成。任何一条红，停止操作并按 AGENTS.md 治理流程上报，不得带病作业。
+钩子说明：`.githooks/pre-push` 在每次 push 前强制跑门禁（环境受限时可设 `CHAOTANG_SKIP_PREPUSH=1` 逃生阀，须留痕）。
 
 ## 6. 不随仓库走的资产清单（按需单独搬运）
 
@@ -74,6 +76,8 @@ node scripts/check-worktrees.mjs     # worktree 白名单合规，exit 0
 |---|---|---|
 | `PORTABLE-PATHS.json` 路径真源 | `H:\ChaotangPortable\` | 便携启动体系配置，仓库外独立维护 |
 | worktree 抢救备份 | `H:\ChaotangBackups\worktree-rescue-20261007\` | 历史 worktree 的 patch + untracked |
+| 预重建分支 bundle | `H:\ChaotangBackups\branch-archive-20261007\` | 46 支 7-8 月旧分支全量备份（见 docs/branch-cleanup-20261007.md） |
+| Staging 归档 | `H:\ChaotangBackups\staging-archive-20261007\` | 228 项历史测试产物（同盘可逆搬移） |
 | 六部 Agent / DeepSeek 预设 | `H:\ChaotangPortable\` | 便携运行时资产 |
 
 ## 7. 日常纪律（代替"每天迁移"）
