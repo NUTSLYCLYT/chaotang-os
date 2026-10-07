@@ -5,6 +5,13 @@ import type { JinyiweiDetail } from "../../lib/backendClient";
 
 import { CollapsedEdictScroll, EdictStage } from "../court-visuals/edict/EdictStage";
 import styles from "./JinyiweiScrollDesk.module.css";
+import {
+  buildFactDispatchRows,
+  type FactDispatchRow,
+} from "./jinyiweiDispatch";
+
+export { buildFactDispatchRows } from "./jinyiweiDispatch";
+export type { FactDispatchInput, FactDispatchRow } from "./jinyiweiDispatch";
 
 type Investigation = {
   investigationId: string;
@@ -25,6 +32,10 @@ type DetailState =
 
 function statusLabel(status: string) {
   return ({ RESOLVED: "已结案", PARTIAL: "部分结案", BLOCKED: "受阻", UNAVAILABLE: "不可用" } as Record<string, string>)[status] ?? status;
+}
+
+function dispatchStatusLabel(status: FactDispatchRow["status"]) {
+  return ({ RESOLVED: "已核验", PENDING: "待核验", NO_EVIDENCE: "尚无证据" } as const)[status];
 }
 
 export function JinyiweiScrollDesk() {
@@ -136,9 +147,11 @@ function DetailContent({ detail }: { detail: DetailState }) {
 
 function CaseDetail({ detail }: { detail: JinyiweiDetail }) {
   const evidenceCount = Object.values(detail.evidenceByFact).flat().length;
+  const dispatchRows = buildFactDispatchRows(detail);
   return <article className={styles.caseBody}>
     <p className={styles.lead}>{detail.request.decisionContext}</p>
     <section><h3>所需事实</h3><ul>{detail.request.requiredFacts.map((fact) => <li key={fact.key}><strong>{fact.key}</strong>：{fact.description}</li>)}</ul></section>
+    <section aria-label="事实分发台"><h3>事实分发台</h3><p>事实 → 证据 → 回奏；只显示已核验案卷中的真实关联。</p><ol className={styles.dispatchSpine}>{dispatchRows.map((row) => <li key={row.factKey} className={styles.dispatchRow}><div><strong>{row.factKey}</strong><span>{row.description}</span></div><div className={styles.dispatchMeta}><b className={`${styles.dispatchStatus} ${styles[`dispatch${row.status}`]}`}>{dispatchStatusLabel(row.status)}</b><small>证据 {row.evidenceCount} · 回奏 {row.relatedReplyCount}</small></div></li>)}</ol></section>
     <section><h3>证据留痕</h3><p>已保留 {evidenceCount} 条证据，调查来源尝试 {detail.sourceAttempts.length} 次。</p></section>
     <section><h3>不得推断</h3>{detail.doNotInfer.length === 0 ? <p>未登记额外推断限制。</p> : <ul>{detail.doNotInfer.map((limit) => <li key={limit}>{limit}</li>)}</ul>}</section>
   </article>;
