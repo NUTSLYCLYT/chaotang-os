@@ -25,6 +25,14 @@ _VERIFICATION_TIMESTAMP_PATTERN = re.compile(
 _DECREE_JOB_SCHEMA_CONTRACT_DIGESTS = (
     "sha256:374ba3999e8e333f6ef236dccdf418506f222ebe1f07dbe1627c3a0d1b483e05",
     "sha256:3c3599af569b192c3cd038a43038a071b2e3575c4cdc34bf748938ae1b2f3fb2",
+    "sha256:b22124059f732c39b895302cd28a704150399301692133b47542e8e50efb8b30",
+)
+_DECREE_JOB_TASK_BUDGET_TABLES = (
+    "decree_job_history_annotations",
+    "decree_job_idempotency_keys",
+    "decree_jobs",
+    "task_token_budget_v1",
+    "task_token_reservation_v1",
 )
 
 
@@ -549,9 +557,15 @@ def validated_registered_schema_digest_connection(
     try:
         observed = observe_schema_contract_connection(connection)
         actual_digest = _digest(observed)
+        required_tables = entry.required_tables
+        if (
+            entry.name == "decree_jobs.sqlite3"
+            and actual_digest == _DECREE_JOB_SCHEMA_CONTRACT_DIGESTS[2]
+        ):
+            required_tables = _DECREE_JOB_TASK_BUDGET_TABLES
         if not (
             observed["userVersion"] == entry.user_version
-            and tuple(item["name"] for item in observed["tables"]) == entry.required_tables
+            and tuple(item["name"] for item in observed["tables"]) == required_tables
             and tuple(item["name"] for item in observed["triggers"])
             == entry.required_triggers
             and actual_digest in entry.schema_contract_digests

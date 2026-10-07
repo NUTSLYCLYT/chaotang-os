@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -27,6 +28,21 @@ async function fixture(files) {
     }),
   );
   return root;
+}
+
+function resolveBashExecutable() {
+  if (process.platform !== "win32") return "/usr/bin/bash";
+  const programFiles = process.env.ProgramFiles ?? "C:\\Program Files";
+  const programFilesX86 = process.env["ProgramFiles(x86)"] ?? "C:\\Program Files (x86)";
+  const candidates = [
+    process.env.CHAOTANG_GIT_BASH,
+    join(programFiles, "Git", "bin", "bash.exe"),
+    join(programFiles, "Git", "usr", "bin", "bash.exe"),
+    join(programFilesX86, "Git", "bin", "bash.exe"),
+    "C:\\Tools\\PortableGit\\bin\\bash.exe",
+    "C:\\Tools\\PortableGit\\usr\\bin\\bash.exe",
+  ].filter(Boolean);
+  return candidates.find((candidate) => existsSync(candidate)) ?? null;
 }
 
 test("rejects an incomplete frontend container source contract", async () => {
@@ -421,11 +437,16 @@ Any failure is a STOP.
 });
 
 test("bare transactional assertions invoke the recovery trap", () => {
+  const bash = resolveBashExecutable();
+  assert.ok(
+    bash,
+    "Git Bash executable not found; set CHAOTANG_GIT_BASH to an absolute bash.exe path",
+  );
   for (const assertion of [
     "printf '%s\\n' invalid | /usr/bin/grep -Eq '^valid$'",
     "test failed = healthy",
   ]) {
-    const result = spawnSync("/usr/bin/bash", ["-c", `
+    const result = spawnSync(bash, ["-c", `
 set -Eeuo pipefail
 recover_previous_release() {
   STATUS=$?
@@ -437,6 +458,7 @@ trap recover_previous_release ERR INT TERM
 ${assertion}
 printf 'BYPASSED\\n'
 `], { encoding: "utf8" });
+    assert.ifError(result.error);
     assert.notEqual(result.status, 0);
     assert.match(result.stdout, /^RECOVERED:[1-9][0-9]*\n$/);
     assert.doesNotMatch(result.stdout, /BYPASSED/);

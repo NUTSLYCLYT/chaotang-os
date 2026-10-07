@@ -627,6 +627,34 @@ def test_acceptance_runner_loads_dynamic_matrix_from_script_context(
     assert completed.stdout.strip() == "_run_dynamic_layout_matrix"
 
 
+def test_dynamic_layout_helpers_import_without_server_or_job_store_side_effects(
+    tmp_path: Path,
+) -> None:
+    probe = (
+        "import os, sys\n"
+        "os.environ.pop('CHAOTANG_SYNTHETIC_ACCEPTANCE_TMP', None)\n"
+        "import tests.synthetic_accounting_dynamic_layout as module\n"
+        "print(module.__name__)\n"
+        "print('app.main' in sys.modules)\n"
+        "print('app.decree_jobs.storage' in sys.modules)\n"
+    )
+
+    completed = subprocess.run(
+        [sys.executable, "-c", probe],
+        cwd=Path(__file__).resolve().parents[1],
+        check=True,
+        capture_output=True,
+        text=True,
+        env={**os.environ, "CHAOTANG_SYNTHETIC_ACCEPTANCE_TMP": ""},
+    )
+
+    assert completed.stdout.splitlines() == [
+        "tests.synthetic_accounting_dynamic_layout",
+        "False",
+        "False",
+    ]
+
+
 def test_acceptance_runner_records_external_formal_round_number() -> None:
     source = (
         Path(__file__).with_name("run_accounting_synthetic_acceptance.py")

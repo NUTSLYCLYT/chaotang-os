@@ -1,0 +1,47 @@
+# 行尾契约：文本统一 LF，二进制与 Windows 脚本显式豁免
+# 背景：2026-10-06 曾因 Windows/WSL 双端无契约，出现整文件 CRLF↔LF 翻转噪音。
+# 策略见 docs/platform-strategy.md。
+* text=auto eol=lf
+
+# Windows 侧必须保持 CRLF 的脚本
+*.bat  text eol=crlf
+*.cmd  text eol=crlf
+*.ps1  text eol=crlf
+
+# 二进制（禁止任何换行符处理）
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.pdf  binary
+*.zip  binary
+*.xlsx binary
+*.xls  binary
+*.docx binary
+*.pptx binary
+*.woff binary
+*.woff2 binary
+*.ttf  binary
+*.otf  binary
+*.pyc  binary
+*.pfx  binary
+*.p12  binary
+
+# 语言级确定性（供 GitHub 统计与 diff 识别）
+*.py   text
+*.mjs  text
+*.ts   text
+*.tsx  text
+*.json text
+*.md   text
+*.yml  text
+*.yaml text
+*.toml text
+*.css  text
+*.html text
+*.svg  text
+
+# lock 文件不参与 diff 与 merge 冲突（由工具重建）
+pnpm-lock.yaml  -diff merge=binary
+package-lock.json -diff merge=binary

@@ -80,8 +80,9 @@ runner 仅在结构化事件明确报告 `rate_limit_event.status = rejected`、
 - Codex 验收时默认只读代码和验证结果，不直接修复实现；若用户明确要求 Codex 实现，应先
   说明角色切换，并继续维护同一任务的证据。自动交付的 Claude 受限接力是已预先授权的例外，
   但程序团队负责人阶段与产品验收阶段仍须明确分开。
-- 两个客户端不得同时修改同一工作区。需要并行工作时，必须另行决定 worktree、分支和合并
-  所有权，本协议不预设该机制。
+- 两个客户端不得同时修改同一工作区。并行工作的 worktree、分支、合并所有权与小步合并节奏，
+  由 **ADR 0045（`docs/decisions/0045-cross-platform-parallel-development.md`）** 统一规定；
+  跨平台（Windows / WSL2）契约见 `docs/platform-strategy.md`。本协议不再对此留白。
 - Claude Code 的专业角色也遵守同一限制：架构分析完成后再实施，模块写入按允许路径顺序
   执行，测试在实现之后运行。负责人拥有任务状态、`Affected Modules` 中技术字段、
   `Technical Plan` 和 `Implementation Report` 的写入权。

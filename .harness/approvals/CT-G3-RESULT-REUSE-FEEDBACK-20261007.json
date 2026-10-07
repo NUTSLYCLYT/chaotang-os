@@ -1,0 +1,81 @@
+{
+  "schemaVersion": "product-authority.m0.approval.v1",
+  "authorityId": "product-authority.m0.v1",
+  "taskId": "CT-G3-RESULT-REUSE-FEEDBACK-20261007",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "163c9b71667ad4eb70aa94b954acbbe6df521682",
+    "baseTree": "c49a3ea04568bd70026e06396177c7905ca9906e",
+    "approvalPath": ".harness/approvals/CT-G3-RESULT-REUSE-FEEDBACK-20261007.json",
+    "approvalCommitPaths": [
+      ".harness/approvals/CT-G3-RESULT-REUSE-FEEDBACK-20261007.json",
+      "docs/product/tasks/2026-10-07-g3-result-reuse-feedback.md"
+    ],
+    "productPaths": [
+      "frontend/src/features/study-visual/DevStudyWorkspace.test.ts",
+      "frontend/src/features/study-visual/DevStudyWorkspace.tsx",
+      "frontend/src/features/study-visual/StudyArtifactLinks.test.ts",
+      "frontend/src/features/study-visual/StudyArtifactLinks.ts"
+    ]
+  },
+  "nonGoals": [
+    "NO_AUTHORITY_OR_ADR_CHANGE",
+    "NO_BACKEND_API_OR_SCHEMA_CHANGE",
+    "NO_DESKTOP_WINDOW_OPERATION",
+    "NO_EXTERNAL_MODEL_OR_NETWORK_CALL",
+    "NO_NEW_TASK_SYSTEM",
+    "NO_PERMISSION_CHANGE",
+    "NO_PUBLIC_DEPLOYMENT",
+    "NO_ROUTE_OR_SCENE_PACK_CONTRACT_CHANGE",
+    "NO_TEST_WEAKENING",
+    "NO_VISUAL_THEME_REDESIGN"
+  ],
+  "verification": [
+    {
+      "id": "frontend-build",
+      "tool": "node",
+      "cwd": "frontend",
+      "timeoutMs": 300000,
+      "args": ["node_modules/next/dist/bin/next", "build"]
+    },
+    {
+      "id": "frontend-full-tests",
+      "tool": "node",
+      "cwd": "frontend",
+      "timeoutMs": 300000,
+      "args": ["--test"]
+    },
+    {
+      "id": "frontend-lint",
+      "tool": "node",
+      "cwd": "frontend",
+      "timeoutMs": 300000,
+      "args": ["node_modules/eslint/bin/eslint.js", "."]
+    },
+    {
+      "id": "frontend-typecheck",
+      "tool": "node",
+      "cwd": "frontend",
+      "timeoutMs": 300000,
+      "args": ["node_modules/typescript/bin/tsc", "--noEmit"]
+    },
+    {
+      "id": "harness-check",
+      "tool": "node",
+      "cwd": ".",
+      "timeoutMs": 300000,
+      "args": ["scripts/check_harness.mjs", "--check"]
+    },
+    {
+      "id": "result-reuse-tests",
+      "tool": "node",
+      "cwd": "frontend",
+      "timeoutMs": 300000,
+      "args": ["--test", "src/features/study-visual/DevStudyWorkspace.test.ts", "src/features/study-visual/StudyArtifactLinks.test.ts"]
+    }
+  ],
+  "state": "APPROVED_FOR_ONE_CHILD"
+}

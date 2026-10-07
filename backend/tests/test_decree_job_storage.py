@@ -19,6 +19,7 @@ from app.decree_jobs.storage import (
     JobNotFound,
     LeaseConflict,
 )
+from app.fusion.task_token_budget import TaskTokenBudget
 
 NOW = datetime(2026, 8, 5, 12, 0, tzinfo=UTC)
 
@@ -79,6 +80,19 @@ def test_history_migration_preserves_commitment_and_keys_and_rolls_back(tmp_path
         reopened.list_for_owner("owner-a")
     with pytest.raises(ClaimEvidenceCommitmentUnavailable):
         reopened.set_history_annotation(job_id, "owner-a", True)
+
+
+def test_task_budget_tables_survive_decree_store_reopen(tmp_path):
+    path = tmp_path / "budget-reopen.sqlite3"
+    DecreeJobStore(path)
+    TaskTokenBudget(path, owner_id="owner-a", task_id="task-a", max_tokens=20_000)
+
+    reopened = DecreeJobStore(path)
+
+    with closing(sqlite3.connect(path)) as connection:
+        assert reopened._schema_digest(connection) == (
+            DecreeJobStore._HISTORY_WITH_TASK_BUDGET_SCHEMA
+        )
 
 
 @pytest.mark.parametrize("state", list(DecreeJobState))

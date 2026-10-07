@@ -1,0 +1,87 @@
+{
+  "schemaVersion": "product-authority.m0.approval.v1",
+  "authorityId": "product-authority.m0.v1",
+  "taskId": "CT-G3-WINDOWS-GITBASH-FIX-20261007",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "f1dfb8ebca45732497776e4737eda4a4f1f99ea1",
+    "baseTree": "c67fef02bfdf828e0c48fe99f3a441f1cecaf56f",
+    "approvalPath": ".harness/approvals/CT-G3-WINDOWS-GITBASH-FIX-20261007.json",
+    "approvalCommitPaths": [
+      ".harness/approvals/CT-G3-WINDOWS-GITBASH-FIX-20261007.json"
+    ],
+    "productPaths": [
+      "backend/harness/capability_candidates/candidates/decision-quality-gate/capsule.json",
+      "backend/harness/capability_candidates/candidates/decision-quality-gate/capsule.lock.json",
+      "backend/harness/capability_candidates/candidates/hubu-financial-grounding/capsule.json",
+      "backend/harness/capability_candidates/candidates/hubu-financial-grounding/capsule.lock.json",
+      "backend/harness/capability_candidates/candidates/hubu-payment-three-gates/capsule.json",
+      "backend/harness/capability_candidates/candidates/hubu-payment-three-gates/capsule.lock.json",
+      "backend/harness/capability_candidates/candidates/libu-responsibility-authority-chain/capsule.json",
+      "backend/harness/capability_candidates/candidates/libu-responsibility-authority-chain/capsule.lock.json",
+      "backend/harness/capability_candidates/candidates/rites-war-truthfulness/capsule.json",
+      "backend/harness/capability_candidates/candidates/rites-war-truthfulness/capsule.lock.json",
+      "backend/harness/capability_candidates/rites-message-quality-gate/capsule.json",
+      "backend/harness/capability_candidates/rites-message-quality-gate/capsule.lock.json",
+      "scripts/check_deployment.test.mjs"
+    ]
+  },
+  "nonGoals": [
+    "NO_AUTHORITY_OR_ADR_CHANGE",
+    "NO_DEPLOYMENT",
+    "NO_EXTERNAL_MODEL_CALL",
+    "NO_EXTERNAL_NETWORK",
+    "NO_NEW_PERMISSION_SYSTEM",
+    "NO_NEW_TASK_SYSTEM",
+    "NO_PRODUCT_RUNTIME_CHANGE",
+    "NO_TEST_WEAKENING",
+    "NO_UI_CHANGE"
+  ],
+  "verification": [
+    {
+      "id": "capability-lock-tests",
+      "tool": "node",
+      "cwd": ".",
+      "timeoutMs": 300000,
+      "args": [
+        "--test",
+        "scripts/capability_capsule.test.mjs"
+      ]
+    },
+    {
+      "id": "diff-check",
+      "tool": "node",
+      "cwd": ".",
+      "timeoutMs": 10000,
+      "args": [
+        "--input-type=module",
+        "-e",
+        "import{execFileSync}from'node:child_process';execFileSync('git',['diff','--check'],{stdio:'inherit'});"
+      ]
+    },
+    {
+      "id": "harness-check",
+      "tool": "node",
+      "cwd": ".",
+      "timeoutMs": 300000,
+      "args": [
+        "scripts/check_harness.mjs",
+        "--check"
+      ]
+    },
+    {
+      "id": "windows-gitbash-fixture-test",
+      "tool": "node",
+      "cwd": ".",
+      "timeoutMs": 300000,
+      "args": [
+        "--test",
+        "scripts/check_deployment.test.mjs"
+      ]
+    }
+  ],
+  "state": "APPROVED_FOR_ONE_CHILD"
+}

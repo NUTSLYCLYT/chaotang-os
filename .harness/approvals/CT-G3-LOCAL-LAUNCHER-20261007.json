@@ -1,0 +1,89 @@
+{
+  "schemaVersion": "product-authority.m0.approval.v1",
+  "authorityId": "product-authority.m0.v1",
+  "taskId": "CT-G3-LOCAL-LAUNCHER-20261007",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "19367a82228f6e9bd7a4624b7895f35e59adc02d",
+    "baseTree": "9e4c9b1f611d4fb475a9d1541fe8197932938c8f",
+    "approvalPath": ".harness/approvals/CT-G3-LOCAL-LAUNCHER-20261007.json",
+    "approvalCommitPaths": [
+      ".harness/approvals/CT-G3-LOCAL-LAUNCHER-20261007.json"
+    ],
+    "productPaths": [
+      "docs/local-trial.md",
+      "scripts/start-local.cmd",
+      "scripts/start-local.ps1",
+      "scripts/start-local.test.mjs"
+    ]
+  },
+  "nonGoals": [
+    "NO_AUTHORITY_OR_ADR_CHANGE",
+    "NO_AUTOMATIC_BROWSER_OPEN",
+    "NO_EXTERNAL_MODEL_CALL",
+    "NO_EXTERNAL_NETWORK",
+    "NO_NEW_PERMISSION_SYSTEM",
+    "NO_NEW_TASK_SYSTEM",
+    "NO_PUBLIC_DEPLOYMENT",
+    "NO_SECRET_GENERATION",
+    "NO_TEST_WEAKENING",
+    "NO_UI_REDESIGN"
+  ],
+  "verification": [
+    {
+      "id": "capability-lock-tests",
+      "tool": "node",
+      "cwd": ".",
+      "timeoutMs": 300000,
+      "args": [
+        "--test",
+        "scripts/capability_capsule.test.mjs"
+      ]
+    },
+    {
+      "id": "deployment-tests",
+      "tool": "node",
+      "cwd": ".",
+      "timeoutMs": 300000,
+      "args": [
+        "--test",
+        "scripts/check_deployment.test.mjs"
+      ]
+    },
+    {
+      "id": "diff-check",
+      "tool": "node",
+      "cwd": ".",
+      "timeoutMs": 10000,
+      "args": [
+        "--input-type=module",
+        "-e",
+        "import{execFileSync}from'node:child_process';execFileSync('git',['diff','--check'],{stdio:'inherit'});"
+      ]
+    },
+    {
+      "id": "harness-check",
+      "tool": "node",
+      "cwd": ".",
+      "timeoutMs": 300000,
+      "args": [
+        "scripts/check_harness.mjs",
+        "--check"
+      ]
+    },
+    {
+      "id": "local-launcher-contract-tests",
+      "tool": "node",
+      "cwd": ".",
+      "timeoutMs": 300000,
+      "args": [
+        "--test",
+        "scripts/start-local.test.mjs"
+      ]
+    }
+  ],
+  "state": "APPROVED_FOR_ONE_CHILD"
+}

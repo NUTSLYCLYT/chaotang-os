@@ -138,6 +138,12 @@ CREATE TABLE decree_jobs (
     _FRESH_SCHEMA = "sha256:0c346e52fa80d30e8948d709d7e83d84389c51ec195a866f44bd874fb414fb51"
     _EXACT_NEW_SCHEMA = "sha256:8b38c49b719aa2a758ba037eb436d6fdf97db50e0a4b8cabd874b1a20f3059c2"
     _HISTORY_SCHEMA = "sha256:9786efdbe7fe9df671ac4e7af03b6371f6d568c03e5c39c88a77c47986ae2eb6"
+    # A real decree execution adds the two fixed task-token budget tables to
+    # this database. Keep their combined schema identity explicit so restart
+    # recovery accepts this known state without accepting arbitrary drift.
+    _HISTORY_WITH_TASK_BUDGET_SCHEMA = (
+        "sha256:e5ab48cea44661db2ed0f53b7d9bcfdc8badf6932a3571d77946469ee10959a4"
+    )
     _EXACT_OLD_SCHEMA = "sha256:aa2938733179612f5d4decd4f5e363be7dafaee5d38128273fef9f24eea3f027"
     _EARLIEST_SCHEMA = "sha256:8632c03d798b1a3ac0e5e2774d8d64c4af7d1c734b0b95b2d2d3465b9b3e1124"
     _PRE_AUTHORITY_SCHEMA = (
@@ -625,9 +631,11 @@ CREATE TABLE decree_jobs (
 
     def _initialize(self) -> None:
         probe = self._probe_schema_identity()
+        history_schemas = {self._HISTORY_SCHEMA, self._HISTORY_WITH_TASK_BUDGET_SCHEMA}
         allowed = {
             self._FRESH_SCHEMA,
             self._HISTORY_SCHEMA,
+            self._HISTORY_WITH_TASK_BUDGET_SCHEMA,
             self._EXACT_NEW_SCHEMA,
             self._EXACT_OLD_SCHEMA,
             self._EARLIEST_SCHEMA,
@@ -635,7 +643,7 @@ CREATE TABLE decree_jobs (
         }
         if probe not in allowed:
             raise DecreeJobStoreError("decree_job_schema_unrecognized")
-        if probe == self._HISTORY_SCHEMA:
+        if probe in history_schemas:
             return
         with closing(self._connect_for_initialization()) as connection:
             connection.execute("PRAGMA foreign_keys = ON")
@@ -649,6 +657,9 @@ CREATE TABLE decree_jobs (
                 locked = self._schema_digest(connection)
                 if locked not in allowed:
                     raise DecreeJobStoreError("decree_job_schema_unrecognized")
+                if locked in history_schemas:
+                    connection.commit()
+                    return
                 if locked == self._FRESH_SCHEMA:
                     self._create_canonical_schema(connection)
                 elif locked == self._EXACT_OLD_SCHEMA:

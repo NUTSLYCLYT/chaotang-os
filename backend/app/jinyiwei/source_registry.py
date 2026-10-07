@@ -71,6 +71,7 @@ class PublicApiRecord:
     license_note: str
     as_of: str | None = None
     published_at: str | None = None
+    metadata: Mapping[str, object] = MappingProxyType({})
 
     def __post_init__(self) -> None:
         for name in ("title", "text"):
@@ -96,6 +97,9 @@ class PublicApiRecord:
         if not license_note:
             raise ValueError("license_note must not be blank")
         object.__setattr__(self, "license_note", license_note)
+        if not isinstance(self.metadata, Mapping):
+            raise ValueError("metadata must be a mapping")
+        object.__setattr__(self, "metadata", MappingProxyType(dict(self.metadata)))
 
 
 QueryBuilder = Callable[[tuple[RequiredFact, ...], int], Mapping[str, str]]
@@ -122,6 +126,7 @@ class PublicApiConnector:
     redistribution_restrictions: str
     query_builder: QueryBuilder
     response_parser: ResponseParser
+    fact_matcher: Callable[[RequiredFact], bool] | None = None
 
     def __post_init__(self) -> None:
         name = " ".join(self.name.split())
@@ -183,6 +188,8 @@ class PublicApiConnector:
             raise ValueError("query_builder must be a fixed callable")
         if not callable(self.response_parser):
             raise ValueError("response_parser must be a fixed callable")
+        if self.fact_matcher is not None and not callable(self.fact_matcher):
+            raise ValueError("fact_matcher must be a fixed callable")
         if self.quality_ceiling is EvidenceQuality.PRIMARY:
             raise ValueError("public API quality cannot exceed AUTHORITATIVE")
         object.__setattr__(self, "name", name)
@@ -205,9 +212,12 @@ class PublicApiConnector:
         jurisdiction; a country-specific connector must never infer that scope.
         """
 
-        return fact.category in self.categories and (
+        in_scope = fact.category in self.categories and (
             self.jurisdictions == GLOBAL_COVERAGE
             or fact.jurisdiction is not None and fact.jurisdiction in self.jurisdictions
+        )
+        return in_scope and (
+            self.fact_matcher is None or bool(self.fact_matcher(fact))
         )
 
     def build_url(self, facts: tuple[RequiredFact, ...], limit: int) -> str:
@@ -290,7 +300,13 @@ class PublicApiRegistry:
 
 
 def build_default_public_api_registry() -> PublicApiRegistry:
-    """Return the production no-login Wikidata entity-search registry."""
+    """Return the production no-login public API registry.
+
+    GitHub is deliberately scoped to facts whose subject uses the explicit
+    ``github:owner/repository`` form.  Ordinary entity investigations remain
+    on the existing Wikidata connector and cannot accidentally fan out to a
+    second provider.
+    """
 
     return PublicApiRegistry(
         (
@@ -315,6 +331,37 @@ def build_default_public_api_registry() -> PublicApiRegistry:
                 redistribution_restrictions="Wikidata data is available under CC0 1.0.",
                 query_builder=_build_wikidata_query,
                 response_parser=_parse_wikidata_response,
+                fact_matcher=lambda fact: not _is_github_repository_fact(fact),
+            ),
+            PublicApiConnector(
+                name="github_repository_search",
+                origin="https://api.github.com",
+                path="/search/repositories",
+                allowed_query_keys=frozenset({"q", "per_page"}),
+                publisher="GitHub",
+                quality_ceiling=EvidenceQuality.AUTHORITATIVE,
+                categories=frozenset({FactCategory.ENTITY_REFERENCE}),
+                jurisdictions=GLOBAL_COVERAGE,
+                coverage=GLOBAL_COVERAGE,
+                access_policy=PublicAccessPolicy.FREE_PUBLIC_NO_CREDENTIALS,
+                free_public_access_basis=(
+                    "GitHub exposes a public repository-search endpoint without a user credential."
+                ),
+                license_note=(
+                    "Repository license is publisher-declared; verify the repository "
+                    "license before reuse."
+                ),
+                freshness_semantics=(
+                    "Repository metadata is retrieved at investigation time; "
+                    "timestamps come from GitHub."
+                ),
+                redistribution_restrictions=(
+                    "Respect the repository license and GitHub API terms when "
+                    "redistributing metadata."
+                ),
+                query_builder=_build_github_repository_query,
+                response_parser=_parse_github_repository_response,
+                fact_matcher=_is_github_repository_fact,
             ),
         )
     )
@@ -361,6 +408,143 @@ def _parse_wikidata_response(body: bytes) -> tuple[PublicApiRecord, ...]:
                 coverage=GLOBAL_COVERAGE,
                 license_note="Wikidata data is available under CC0 1.0.",
                 text=f"{normalized_label} — {normalized_description}",
+            )
+        )
+    return tuple(records)
+
+
+_GITHUB_SUBJECT = re.compile(
+    r"^github:(?P<repository>"
+    r"[A-Za-z0-9_.-]{1,100}/[A-Za-z0-9_.-]{1,100})$"
+)
+
+
+def _github_repository_name(subject: str) -> str | None:
+    match = _GITHUB_SUBJECT.fullmatch(" ".join(subject.split()))
+    return None if match is None else match.group("repository")
+
+
+def _is_github_repository_fact(fact: RequiredFact) -> bool:
+    return (
+        fact.category is FactCategory.ENTITY_REFERENCE
+        and fact.expected_shape == "object"
+        and _github_repository_name(fact.subject) is not None
+    )
+
+
+def _build_github_repository_query(
+    facts: tuple[RequiredFact, ...], limit: int
+) -> Mapping[str, str]:
+    repositories = tuple(
+        dict.fromkeys(
+            repository
+            for repository in (_github_repository_name(fact.subject) for fact in facts)
+            if repository is not None
+        )
+    )
+    if not repositories:
+        raise ValueError("github repository fact is required")
+    return {
+        "q": " ".join(f"repo:{repository}" for repository in repositories),
+        "per_page": str(min(max(limit, 1), 10)),
+    }
+
+
+def _parse_github_repository_response(body: bytes) -> tuple[PublicApiRecord, ...]:
+    payload = json.loads(body)
+    if not isinstance(payload, dict) or not isinstance(payload.get("items"), list):
+        raise ValueError("invalid GitHub repository search response")
+    records: list[PublicApiRecord] = []
+    for item in payload["items"]:
+        if not isinstance(item, dict):
+            continue
+        full_name = item.get("full_name")
+        html_url = item.get("html_url")
+        description = item.get("description")
+        updated_at = item.get("updated_at")
+        if (
+            not isinstance(full_name, str)
+            or re.fullmatch(r"[A-Za-z0-9_.-]{1,100}/[A-Za-z0-9_.-]{1,100}", full_name) is None
+            or not isinstance(html_url, str)
+            or urlsplit(html_url).scheme != "https"
+            or urlsplit(html_url).netloc.casefold() != "github.com"
+            or not isinstance(description, str)
+            or not isinstance(updated_at, str)
+        ):
+            continue
+        try:
+            updated = _normalize_timestamp(updated_at, "updated_at")
+            created = item.get("created_at")
+            created_at = (
+                _normalize_timestamp(created, "created_at")
+                if isinstance(created, str)
+                else None
+            )
+        except ValueError:
+            continue
+        license_payload = item.get("license")
+        license_id = (
+            license_payload.get("spdx_id")
+            if isinstance(license_payload, dict)
+            else None
+        )
+        license_name = (
+            license_payload.get("name")
+            if isinstance(license_payload, dict)
+            else None
+        )
+        license_text = " ".join(
+            str(value).strip()
+            for value in (license_id, license_name)
+            if isinstance(value, str) and value.strip()
+        ) or "NOASSERTION"
+        numeric = {
+            key: item.get(key)
+            for key in ("stargazers_count", "open_issues_count")
+        }
+        if any(type(value) is not int or value < 0 for value in numeric.values()):
+            continue
+        default_branch = item.get("default_branch")
+        if not isinstance(default_branch, str) or not default_branch.strip():
+            continue
+        normalized_description = (
+            " ".join(description.split())
+            if isinstance(description, str)
+            else ""
+        ) or "(no description)"
+        text = (
+            f"{full_name}: {normalized_description}. "
+            f"License: {license_text}. Updated: {updated}. "
+            f"Pushed: {item.get('pushed_at') or 'unknown'}. "
+            f"Stars: {numeric['stargazers_count']}. "
+            f"Open issues: {numeric['open_issues_count']}. "
+            f"Default branch: {default_branch.strip()}."
+        )
+        records.append(
+            PublicApiRecord(
+                title=full_name,
+                text=text,
+                coverage=GLOBAL_COVERAGE,
+                license_note=(
+                    "Repository license is publisher-declared; verify the repository "
+                    "license before reuse."
+                ),
+                as_of=updated,
+                metadata={
+                    "repository": {
+                        "full_name": full_name,
+                        "html_url": html_url,
+                        "description": normalized_description,
+                        "license_spdx_id": license_id,
+                        "license_name": license_name,
+                        "updated_at": updated,
+                        "pushed_at": item.get("pushed_at"),
+                        "created_at": created_at,
+                        "stargazers_count": numeric["stargazers_count"],
+                        "open_issues_count": numeric["open_issues_count"],
+                        "default_branch": default_branch.strip(),
+                    }
+                },
             )
         )
     return tuple(records)

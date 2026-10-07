@@ -308,7 +308,10 @@ except Exception as error:
     raise SystemExit(2)
 `.trim();
 
-const GIT_EXECUTABLE = "/usr/bin/git";
+export const GIT_EXECUTABLE = process.platform === "win32" ? "git.exe" : "/usr/bin/git";
+const AUTHORITY_PATH = process.platform === "win32"
+  ? (process.env.Path ?? process.env.PATH ?? "")
+  : "/usr/bin:/bin";
 const TASK_ID_PATTERN = /^[A-Z0-9][A-Z0-9._-]{2,127}$/;
 const IDENTIFIER_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{2,127}$/;
 const SHA_PATTERN = /^[0-9a-f]{40}$/;
@@ -629,7 +632,7 @@ export function validateApprovalManifest(manifest) {
 
 function gitEnvironment() {
   return {
-    PATH: "/usr/bin:/bin",
+    PATH: AUTHORITY_PATH,
     GIT_CONFIG_NOSYSTEM: "1",
     GIT_NO_REPLACE_OBJECTS: "1",
     GIT_TERMINAL_PROMPT: "0",
@@ -1362,7 +1365,7 @@ export async function authorizeProductWork({
 
 function verificationEnvironment() {
   return {
-    PATH: "/usr/bin:/bin",
+    PATH: AUTHORITY_PATH,
     CI: "1",
     NODE_ENV: "test",
     PYTHONDONTWRITEBYTECODE: "1",

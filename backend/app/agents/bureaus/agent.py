@@ -354,13 +354,21 @@ def _invoke_bureau_agent_with_report_authorized(
             and node_id is not None
             and runtime_skill.agent_id == "libu-rites-content"
         ):
-            from app.agents.entity_fact_plan import compile_entity_reference_plan
+            from app.agents.entity_fact_plan import (
+                compile_entity_reference_plan,
+                compile_github_repository_plan,
+            )
             from app.agents.fact_plans import FactPlanDisposition
 
-            deterministic_fact_plan = compile_entity_reference_plan(
+            deterministic_fact_plan = compile_github_repository_plan(
                 decree_text=decree_text,
                 node_id=node_id,
             )
+            if deterministic_fact_plan.disposition is FactPlanDisposition.NOT_APPLICABLE:
+                deterministic_fact_plan = compile_entity_reference_plan(
+                    decree_text=decree_text,
+                    node_id=node_id,
+                )
             if deterministic_fact_plan.disposition is FactPlanDisposition.REJECTED:
                 cause = ValueError(
                     deterministic_fact_plan.reason or "data_plan_invalid"

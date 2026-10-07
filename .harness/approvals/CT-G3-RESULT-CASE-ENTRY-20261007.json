@@ -1,0 +1,71 @@
+{
+  "schemaVersion": "product-authority.m0.approval.v1",
+  "authorityId": "product-authority.m0.v1",
+  "taskId": "CT-G3-RESULT-CASE-ENTRY-20261007",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "f059404dd689d44b15e14e4c1184c833a618d0f6",
+    "baseTree": "d5909eba55576be1ab2e136704ab20ccf573abe2",
+    "approvalPath": ".harness/approvals/CT-G3-RESULT-CASE-ENTRY-20261007.json",
+    "approvalCommitPaths": [
+      ".harness/approvals/CT-G3-RESULT-CASE-ENTRY-20261007.json",
+      "docs/product/tasks/2026-10-07-g3-result-case-entry.md"
+    ],
+    "productPaths": [
+      "frontend/src/features/scene-packs/SceneStrategyPanel.test.ts",
+      "frontend/src/features/scene-packs/SceneStrategyPanel.tsx"
+    ]
+  },
+  "nonGoals": [
+    "NO_AUTHORITY_OR_ADR_CHANGE",
+    "NO_BACKEND_API_OR_SCHEMA_CHANGE",
+    "NO_DESKTOP_WINDOW_OPERATION",
+    "NO_EXTERNAL_MODEL_OR_NETWORK_CALL",
+    "NO_NEW_TASK_SYSTEM",
+    "NO_PUBLIC_DEPLOYMENT",
+    "NO_ROUTE_OR_SCENE_PACK_CONTRACT_CHANGE",
+    "NO_TEST_WEAKENING",
+    "NO_VISUAL_THEME_REDESIGN"
+  ],
+  "verification": [
+    {
+      "id": "frontend-full-tests",
+      "tool": "node",
+      "cwd": "frontend",
+      "timeoutMs": 300000,
+      "args": ["--test"]
+    },
+    {
+      "id": "frontend-lint",
+      "tool": "node",
+      "cwd": "frontend",
+      "timeoutMs": 300000,
+      "args": ["node_modules/eslint/bin/eslint.js", "."]
+    },
+    {
+      "id": "frontend-typecheck",
+      "tool": "node",
+      "cwd": "frontend",
+      "timeoutMs": 300000,
+      "args": ["node_modules/typescript/bin/tsc", "--noEmit"]
+    },
+    {
+      "id": "harness-check",
+      "tool": "node",
+      "cwd": ".",
+      "timeoutMs": 300000,
+      "args": ["scripts/check_harness.mjs", "--check"]
+    },
+    {
+      "id": "result-case-entry-tests",
+      "tool": "node",
+      "cwd": "frontend",
+      "timeoutMs": 300000,
+      "args": ["--test", "src/features/scene-packs/SceneStrategyPanel.test.ts"]
+    }
+  ],
+  "state": "APPROVED_FOR_ONE_CHILD"
+}
