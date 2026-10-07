@@ -7,8 +7,19 @@ from fastapi.responses import JSONResponse
 
 from app.api.auth import CurrentUser
 from app.jinyiwei import storage
-from app.jinyiwei.models import EvidencePackStatus
-from app.jinyiwei.read_models import InvestigationDetail, InvestigationPage, InvestigationSummary
+from app.jinyiwei.models import (
+    EvidencePackStatus,
+    InvestigationEvent,
+    LongTaskRecord,
+    ReplayArtifact,
+    ReplayDiff,
+)
+from app.jinyiwei.read_models import (
+    InvestigationDetail,
+    InvestigationPage,
+    InvestigationSummary,
+    ReplayTimelineRead,
+)
 
 router = APIRouter(prefix="/api/v1/jinyiwei", tags=["jinyiwei"])
 
@@ -46,6 +57,79 @@ def investigation_detail(
         investigation_id,
         owner_user_id=current_user.id,
     )
+
+
+@router.get(
+    "/investigations/{investigation_id}/events", response_model=tuple[InvestigationEvent, ...]
+)
+def investigation_events(
+    current_user: CurrentUser,
+    investigation_id: str = Path(min_length=1, max_length=128),
+) -> tuple[InvestigationEvent, ...]:
+    # Visibility is checked through the canonical detail relation before the ledger is returned.
+    storage.get_investigation_detail(investigation_id, owner_user_id=current_user.id)
+    return storage.list_investigation_events(investigation_id)
+
+
+@router.get("/investigations/{investigation_id}/replay-timeline", response_model=ReplayTimelineRead)
+def replay_timeline(
+    current_user: CurrentUser,
+    investigation_id: str = Path(min_length=1, max_length=128),
+    replay_id: str | None = Query(default=None, min_length=1, max_length=128),
+) -> ReplayTimelineRead:
+    """Return the immutable event trail beside an optional replay result and diff."""
+    storage.get_investigation_detail(investigation_id, owner_user_id=current_user.id)
+    replay = (
+        storage.get_replay_artifact(replay_id, owner_user_id=current_user.id)
+        if replay_id is not None
+        else None
+    )
+    diff = (
+        storage.get_replay_diff(replay_id, owner_user_id=current_user.id)
+        if replay_id is not None
+        else None
+    )
+    return ReplayTimelineRead(
+        events=storage.list_investigation_events(investigation_id),
+        replay=replay,
+        diff=diff,
+    )
+
+
+@router.post("/investigations/{investigation_id}/replay", response_model=ReplayArtifact)
+def replay_investigation(
+    current_user: CurrentUser,
+    investigation_id: str = Path(min_length=1, max_length=128),
+) -> ReplayArtifact:
+    """Create a replay artifact without mutating the original evidence pack."""
+    return storage.create_replay_artifact(
+        investigation_id,
+        owner_user_id=current_user.id,
+    )
+
+
+@router.get("/replays/{replay_id}", response_model=ReplayArtifact)
+def replay_detail(
+    current_user: CurrentUser,
+    replay_id: str = Path(min_length=1, max_length=128),
+) -> ReplayArtifact:
+    return storage.get_replay_artifact(replay_id, owner_user_id=current_user.id)
+
+
+@router.get("/replays/{replay_id}/diff", response_model=ReplayDiff)
+def replay_diff(
+    current_user: CurrentUser,
+    replay_id: str = Path(min_length=1, max_length=128),
+) -> ReplayDiff:
+    return storage.get_replay_diff(replay_id, owner_user_id=current_user.id)
+
+
+@router.get("/long-tasks/{task_id}", response_model=LongTaskRecord)
+def long_task_detail(
+    current_user: CurrentUser,
+    task_id: str = Path(min_length=1, max_length=128),
+) -> LongTaskRecord:
+    return storage.get_long_task(task_id, owner_user_id=current_user.id)
 
 
 def register_jinyiwei_exception_handlers(app: FastAPI) -> None:

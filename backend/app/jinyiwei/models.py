@@ -107,6 +107,30 @@ class EvidencePackStatus(StrEnum):
     UNAVAILABLE = "UNAVAILABLE"
 
 
+class InvestigationEventType(StrEnum):
+    REQUEST_ACCEPTED = "REQUEST_ACCEPTED"
+    SOURCE_ATTEMPTED = "SOURCE_ATTEMPTED"
+    EVIDENCE_ACCEPTED = "EVIDENCE_ACCEPTED"
+    EVIDENCE_REJECTED = "EVIDENCE_REJECTED"
+    STATUS_CHANGED = "STATUS_CHANGED"
+    CHECKPOINT = "CHECKPOINT"
+    REPLAYED = "REPLAYED"
+
+
+class LongTaskStatus(StrEnum):
+    QUEUED = "QUEUED"
+    RUNNING = "RUNNING"
+    WAITING_FOR_SOURCE = "WAITING_FOR_SOURCE"
+    WAITING_FOR_REVIEW = "WAITING_FOR_REVIEW"
+    PAUSED = "PAUSED"
+    RETRYING = "RETRYING"
+    COMPLETED = "COMPLETED"
+    PARTIAL = "PARTIAL"
+    BLOCKED = "BLOCKED"
+    FAILED = "FAILED"
+    CANCELLED = "CANCELLED"
+
+
 def _normalize_text(value: str, field_name: str) -> str:
     normalized = " ".join(value.split())
     if not normalized:
@@ -162,9 +186,7 @@ class FrozenJsonMapping(Mapping[str, Any]):
 
 def _freeze_json(value: JsonValue) -> Any:
     if isinstance(value, dict):
-        return FrozenJsonMapping(
-            {key: _freeze_json(item) for key, item in value.items()}
-        )
+        return FrozenJsonMapping({key: _freeze_json(item) for key, item in value.items()})
     if isinstance(value, list):
         return tuple(_freeze_json(item) for item in value)
     return value
@@ -210,9 +232,7 @@ class RequiredFact(_FrozenContract):
 
     @field_validator("expected_unit", "expected_shape")
     @classmethod
-    def _optional_nonempty_text(
-        cls, value: str | None, info: ValidationInfo
-    ) -> str | None:
+    def _optional_nonempty_text(cls, value: str | None, info: ValidationInfo) -> str | None:
         return None if value is None else _normalize_text(value, info.field_name)
 
     @model_validator(mode="after")
@@ -278,9 +298,7 @@ class DataGapRequest(DataGapDraft):
 
     @field_validator("source_scope")
     @classmethod
-    def _unique_source_scope(
-        cls, value: tuple[SourceType, ...]
-    ) -> tuple[SourceType, ...]:
+    def _unique_source_scope(cls, value: tuple[SourceType, ...]) -> tuple[SourceType, ...]:
         return _ensure_unique(value, "source_scope")
 
     @property
@@ -406,9 +424,7 @@ class EvidenceItem(_FrozenContract):
         return None if value is None else _freeze_json(dict(value))
 
     @field_serializer("access_metadata")
-    def _serialize_access_metadata(
-        self, value: Mapping[str, Any] | None
-    ) -> JsonValue | None:
+    def _serialize_access_metadata(self, value: Mapping[str, Any] | None) -> JsonValue | None:
         return None if value is None else _thaw_json(value)
 
     @field_validator("value")
@@ -549,9 +565,7 @@ class CacheMetadata(_FrozenContract):
 
     @field_validator("cached_at", "expires_at")
     @classmethod
-    def _optional_times_are_iso8601(
-        cls, value: str | None, info: ValidationInfo
-    ) -> str | None:
+    def _optional_times_are_iso8601(cls, value: str | None, info: ValidationInfo) -> str | None:
         return None if value is None else _validate_iso8601(value, info.field_name)
 
 
@@ -608,15 +622,12 @@ class EvidencePack(_FrozenContract):
         }
         return MappingProxyType(normalized)
 
-    @field_serializer(
-        "evidence_by_fact", "historical_evidence_by_fact", when_used="json"
-    )
+    @field_serializer("evidence_by_fact", "historical_evidence_by_fact", when_used="json")
     def _serialize_grouped_evidence(
         self, value: Mapping[str, tuple[EvidenceItem, ...]]
     ) -> dict[str, list[dict[str, Any]]]:
         return {
-            key: [item.model_dump(mode="json") for item in items]
-            for key, items in value.items()
+            key: [item.model_dump(mode="json") for item in items] for key, items in value.items()
         }
 
     @model_validator(mode="after")
@@ -624,9 +635,7 @@ class EvidencePack(_FrozenContract):
         if _parse_time(self.investigation_completed_at) < _parse_time(
             self.investigation_started_at
         ):
-            raise ValueError(
-                "investigation_completed_at must not precede investigation_started_at"
-            )
+            raise ValueError("investigation_completed_at must not precede investigation_started_at")
         request_facts = {fact.key for fact in self.request.required_facts}
         request_sources = set(self.request.source_scope)
         plan_sources = set(self.investigation_plan.source_scope)
@@ -659,28 +668,20 @@ class EvidencePack(_FrozenContract):
                             "evidence source_type must be in request and plan source scope"
                         )
                     evidence_ids.add(item.evidence_id)
-                    evidence_ids_by_fact.setdefault(group_key, set()).add(
-                        item.evidence_id
-                    )
+                    evidence_ids_by_fact.setdefault(group_key, set()).add(item.evidence_id)
 
         for conflict in self.conflicts:
             if conflict.fact_key not in request_facts:
                 raise ValueError("conflict fact_key must be a requested fact")
             if not set(conflict.evidence_ids) <= evidence_ids:
                 raise ValueError("conflicts must reference evidence in this pack")
-            if not set(conflict.evidence_ids) <= evidence_ids_by_fact.get(
-                conflict.fact_key, set()
-            ):
-                raise ValueError(
-                    "conflict evidence IDs must belong to the conflict fact group"
-                )
+            if not set(conflict.evidence_ids) <= evidence_ids_by_fact.get(conflict.fact_key, set()):
+                raise ValueError("conflict evidence IDs must belong to the conflict fact group")
 
         if self.status is EvidencePackStatus.RESOLVED and (
             resolved != request_facts or unresolved or self.conflicts
         ):
-            raise ValueError(
-                "RESOLVED requires every request fact resolved and no conflicts"
-            )
+            raise ValueError("RESOLVED requires every request fact resolved and no conflicts")
 
         plan_facts = set(self.investigation_plan.fact_keys)
         if plan_facts != request_facts:
@@ -693,3 +694,152 @@ class EvidencePack(_FrozenContract):
             if not set(attempt.facts_attempted) <= request_facts:
                 raise ValueError("source attempt facts must be requested facts")
         return self
+
+
+class InvestigationEvent(_FrozenContract):
+    """One immutable entry in the investigation ledger."""
+
+    event_id: StrictStr
+    investigation_id: StrictStr
+    sequence: StrictInt = Field(ge=1)
+    event_type: InvestigationEventType
+    occurred_at: StrictStr
+    request_fingerprint: Sha256
+    source_configuration_fingerprint: Sha256 | None = None
+    mcp_schema_fingerprint: Sha256 | None = None
+    extractor_version: StrictStr
+    verification_rule_version: StrictStr
+    status_before: EvidencePackStatus | None = None
+    status_after: EvidencePackStatus | None = None
+    payload: JsonValue = Field(default_factory=dict)
+    payload_hash: Sha256
+    previous_event_hash: Sha256 | None = None
+    idempotency_key: StrictStr
+
+    @field_validator(
+        "event_id",
+        "investigation_id",
+        "extractor_version",
+        "verification_rule_version",
+        "idempotency_key",
+    )
+    @classmethod
+    def _event_text(cls, value: str, info: ValidationInfo) -> str:
+        return _normalize_text(value, info.field_name)
+
+    @field_validator("occurred_at")
+    @classmethod
+    def _event_time(cls, value: str) -> str:
+        return _validate_iso8601(value, "occurred_at")
+
+    @field_validator("payload")
+    @classmethod
+    def _event_payload(cls, value: JsonValue) -> Any:
+        return _freeze_json(value)
+
+    @field_serializer("payload")
+    def _serialize_payload(self, value: Any) -> JsonValue:
+        return _thaw_json(value)
+
+    @model_validator(mode="after")
+    def _payload_hash_matches(self) -> InvestigationEvent:
+        payload = json.dumps(
+            _thaw_json(self.payload),
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode()
+        if hashlib.sha256(payload).hexdigest() != self.payload_hash:
+            raise ValueError("payload_hash does not match payload")
+        if self.event_type is InvestigationEventType.STATUS_CHANGED:
+            if self.status_before is None or self.status_after is None:
+                raise ValueError("status change requires before and after status")
+        return self
+
+    @property
+    def event_hash(self) -> str:
+        canonical = self.model_dump(mode="json", exclude={"payload_hash"})
+        return hashlib.sha256(
+            json.dumps(
+                canonical, ensure_ascii=False, separators=(",", ":"), sort_keys=True
+            ).encode()
+        ).hexdigest()
+
+
+class ReplayArtifact(_FrozenContract):
+    replay_id: StrictStr
+    investigation_id: StrictStr
+    request_fingerprint: Sha256
+    source_configuration_fingerprint: Sha256 | None = None
+    mcp_schema_fingerprint: Sha256 | None = None
+    extractor_version: StrictStr
+    verification_rule_version: StrictStr
+    evidence_snapshot_hash: Sha256
+    original_status: EvidencePackStatus
+    replay_status: EvidencePackStatus
+    result_hash: Sha256
+    evidence_count: StrictInt = Field(ge=0)
+    conflict_count: StrictInt = Field(ge=0)
+    unresolved_facts: tuple[StrictStr, ...] = ()
+    created_at: StrictStr
+
+    @field_validator(
+        "replay_id",
+        "investigation_id",
+        "extractor_version",
+        "verification_rule_version",
+    )
+    @classmethod
+    def _replay_text(cls, value: str, info: ValidationInfo) -> str:
+        return _normalize_text(value, info.field_name)
+
+    @field_validator("created_at")
+    @classmethod
+    def _replay_time(cls, value: str) -> str:
+        return _validate_iso8601(value, "created_at")
+
+
+class ReplayDiff(_FrozenContract):
+    replay_id: StrictStr
+    original_result_hash: Sha256
+    replay_result_hash: Sha256
+    changed_fields: tuple[StrictStr, ...] = ()
+    status_changed: StrictBool
+    evidence_count_delta: StrictInt
+    conflict_count_delta: StrictInt
+
+
+class LongTaskRecord(_FrozenContract):
+    task_id: StrictStr
+    investigation_id: StrictStr
+    owner_user_id: StrictStr
+    idempotency_key: StrictStr
+    status: LongTaskStatus
+    checkpoint: JsonValue = Field(default_factory=dict)
+    attempt_count: StrictInt = Field(ge=0)
+    max_attempts: StrictInt = Field(ge=1, le=20)
+    deadline_at: StrictStr
+    cancel_requested: StrictBool = False
+    error_code: StrictStr | None = None
+    version: StrictInt = Field(default=0, ge=0)
+    created_at: StrictStr
+    updated_at: StrictStr
+
+    @field_validator("task_id", "investigation_id", "owner_user_id", "idempotency_key")
+    @classmethod
+    def _task_text(cls, value: str, info: ValidationInfo) -> str:
+        return _normalize_text(value, info.field_name)
+
+    @field_validator("deadline_at", "created_at", "updated_at")
+    @classmethod
+    def _task_time(cls, value: str, info: ValidationInfo) -> str:
+        return _validate_iso8601(value, info.field_name)
+
+    @field_validator("checkpoint")
+    @classmethod
+    def _checkpoint_json(cls, value: JsonValue) -> Any:
+        return _freeze_json(value)
+
+    @field_serializer("checkpoint")
+    def _serialize_checkpoint(self, value: Any) -> JsonValue:
+        return _thaw_json(value)

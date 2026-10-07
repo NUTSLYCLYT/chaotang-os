@@ -20,6 +20,12 @@ from app.jinyiwei.models import (
     EvidenceItem,
     EvidencePack,
     EvidencePackStatus,
+    InvestigationEvent,
+    InvestigationEventType,
+    LongTaskRecord,
+    LongTaskStatus,
+    ReplayArtifact,
+    ReplayDiff,
     SourceAttempt,
 )
 from app.jinyiwei.read_models import (
@@ -29,6 +35,7 @@ from app.jinyiwei.read_models import (
     InvestigationPage,
     InvestigationSummary,
 )
+from app.jinyiwei.replay import ReplayEngine
 
 
 class JinyiweiStorageError(RuntimeError):
@@ -49,6 +56,10 @@ class RequestContentConflictError(JinyiweiStorageError):
 
 class InvestigationNotFoundError(JinyiweiStorageError):
     """The requested investigation does not exist."""
+
+
+class ReplayArtifactNotFoundError(InvestigationNotFoundError):
+    """The requested replay artifact is not visible to the owner."""
 
 
 @dataclass(frozen=True)
@@ -129,6 +140,10 @@ def _require_owner(owner_user_id: str) -> str:
     return owner_user_id
 
 
+def _replay_connection(db_path: Path | None) -> sqlite3.Connection:
+    return db.get_replay_connection(db_path)
+
+
 def _assert_stored_request(
     connection: sqlite3.Connection,
     request_row: sqlite3.Row,
@@ -147,9 +162,7 @@ def _assert_stored_request(
     }
     for column, expected in request_columns.items():
         actual = (
-            json.loads(request_row[column])
-            if column.endswith("_json")
-            else request_row[column]
+            json.loads(request_row[column]) if column.endswith("_json") else request_row[column]
         )
         if actual != expected:
             raise ValueError("request columns mismatch")
@@ -355,12 +368,7 @@ def store_evidence_pack(
                     attempt.completed_at,
                     attempt.error,
                     _json(list(attempt.facts_attempted)),
-                    _json(
-                        [
-                            audit.model_dump(mode="json")
-                            for audit in attempt.call_audits
-                        ]
-                    ),
+                    _json([audit.model_dump(mode="json") for audit in attempt.call_audits]),
                 ),
             )
         for fact_key, items in pack.evidence_by_fact.items():
@@ -583,14 +591,12 @@ def upsert_evidence_adoption(
     if status not in ("PENDING", "CONFIRMED"):
         raise ValueError("invalid adoption status")
     pending = _write_adoption_batch(
-        (evidence_id,), reply_id, "PENDING",
-        owner_user_id=owner_user_id, at=at, db_path=db_path
+        (evidence_id,), reply_id, "PENDING", owner_user_id=owner_user_id, at=at, db_path=db_path
     )
     if status == "PENDING":
         return pending[0]
     return _write_adoption_batch(
-        (evidence_id,), reply_id, "CONFIRMED",
-        owner_user_id=owner_user_id, at=at, db_path=db_path
+        (evidence_id,), reply_id, "CONFIRMED", owner_user_id=owner_user_id, at=at, db_path=db_path
     )[0]
 
 
@@ -625,16 +631,11 @@ def _write_adoption_batch(
         ).fetchall()
         if {row["evidence_id"] for row in rows} != set(evidence_ids):
             raise JinyiweiStorageError("adoption evidence does not exist")
-        models_by_id = {
-            row["evidence_id"]: json.loads(row["model_json"]) for row in rows
-        }
+        models_by_id = {row["evidence_id"]: json.loads(row["model_json"]) for row in rows}
         actual_fingerprint = adoption_batch_fingerprint(
             tuple(models_by_id[evidence_id] for evidence_id in evidence_ids)
         )
-        if (
-            batch_fingerprint is not None
-            and batch_fingerprint != actual_fingerprint
-        ):
+        if batch_fingerprint is not None and batch_fingerprint != actual_fingerprint:
             raise JinyiweiStorageError("adoption batch evidence identity conflict")
         evidence_ids_json = _json(list(evidence_ids))
         batch_row = connection.execute(
@@ -664,8 +665,7 @@ def _write_adoption_batch(
         ):
             raise JinyiweiStorageError("adoption batch immutable conflict")
         adoption_rows = connection.execute(
-            "SELECT evidence_id FROM evidence_adoptions "
-            "WHERE owner_user_id = ? AND reply_id = ?",
+            "SELECT evidence_id FROM evidence_adoptions WHERE owner_user_id = ? AND reply_id = ?",
             (owner_user_id, reply_id),
         ).fetchall()
         existing_ids = {row["evidence_id"] for row in adoption_rows}
@@ -810,19 +810,14 @@ def cancel_pending_adoptions(
             return
         if batch_row is None or not rows:
             raise JinyiweiStorageError("pending adoption batch metadata mismatch")
-        if (
-            batch_row["evidence_ids_json"] != _json(list(evidence_ids))
-            or (
-                batch_fingerprint is not None
-                and batch_row["batch_fingerprint"] != batch_fingerprint
-            )
+        if batch_row["evidence_ids_json"] != _json(list(evidence_ids)) or (
+            batch_fingerprint is not None and batch_row["batch_fingerprint"] != batch_fingerprint
         ):
             raise JinyiweiStorageError(
                 "pending adoption cancellation requires the exact pending batch"
             )
-        if (
-            {row["evidence_id"] for row in rows} != set(evidence_ids)
-            or any(row["status"] != "PENDING" for row in rows)
+        if {row["evidence_id"] for row in rows} != set(evidence_ids) or any(
+            row["status"] != "PENDING" for row in rows
         ):
             raise JinyiweiStorageError(
                 "pending adoption cancellation requires the exact pending batch"
@@ -844,9 +839,7 @@ def cancel_pending_adoptions(
         raise
     except sqlite3.Error as exc:
         connection.rollback()
-        raise JinyiweiStorageError(
-            "failed to cancel pending evidence adoption batch"
-        ) from exc
+        raise JinyiweiStorageError("failed to cancel pending evidence adoption batch") from exc
     finally:
         connection.close()
 
@@ -1219,3 +1212,505 @@ def get_investigation_detail(
     finally:
         if connection is not None:
             connection.close()
+
+
+def _event_from_row(row: sqlite3.Row) -> InvestigationEvent:
+    event = InvestigationEvent.model_validate(
+        {
+            "event_id": row["event_id"],
+            "investigation_id": row["investigation_id"],
+            "sequence": row["sequence"],
+            "event_type": row["event_type"],
+            "occurred_at": row["occurred_at"],
+            "request_fingerprint": row["request_fingerprint"],
+            "source_configuration_fingerprint": row["source_configuration_fingerprint"],
+            "mcp_schema_fingerprint": row["mcp_schema_fingerprint"],
+            "extractor_version": row["extractor_version"],
+            "verification_rule_version": row["verification_rule_version"],
+            "status_before": row["status_before"],
+            "status_after": row["status_after"],
+            "payload": json.loads(row["payload_json"]),
+            "payload_hash": row["payload_hash"],
+            "previous_event_hash": row["previous_event_hash"],
+            "idempotency_key": row["idempotency_key"],
+        }
+    )
+    if event.event_hash != row["event_hash"]:
+        raise JinyiweiStorageError("investigation event hash mismatch")
+    return event
+
+
+def append_investigation_event(
+    investigation_id: str,
+    event_type: InvestigationEventType | str,
+    *,
+    occurred_at: str,
+    request_fingerprint: str,
+    payload: object,
+    idempotency_key: str,
+    source_configuration_fingerprint: str | None = None,
+    mcp_schema_fingerprint: str | None = None,
+    extractor_version: str = "jinyiwei-extractor-v1",
+    verification_rule_version: str = "deterministic-verifier-v1",
+    status_before: EvidencePackStatus | str | None = None,
+    status_after: EvidencePackStatus | str | None = None,
+    db_path: Path | None = None,
+) -> InvestigationEvent:
+    """Append one event atomically, returning the existing event on retry."""
+    connection = _replay_connection(db_path)
+    try:
+        connection.execute("BEGIN IMMEDIATE")
+        existing = connection.execute(
+            "SELECT * FROM investigation_events WHERE investigation_id = ? AND idempotency_key = ?",
+            (investigation_id, idempotency_key),
+        ).fetchone()
+        if existing is not None:
+            event = _event_from_row(existing)
+            if event.event_type.value != str(event_type) or event.payload != payload:
+                raise JinyiweiStorageError("event idempotency key has different content")
+            connection.commit()
+            return event
+        previous = connection.execute(
+            "SELECT * FROM investigation_events WHERE investigation_id = ? "
+            "ORDER BY sequence DESC LIMIT 1",
+            (investigation_id,),
+        ).fetchone()
+        sequence = 1 if previous is None else int(previous["sequence"]) + 1
+        previous_hash = None if previous is None else previous["event_hash"]
+        payload_json = _json(payload)
+        payload_hash = hashlib.sha256(payload_json.encode()).hexdigest()
+        event = InvestigationEvent(
+            event_id=hashlib.sha256(f"{investigation_id}:{idempotency_key}".encode()).hexdigest(),
+            investigation_id=investigation_id,
+            sequence=sequence,
+            event_type=event_type,
+            occurred_at=occurred_at,
+            request_fingerprint=request_fingerprint,
+            source_configuration_fingerprint=source_configuration_fingerprint,
+            mcp_schema_fingerprint=mcp_schema_fingerprint,
+            extractor_version=extractor_version,
+            verification_rule_version=verification_rule_version,
+            status_before=status_before,
+            status_after=status_after,
+            payload=payload,
+            payload_hash=payload_hash,
+            previous_event_hash=previous_hash,
+            idempotency_key=idempotency_key,
+        )
+        connection.execute(
+            """INSERT INTO investigation_events (
+                event_id, investigation_id, sequence, event_type, occurred_at,
+                request_fingerprint, source_configuration_fingerprint, mcp_schema_fingerprint,
+                extractor_version, verification_rule_version, status_before, status_after,
+                payload_json, payload_hash, previous_event_hash, event_hash, idempotency_key
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                event.event_id,
+                event.investigation_id,
+                event.sequence,
+                event.event_type.value,
+                event.occurred_at,
+                event.request_fingerprint,
+                event.source_configuration_fingerprint,
+                event.mcp_schema_fingerprint,
+                event.extractor_version,
+                event.verification_rule_version,
+                event.status_before.value if event.status_before else None,
+                event.status_after.value if event.status_after else None,
+                payload_json,
+                event.payload_hash,
+                event.previous_event_hash,
+                event.event_hash,
+                event.idempotency_key,
+            ),
+        )
+        connection.commit()
+        return event
+    except (sqlite3.Error, ValueError) as exc:
+        connection.rollback()
+        if isinstance(exc, JinyiweiStorageError):
+            raise
+        raise JinyiweiStorageError("failed to append investigation event") from exc
+    finally:
+        connection.close()
+
+
+def list_investigation_events(
+    investigation_id: str, *, db_path: Path | None = None
+) -> tuple[InvestigationEvent, ...]:
+    connection = _replay_connection(db_path)
+    try:
+        rows = connection.execute(
+            "SELECT * FROM investigation_events WHERE investigation_id = ? ORDER BY sequence ASC",
+            (investigation_id,),
+        ).fetchall()
+        return tuple(_event_from_row(row) for row in rows)
+    except (sqlite3.Error, ValueError, ValidationError, json.JSONDecodeError) as exc:
+        raise JinyiweiStorageError("failed to list investigation events") from exc
+    finally:
+        connection.close()
+
+
+def create_replay_artifact(
+    investigation_id: str,
+    *,
+    owner_user_id: str,
+    db_path: Path | None = None,
+) -> ReplayArtifact:
+    owner_user_id = _require_owner(owner_user_id)
+    connection = db.get_connection(db_path)
+    try:
+        row = connection.execute(
+            """SELECT ep.canonical_json FROM evidence_packs AS ep
+               JOIN investigations AS i ON i.investigation_id = ep.investigation_id
+               JOIN data_gap_requests AS r ON r.request_id = i.request_id
+               WHERE ep.investigation_id = ? AND r.owner_user_id = ?""",
+            (investigation_id, owner_user_id),
+        ).fetchone()
+        if row is None:
+            raise InvestigationNotFoundError("investigation not found")
+        pack = EvidencePack.model_validate_json(row["canonical_json"])
+        connection.close()
+        connection = _replay_connection(db_path)
+        result = ReplayEngine().replay(pack)
+        now = _iso(datetime.now(UTC))
+        replay_id = hashlib.sha256(
+            f"{investigation_id}:{result.result_hash}:{now}".encode()
+        ).hexdigest()
+        artifact = ReplayArtifact(
+            replay_id=replay_id,
+            investigation_id=investigation_id,
+            request_fingerprint=pack.request.request_fingerprint,
+            extractor_version="jinyiwei-extractor-v1",
+            verification_rule_version="deterministic-verifier-v1",
+            evidence_snapshot_hash=result.evidence_snapshot_hash,
+            original_status=pack.status,
+            replay_status=result.status,
+            result_hash=result.result_hash,
+            evidence_count=result.evidence_count,
+            conflict_count=result.conflict_count,
+            unresolved_facts=result.unresolved_facts,
+            created_at=now,
+        )
+        baseline_payload = {
+            "status": pack.status.value,
+            "resolved_facts": list(pack.resolved_facts),
+            "unresolved_facts": list(pack.unresolved_facts),
+            "conflict_count": len(pack.conflicts),
+            "evidence_count": sum(
+                len(items)
+                for items in (
+                    *pack.evidence_by_fact.values(),
+                    *pack.historical_evidence_by_fact.values(),
+                )
+            ),
+        }
+        baseline_hash = hashlib.sha256(_json(baseline_payload).encode()).hexdigest()
+        changed_fields = tuple(
+            field
+            for field, before, after in (
+                ("status", pack.status, result.status),
+                ("resolved_facts", pack.resolved_facts, result.resolved_facts),
+                ("unresolved_facts", pack.unresolved_facts, result.unresolved_facts),
+                ("conflict_count", len(pack.conflicts), result.conflict_count),
+                ("evidence_count", baseline_payload["evidence_count"], result.evidence_count),
+            )
+            if before != after
+        )
+        replay_diff = ReplayDiff(
+            replay_id=replay_id,
+            original_result_hash=baseline_hash,
+            replay_result_hash=result.result_hash,
+            changed_fields=changed_fields,
+            status_changed=pack.status != result.status,
+            evidence_count_delta=result.evidence_count - baseline_payload["evidence_count"],
+            conflict_count_delta=result.conflict_count - len(pack.conflicts),
+        )
+        connection.execute("BEGIN IMMEDIATE")
+        connection.execute(
+            """INSERT INTO replay_manifests (
+                replay_id, investigation_id, owner_user_id, request_fingerprint,
+                source_configuration_fingerprint, mcp_schema_fingerprint, extractor_version,
+                verification_rule_version, evidence_snapshot_hash, original_status, replay_status,
+                result_hash, evidence_count, conflict_count, unresolved_facts_json, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                artifact.replay_id,
+                artifact.investigation_id,
+                owner_user_id,
+                artifact.request_fingerprint,
+                artifact.source_configuration_fingerprint,
+                artifact.mcp_schema_fingerprint,
+                artifact.extractor_version,
+                artifact.verification_rule_version,
+                artifact.evidence_snapshot_hash,
+                artifact.original_status.value,
+                artifact.replay_status.value,
+                artifact.result_hash,
+                artifact.evidence_count,
+                artifact.conflict_count,
+                _json(list(artifact.unresolved_facts)),
+                artifact.created_at,
+            ),
+        )
+        connection.execute(
+            """INSERT INTO replay_diffs (
+                replay_id, original_result_hash, replay_result_hash, changed_fields_json,
+                status_changed, evidence_count_delta, conflict_count_delta
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (
+                replay_diff.replay_id,
+                replay_diff.original_result_hash,
+                replay_diff.replay_result_hash,
+                _json(list(replay_diff.changed_fields)),
+                int(replay_diff.status_changed),
+                replay_diff.evidence_count_delta,
+                replay_diff.conflict_count_delta,
+            ),
+        )
+        connection.commit()
+        return artifact
+    except InvestigationNotFoundError:
+        raise
+    except (sqlite3.Error, ValidationError, ValueError, json.JSONDecodeError) as exc:
+        try:
+            connection.rollback()
+        except sqlite3.ProgrammingError:
+            pass
+        raise JinyiweiStorageError("failed to create replay artifact") from exc
+    finally:
+        connection.close()
+
+
+def get_replay_artifact(
+    replay_id: str, *, owner_user_id: str, db_path: Path | None = None
+) -> ReplayArtifact:
+    owner_user_id = _require_owner(owner_user_id)
+    connection = _replay_connection(db_path)
+    try:
+        row = connection.execute(
+            "SELECT * FROM replay_manifests WHERE replay_id = ? AND owner_user_id = ?",
+            (replay_id, owner_user_id),
+        ).fetchone()
+        if row is None:
+            raise InvestigationNotFoundError("replay artifact not found")
+        return ReplayArtifact.model_validate(
+            {
+                "replay_id": row["replay_id"],
+                "investigation_id": row["investigation_id"],
+                "request_fingerprint": row["request_fingerprint"],
+                "source_configuration_fingerprint": row["source_configuration_fingerprint"],
+                "mcp_schema_fingerprint": row["mcp_schema_fingerprint"],
+                "extractor_version": row["extractor_version"],
+                "verification_rule_version": row["verification_rule_version"],
+                "evidence_snapshot_hash": row["evidence_snapshot_hash"],
+                "original_status": row["original_status"],
+                "replay_status": row["replay_status"],
+                "result_hash": row["result_hash"],
+                "evidence_count": row["evidence_count"],
+                "conflict_count": row["conflict_count"],
+                "unresolved_facts": json.loads(row["unresolved_facts_json"]),
+                "created_at": row["created_at"],
+            }
+        )
+    except InvestigationNotFoundError:
+        raise
+    except (sqlite3.Error, ValidationError, ValueError, json.JSONDecodeError) as exc:
+        raise JinyiweiStorageError("failed to load replay artifact") from exc
+    finally:
+        connection.close()
+
+
+def get_replay_diff(
+    replay_id: str, *, owner_user_id: str, db_path: Path | None = None
+) -> ReplayDiff:
+    owner_user_id = _require_owner(owner_user_id)
+    connection = _replay_connection(db_path)
+    try:
+        row = connection.execute(
+            """SELECT d.* FROM replay_diffs AS d
+               JOIN replay_manifests AS m ON m.replay_id = d.replay_id
+               WHERE d.replay_id = ? AND m.owner_user_id = ?""",
+            (replay_id, owner_user_id),
+        ).fetchone()
+        if row is None:
+            raise InvestigationNotFoundError("replay diff not found")
+        return ReplayDiff.model_validate(
+            {
+                "replay_id": row["replay_id"],
+                "original_result_hash": row["original_result_hash"],
+                "replay_result_hash": row["replay_result_hash"],
+                "changed_fields": json.loads(row["changed_fields_json"]),
+                "status_changed": bool(row["status_changed"]),
+                "evidence_count_delta": row["evidence_count_delta"],
+                "conflict_count_delta": row["conflict_count_delta"],
+            }
+        )
+    except InvestigationNotFoundError:
+        raise
+    except (sqlite3.Error, ValidationError, ValueError, json.JSONDecodeError) as exc:
+        raise JinyiweiStorageError("failed to load replay diff") from exc
+    finally:
+        connection.close()
+
+
+def _long_task_from_row(row: sqlite3.Row) -> LongTaskRecord:
+    return LongTaskRecord.model_validate(
+        {
+            "task_id": row["task_id"],
+            "investigation_id": row["investigation_id"],
+            "owner_user_id": row["owner_user_id"],
+            "idempotency_key": row["idempotency_key"],
+            "status": row["status"],
+            "checkpoint": json.loads(row["checkpoint_json"]),
+            "attempt_count": row["attempt_count"],
+            "max_attempts": row["max_attempts"],
+            "deadline_at": row["deadline_at"],
+            "cancel_requested": bool(row["cancel_requested"]),
+            "error_code": row["error_code"],
+            "version": row["version"],
+            "created_at": row["created_at"],
+            "updated_at": row["updated_at"],
+        }
+    )
+
+
+def create_long_task(
+    investigation_id: str,
+    *,
+    owner_user_id: str,
+    idempotency_key: str,
+    max_attempts: int,
+    deadline_at: str,
+    db_path: Path | None = None,
+) -> LongTaskRecord:
+    owner_user_id = _require_owner(owner_user_id)
+    now = _iso(datetime.now(UTC))
+    task_id = hashlib.sha256(f"{owner_user_id}:{idempotency_key}".encode()).hexdigest()
+    task = LongTaskRecord(
+        task_id=task_id,
+        investigation_id=investigation_id,
+        owner_user_id=owner_user_id,
+        idempotency_key=idempotency_key,
+        status=LongTaskStatus.QUEUED,
+        checkpoint={},
+        attempt_count=0,
+        max_attempts=max_attempts,
+        deadline_at=deadline_at,
+        created_at=now,
+        updated_at=now,
+    )
+    connection = _replay_connection(db_path)
+    try:
+        connection.execute("BEGIN IMMEDIATE")
+        existing = connection.execute(
+            "SELECT * FROM long_running_tasks WHERE owner_user_id = ? AND idempotency_key = ?",
+            (owner_user_id, idempotency_key),
+        ).fetchone()
+        if existing is not None:
+            if existing["investigation_id"] != investigation_id:
+                raise JinyiweiStorageError("idempotency key belongs to another investigation")
+            connection.commit()
+            return _long_task_from_row(existing)
+        connection.execute(
+            """INSERT INTO long_running_tasks (
+                task_id, investigation_id, owner_user_id, idempotency_key, status,
+                checkpoint_json, attempt_count, max_attempts, deadline_at, cancel_requested,
+                error_code, version, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                task.task_id,
+                task.investigation_id,
+                task.owner_user_id,
+                task.idempotency_key,
+                task.status.value,
+                _json({}),
+                task.attempt_count,
+                task.max_attempts,
+                task.deadline_at,
+                0,
+                None,
+                task.version,
+                task.created_at,
+                task.updated_at,
+            ),
+        )
+        connection.commit()
+        return task
+    except JinyiweiStorageError:
+        connection.rollback()
+        raise
+    except (sqlite3.Error, ValidationError, ValueError) as exc:
+        connection.rollback()
+        raise JinyiweiStorageError("failed to create long task") from exc
+    finally:
+        connection.close()
+
+
+def get_long_task(
+    task_id: str, *, owner_user_id: str, db_path: Path | None = None
+) -> LongTaskRecord:
+    owner_user_id = _require_owner(owner_user_id)
+    connection = _replay_connection(db_path)
+    try:
+        row = connection.execute(
+            "SELECT * FROM long_running_tasks WHERE task_id = ? AND owner_user_id = ?",
+            (task_id, owner_user_id),
+        ).fetchone()
+        if row is None:
+            raise InvestigationNotFoundError("long task not found")
+        return _long_task_from_row(row)
+    except InvestigationNotFoundError:
+        raise
+    except (sqlite3.Error, ValidationError, ValueError, json.JSONDecodeError) as exc:
+        raise JinyiweiStorageError("failed to load long task") from exc
+    finally:
+        connection.close()
+
+
+def save_long_task(
+    task: LongTaskRecord,
+    *,
+    owner_user_id: str,
+    expected_version: int,
+    db_path: Path | None = None,
+) -> LongTaskRecord:
+    """Persist a graph checkpoint with optimistic concurrency protection."""
+    owner_user_id = _require_owner(owner_user_id)
+    if task.owner_user_id != owner_user_id or task.version <= expected_version:
+        raise ValueError("invalid task owner or version")
+    connection = _replay_connection(db_path)
+    try:
+        connection.execute("BEGIN IMMEDIATE")
+        updated = connection.execute(
+            """UPDATE long_running_tasks SET status = ?, checkpoint_json = ?,
+               attempt_count = ?, max_attempts = ?, deadline_at = ?,
+               cancel_requested = ?, error_code = ?, version = ?, updated_at = ?
+               WHERE task_id = ? AND owner_user_id = ? AND version = ?""",
+            (
+                task.status.value,
+                _json(task.checkpoint),
+                task.attempt_count,
+                task.max_attempts,
+                task.deadline_at,
+                int(task.cancel_requested),
+                task.error_code,
+                task.version,
+                task.updated_at,
+                task.task_id,
+                owner_user_id,
+                expected_version,
+            ),
+        ).rowcount
+        if updated != 1:
+            raise JinyiweiStorageError("long task version conflict")
+        connection.commit()
+        return task
+    except JinyiweiStorageError:
+        connection.rollback()
+        raise
+    except (sqlite3.Error, ValueError) as exc:
+        connection.rollback()
+        raise JinyiweiStorageError("failed to save long task") from exc
+    finally:
+        connection.close()

@@ -24,6 +24,7 @@ from app.jinyiwei.models import (
 )
 from app.jinyiwei.sources.base import EvidenceExtractor, EvidenceSource, SourceQuery
 from app.jinyiwei.storage import (
+    append_investigation_event,
     lookup_cached_pack,
     put_cache_entry,
     store_data_gap_request,
@@ -124,17 +125,11 @@ class InvestigationCoordinator:
         started = _utc(self._clock())
         cache_key = _cache_key(request, self._sources.get(SourceType.MCP))
         try:
-            store_data_gap_request(
-                request, owner_user_id=owner_user_id, db_path=self._db_path
-            )
+            store_data_gap_request(request, owner_user_id=owner_user_id, db_path=self._db_path)
         except Exception as exc:
-            raise InvestigationUnavailableError(
-                "investigation_persistence_unavailable"
-            ) from exc
+            raise InvestigationUnavailableError("investigation_persistence_unavailable") from exc
 
-        source_scope = tuple(
-            source for source in _SOURCE_ORDER if source in request.source_scope
-        )
+        source_scope = tuple(source for source in _SOURCE_ORDER if source in request.source_scope)
         plan = InvestigationPlan(
             fact_keys=tuple(fact.key for fact in request.required_facts),
             source_scope=source_scope,
@@ -163,9 +158,7 @@ class InvestigationCoordinator:
                 break
             before_source = _utc(self._clock())
             if before_source >= deadline:
-                attempts.append(
-                    _blocked_attempt(source_type, unresolved, before_source)
-                )
+                attempts.append(_blocked_attempt(source_type, unresolved, before_source))
                 break
             query = SourceQuery(
                 request=request,
@@ -205,7 +198,10 @@ class InvestigationCoordinator:
                     break
                 attempts.append(
                     _failed_attempt(
-                        source_type, unresolved, before_source, failed_at,
+                        source_type,
+                        unresolved,
+                        before_source,
+                        failed_at,
                         "source_unavailable",
                     )
                 )
@@ -216,7 +212,10 @@ class InvestigationCoordinator:
             if after_source >= deadline:
                 attempts.append(
                     _blocked_attempt(
-                        source_type, unresolved, after_source, started_at=before_source,
+                        source_type,
+                        unresolved,
+                        after_source,
+                        started_at=before_source,
                         source_name=result.attempt.source_name,
                     )
                 )
@@ -236,9 +235,7 @@ class InvestigationCoordinator:
                 attempts.append(attempt)
                 verification = verify_evidence(request, accepted, now=after_source)
                 if source_type is SourceType.SHIGUAN and not cache_checked:
-                    cached = self._lookup_cache(
-                        cache_key, after_source, owner_user_id
-                    )
+                    cached = self._lookup_cache(cache_key, after_source, owner_user_id)
                     cache_checked = True
                     if cached is not None:
                         return cached
@@ -247,9 +244,7 @@ class InvestigationCoordinator:
                 attempts.append(attempt)
                 verification = verify_evidence(request, accepted, now=after_source)
                 if source_type is SourceType.SHIGUAN and not cache_checked:
-                    cached = self._lookup_cache(
-                        cache_key, after_source, owner_user_id
-                    )
+                    cached = self._lookup_cache(cache_key, after_source, owner_user_id)
                     cache_checked = True
                     if cached is not None:
                         return cached
@@ -259,7 +254,9 @@ class InvestigationCoordinator:
             if before_extraction >= deadline:
                 attempts.append(
                     _blocked_attempt(
-                        source_type, unresolved, before_extraction,
+                        source_type,
+                        unresolved,
+                        before_extraction,
                         started_at=before_source,
                         source_name=attempt.source_name,
                     )
@@ -294,7 +291,10 @@ class InvestigationCoordinator:
                     break
                 attempts.append(
                     _failed_attempt(
-                        source_type, unresolved, before_source, failed_at,
+                        source_type,
+                        unresolved,
+                        before_source,
+                        failed_at,
                         "extraction_failed",
                         source_name=attempt.source_name,
                     )
@@ -306,7 +306,9 @@ class InvestigationCoordinator:
             if after_extraction >= deadline:
                 attempts.append(
                     _blocked_attempt(
-                        source_type, unresolved, after_extraction,
+                        source_type,
+                        unresolved,
+                        after_extraction,
                         started_at=before_source,
                         source_name=attempt.source_name,
                     )
@@ -326,10 +328,7 @@ class InvestigationCoordinator:
                 if (
                     (batch_item is not None and batch_item != candidate)
                     or (prior_item is not None and prior_item != candidate)
-                    or (
-                        prior_historical is not None
-                        and prior_historical != candidate
-                    )
+                    or (prior_historical is not None and prior_historical != candidate)
                 ):
                     duplicate_conflict = True
                     break
@@ -337,7 +336,10 @@ class InvestigationCoordinator:
             if duplicate_conflict:
                 attempts.append(
                     _failed_attempt(
-                        source_type, unresolved, before_source, after_extraction,
+                        source_type,
+                        unresolved,
+                        before_source,
+                        after_extraction,
                         "duplicate_evidence_id_conflict",
                         source_name=attempt.source_name,
                     )
@@ -383,36 +385,28 @@ class InvestigationCoordinator:
                 attempt_index = len(attempts)
                 attempts.append(attempt)
                 if attempt_stale_facts:
-                    stale_facts_by_attempt[attempt_index] = (
-                        attempt_stale_facts
-                    )
+                    stale_facts_by_attempt[attempt_index] = attempt_stale_facts
             verification = verify_evidence(request, accepted, now=after_extraction)
             if (
                 source_type is SourceType.SHIGUAN
                 and verification.unresolved_facts
                 and not cache_checked
             ):
-                cached = self._lookup_cache(
-                    cache_key, after_extraction, owner_user_id
-                )
+                cached = self._lookup_cache(cache_key, after_extraction, owner_user_id)
                 cache_checked = True
                 if cached is not None:
                     return cached
 
         completed = _utc(self._clock())
         verification = verify_evidence(request, accepted, now=completed)
-        only_stale_facts = stale_facts.intersection(
-            verification.unresolved_facts
-        )
+        only_stale_facts = stale_facts.intersection(verification.unresolved_facts)
         if only_stale_facts:
             attempts = [
                 attempt.model_copy(update={"error": "stale_evidence_only"})
                 if (
                     attempt.status is SourceAttemptStatus.SUCCEEDED
                     and attempt.error is None
-                    and only_stale_facts.intersection(
-                        stale_facts_by_attempt.get(index, set())
-                    )
+                    and only_stale_facts.intersection(stale_facts_by_attempt.get(index, set()))
                 )
                 else attempt
                 for index, attempt in enumerate(attempts)
@@ -440,9 +434,7 @@ class InvestigationCoordinator:
             request=request,
             investigation_plan=plan,
             evidence_by_fact=verification.evidence_by_fact,
-            historical_evidence_by_fact=_group_by_requested_fact(
-                request, historical
-            ),
+            historical_evidence_by_fact=_group_by_requested_fact(request, historical),
             resolved_facts=verification.resolved_facts,
             unresolved_facts=verification.unresolved_facts,
             conflicts=verification.conflicts,
@@ -453,8 +445,29 @@ class InvestigationCoordinator:
             do_not_infer=_stable_limitations(verification, stale_facts),
         )
         try:
-            store_evidence_pack(
-                pack, owner_user_id=owner_user_id, db_path=self._db_path
+            store_evidence_pack(pack, owner_user_id=owner_user_id, db_path=self._db_path)
+            append_investigation_event(
+                pack.investigation_id,
+                "REQUEST_ACCEPTED",
+                occurred_at=pack.investigation_started_at,
+                request_fingerprint=request.request_fingerprint,
+                idempotency_key="request-accepted",
+                payload={"request_id": request.request_id, "owner_user_id": owner_user_id},
+                db_path=self._db_path,
+            )
+            append_investigation_event(
+                pack.investigation_id,
+                "STATUS_CHANGED",
+                occurred_at=pack.investigation_completed_at,
+                request_fingerprint=request.request_fingerprint,
+                status_before=EvidencePackStatus.UNAVAILABLE,
+                status_after=pack.status,
+                idempotency_key="status-final",
+                payload={
+                    "resolved_facts": list(pack.resolved_facts),
+                    "unresolved_facts": list(pack.unresolved_facts),
+                },
+                db_path=self._db_path,
             )
             if cacheable:
                 put_cache_entry(
@@ -466,9 +479,7 @@ class InvestigationCoordinator:
                     db_path=self._db_path,
                 )
         except Exception as exc:
-            raise InvestigationUnavailableError(
-                "investigation_persistence_unavailable"
-            ) from exc
+            raise InvestigationUnavailableError("investigation_persistence_unavailable") from exc
         return pack
 
     def _lookup_cache(
@@ -482,9 +493,7 @@ class InvestigationCoordinator:
                 db_path=self._db_path,
             )
         except Exception as exc:
-            raise InvestigationUnavailableError(
-                "investigation_persistence_unavailable"
-            ) from exc
+            raise InvestigationUnavailableError("investigation_persistence_unavailable") from exc
 
 
 def _cache_key(request: DataGapRequest, mcp_source: EvidenceSource | None) -> str:
@@ -603,9 +612,7 @@ def _group_by_requested_fact(
     }
 
 
-def _stable_limitations(
-    verification: VerificationResult, stale_facts: set[str]
-) -> tuple[str, ...]:
+def _stable_limitations(verification: VerificationResult, stale_facts: set[str]) -> tuple[str, ...]:
     conflicted = {conflict.fact_key for conflict in verification.conflicts}
     return tuple(
         (

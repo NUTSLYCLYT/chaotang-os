@@ -24,7 +24,10 @@ from app.jinyiwei.models import (
     EvidenceConflict,
     EvidenceItem,
     EvidencePackStatus,
+    InvestigationEvent,
     InvestigationPlan,
+    ReplayArtifact,
+    ReplayDiff,
     SourceAttempt,
 )
 
@@ -180,3 +183,11 @@ class InvestigationDetail(_ReadModel):
     ) -> dict[str, tuple[EvidenceItem, ...]]:
         """Return only typed evidence fields; never expose source-document metadata."""
         return {key: tuple(items) for key, items in value.items()}
+
+
+class ReplayTimelineRead(_ReadModel):
+    """Read-only projection that keeps replay evidence and its audit trail together."""
+
+    events: tuple[InvestigationEvent, ...]
+    replay: ReplayArtifact | None
+    diff: ReplayDiff | None

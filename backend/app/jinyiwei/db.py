@@ -18,89 +18,197 @@ _BUSY_TIMEOUT_MS = 5_000
 
 _V4_REQUIRED_SCHEMA_COLUMNS = {
     "data_gap_requests": {
-        "request_id", "fingerprint", "requesting_agent", "question",
-        "decision_context", "freshness_json", "existing_evidence_ids_json",
-        "timeout_seconds", "source_scope_json", "canonical_json",
+        "request_id",
+        "fingerprint",
+        "requesting_agent",
+        "question",
+        "decision_context",
+        "freshness_json",
+        "existing_evidence_ids_json",
+        "timeout_seconds",
+        "source_scope_json",
+        "canonical_json",
     },
     "requested_fact_slots": {
-        "request_id", "ordinal", "fact_key", "description", "category",
-        "data_scope", "subject", "jurisdiction", "expected_unit", "expected_shape",
+        "request_id",
+        "ordinal",
+        "fact_key",
+        "description",
+        "category",
+        "data_scope",
+        "subject",
+        "jurisdiction",
+        "expected_unit",
+        "expected_shape",
     },
     "investigations": {
-        "investigation_id", "request_id", "status", "plan_json",
-        "resolved_facts_json", "unresolved_facts_json", "conflicts_json",
-        "do_not_infer_json", "started_at", "completed_at",
+        "investigation_id",
+        "request_id",
+        "status",
+        "plan_json",
+        "resolved_facts_json",
+        "unresolved_facts_json",
+        "conflicts_json",
+        "do_not_infer_json",
+        "started_at",
+        "completed_at",
     },
     "source_attempts": {
-        "investigation_id", "ordinal", "source_type", "source_name", "status",
-        "started_at", "completed_at", "error", "facts_attempted_json",
+        "investigation_id",
+        "ordinal",
+        "source_type",
+        "source_name",
+        "status",
+        "started_at",
+        "completed_at",
+        "error",
+        "facts_attempted_json",
         "call_audits_json",
     },
     "evidence_items": {
-        "evidence_id", "fact_key", "value_json", "unit", "as_of", "retrieved_at",
-        "source_url", "publisher", "source_type", "quality", "stance", "excerpt",
-        "content_hash", "confidence", "model_json",
+        "evidence_id",
+        "fact_key",
+        "value_json",
+        "unit",
+        "as_of",
+        "retrieved_at",
+        "source_url",
+        "publisher",
+        "source_type",
+        "quality",
+        "stance",
+        "excerpt",
+        "content_hash",
+        "confidence",
+        "model_json",
     },
     "evidence_packs": {
-        "pack_id", "investigation_id", "canonical_json", "content_hash",
+        "pack_id",
+        "investigation_id",
+        "canonical_json",
+        "content_hash",
     },
     "pack_items": {"pack_id", "evidence_id", "fact_key", "ordinal"},
     "cache_entries": {
-        "fingerprint", "pack_id", "cached_at", "expires_at", "hit_count", "last_hit_at",
+        "fingerprint",
+        "pack_id",
+        "cached_at",
+        "expires_at",
+        "hit_count",
+        "last_hit_at",
     },
     "evidence_adoptions": {
-        "evidence_id", "reply_id", "status", "created_at", "updated_at", "confirmed_at",
+        "evidence_id",
+        "reply_id",
+        "status",
+        "created_at",
+        "updated_at",
+        "confirmed_at",
     },
     "adoption_batches": {
-        "reply_id", "evidence_ids_json", "batch_fingerprint", "created_at", "updated_at",
+        "reply_id",
+        "evidence_ids_json",
+        "batch_fingerprint",
+        "created_at",
+        "updated_at",
     },
 }
 
 _REQUIRED_SCHEMA_COLUMNS = {
     **_V4_REQUIRED_SCHEMA_COLUMNS,
-    "data_gap_requests": _V4_REQUIRED_SCHEMA_COLUMNS["data_gap_requests"]
-    | {"owner_user_id"},
-    "cache_entries": _V4_REQUIRED_SCHEMA_COLUMNS["cache_entries"]
-    | {"owner_user_id"},
-    "evidence_adoptions": _V4_REQUIRED_SCHEMA_COLUMNS["evidence_adoptions"]
-    | {"owner_user_id"},
-    "adoption_batches": _V4_REQUIRED_SCHEMA_COLUMNS["adoption_batches"]
-    | {"owner_user_id"},
+    "data_gap_requests": _V4_REQUIRED_SCHEMA_COLUMNS["data_gap_requests"] | {"owner_user_id"},
+    "cache_entries": _V4_REQUIRED_SCHEMA_COLUMNS["cache_entries"] | {"owner_user_id"},
+    "evidence_adoptions": _V4_REQUIRED_SCHEMA_COLUMNS["evidence_adoptions"] | {"owner_user_id"},
+    "adoption_batches": _V4_REQUIRED_SCHEMA_COLUMNS["adoption_batches"] | {"owner_user_id"},
 }
 
 _V2_REQUIRED_SCHEMA_COLUMNS = {
     "data_gap_requests": {
-        "request_id", "fingerprint", "requesting_agent", "question",
-        "decision_context", "freshness_json", "existing_evidence_ids_json",
-        "timeout_seconds", "source_scope_json", "canonical_json",
+        "request_id",
+        "fingerprint",
+        "requesting_agent",
+        "question",
+        "decision_context",
+        "freshness_json",
+        "existing_evidence_ids_json",
+        "timeout_seconds",
+        "source_scope_json",
+        "canonical_json",
     },
     "requested_fact_slots": {
-        "request_id", "ordinal", "fact_key", "description", "category",
-        "data_scope", "subject", "jurisdiction", "expected_unit", "expected_shape",
+        "request_id",
+        "ordinal",
+        "fact_key",
+        "description",
+        "category",
+        "data_scope",
+        "subject",
+        "jurisdiction",
+        "expected_unit",
+        "expected_shape",
     },
     "investigations": {
-        "investigation_id", "request_id", "status", "plan_json",
-        "resolved_facts_json", "unresolved_facts_json", "conflicts_json",
-        "do_not_infer_json", "started_at", "completed_at",
+        "investigation_id",
+        "request_id",
+        "status",
+        "plan_json",
+        "resolved_facts_json",
+        "unresolved_facts_json",
+        "conflicts_json",
+        "do_not_infer_json",
+        "started_at",
+        "completed_at",
     },
     "source_attempts": {
-        "investigation_id", "ordinal", "source_type", "source_name", "status",
-        "started_at", "completed_at", "error", "facts_attempted_json",
+        "investigation_id",
+        "ordinal",
+        "source_type",
+        "source_name",
+        "status",
+        "started_at",
+        "completed_at",
+        "error",
+        "facts_attempted_json",
     },
     "evidence_items": {
-        "evidence_id", "fact_key", "value_json", "unit", "as_of", "retrieved_at",
-        "source_url", "publisher", "source_type", "quality", "stance", "excerpt",
-        "content_hash", "confidence", "model_json",
+        "evidence_id",
+        "fact_key",
+        "value_json",
+        "unit",
+        "as_of",
+        "retrieved_at",
+        "source_url",
+        "publisher",
+        "source_type",
+        "quality",
+        "stance",
+        "excerpt",
+        "content_hash",
+        "confidence",
+        "model_json",
     },
     "evidence_packs": {
-        "pack_id", "investigation_id", "canonical_json", "content_hash",
+        "pack_id",
+        "investigation_id",
+        "canonical_json",
+        "content_hash",
     },
     "pack_items": {"pack_id", "evidence_id", "fact_key", "ordinal"},
     "cache_entries": {
-        "fingerprint", "pack_id", "cached_at", "expires_at", "hit_count", "last_hit_at",
+        "fingerprint",
+        "pack_id",
+        "cached_at",
+        "expires_at",
+        "hit_count",
+        "last_hit_at",
     },
     "evidence_adoptions": {
-        "evidence_id", "reply_id", "status", "created_at", "updated_at", "confirmed_at",
+        "evidence_id",
+        "reply_id",
+        "status",
+        "created_at",
+        "updated_at",
+        "confirmed_at",
     },
 }
 
@@ -490,12 +598,16 @@ def _assert_v2_schema(connection: sqlite3.Connection) -> None:
             raise sqlite3.DatabaseError("invalid Jinyiwei schema v2")
 
     fact_info = {
-        row["name"]: row
-        for row in connection.execute("PRAGMA table_info(requested_fact_slots)")
+        row["name"]: row for row in connection.execute("PRAGMA table_info(requested_fact_slots)")
     }
     required_not_null = {
-        "request_id", "ordinal", "fact_key", "description", "category",
-        "data_scope", "subject",
+        "request_id",
+        "ordinal",
+        "fact_key",
+        "description",
+        "category",
+        "data_scope",
+        "subject",
     }
     if any(fact_info[column]["notnull"] != 1 for column in required_not_null):
         raise sqlite3.DatabaseError("invalid Jinyiwei schema v2")
@@ -507,8 +619,7 @@ def _assert_v2_schema(connection: sqlite3.Connection) -> None:
         if index["unique"]:
             unique_indexes.append(
                 tuple(
-                    row["name"]
-                    for row in connection.execute(f"PRAGMA index_info({index['name']})")
+                    row["name"] for row in connection.execute(f"PRAGMA index_info({index['name']})")
                 )
             )
     if ("request_id", "fact_key") not in unique_indexes:
@@ -535,8 +646,7 @@ def _assert_v4_schema(connection: sqlite3.Connection) -> None:
         if _table_columns(connection, table) != expected_columns:
             raise sqlite3.DatabaseError("invalid Jinyiwei schema v4")
     audit_info = {
-        row["name"]: row
-        for row in connection.execute("PRAGMA table_info(source_attempts)")
+        row["name"]: row for row in connection.execute("PRAGMA table_info(source_attempts)")
     }
     if audit_info["call_audits_json"]["notnull"] != 1:
         raise sqlite3.DatabaseError("invalid Jinyiwei schema v4")
@@ -544,14 +654,10 @@ def _assert_v4_schema(connection: sqlite3.Connection) -> None:
 
 def _migrate_v3_to_v4(connection: sqlite3.Connection) -> None:
     _assert_v3_schema(connection)
-    legacy_columns = _V4_REQUIRED_SCHEMA_COLUMNS["source_attempts"] - {
-        "call_audits_json"
-    }
+    legacy_columns = _V4_REQUIRED_SCHEMA_COLUMNS["source_attempts"] - {"call_audits_json"}
     actual_columns = _table_columns(connection, "source_attempts")
     if actual_columns == _V4_REQUIRED_SCHEMA_COLUMNS["source_attempts"]:
-        rows = connection.execute(
-            "SELECT call_audits_json FROM source_attempts"
-        ).fetchall()
+        rows = connection.execute("SELECT call_audits_json FROM source_attempts").fetchall()
         try:
             if any(json.loads(row["call_audits_json"]) != [] for row in rows):
                 raise ValueError("unexpected v3 call audit")
@@ -561,8 +667,7 @@ def _migrate_v3_to_v4(connection: sqlite3.Connection) -> None:
     if actual_columns != legacy_columns:
         raise sqlite3.DatabaseError("invalid Jinyiwei schema v3")
     connection.execute(
-        "ALTER TABLE source_attempts "
-        "ADD COLUMN call_audits_json TEXT NOT NULL DEFAULT '[]'"
+        "ALTER TABLE source_attempts ADD COLUMN call_audits_json TEXT NOT NULL DEFAULT '[]'"
     )
 
 
@@ -609,18 +714,12 @@ def _migrate_v2_to_v3(connection: sqlite3.Connection) -> None:
                     raise ValueError("adoption evidence missing")
                 item_json = json.loads(evidence_row["model_json"])
                 identity = json.dumps(
-                    {
-                        key: value
-                        for key, value in item_json.items()
-                        if key != "retrieved_at"
-                    },
+                    {key: value for key, value in item_json.items() if key != "retrieved_at"},
                     ensure_ascii=False,
                     separators=(",", ":"),
                     sort_keys=True,
                 )
-                identities.append(
-                    {"evidence_id": evidence_id, "identity": identity}
-                )
+                identities.append({"evidence_id": evidence_id, "identity": identity})
             canonical_identities = json.dumps(
                 identities,
                 ensure_ascii=False,
@@ -652,8 +751,7 @@ def _migrate_v4_to_v5(connection: sqlite3.Connection) -> None:
     _assert_v4_schema(connection)
     connection.execute("ALTER TABLE data_gap_requests ADD COLUMN owner_user_id TEXT")
     connection.execute(
-        "CREATE INDEX data_gap_requests_owner_idx "
-        "ON data_gap_requests(owner_user_id)"
+        "CREATE INDEX data_gap_requests_owner_idx ON data_gap_requests(owner_user_id)"
     )
     connection.execute(
         """
@@ -694,9 +792,7 @@ def _migrate_v4_to_v5(connection: sqlite3.Connection) -> None:
         "FROM evidence_adoptions"
     )
     connection.execute("DROP TABLE evidence_adoptions")
-    connection.execute(
-        "ALTER TABLE evidence_adoptions_v5 RENAME TO evidence_adoptions"
-    )
+    connection.execute("ALTER TABLE evidence_adoptions_v5 RENAME TO evidence_adoptions")
     connection.execute(
         """
         CREATE TABLE adoption_batches_v5 (
@@ -725,20 +821,16 @@ def _assert_v5_schema(connection: sqlite3.Connection) -> None:
         if _table_columns(connection, table) != expected_columns:
             raise sqlite3.DatabaseError("invalid Jinyiwei schema v5")
     request_info = {
-        row["name"]: row
-        for row in connection.execute("PRAGMA table_info(data_gap_requests)")
+        row["name"]: row for row in connection.execute("PRAGMA table_info(data_gap_requests)")
     }
     cache_info = {
-        row["name"]: row
-        for row in connection.execute("PRAGMA table_info(cache_entries)")
+        row["name"]: row for row in connection.execute("PRAGMA table_info(cache_entries)")
     }
     adoption_info = {
-        row["name"]: row
-        for row in connection.execute("PRAGMA table_info(evidence_adoptions)")
+        row["name"]: row for row in connection.execute("PRAGMA table_info(evidence_adoptions)")
     }
     batch_info = {
-        row["name"]: row
-        for row in connection.execute("PRAGMA table_info(adoption_batches)")
+        row["name"]: row for row in connection.execute("PRAGMA table_info(adoption_batches)")
     }
     if request_info["owner_user_id"]["notnull"] != 0:
         raise sqlite3.DatabaseError("invalid Jinyiwei schema v5")
@@ -759,16 +851,13 @@ def _assert_v5_schema(connection: sqlite3.Connection) -> None:
     ):
         raise sqlite3.DatabaseError("invalid Jinyiwei schema v5")
     request_indexes = {
-        row["name"]: row
-        for row in connection.execute("PRAGMA index_list(data_gap_requests)")
+        row["name"]: row for row in connection.execute("PRAGMA index_list(data_gap_requests)")
     }
     owner_index = request_indexes.get("data_gap_requests_owner_idx")
     owner_index_columns = (
         tuple(
             column["name"]
-            for column in connection.execute(
-                "PRAGMA index_info(data_gap_requests_owner_idx)"
-            )
+            for column in connection.execute("PRAGMA index_info(data_gap_requests_owner_idx)")
         )
         if owner_index is not None
         else ()
@@ -780,6 +869,89 @@ def _assert_v5_schema(connection: sqlite3.Connection) -> None:
         or owner_index_columns != ("owner_user_id",)
     ):
         raise sqlite3.DatabaseError("invalid Jinyiwei schema v5")
+
+
+def _ensure_replay_schema(connection: sqlite3.Connection) -> None:
+    """Additive v5-compatible tables for replay and durable long tasks.
+
+    The historical database contract keeps ``user_version=5`` for existing
+    clients; these tables are additive and are created in the same transaction.
+    """
+    connection.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS investigation_events (
+            event_id TEXT PRIMARY KEY,
+            investigation_id TEXT NOT NULL,
+            sequence INTEGER NOT NULL,
+            event_type TEXT NOT NULL,
+            occurred_at TEXT NOT NULL,
+            request_fingerprint TEXT NOT NULL,
+            source_configuration_fingerprint TEXT,
+            mcp_schema_fingerprint TEXT,
+            extractor_version TEXT NOT NULL,
+            verification_rule_version TEXT NOT NULL,
+            status_before TEXT,
+            status_after TEXT,
+            payload_json TEXT NOT NULL,
+            payload_hash TEXT NOT NULL,
+            previous_event_hash TEXT,
+            event_hash TEXT NOT NULL,
+            idempotency_key TEXT NOT NULL,
+            UNIQUE (investigation_id, sequence),
+            UNIQUE (investigation_id, idempotency_key)
+        );
+        CREATE INDEX IF NOT EXISTS investigation_events_lookup_idx
+            ON investigation_events(investigation_id, sequence);
+        CREATE TABLE IF NOT EXISTS replay_manifests (
+            replay_id TEXT PRIMARY KEY,
+            investigation_id TEXT NOT NULL,
+            owner_user_id TEXT NOT NULL,
+            request_fingerprint TEXT NOT NULL,
+            source_configuration_fingerprint TEXT,
+            mcp_schema_fingerprint TEXT,
+            extractor_version TEXT NOT NULL,
+            verification_rule_version TEXT NOT NULL,
+            evidence_snapshot_hash TEXT NOT NULL,
+            original_status TEXT NOT NULL,
+            replay_status TEXT NOT NULL,
+            result_hash TEXT NOT NULL,
+            evidence_count INTEGER NOT NULL,
+            conflict_count INTEGER NOT NULL,
+            unresolved_facts_json TEXT NOT NULL,
+                created_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS replay_manifests_investigation_idx
+            ON replay_manifests(investigation_id, created_at);
+        CREATE TABLE IF NOT EXISTS replay_diffs (
+            replay_id TEXT PRIMARY KEY,
+            original_result_hash TEXT NOT NULL,
+            replay_result_hash TEXT NOT NULL,
+            changed_fields_json TEXT NOT NULL,
+            status_changed INTEGER NOT NULL,
+            evidence_count_delta INTEGER NOT NULL,
+                conflict_count_delta INTEGER NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS long_running_tasks (
+            task_id TEXT PRIMARY KEY,
+            investigation_id TEXT NOT NULL,
+            owner_user_id TEXT NOT NULL,
+            idempotency_key TEXT NOT NULL,
+            status TEXT NOT NULL,
+            checkpoint_json TEXT NOT NULL,
+            attempt_count INTEGER NOT NULL,
+            max_attempts INTEGER NOT NULL,
+            deadline_at TEXT NOT NULL,
+            cancel_requested INTEGER NOT NULL DEFAULT 0,
+            error_code TEXT,
+            version INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            UNIQUE (owner_user_id, idempotency_key)
+        );
+        CREATE INDEX IF NOT EXISTS long_running_tasks_owner_idx
+            ON long_running_tasks(owner_user_id, updated_at);
+        """
+    )
 
 
 def initialize_database(path: Path | None = None) -> None:
@@ -825,4 +997,21 @@ def get_connection(path: Path | None = None) -> sqlite3.Connection:
     initialize_database(target)
     connection = sqlite3.connect(target)
     _configure(connection)
+    return connection
+
+
+def _replay_target(path: Path | None = None) -> Path:
+    target = _validated_target(path)
+    return target.with_name(f"{target.stem}.replay.sqlite3")
+
+
+def get_replay_connection(path: Path | None = None) -> sqlite3.Connection:
+    """Open the additive replay sidecar without changing the evidence DB schema."""
+    target = _replay_target(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    connection = sqlite3.connect(target)
+    _configure(connection)
+    connection.execute("BEGIN IMMEDIATE")
+    _ensure_replay_schema(connection)
+    connection.commit()
     return connection
