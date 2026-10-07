@@ -1,0 +1,104 @@
+{
+  "schemaVersion": "product-authority.m0.approval.v1",
+  "authorityId": "product-authority.m0.v1",
+  "taskId": "G3-CI-RUNTIME-CONTRACT-REPAIR-20261007",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "8ff45c1cfd13b51ba28c1bada99108a0c25acfa0",
+    "baseTree": "84a9f66528dee12187ed1ab23421c5d49c3c509c",
+    "approvalPath": ".harness/approvals/G3-CI-RUNTIME-CONTRACT-REPAIR-20261007.json",
+    "approvalCommitPaths": [
+      ".harness/approvals/G3-CI-RUNTIME-CONTRACT-REPAIR-20261007.json",
+      "docs/product/tasks/2026-10-07-g3-ci-runtime-contract-repair.md"
+    ],
+    "productPaths": [
+      "backend/app/operations/runtime_data_registry.py",
+      "backend/tests/test_readiness.py",
+      "backend/tests/test_sqlite_backup.py",
+      "frontend/package.json"
+    ]
+  },
+  "nonGoals": [
+    "BWRAP_DEPENDENCY_INSTALLATION",
+    "FORCE_PUSH_MERGE_OR_DEPLOY",
+    "GITHUB_EXT_DEV_OVERWRITE",
+    "HARNESS_OR_WORKFLOW_MODIFICATION",
+    "MODEL_CALLS_OR_NETWORK_ACCESS",
+    "PRODUCT_API_OR_UI_FEATURES",
+    "SCHEMA_FAIL_OPEN_OR_WILDCARD_ACCEPTANCE"
+  ],
+  "verification": [
+    {
+      "id": "backend-full-pytest",
+      "tool": "python3",
+      "args": [
+        "-m",
+        "pytest",
+        "-q"
+      ],
+      "cwd": "backend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "backend-ruff",
+      "tool": "python3",
+      "args": [
+        "-m",
+        "ruff",
+        "check",
+        "app/operations/runtime_data_registry.py",
+        "tests/test_readiness.py",
+        "tests/test_sqlite_backup.py"
+      ],
+      "cwd": "backend",
+      "timeoutMs": 180000
+    },
+    {
+      "id": "backend-sqlite-focused",
+      "tool": "python3",
+      "args": [
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_sqlite_backup.py",
+        "tests/test_readiness.py"
+      ],
+      "cwd": "backend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "frontend-build",
+      "tool": "npm",
+      "args": [
+        "run",
+        "build"
+      ],
+      "cwd": "frontend",
+      "timeoutMs": 300000
+    },
+    {
+      "id": "frontend-start-smoke",
+      "tool": "node",
+      "args": [
+        "--input-type=module",
+        "--eval",
+        "import { spawn } from \"node:child_process\";\nconst child = spawn(process.execPath, [\".next/standalone/server.js\"], { env: { ...process.env, HOSTNAME: \"127.0.0.1\", PORT: \"3100\" }, stdio: \"ignore\" });\nlet ok = false;\ntry {\n  const deadline = Date.now() + 30000;\n  while (Date.now() < deadline) {\n    try {\n      const response = await fetch(\"http://127.0.0.1:3100/\");\n      const body = await response.text();\n      if (response.ok && body.includes(\"chaotang-os\")) { ok = true; break; }\n    } catch {}\n    await new Promise((resolve) => setTimeout(resolve, 250));\n  }\n  if (!ok) throw new Error(\"standalone smoke failed\");\n} finally {\n  child.kill(\"SIGTERM\");\n}"
+      ],
+      "cwd": "frontend",
+      "timeoutMs": 120000
+    },
+    {
+      "id": "root-harness",
+      "tool": "node",
+      "args": [
+        "scripts/check_harness.mjs"
+      ],
+      "cwd": ".",
+      "timeoutMs": 180000
+    }
+  ],
+  "state": "APPROVED_FOR_ONE_CHILD"
+}
