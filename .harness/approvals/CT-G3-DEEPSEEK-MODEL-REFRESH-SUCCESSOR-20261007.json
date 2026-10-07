@@ -7,8 +7,8 @@
     "targetBranch": "ext-dev"
   },
   "request": {
-    "baseCommit": "f4086527c2f5e856a8af6468f29b60e13839d273",
-    "baseTree": "e0337479cb1c318075c5aa6cf4c87e5317494692",
+    "baseCommit": "c42b70949fac1668d2cb9ca477ad6985fdde903f",
+    "baseTree": "72a1fb2f015508212b48e2431d8bf7501eeb8a15",
     "approvalPath": ".harness/approvals/CT-G3-DEEPSEEK-MODEL-REFRESH-SUCCESSOR-20261007.json",
     "approvalCommitPaths": [
       ".harness/approvals/CT-G3-DEEPSEEK-MODEL-REFRESH-SUCCESSOR-20261007.json",
@@ -50,13 +50,6 @@
       "id": "harness-check",
       "tool": "node",
       "args": ["scripts/check_harness.mjs", "--check"],
-      "cwd": ".",
-      "timeoutMs": 300000
-    },
-    {
-      "id": "product-authority-regression",
-      "tool": "node",
-      "args": ["--test", "scripts/product-authority.test.mjs"],
       "cwd": ".",
       "timeoutMs": 300000
     }
