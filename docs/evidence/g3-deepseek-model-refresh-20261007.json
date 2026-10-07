@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "chaotang.g3.deepseek-model-refresh-evidence.v1",
+  "taskId": "CT-G3-DEEPSEEK-MODEL-REFRESH-SUCCESSOR-20261007",
+  "observedAtUtc": "2026-10-07 00:52:22 UTC",
+  "approval": {
+    "approvalCommit": "d7a45b20fcd8210a611b260cd64f995fda6632ba",
+    "approvalDigest": "sha256:5ddefcfc31c78db19ee6a08d9a688048c8bfc4f5eeceb119a14790586377eddc",
+    "remote": "gitee.com/msxn/chaotang-os:ext-dev"
+  },
+  "providerDiscovery": {
+    "previousConfiguredModel": "deepseek-v4-flash",
+    "previousProviderStatus": 400,
+    "previousProviderReason": "unsupported_model",
+    "supportedModelsObserved": ["deepseek-flash", "deepseek-v4-pro"]
+  },
+  "productionClientProbe": {
+    "entrypoint": "app.langgraph_runtime.deepseek_config.load_deepseek_provider_config + app.langgraph_runtime.deepseek_client.build_deepseek_chat_model",
+    "configuredModel": "openai/deepseek-flash",
+    "providerModelSentAfterNormalization": "deepseek-flash",
+    "requestCount": 1,
+    "maxOutputTokensConfiguredByClient": 2500,
+    "taskBudgetCeilingTokens": 20000,
+    "ok": true,
+    "responseChars": 4,
+    "responseSha256": "ce9d81706839e7535247590f2028313ace8ad56f29ac4af42e89fa7050519a19",
+    "elapsedSeconds": 1.565,
+    "realModel": true,
+    "network": true,
+    "productWrites": false,
+    "secretPersisted": false,
+    "rawPromptOrResponsePersisted": false
+  },
+  "offlineVerification": {
+    "command": "backend/.venv/Scripts/python.exe -I -m pytest -q tests/test_deepseek_config.py tests/test_deepseek_client.py tests/test_deepseek_graph.py",
+    "passed": 47,
+    "failed": 0,
+    "status": "PASS"
+  },
+  "limitations": [
+    "This evidence proves provider acceptance and the production client call only; it does not prove the complete multi-agent user flow.",
+    "The LiteLLM development gateway was not used by this product runtime probe; this task contract explicitly records the bounded development-mode exemption.",
+    "No public deployment, GitHub synchronization, or external account change was performed by this evidence run."
+  ],
+  "rollback": {
+    "targetCommit": "f4086527c2f5e856a8af6468f29b60e13839d273",
+    "scope": "Restore backend/config/providers.yaml and its focused test assertions to the approved parent candidate."
+  }
+}
