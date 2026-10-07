@@ -194,7 +194,7 @@ elseif (Test-Path -LiteralPath $buildId -PathType Leaf) { $frontendMode = "produ
 else { Write-Output "未找到 frontend/.next/BUILD_ID，切换为 Next.js 开发模式；如需生产模式请使用 -Build。"; $frontendMode = "development" }
 
 $backendEnv = @{ PYTHONDONTWRITEBYTECODE = "1"; CHAOTANG_DECREE_JOB_WORKER_ENABLED = "1" }
-$frontendEnv = @{ BACKEND_BASE_URL = "http://127.0.0.1:$BackendPort"; NEXT_TELEMETRY_DISABLED = "1" }
+$frontendEnv = @{ BACKEND_BASE_URL = "http://127.0.0.1:$BackendPort"; NEXT_TELEMETRY_DISABLED = "1"; CHAOTANG_COOKIE_SECURE = "false" }
 $started = @()
 try {
     $backend = Start-ManagedProcess "backend" $python "-m uvicorn app.main:app --host 127.0.0.1 --port $BackendPort" $backendRoot $backendEnv
