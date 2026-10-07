@@ -18,7 +18,7 @@ In Progress
 
 ## Affected Modules
 
-- 锦衣卫模型、存储、协调器、只读 API、离线回放和 graph 状态机。
+- 模块：锦衣卫模型、存储、协调器、只读 API、离线回放和 graph 状态机。
 - 允许路径：以 approval manifest 的 productPaths 为准。
 - 依赖 ADR 0028、司级证据协议和现有史馆采纳链路。
 
@@ -29,11 +29,11 @@ In Progress
 
 ## Acceptance Criteria
 
-- 调查事件按 sequence 追加并通过 previous_event_hash 形成链。
-- 相同请求、证据快照和规则版本回放得到相同 result_hash。
-- 回放不修改原始证据包、史馆数据或采用状态。
-- 长任务 graph 支持幂等、checkpoint、暂停、恢复、取消和重试边界。
-- 主证据库 schema/fingerprint 保持兼容。
+- [ ] 调查事件按 sequence 追加并通过 previous_event_hash 形成链。
+- [ ] 相同请求、证据快照和规则版本回放得到相同 result_hash。
+- [ ] 回放不修改原始证据包、史馆数据或采用状态。
+- [ ] 长任务 graph 支持幂等、checkpoint、暂停、恢复、取消和重试边界。
+- [ ] 主证据库 schema/fingerprint 保持兼容。
 
 ## Implementation Report
 
@@ -47,3 +47,4 @@ In Progress
 - 验收结果：Pending
 - 验收证据：Pending
 - 未通过项：Pending
+
