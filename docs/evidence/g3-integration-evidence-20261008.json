@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "chaotang.g3.integration-evidence.v1",
+  "candidateCommit": "6cb8177869e538651b690b579e53b22fdfe71985",
+  "candidateTree": "e1c646756903d2349d5d3b8e682bcaa552186239",
+  "command": "node scripts/verify_integration.mjs",
+  "startedAt": "2026-10-07T19:13:55.1505755Z",
+  "endedAt": "2026-10-07T19:14:09.1474049Z",
+  "durationMs": 13997,
+  "exitCode": 0,
+  "scenarios": {
+    "successPath": "PASS",
+    "failurePath": "PASS",
+    "decreeBffHealthyBackend": "PASS",
+    "decreeBffUnavailableBackend": "PASS",
+    "childProcessCleanup": "PASS"
+  },
+  "realModel": false,
+  "network": "local process only",
+  "nativeDesktopWindow": false,
+  "output": "[verify_integration] 场景一（成功路径）：启动后端 + 前端指向它 ...\n[verify_integration] 场景一通过：首页展示公开可见入口，健康页体现后端健康状态。\n[verify_integration] 场景二（失败路径）：后端不可用时前端应优雅降级 ...\n[verify_integration] 场景二通过：首页展示公开可见入口，健康页优雅体现后端不可用。\n[verify_integration] 场景三（下旨 BFF 连通性）：健康后端下应转发到下旨端点并映射为 draft_not_current，而非 network ...\n[verify_integration] 场景三 · 正向子场景通过：健康后端下下旨 BFF 转发成功，409/draft_not_current（不是 network）。\n[verify_integration] 场景三（下旨 BFF 连通性）：后端不可达时应返回 network/503，且不泄露内部地址 ...\n[verify_integration] 场景三 · 反向子场景通过：后端不可达时返回 network/503，响应体未泄露内部地址。\n[verify_integration] 集成校验全部通过：成功路径、失败路径与下旨 BFF 连通性场景均可重复验证，子进程均已清理。"
+}
