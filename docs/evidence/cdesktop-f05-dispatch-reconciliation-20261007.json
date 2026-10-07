@@ -1,0 +1,68 @@
+{
+  "schemaVersion": "chaotang.cdesktop.page-reconciliation.v1",
+  "taskId": "CT-G3-CDESKTOP-F05-RECONCILE-20261007",
+  "pageId": "F05",
+  "title": "六部分发台",
+  "observedAt": "2026-10-07T12:08:00+08:00",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "branch": "ext-dev",
+    "baseCommit": "1e85c1b4c7e9d209b3cd966ac5462748bc8800d7",
+    "approvalCommit": "aa9b38a229eb7ab9d5a4dd04e20f0f48bc58475e"
+  },
+  "mapping": {
+    "status": "MAPPED_UNVERIFIED",
+    "owner": "锦衣卫指挥使",
+    "userGets": "一张事实到部门结果的透明分发图",
+    "route": "/zhuanshu/jinyiwei",
+    "legacyRoute": "/jinyiwei",
+    "legacyRouteBehavior": "受保护入口重定向到 /zhuanshu/jinyiwei",
+    "components": [
+      "frontend/src/app/zhuanshu/jinyiwei/page.tsx",
+      "frontend/src/features/jinyiwei-visual/JinyiweiScrollDesk.tsx",
+      "frontend/src/features/jinyiwei-visual/jinyiweiDispatch.ts",
+      "frontend/src/features/jinyiwei-visual/JinyiweiScrollDesk.module.css",
+      "frontend/src/features/jinyiwei-visual/JinyiweiScrollDesk.test.ts"
+    ],
+    "readApis": [
+      "/api/jinyiwei/summary",
+      "/api/jinyiwei/investigations",
+      "/api/jinyiwei/investigations/{id}"
+    ],
+    "renderedContract": "事实 → 证据 → 回奏；没有证据的事实保持 NO_EVIDENCE，不推断为已解决"
+  },
+  "evidence": {
+    "sourceInspection": "当前候选源码已包含事实分发台组件、服务端事实顺序映射、证据/回奏计数和无证据状态；页面仅调用三个 GET-only 同源 BFF。",
+    "focusedTests": {
+      "command": "node --test src/features/jinyiwei-visual/JinyiweiScrollDesk.test.ts",
+      "result": "3 passed, 0 failed"
+    },
+    "inheritedCandidateEvidence": {
+      "file": "G3-F05-DISPATCH-VIEW-LOCAL-EVIDENCE-20261007.json",
+      "sha256": "57487ce4d36524e40b53f37c06dd55727c6c66fc8436cf90bd89bc48dee49e56",
+      "candidateCommit": "18ae2406b31c42fd3f7cf13253139b5cdb0bebb3",
+      "candidateTree": "79c80c9e64370349f64ef6e97be8df4ad0862b5f",
+      "formalVerifier": "PASS / CANDIDATE_ELIGIBLE_FOR_OWNER_ACCEPTANCE"
+    },
+    "ancestorCheck": {
+      "command": "git merge-base --is-ancestor 18ae2406b31c42fd3f7cf13253139b5cdb0bebb3 HEAD",
+      "result": "exit 0"
+    }
+  },
+  "notClaimed": [
+    "未宣称已完成真实浏览器页面加载验收",
+    "未宣称已完成新的外部模型调用",
+    "未宣称 F05 已达到 VERIFIED",
+    "未宣称 85 页吸收或 G3 已全部完成"
+  ],
+  "nextGate": [
+    "在登录后的真实本地 HTTP 会话中打开 /zhuanshu/jinyiwei",
+    "用真实后端调查详情响应核对分发行、证据计数和回奏计数",
+    "记录空态、错误态和回退步骤后，才可把 F05 提升为 VERIFIED"
+  ],
+  "rollback": {
+    "codeChange": false,
+    "revertTo": "1e85c1b4c7e9d209b3cd966ac5462748bc8800d7",
+    "note": "本次只新增证据文件；删除本证据文件即可回到基线，不涉及 API、数据库或页面行为。"
+  }
+}
