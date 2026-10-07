@@ -1,3 +1,7 @@
+/* 按钮体系：金线篆印（2026-10-07 升级；艺术风格沿用墨底 + 金 + 部色，未改定调）
+   基座一套，经 [data-variant] / [data-size] 派生五种语义与三种尺寸。
+   默认 variant=secondary、size=md —— 与升级前视觉同源，故所有既有调用向后兼容。 */
+
 .wrapper {
   display: inline-flex;
   flex-direction: column;
@@ -6,20 +10,65 @@
   max-width: 24rem;
 }
 
+/* —— 基座 —— */
 .wrapper button {
-  min-height: 40px;
-  padding: 8px 16px;
-  border: 1px solid rgba(240, 198, 106, 0.55);
-  border-radius: 6px;
-  background: linear-gradient(180deg, rgba(96, 55, 20, 0.94), rgba(48, 25, 12, 0.96));
-  color: #fff1ca;
-  font: inherit;
+  --btn-fg: #fff1ca;
+  --btn-bd: rgba(212, 168, 75, 0.5);
+  --btn-bg-a: rgba(58, 40, 14, 0.92);
+  --btn-bg-b: rgba(24, 17, 8, 0.96);
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-height: 44px;
+  padding: 0 20px;
+  border: 1px solid var(--btn-bd);
+  border-radius: 3px;
+  background: linear-gradient(180deg, var(--btn-bg-a), var(--btn-bg-b));
+  color: var(--btn-fg);
+  font-family: var(--font-serif, "Songti SC", KaiTi, serif);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.14em;
   cursor: pointer;
+  transition:
+    border-color 220ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 220ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 160ms cubic-bezier(0.16, 1, 0.3, 1),
+    background 220ms cubic-bezier(0.16, 1, 0.3, 1),
+    color 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: inset 0 1px 0 rgba(255, 244, 214, 0.06), 0 6px 18px rgba(0, 0, 0, 0.34);
+}
+
+/* 内发丝金线（匾额同源，风格不变） */
+.wrapper button::before {
+  position: absolute;
+  inset: 3px;
+  border: 1px solid rgba(240, 198, 106, 0.14);
+  border-radius: 1px;
+  content: "";
+  pointer-events: none;
+  transition: border-color 220ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .wrapper button:hover:not(:disabled) {
   border-color: #f0c66a;
-  box-shadow: 0 0 16px rgba(240, 198, 106, 0.18);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 244, 214, 0.1),
+    0 10px 26px rgba(0, 0, 0, 0.42),
+    0 0 22px rgba(240, 198, 106, 0.2);
+  transform: translateY(-1px);
+}
+
+.wrapper button:hover:not(:disabled)::before {
+  border-color: rgba(240, 198, 106, 0.34);
+}
+
+.wrapper button:active:not(:disabled) {
+  box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.6);
+  transform: translateY(0);
 }
 
 .wrapper button:focus-visible {
@@ -28,16 +77,136 @@
 }
 
 .wrapper button:disabled {
-  border-color: rgba(182, 171, 140, 0.24);
-  background: rgba(22, 25, 35, 0.72);
-  color: #9298a8;
+  --btn-bd: rgba(150, 145, 120, 0.22);
+  background: rgba(18, 20, 28, 0.7);
+  box-shadow: none;
+  color: #8b8fa0;
   cursor: not-allowed;
+  transform: none;
 }
 
+.wrapper button:disabled::before {
+  display: none;
+}
+
+/* —— 变体 1：朱批（金面墨字，全屏唯一主裁决） —— */
+.wrapper[data-variant="primary"] button {
+  --btn-fg: #241705;
+  --btn-bd: #e8bd63;
+  --btn-bg-a: #f4d179;
+  --btn-bg-b: #c9962f;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 250, 232, 0.6),
+    0 8px 22px rgba(0, 0, 0, 0.4),
+    0 0 26px rgba(240, 198, 106, 0.22);
+}
+
+.wrapper[data-variant="primary"] button::before {
+  border-color: rgba(90, 58, 12, 0.34);
+}
+
+.wrapper[data-variant="primary"] button:hover:not(:disabled) {
+  --btn-bg-a: #ffdf90;
+  --btn-bg-b: #d9a53a;
+  border-color: #fff0c0;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 250, 232, 0.75),
+    0 12px 30px rgba(0, 0, 0, 0.45),
+    0 0 40px rgba(240, 198, 106, 0.42);
+}
+
+/* —— 变体 3：素牍（低权重，悬停才浮现金线） —— */
+.wrapper[data-variant="ghost"] button {
+  --btn-fg: #d9ccb3;
+  --btn-bd: rgba(255, 255, 255, 0.16);
+  --btn-bg-a: rgba(255, 255, 255, 0.02);
+  --btn-bg-b: rgba(255, 255, 255, 0.02);
+  box-shadow: none;
+  letter-spacing: 0.1em;
+}
+
+.wrapper[data-variant="ghost"] button::before {
+  display: none;
+}
+
+.wrapper[data-variant="ghost"] button:hover:not(:disabled) {
+  --btn-bd: #d4a84b;
+  --btn-fg: #fff1ca;
+  background: rgba(212, 168, 75, 0.09);
+  box-shadow: 0 0 18px rgba(240, 198, 106, 0.14);
+}
+
+/* —— 变体 4：封驳（驳回 / 禁止，沿用奏折印泥红） —— */
+.wrapper[data-variant="danger"] button {
+  --btn-fg: #f3d3cb;
+  --btn-bd: rgba(168, 87, 74, 0.66);
+  --btn-bg-a: rgba(74, 26, 22, 0.92);
+  --btn-bg-b: rgba(34, 13, 11, 0.96);
+}
+
+.wrapper[data-variant="danger"] button::before {
+  border-color: rgba(200, 90, 74, 0.2);
+}
+
+.wrapper[data-variant="danger"] button:hover:not(:disabled) {
+  border-color: #d4796a;
+  box-shadow:
+    0 10px 26px rgba(0, 0, 0, 0.42),
+    0 0 22px rgba(168, 87, 74, 0.34);
+}
+
+/* —— 变体 5：部印（随当前部色 --accent） —— */
+.wrapper[data-variant="accent"] button {
+  --btn-bd: color-mix(in srgb, var(--accent, #d4a84b), transparent 42%);
+  --btn-fg: color-mix(in srgb, var(--accent, #d4a84b), #fff 42%);
+  --btn-bg-a: color-mix(in srgb, var(--accent, #d4a84b), transparent 84%);
+  --btn-bg-b: rgba(12, 14, 20, 0.94);
+}
+
+.wrapper[data-variant="accent"] button::before {
+  border-color: color-mix(in srgb, var(--accent, #d4a84b), transparent 78%);
+}
+
+.wrapper[data-variant="accent"] button:hover:not(:disabled) {
+  border-color: var(--accent, #d4a84b);
+  box-shadow:
+    0 10px 26px rgba(0, 0, 0, 0.42),
+    0 0 24px color-mix(in srgb, var(--accent, #d4a84b), transparent 55%);
+}
+
+/* —— 尺寸 —— */
+.wrapper[data-size="sm"] button {
+  min-height: 34px;
+  padding: 0 13px;
+  font-size: 12.5px;
+  letter-spacing: 0.1em;
+}
+
+.wrapper[data-size="lg"] button {
+  min-height: 52px;
+  padding: 0 30px;
+  font-size: 15.5px;
+  letter-spacing: 0.2em;
+}
+
+/* 解释文案保持视觉隐藏，但仍是可访问描述（aria-describedby 目标） */
 .wrapper small {
   position: absolute;
   width: 1px;
   height: 1px;
   overflow: hidden;
   clip-path: inset(50%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wrapper button,
+  .wrapper button::before {
+    transition-duration: 0.01ms;
+  }
+
+  .wrapper button:hover:not(:disabled) {
+    transform: none;
+  }
 }

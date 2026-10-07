@@ -194,14 +194,22 @@ elseif (Test-Path -LiteralPath $buildId -PathType Leaf) { $frontendMode = "produ
 else { Write-Output "未找到 frontend/.next/BUILD_ID，切换为 Next.js 开发模式；如需生产模式请使用 -Build。"; $frontendMode = "development" }
 
 $backendEnv = @{ PYTHONDONTWRITEBYTECODE = "1"; CHAOTANG_DECREE_JOB_WORKER_ENABLED = "1" }
-$frontendEnv = @{ BACKEND_BASE_URL = "http://127.0.0.1:$BackendPort"; NEXT_TELEMETRY_DISABLED = "1"; CHAOTANG_COOKIE_SECURE = "false" }
+$frontendEnv = @{
+    BACKEND_BASE_URL = "http://127.0.0.1:$BackendPort"
+    NEXT_TELEMETRY_DISABLED = "1"
+    CHAOTANG_COOKIE_SECURE = "false"
+    # Next.js standalone server reads its bind address and port from the
+    # environment; CLI arguments are ignored by .next/standalone/server.js.
+    HOSTNAME = "127.0.0.1"
+    PORT = "$FrontendPort"
+}
 $started = @()
 try {
     $backend = Start-ManagedProcess "backend" $python "-m uvicorn app.main:app --host 127.0.0.1 --port $BackendPort" $backendRoot $backendEnv
     $started += $backend
     [void](Wait-Http "http://127.0.0.1:$BackendPort/health")
-    if ($frontendMode -eq "production") { $frontend = Start-ManagedProcess "frontend" $npm "run start -- --hostname 127.0.0.1 --port $FrontendPort" $frontendRoot $frontendEnv }
-    else { $frontend = Start-ManagedProcess "frontend" $npm "run dev -- --hostname 127.0.0.1 --port $FrontendPort" $frontendRoot $frontendEnv }
+    if ($frontendMode -eq "production") { $frontend = Start-ManagedProcess "frontend" $npm "run start" $frontendRoot $frontendEnv }
+    else { $frontend = Start-ManagedProcess "frontend" $npm "run dev" $frontendRoot $frontendEnv }
     $started += $frontend
     [void](Wait-Http "http://127.0.0.1:$FrontendPort/")
     $state = [ordered]@{
