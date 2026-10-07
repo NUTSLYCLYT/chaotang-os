@@ -1,0 +1,308 @@
+"""Application service for the Bingbu P0 sales decision slice."""
+
+from __future__ import annotations
+
+import csv
+import hashlib
+import io
+import json
+from datetime import UTC, datetime, timedelta
+from typing import Any, Protocol
+from uuid import uuid4
+
+from app.bingbu.models import (
+    ActionDraft,
+    ActionDraftRequest,
+    ActionState,
+    DecisionPacket,
+    ImportRequest,
+    ImportRowError,
+    ImportRun,
+    ImportStatus,
+    Opportunity,
+    OpportunityStage,
+    Overview,
+)
+from app.bingbu.storage import BingbuConflictError, BingbuNotFoundError, BingbuStore, get_store
+from app.bingbu.validation import parse_opportunity
+
+
+class DecisionProvider(Protocol):
+    provider_name: str
+    model_alias: str
+
+    def recommend(self, opportunity: Opportunity, evidence_gaps: list[str]) -> list[str]: ...
+
+
+class BingbuInputError(ValueError):
+    """A sanitized input error owned by the Bingbu API boundary."""
+
+
+class DeterministicDecisionProvider:
+    """Default offline provider; production can inject the DeepSeek harness adapter."""
+
+    provider_name = "deepseek-harness"
+    model_alias = "injected-fake"
+
+    def recommend(self, opportunity: Opportunity, evidence_gaps: list[str]) -> list[str]:
+        if evidence_gaps:
+            return ["补齐关键证据后再推进报价", "由责任人安排一次客户确认沟通"]
+        if opportunity.stage is OpportunityStage.NEGOTIATION:
+            return ["确认合同红线与交付承诺", "在审批后发送最终报价草稿"]
+        return ["围绕客户信号安排下一次沟通", "确认决策人和截止时间"]
+
+
+class BingbuService:
+    def __init__(
+        self,
+        store: BingbuStore | None = None,
+        provider: DecisionProvider | None = None,
+    ) -> None:
+        self.store = store or get_store()
+        self.provider = provider or DeterministicDecisionProvider()
+
+    def preview_import(self, owner: str, request: ImportRequest) -> ImportRun:
+        rows = self._decode_rows(request)
+        errors: list[ImportRowError] = []
+        accepted = 0
+        for index, row in enumerate(rows, start=2):
+            try:
+                parse_opportunity(row, owner)
+                accepted += 1
+            except (TypeError, ValueError, KeyError) as exc:
+                field = "row"
+                if hasattr(exc, "errors"):
+                    error_items = exc.errors()
+                    if error_items and error_items[0].get("loc"):
+                        field = str(error_items[0]["loc"][0])
+                errors.append(ImportRowError(row=index, field=field, message=str(exc)[:500]))
+        return ImportRun(
+            id=f"imp_{uuid4().hex}",
+            source_type=request.source_type.lower(),
+            filename=request.filename,
+            row_count=len(rows),
+            accepted_count=accepted,
+            rejected_count=len(errors),
+            errors=errors,
+            status=ImportStatus.PREVIEWED,
+            created_at=datetime.now(UTC),
+        )
+
+    def commit_import(
+        self,
+        owner: str,
+        request: ImportRequest,
+        preview: ImportRun | None = None,
+    ) -> ImportRun:
+        fingerprint = hashlib.sha256(request.content.encode("utf-8")).hexdigest()
+        prior = self.store.get_import_by_fingerprint(owner, fingerprint)
+        if prior is not None:
+            return prior
+        rows = self._decode_rows(request)
+        run = preview or self.preview_import(owner, request)
+        for _row_index, row in enumerate(rows, start=2):
+            try:
+                self.store.upsert_opportunity(owner, parse_opportunity(row, owner))
+            except (TypeError, ValueError, KeyError):
+                continue
+        committed = run.model_copy(
+            update={"status": ImportStatus.COMMITTED, "fingerprint": fingerprint}
+        )
+        return self.store.save_import(owner, committed, fingerprint)
+
+    def overview(self, owner: str) -> Overview:
+        opportunities = self.store.list_opportunities(owner)
+        amounts: dict[str, float] = {}
+        counts: dict[str, int] = {}
+        gaps: list[str] = []
+        now = datetime.now(UTC)
+        stage_aging: list[dict[str, Any]] = []
+        for opportunity in opportunities:
+            counts[opportunity.stage.value] = counts.get(opportunity.stage.value, 0) + 1
+            amounts[opportunity.stage.value] = (
+                amounts.get(opportunity.stage.value, 0) + opportunity.amount
+            )
+            if not opportunity.evidence:
+                gaps.append(f"{opportunity.id}: 缺少可引用证据")
+            if opportunity.next_action_due_at and opportunity.next_action_due_at < now:
+                gaps.append(f"{opportunity.id}: 下一步已逾期")
+            if opportunity.last_activity_at:
+                stage_aging.append(
+                    {
+                        "opportunity_id": opportunity.id,
+                        "stage": opportunity.stage.value,
+                        "days": max(0, (now - opportunity.last_activity_at).days),
+                    }
+                )
+        priority = sorted(
+            opportunities,
+            key=lambda item: (
+                item.health.value == "red",
+                bool(item.next_action_due_at and item.next_action_due_at < now),
+                item.amount,
+            ),
+            reverse=True,
+        )[:10]
+        return Overview(
+            period={
+                "from": (now - timedelta(days=7)).date().isoformat(),
+                "to": now.date().isoformat(),
+            },
+            funnel={"counts": counts, "amounts": amounts, "stage_aging": stage_aging},
+            priority_opportunities=priority,
+            evidence_gaps=gaps,
+            decision_queue=self.store.list_packets(owner),
+            experiments=["验证下一步按时完成率与证据缺口关闭率"],
+            freshness={"as_of": now.isoformat(), "stale_after_hours": 72},
+        )
+
+    def get_opportunity(self, owner: str, opportunity_id: str) -> Opportunity:
+        return self.store.get_opportunity(owner, opportunity_id)
+
+    def list_opportunities(
+        self,
+        owner: str,
+        *,
+        stage: OpportunityStage | None = None,
+        health: str | None = None,
+        limit: int = 50,
+    ) -> list[Opportunity]:
+        values = self.store.list_opportunities(owner)
+        if stage is not None:
+            values = [item for item in values if item.stage is stage]
+        if health is not None:
+            values = [item for item in values if item.health.value == health]
+        return sorted(values, key=lambda item: item.amount, reverse=True)[:limit]
+
+    def get_timeline(self, owner: str, opportunity_id: str) -> list[Any]:
+        return self.store.get_opportunity(owner, opportunity_id).activities
+
+    def get_packet(self, owner: str, packet_id: str) -> DecisionPacket:
+        return self.store.get_packet(owner, packet_id)
+
+    def get_import(self, owner: str, import_id: str) -> ImportRun:
+        return self.store.get_import(owner, import_id)
+
+    def create_war_room(
+        self, owner: str, opportunity_id: str
+    ) -> tuple[DecisionPacket, ActionDraft]:
+        opportunity = self.store.get_opportunity(owner, opportunity_id)
+        request_id = f"req_{uuid4().hex}"
+        trace_id = f"trace_{uuid4().hex}"
+        evidence_gaps = []
+        if not opportunity.evidence:
+            evidence_gaps.append("缺少客户事实证据")
+        if not opportunity.next_action:
+            evidence_gaps.append("缺少唯一下一步")
+        facts = [
+            f"商机阶段：{opportunity.stage.value}",
+            f"预计金额：{opportunity.amount:g} {opportunity.currency}",
+        ]
+        packet = DecisionPacket(
+            id=f"packet_{uuid4().hex}",
+            subject_id=opportunity.id,
+            status="degraded" if evidence_gaps else "ready",
+            summary=f"{opportunity.account_name} 的销售会审包",
+            facts=facts,
+            assumptions=["金额与阶段来自最近一次导入的销售事实"],
+            recommendations=self.provider.recommend(opportunity, evidence_gaps),
+            evidence_gaps=evidence_gaps,
+            redlines=["未经审批不得发送报价、改价或承诺交付"],
+            next_action=opportunity.next_action or "补齐证据后指定唯一下一步",
+            cross_bureau_impacts=["报价司：核对价格与毛利", "合同司：核对合同红线"],
+            unresolved_items=evidence_gaps,
+            evidence_refs=[item.id for item in opportunity.evidence],
+            model_provider=self.provider.provider_name,
+            model_alias=self.provider.model_alias,
+            request_id=request_id,
+            trace_id=trace_id,
+            created_at=datetime.now(UTC),
+        )
+        self.store.save_packet(owner, packet)
+        draft = self.create_action_draft(
+            owner,
+            ActionDraftRequest(
+                decision_packet_id=packet.id,
+                action_type="customer_follow_up",
+                payload={"opportunity_id": opportunity.id, "next_action": packet.next_action},
+                idempotency_key=f"bingbu:{owner}:{packet.id}:customer_follow_up",
+            ),
+        )
+        return packet, draft
+
+    def create_action_draft(self, owner: str, request: ActionDraftRequest) -> ActionDraft:
+        packet = self.store.get_packet(owner, request.decision_packet_id)
+        idempotency_key = request.idempotency_key or (
+            f"bingbu:{owner}:{request.decision_packet_id}:{request.action_type}"
+        )
+        prior = self.store.get_draft_by_idempotency(owner, idempotency_key)
+        if prior is not None:
+            return prior
+        draft = ActionDraft(
+            id=f"draft_{uuid4().hex}",
+            decision_packet_id=request.decision_packet_id,
+            action_type=request.action_type,
+            payload=request.payload,
+            idempotency_key=idempotency_key,
+            request_id=packet.request_id,
+            trace_id=packet.trace_id,
+            created_at=datetime.now(UTC),
+        )
+        return self.store.save_draft(owner, draft)
+
+    def approve_action_draft(self, owner: str, draft_id: str) -> ActionDraft:
+        draft = self.store.get_draft(owner, draft_id)
+        if draft.approval_state is not ActionState.DRAFT:
+            return draft
+        return self.store.save_draft(
+            owner,
+            draft.model_copy(
+                update={
+                    "approval_state": ActionState.APPROVED_PENDING_EXECUTION,
+                    "approved_by": owner,
+                    "approved_at": datetime.now(UTC),
+                }
+            ),
+        )
+
+    def reject_action_draft(self, owner: str, draft_id: str) -> ActionDraft:
+        draft = self.store.get_draft(owner, draft_id)
+        if draft.approval_state is not ActionState.DRAFT:
+            return draft
+        return self.store.save_draft(
+            owner, draft.model_copy(update={"approval_state": ActionState.REJECTED})
+        )
+
+    @staticmethod
+    def _decode_rows(request: ImportRequest) -> list[dict[str, Any]]:
+        source = request.source_type.lower()
+        if source == "json":
+            try:
+                payload = json.loads(request.content)
+            except json.JSONDecodeError as exc:
+                raise BingbuInputError("JSON import is malformed") from exc
+            if not isinstance(payload, list) or any(not isinstance(row, dict) for row in payload):
+                raise BingbuInputError("JSON import must be an array of objects")
+            return payload
+        if source != "csv":
+            raise BingbuInputError("source_type must be csv or json")
+        reader = csv.DictReader(io.StringIO(request.content))
+        if not reader.fieldnames:
+            raise BingbuInputError("CSV import requires a header row")
+        return [dict(row) for row in reader]
+
+
+_SERVICE = BingbuService()
+
+
+def get_bingbu_service() -> BingbuService:
+    return _SERVICE
+
+
+__all__ = [
+    "BingbuConflictError",
+    "BingbuInputError",
+    "BingbuNotFoundError",
+    "BingbuService",
+    "get_bingbu_service",
+]

@@ -17,6 +17,8 @@ from fastapi.responses import JSONResponse
 
 from app.api.auth import register_auth_exception_handlers
 from app.api.auth import router as auth_router
+from app.api.bingbu import register_bingbu_exception_handlers
+from app.api.bingbu import router as bingbu_router
 from app.api.capabilities import router as capabilities_router
 from app.api.chancellor_consult import register_chancellor_consult_exception_handlers
 from app.api.chancellor_consult import router as chancellor_consult_router
@@ -142,3 +144,6 @@ register_auth_exception_handlers(app)
 app.include_router(scene_packs_router)
 
 app.include_router(mingshuo_router)
+
+app.include_router(bingbu_router)
+register_bingbu_exception_handlers(app)
