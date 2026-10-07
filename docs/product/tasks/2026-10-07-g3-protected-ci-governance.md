@@ -2,7 +2,7 @@
 
 ## Status
 
-Implemented; protected CI gate verified. This does not declare the full G3 product complete.
+Implemented
 
 ## Product Definition
 
