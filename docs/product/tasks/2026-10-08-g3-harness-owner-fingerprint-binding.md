@@ -17,7 +17,7 @@ In Progress
 
 ## Delivery Constraints
 
-- 只改动 `scripts/check_harness.mjs` 的兼容对表与对应 self-test 期望，以及本任务记录。
+- 只改动两个验证器的兼容对表与对应 self-test/一致性期望，以及本任务记录。
 - 不修改历史指纹、来源提交、能力族统计、解析器数量、失败分类或测试标准。
 - 不使用 `--no-verify`，不强推，不进行公共部署，不操作原生桌面窗口。
 - 该变更不使用 M0 approval manifest：`scripts/check_harness.mjs` 属于 `PROTECTED_PRODUCT_PATHS`，M0 会拒绝 `PRODUCT_PATH_PROTECTED`；本文件是 owner 直接治理记录。
@@ -25,12 +25,12 @@ In Progress
 ## Affected Modules
 
 - 模块：六部 Runtime 精确兼容指纹门禁与 owner 治理记录。
-- 允许路径：`scripts/check_harness.mjs`、`docs/product/tasks/2026-10-08-g3-harness-owner-fingerprint-binding.md`。
+- 允许路径：`scripts/check_harness.mjs`、`backend/tests/test_six_ministry_readiness_report.py`、`docs/product/tasks/2026-10-08-g3-harness-owner-fingerprint-binding.md`。
 
 ## Technical Plan
 
 1. 计算并复核当前候选运行时与后继内容指纹。
-2. 在现有精确 pair 表追加一组 pair，并同步 self-test 数量和说明。
+2. 在 Node 与 Python 验证器的现有精确 pair 表各追加同一组 pair，并同步 Node self-test 数量和说明。
 3. 运行 Harness check、Harness self-test 与差异检查。
 4. 以单一原子提交保存，之后再进行候选验证与远端同步。
 
@@ -38,10 +38,14 @@ In Progress
 
 当前候选基线为 `97dfe53f245f8840ec208a483eaff8233245ae97`，本治理提交为其直接后继。用户确认本次治理摘要：`sha256:599b140f8c98bae6f76b163bca571fef9bdbc30a144ba5f3444378b43466bc17`。
 
-本次仅增加上述精确 pair，并将 self-test 的 pair 数量由 22 更新为 23；未修改产品运行代码。预验证结果：
+本次仅在 Node 与 Python 验证器增加上述精确 pair，并将 Node self-test 的 pair 数量由 22 更新为 23；未修改产品运行代码。预验证结果：
 
 - `node scripts/check_harness.mjs --check` → `agentic-check: 通过 (159 个基线文件)`。
 - `node scripts/check_harness.mjs --self-test` → `agentic-check self-test: 通过 (175 项)`。
+- `backend/.venv/Scripts/python.exe -m pytest tests/test_six_ministry_readiness_report.py -q` → `22 passed in 1.40s`。
+- `backend/.venv/Scripts/python.exe -m ruff check tests/test_six_ministry_readiness_report.py` → `All checks passed!`。
+
+首次把 Node pair 表更新后单独运行 Python readiness 时真实复现 `2 failed, 20 passed`；根因是 Python 验证器仍保留旧的 22 组期望。随后仅同步同一第 23 pair 及数量断言，复跑得到上述 22/22，通过了跨验证器一致性。
 - `git diff --check` → 通过。
 
 ## Acceptance Review
