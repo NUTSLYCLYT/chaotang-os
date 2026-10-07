@@ -596,6 +596,11 @@ def build_chancellor_graph(
                 council_kwargs["processing_path"] = state["processing_path"]
             if execution_boundary is not None:
                 council_kwargs["execution_boundary"] = execution_boundary
+            if real_provider:
+                # The approved route snapshot is authoritative for a real
+                # decree. Re-running each ministry's bureau-routing model here
+                # duplicates provider calls and can exhaust the 20k task cap.
+                council_kwargs["route_is_authoritative"] = True
             if run_junjichu_council is not _DEFAULT_LEGACY_COUNCIL_RUNNER:
                 ministry_opinions, verdict = run_junjichu_council(
                     state["decree_text"],

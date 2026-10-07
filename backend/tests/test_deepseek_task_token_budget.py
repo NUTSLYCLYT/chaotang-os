@@ -61,6 +61,26 @@ def test_provider_usage_settles_the_same_durable_task_budget(mock_openai, monkey
 
 
 @patch("app.langgraph_runtime.deepseek_client.openai.OpenAI")
+def test_task_budget_adapts_output_cap_before_reserving(mock_openai, monkeypatch, tmp_path):
+    client = MagicMock()
+    client.chat.completions.create.return_value = _response(
+        "ok", input_tokens=12, output_tokens=7
+    )
+    mock_openai.return_value = client
+    model = _model(client, monkeypatch)
+    ledger = TaskTokenBudget(
+        tmp_path / "budget.sqlite3", owner_id="owner", task_id="job", max_tokens=1000
+    )
+
+    with use_task_token_budget(ledger):
+        assert model([{"role": "user", "content": "short"}]) == "ok"
+
+    request = client.chat.completions.create.call_args.kwargs
+    assert 256 <= request["max_tokens"] < 2500
+    assert ledger.snapshot().charged_tokens == 19
+
+
+@patch("app.langgraph_runtime.deepseek_client.openai.OpenAI")
 def test_missing_usage_keeps_a_hold_and_blocks_a_second_send_when_cap_is_full(
     mock_openai, monkeypatch, tmp_path
 ):
@@ -71,7 +91,10 @@ def test_missing_usage_keeps_a_hold_and_blocks_a_second_send_when_cap_is_full(
     mock_openai.return_value = client
     model = _model(client, monkeypatch)
     ledger = TaskTokenBudget(
-        tmp_path / "budget.sqlite3", owner_id="owner", task_id="job", max_tokens=3000
+        # 43 conservative input tokens + the 2,500-token output reservation
+        # leave no room for another send once the first usage receipt is
+        # unknown and the hold is retained.
+        tmp_path / "budget.sqlite3", owner_id="owner", task_id="job", max_tokens=2600
     )
     messages = [{"role": "user", "content": "short"}]
 

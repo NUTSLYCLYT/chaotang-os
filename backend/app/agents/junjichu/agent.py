@@ -436,6 +436,7 @@ def run_junjichu_council_with_report(
     lifecycle_observer: CaseLifecycleObserver | None = None,
     processing_path: list[str] | None = None,
     execution_boundary: Callable[[], None] | None = None,
+    route_is_authoritative: bool = False,
 ) -> JunjichuCouncilInvocationResult:
     """Compatibility orchestration boundary that owns privileged ministry context."""
 
@@ -452,6 +453,8 @@ def run_junjichu_council_with_report(
             kwargs["evidence_session"] = evidence_session
         if report_session is not None:
             kwargs["report_session"] = report_session
+        if route_is_authoritative:
+            kwargs["route_is_authoritative"] = True
         result = invoke_ministry_agent_with_report(
             department,
             decree_text,

@@ -36,6 +36,7 @@ from app.langgraph_runtime.provider_budget import (
 _MODEL_NAME_PREFIX = "openai/"
 _REQUEST_TIMEOUT_SECONDS = 60.0
 _MAX_OUTPUT_TOKENS = 2500
+_MIN_ADAPTIVE_OUTPUT_TOKENS = 256
 
 # A DeepSeek chat model is any callable that takes an OpenAI-style list of
 # ``{"role": ..., "content": ...}`` messages and returns the assistant's
@@ -141,6 +142,27 @@ def _usage_tokens(response) -> tuple[int, int] | None:
     return input_tokens, output_tokens
 
 
+def _adaptive_output_cap(task_budget, input_tokens: int) -> int:
+    """Fit one provider request inside the remaining task-token budget.
+
+    The product task cap is hard and fail-closed.  A fixed 2,500-token
+    reservation for every stage made a legitimate multi-ministry flow reject
+    its later stages even when earlier provider responses used far fewer
+    tokens.  When a durable task ledger is present, reserve only the portion
+    that can still fit after the conservative input bound.  Keep a useful
+    minimum response size; below that threshold the caller should fail closed
+    rather than send a request that is unlikely to satisfy a JSON contract.
+    """
+
+    if task_budget is None:
+        return _MAX_OUTPUT_TOKENS
+    available = task_budget.snapshot().available_tokens
+    remaining = available - input_tokens
+    if remaining < _MIN_ADAPTIVE_OUTPUT_TOKENS:
+        raise TaskTokenBudgetError("task_token_budget_exhausted")
+    return min(_MAX_OUTPUT_TOKENS, remaining)
+
+
 def normalize_deepseek_model_name(model_name: str) -> str:
     """Strip the ``openai/`` prefix DeepSeek's config uses, for SDK calls.
 
@@ -212,20 +234,22 @@ def build_deepseek_chat_model(
     model_name = normalize_deepseek_model_name(config.default_model)
 
     def call_deepseek_chat_model(messages: list[dict[str, str]]) -> str:
-        request_kwargs = {
-            "model": model_name,
-            "messages": messages,
-            "max_tokens": 2500,
-            "temperature": 0,
-        }
-        if json_output:
-            request_kwargs["response_format"] = {"type": "json_object"}
-            request_kwargs["extra_body"] = {"thinking": {"type": "disabled"}}
         for attempt in range(max_provider_attempts):
             task_budget = get_task_token_budget()
             reservation = None
             request_digest = None
+            input_bound = _conservative_input_token_bound(messages)
             try:
+                output_cap = _adaptive_output_cap(task_budget, input_bound)
+                request_kwargs = {
+                    "model": model_name,
+                    "messages": messages,
+                    "max_tokens": output_cap,
+                    "temperature": 0,
+                }
+                if json_output:
+                    request_kwargs["response_format"] = {"type": "json_object"}
+                    request_kwargs["extra_body"] = {"thinking": {"type": "disabled"}}
                 if attempt_budget is not None:
                     attempt_budget.reserve()
                 if task_budget is not None:
@@ -241,8 +265,8 @@ def build_deepseek_chat_model(
                         attempt_id=f"deepseek-attempt-{uuid4().hex}",
                         request_id=f"deepseek-request-{uuid4().hex}",
                         request_sha256=request_digest,
-                        input_tokens=_conservative_input_token_bound(messages),
-                        max_output_tokens=_MAX_OUTPUT_TOKENS,
+                        input_tokens=input_bound,
+                        max_output_tokens=output_cap,
                     )
                 response = client.chat.completions.create(**request_kwargs)
                 if reservation is not None and request_digest is not None:
