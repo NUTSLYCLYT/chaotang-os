@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "chaotang.g3.jinyiwei-github-probe.v1",
+  "sourceCommit": "57d1c6bec9c7ef5e4d037f34a3db42808f8b6cb0",
+  "sourceTree": "6db28d7f8c735df873c0d6ff61a40fcff5cbe07c",
+  "startedAt": "2026-10-07T19:20:15.240697Z",
+  "endedAt": "2026-10-07T19:20:15.249114Z",
+  "durationMs": 8,
+  "repository": "promptfoo/promptfoo",
+  "connector": "github_repository_search",
+  "requestUrl": "https://api.github.com/search/repositories?per_page=3&q=repo%3Apromptfoo%2Fpromptfoo",
+  "status": "BLOCKED_EXTERNAL",
+  "realModel": false,
+  "externalWrite": false,
+  "attempt": {
+    "source_type": "PUBLIC_API",
+    "source_name": "registered_public_api",
+    "status": "FAILED",
+    "error": "public_api_unavailable",
+    "facts_attempted": [
+      "github_repository:metadata"
+    ]
+  },
+  "directClientError": {
+    "type": "UnsafeNetworkRequestError",
+    "message": "Target is not a safe public address"
+  },
+  "interpretation": "The registered read-only connector and fail-closed network policy ran. The current environment resolved api.github.com to a non-public address, so no external request was sent and no repository data was fabricated.",
+  "recovery": "Provide an approved public DNS/network egress for the Jinyiwei host, then rerun this exact probe. Do not weaken the public-address check or substitute fixture data for a real-source claim."
+}

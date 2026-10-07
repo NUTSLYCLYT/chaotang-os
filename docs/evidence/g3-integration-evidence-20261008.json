@@ -1,11 +1,11 @@
 {
   "schemaVersion": "chaotang.g3.integration-evidence.v1",
-  "candidateCommit": "6cb8177869e538651b690b579e53b22fdfe71985",
-  "candidateTree": "e1c646756903d2349d5d3b8e682bcaa552186239",
+  "candidateCommit": "57d1c6bec9c7ef5e4d037f34a3db42808f8b6cb0",
+  "candidateTree": "6db28d7f8c735df873c0d6ff61a40fcff5cbe07c",
   "command": "node scripts/verify_integration.mjs",
-  "startedAt": "2026-10-07T19:13:55.1505755Z",
-  "endedAt": "2026-10-07T19:14:09.1474049Z",
-  "durationMs": 13997,
+  "startedAt": "2026-10-07T19:22:20.6288697Z",
+  "endedAt": "2026-10-07T19:22:34.3100542Z",
+  "durationMs": 13681,
   "exitCode": 0,
   "scenarios": {
     "successPath": "PASS",
