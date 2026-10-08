@@ -1,0 +1,8 @@
+.panel { margin-top: 18px; border: 1px solid rgba(88, 57, 31, .25); background: rgba(255, 252, 240, .5); color: #2c2119; padding: 18px; }
+.heading { display: flex; justify-content: space-between; align-items: end; gap: 16px; border-bottom: 1px solid rgba(88, 57, 31, .25); padding-bottom: 10px; }
+.heading h3 { margin: 2px 0 0; color: #5d291d; font-family: "STKaiti", "KaiTi", serif; }
+.heading small, .eyebrow { color: #806f5d; font: 11px/1.4 ui-monospace, monospace; }.eyebrow { color: #8b5c32; font-weight: 700; letter-spacing: .16em; }
+.empty { margin: 14px 0 0; color: #806f5d; font-size: 13px; line-height: 1.6; }
+.meta { display: flex; justify-content: space-between; gap: 12px; margin: 12px 0; color: #806f5d; font: 11px/1.5 ui-monospace, monospace; }
+.events { display: grid; gap: 9px; }.event { border: 1px solid rgba(88, 57, 31, .22); background: rgba(255, 255, 255, .48); padding: 12px; }.eventHeader { display: flex; justify-content: space-between; gap: 12px; }.event p, .event small { color: #6b5c4e; font-size: 12px; line-height: 1.6; }.event p { margin: 7px 0 0; }.event small { display: block; margin-top: 4px; }.state, .conflict { border: 1px solid currentColor; padding: 3px 6px; font-size: 10px; white-space: nowrap; }.state { color: #25664e; }.conflict { color: #a14335; }.rejected { margin-top: 12px; color: #a14335; font-size: 12px; }.rejected summary { cursor: pointer; font-weight: 700; }.rejected p { margin: 6px 0 0; }.note { margin: 12px 0 0; color: #53645e; font-size: 11px; line-height: 1.6; }
+@media (max-width: 620px) { .heading, .meta, .eventHeader { align-items: flex-start; flex-direction: column; } }

@@ -11,6 +11,7 @@ import {
 } from "./jinyiweiDispatch";
 import { JinyiweiTrustPanel } from "./JinyiweiTrustPanel";
 import { JinyiweiGlobalEvidenceMap } from "./JinyiweiGlobalEvidenceMap";
+import { JinyiweiNewsDesk } from "./JinyiweiNewsDesk";
 
 export { buildFactDispatchRows } from "./jinyiweiDispatch";
 export type { FactDispatchInput, FactDispatchRow } from "./jinyiweiDispatch";
@@ -181,6 +182,7 @@ export function JinyiweiScrollDesk() {
           coverage={global.phase === "ready" ? global.coverage : null}
           feeds={global.phase === "ready" ? global.feeds : null}
         />
+        <JinyiweiNewsDesk preview={null} />
 
         <section className={styles.workspace}>
           <aside className={styles.index} aria-label="已处理案卷索引">

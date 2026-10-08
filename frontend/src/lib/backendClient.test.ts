@@ -1332,6 +1332,26 @@ test("Jinyiwei read clients reject blank sessions before fetch", async () => {
   }
 });
 
+test("Jinyiwei news preview client posts an offline snapshot and preserves the no-infer contract", async () => {
+  const { previewJinyiweiNews } = await import("./backendClient.ts");
+  let requestBody: unknown;
+  const result = await previewJinyiweiNews({ snapshotId: "snapshot-1", entries: [] }, {
+    baseUrl: "https://backend.invalid",
+    sessionId: "opaque-jinyiwei-session",
+    fetchImpl: async (input, init) => {
+      assert.equal(String(input), "https://backend.invalid/api/v1/jinyiwei/news/preview");
+      assert.equal(init?.method, "POST");
+      assert.equal(new Headers(init?.headers).get("authorization"), "Bearer opaque-jinyiwei-session");
+      requestBody = JSON.parse(String(init?.body));
+      return new Response(JSON.stringify({ snapshot_id: "snapshot-1", rules_version: "news-preview-v1", replay_fingerprint: "a".repeat(64), source_fingerprints: [], articles: [], events: [], rejected: [], generated_at: "2026-10-08T00:00:00Z", do_not_infer: "标题不等于事实" }), { status: 200 });
+    },
+    scheduleTimeout: () => "news-timeout",
+    cancelTimeout: (handle) => assert.equal(handle, "news-timeout"),
+  });
+  assert.deepEqual(requestBody, { snapshot_id: "snapshot-1", entries: [] });
+  assert.equal(result.ok && result.data.doNotInfer, "标题不等于事实");
+});
+
 test("锦衣卫客户端嵌套契约额外字段与证据分组不匹配时整包拒绝", async () => {
   const { getJinyiweiInvestigation } = await import("./backendClient.ts");
   for (const body of [

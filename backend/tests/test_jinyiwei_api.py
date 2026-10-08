@@ -360,3 +360,53 @@ def test_approved_feeds_expose_registry_metadata_without_fetching(monkeypatch) -
     assert body["sources"][0]["source_id"] == "example-news"
     assert body["sources"][0]["fingerprint"] == source.fingerprint
     assert body["sources"][0]["allowed_redirect_hosts"] == ["news.example.test"]
+
+
+def test_news_preview_is_authenticated_and_does_not_fetch(monkeypatch) -> None:
+    from hashlib import sha256
+
+    from app.jinyiwei.feed_registry import FeedFormat, FeedRegistry, FeedSource
+
+    source = FeedSource(
+        source_id="example-news",
+        url="https://news.example.test/feed.xml",
+        publisher="Example News",
+        format=FeedFormat.RSS,
+        license_note="Public feed license",
+        robots_policy="respect",
+        rate_limit_per_minute=6,
+    )
+    monkeypatch.setattr(api_module, "build_default_feed_registry", lambda: FeedRegistry((source,)))
+    content = "A source report."
+    response = client.post(
+        "/api/v1/jinyiwei/news/preview",
+        json={
+            "snapshot_id": "snapshot-1",
+            "entries": [
+                {
+                    "source_id": "example-news",
+                    "url": "https://news.example.test/a",
+                    "title": "Market update",
+                    "published_at": "2026-10-08T01:00:00Z",
+                    "updated_at": None,
+                    "author": "Reporter",
+                    "publisher": "Example News",
+                    "summary": "A short summary.",
+                    "content": content,
+                    "content_hash": sha256(content.encode()).hexdigest(),
+                }
+            ],
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["articles"][0]["source_id"] == "example-news"
+    assert body["events"][0]["do_not_infer"] is True
+    assert body["events"][0]["evidence_state"] == "UNVERIFIED"
+
+    client.headers.pop("Authorization")
+    anonymous = client.post(
+        "/api/v1/jinyiwei/news/preview",
+        json={"snapshot_id": "snapshot-1", "entries": []},
+    )
+    assert anonymous.status_code == 401

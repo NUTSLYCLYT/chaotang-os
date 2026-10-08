@@ -270,6 +270,87 @@ class EvidenceCoverageReference(_ReadModel):
 EvidenceCoveragePoint.model_rebuild()
 
 
+class NewsArticleRead(_ReadModel):
+    article_id: StrictStr
+    source_id: StrictStr
+    source_fingerprint: StrictStr
+    title: StrictStr
+    url: StrictStr
+    published_at: StrictStr
+    updated_at: StrictStr | None
+    author: StrictStr | None
+    publisher: StrictStr
+    summary: StrictStr | None
+    content_hash: StrictStr
+
+    @field_validator("published_at", "updated_at")
+    @classmethod
+    def _article_timestamp(cls, value: str | None) -> str | None:
+        if value is not None:
+            _time(value)
+        return value
+
+
+class NewsEventRead(_ReadModel):
+    event_id: StrictStr
+    title: StrictStr
+    article_ids: tuple[StrictStr, ...] = Field(min_length=1)
+    source_ids: tuple[StrictStr, ...] = Field(min_length=1)
+    first_published_at: StrictStr
+    last_published_at: StrictStr
+    state: StrictStr
+    evidence_state: StrictStr
+    do_not_infer: StrictBool
+
+    @field_validator("first_published_at", "last_published_at")
+    @classmethod
+    def _event_timestamp(cls, value: str) -> str:
+        _time(value)
+        return value
+
+    @model_validator(mode="after")
+    def _event_window_is_ordered(self) -> NewsEventRead:
+        if _time(self.last_published_at) < _time(self.first_published_at):
+            raise ValueError("news event publication window is inverted")
+        if not self.do_not_infer:
+            raise ValueError("news events must remain do-not-infer")
+        return self
+
+
+class NewsRejectionRead(_ReadModel):
+    ordinal: StrictInt = Field(ge=0)
+    source_id: StrictStr
+    url: StrictStr
+    reason: StrictStr
+
+
+class NewsSnapshotPreviewRead(_ReadModel):
+    snapshot_id: StrictStr
+    rules_version: StrictStr
+    replay_fingerprint: StrictStr
+    source_fingerprints: tuple[StrictStr, ...]
+    articles: tuple[NewsArticleRead, ...]
+    events: tuple[NewsEventRead, ...]
+    rejected: tuple[NewsRejectionRead, ...]
+    generated_at: StrictStr
+    do_not_infer: StrictStr
+
+    @field_validator("generated_at")
+    @classmethod
+    def _preview_timestamp(cls, value: str) -> str:
+        _time(value)
+        return value
+
+    @model_validator(mode="after")
+    def _event_articles_are_known(self) -> NewsSnapshotPreviewRead:
+        article_ids = {article.article_id for article in self.articles}
+        if any(article_id not in article_ids for event in self.events for article_id in event.article_ids):
+            raise ValueError("news event references an unknown article")
+        if not self.do_not_infer.strip():
+            raise ValueError("news preview must include a do-not-infer explanation")
+        return self
+
+
 class ApprovedFeedSourceRead(_ReadModel):
     source_id: StrictStr
     url: StrictStr

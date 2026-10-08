@@ -2313,6 +2313,64 @@ export interface JinyiweiFeedsRead {
   sources: JinyiweiFeedSource[];
   generatedAt: string;
 }
+export interface JinyiweiNewsSnapshotEntry {
+  sourceId: string;
+  url: string;
+  title: string;
+  publishedAt: string;
+  updatedAt: string | null;
+  author: string | null;
+  publisher: string;
+  summary: string | null;
+  content: string;
+  contentHash: string;
+}
+export interface JinyiweiNewsPreviewInput {
+  snapshotId: string;
+  entries: JinyiweiNewsSnapshotEntry[];
+}
+export interface JinyiweiNewsArticle {
+  articleId: string;
+  sourceId: string;
+  sourceFingerprint: string;
+  title: string;
+  url: string;
+  publishedAt: string;
+  updatedAt: string | null;
+  author: string | null;
+  publisher: string;
+  summary: string | null;
+  contentHash: string;
+}
+export type JinyiweiNewsEventState = "SINGLE_SOURCE" | "MULTI_SOURCE" | "CONFLICTED";
+export interface JinyiweiNewsEvent {
+  eventId: string;
+  title: string;
+  articleIds: string[];
+  sourceIds: string[];
+  firstPublishedAt: string;
+  lastPublishedAt: string;
+  state: JinyiweiNewsEventState;
+  evidenceState: "UNVERIFIED";
+  doNotInfer: true;
+}
+export interface JinyiweiNewsRejection {
+  ordinal: number;
+  sourceId: string;
+  url: string;
+  reason: string;
+}
+export interface JinyiweiNewsPreview {
+  snapshotId: string;
+  rulesVersion: string;
+  replayFingerprint: string;
+  sourceFingerprints: string[];
+  articles: JinyiweiNewsArticle[];
+  events: JinyiweiNewsEvent[];
+  rejected: JinyiweiNewsRejection[];
+  generatedAt: string;
+  doNotInfer: string;
+}
 
 export type JinyiweiReadResult<T> =
   | { ok: true; data: T }
@@ -2344,6 +2402,7 @@ const MARKET_METRICS = new Set<JinyiweiMarketMetric>(["LAST_PRICE", "VOLUME", "C
 const DATA_SCOPES = new Set<JinyiweiDataScope>(["INTERNAL_BUSINESS", "EXTERNAL_PUBLIC", "HYBRID"]);
 const JINYIWEI_TRUST_STATES = new Set<JinyiweiTrustState>(["VERIFIED", "PROBABLE", "MIXED", "CONFLICTED", "STALE", "UNAVAILABLE"]);
 const JINYIWEI_FEED_FORMATS = new Set<JinyiweiFeedFormat>(["RSS", "ATOM", "JSON_FEED"]);
+const JINYIWEI_NEWS_EVENT_STATES = new Set<JinyiweiNewsEventState>(["SINGLE_SOURCE", "MULTI_SOURCE", "CONFLICTED"]);
 const HASH_RE = /^[0-9a-f]{64}$/;
 const TZ_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
 
@@ -2538,6 +2597,42 @@ function parseFeeds(value: unknown): JinyiweiFeedsRead | null {
   return { sources: sources as JinyiweiFeedSource[], generatedAt: r.generated_at };
 }
 
+function parseNewsArticle(value: unknown): JinyiweiNewsArticle | null {
+  const r = asRecord(value);
+  const keys = ["article_id", "source_id", "source_fingerprint", "title", "url", "published_at", "updated_at", "author", "publisher", "summary", "content_hash"];
+  if (!r || !hasExactKeys(r, keys) || !textValue(r.article_id) || !textValue(r.source_id) || !textValue(r.source_fingerprint) || !textValue(r.title) || !textValue(r.url) || !exactDate(r.published_at) || !optionalDate(r.updated_at) || !nullableText(r.author) || !textValue(r.publisher) || !nullableText(r.summary) || typeof r.content_hash !== "string" || !HASH_RE.test(r.content_hash)) return null;
+  return { articleId: r.article_id, sourceId: r.source_id, sourceFingerprint: r.source_fingerprint, title: r.title, url: r.url, publishedAt: r.published_at, updatedAt: r.updated_at as string | null, author: r.author as string | null, publisher: r.publisher, summary: r.summary as string | null, contentHash: r.content_hash };
+}
+
+function parseNewsEvent(value: unknown): JinyiweiNewsEvent | null {
+  const r = asRecord(value);
+  const articleIds = r && uniqueTextArray(r.article_ids);
+  const sourceIds = r && uniqueTextArray(r.source_ids);
+  const keys = ["event_id", "title", "article_ids", "source_ids", "first_published_at", "last_published_at", "state", "evidence_state", "do_not_infer"];
+  if (!r || !hasExactKeys(r, keys) || !textValue(r.event_id) || !textValue(r.title) || !articleIds || !sourceIds || !exactDate(r.first_published_at) || !exactDate(r.last_published_at) || Date.parse(r.last_published_at) < Date.parse(r.first_published_at) || !JINYIWEI_NEWS_EVENT_STATES.has(r.state as JinyiweiNewsEventState) || r.evidence_state !== "UNVERIFIED" || r.do_not_infer !== true) return null;
+  return { eventId: r.event_id, title: r.title, articleIds, sourceIds, firstPublishedAt: r.first_published_at, lastPublishedAt: r.last_published_at, state: r.state as JinyiweiNewsEventState, evidenceState: "UNVERIFIED", doNotInfer: true };
+}
+
+function parseNewsRejection(value: unknown): JinyiweiNewsRejection | null {
+  const r = asRecord(value);
+  if (!r || !hasExactKeys(r, ["ordinal", "source_id", "url", "reason"]) || !nonNegativeInteger(r.ordinal) || !textValue(r.source_id) || !textValue(r.url) || !textValue(r.reason)) return null;
+  return { ordinal: r.ordinal, sourceId: r.source_id, url: r.url, reason: r.reason };
+}
+
+function parseNewsPreview(value: unknown): JinyiweiNewsPreview | null {
+  const r = asRecord(value);
+  const keys = ["snapshot_id", "rules_version", "replay_fingerprint", "source_fingerprints", "articles", "events", "rejected", "generated_at", "do_not_infer"];
+  const fingerprints = r && uniqueTextArray(r.source_fingerprints);
+  if (!r || !hasExactKeys(r, keys) || !textValue(r.snapshot_id) || !textValue(r.rules_version) || typeof r.replay_fingerprint !== "string" || !HASH_RE.test(r.replay_fingerprint) || !fingerprints || !Array.isArray(r.articles) || !Array.isArray(r.events) || !Array.isArray(r.rejected) || !exactDate(r.generated_at) || !textValue(r.do_not_infer)) return null;
+  const articles = r.articles.map(parseNewsArticle);
+  const events = r.events.map(parseNewsEvent);
+  const rejected = r.rejected.map(parseNewsRejection);
+  if (articles.some((item) => item === null) || events.some((item) => item === null) || rejected.some((item) => item === null)) return null;
+  const articleIds = new Set((articles as JinyiweiNewsArticle[]).map((item) => item.articleId));
+  if (articleIds.size !== articles.length || (events as JinyiweiNewsEvent[]).some((event) => event.articleIds.some((id) => !articleIds.has(id)))) return null;
+  return { snapshotId: r.snapshot_id, rulesVersion: r.rules_version, replayFingerprint: r.replay_fingerprint, sourceFingerprints: fingerprints, articles: articles as JinyiweiNewsArticle[], events: events as JinyiweiNewsEvent[], rejected: rejected as JinyiweiNewsRejection[], generatedAt: r.generated_at, doNotInfer: r.do_not_infer };
+}
+
 function sameSet<T>(left:readonly T[],right:readonly T[]):boolean{return left.length===right.length&&left.every(item=>right.includes(item));}
 
 function validDetailRelations(detail:JinyiweiDetail):boolean {
@@ -2587,12 +2682,42 @@ async function fetchJinyiwei<T>(path:string,parse:(value:unknown)=>T|null,option
     let body:unknown;try{body=await response.json();}catch{return {ok:false,kind:"unknown",error:"锦衣卫后端响应不是合法 JSON"};}const data=parse(body);return data===null?{ok:false,kind:"unknown",error:"锦衣卫后端成功响应体不符合预期契约"}:{ok:true,data};
   }catch(error){return {ok:false,kind:"network",error:describeError(error)};}finally{cancelTimeout(timer);}
 }
+async function fetchJinyiweiPost<T>(path: string, body: unknown, parse: (value: unknown) => T | null, options: JinyiweiReadOptions): Promise<JinyiweiReadResult<T>> {
+  if (typeof options.sessionId !== "string" || options.sessionId.trim().length === 0) return { ok: false, kind: "validation", error: "Jinyiwei session is required" };
+  const base = options.baseUrl ?? getBackendBaseUrl();
+  const controller = new AbortController();
+  const fetchImpl = options.fetchImpl ?? fetch;
+  const scheduleTimeout = options.scheduleTimeout ?? ((callback: () => void, delayMs: number) => setTimeout(callback, delayMs));
+  const cancelTimeout = options.cancelTimeout ?? ((handle: unknown) => clearTimeout(handle as ReturnType<typeof setTimeout>));
+  const timer = scheduleTimeout(() => controller.abort(), options.timeoutMs ?? JINYIWEI_TIMEOUT_MS);
+  try {
+    const response = await fetchImpl(`${base.replace(/\/+$/, "")}${path}`, { method: "POST", headers: { authorization: `Bearer ${options.sessionId}`, "content-type": "application/json" }, body: JSON.stringify(body), signal: controller.signal, cache: "no-store" });
+    if (!response.ok) {
+      const kind = response.status === 404 ? "not_found" : response.status === 422 ? "validation" : response.status === 503 ? "storage" : "unknown";
+      return { ok: false, kind, error: "锦衣卫新闻预览暂时不可用" };
+    }
+    let responseBody: unknown;
+    try { responseBody = await response.json(); } catch { return { ok: false, kind: "unknown", error: "锦衣卫后端响应不是合法 JSON" }; }
+    const data = parse(responseBody);
+    return data === null ? { ok: false, kind: "unknown", error: "锦衣卫新闻预览响应体不符合预期契约" } : { ok: true, data };
+  } catch (error) {
+    return { ok: false, kind: "network", error: describeError(error) };
+  } finally { cancelTimeout(timer); }
+}
 export function getJinyiweiSummary(options:JinyiweiReadOptions):Promise<JinyiweiReadResult<JinyiweiSummary>>{return fetchJinyiwei("/api/v1/jinyiwei/summary",parseSummary,options);}
 export function listJinyiweiInvestigations(options:ListJinyiweiOptions):Promise<JinyiweiReadResult<JinyiweiPage>>{const q=new URLSearchParams();if(options.status)q.set("status",options.status);q.set("limit",String(options.limit??20));q.set("offset",String(options.offset??0));return fetchJinyiwei(`/api/v1/jinyiwei/investigations?${q}`,parsePage,options);}
 export function getJinyiweiInvestigation(id:string,options:JinyiweiReadOptions):Promise<JinyiweiReadResult<JinyiweiDetail>>{return fetchJinyiwei(`/api/v1/jinyiwei/investigations/${encodeURIComponent(id)}`,parseDetail,options);}
 export function getJinyiweiTrust(id:string,options:JinyiweiReadOptions):Promise<JinyiweiReadResult<JinyiweiTrustRead>>{return fetchJinyiwei(`/api/v1/jinyiwei/investigations/${encodeURIComponent(id)}/trust`,parseTrust,options);}
 export function getJinyiweiCoverage(options:JinyiweiReadOptions):Promise<JinyiweiReadResult<JinyiweiCoverageRead>>{return fetchJinyiwei("/api/v1/jinyiwei/coverage",parseCoverage,options);}
 export function listJinyiweiFeeds(options:JinyiweiReadOptions):Promise<JinyiweiReadResult<JinyiweiFeedsRead>>{return fetchJinyiwei("/api/v1/jinyiwei/feeds",parseFeeds,options);}
+export function previewJinyiweiNews(input: JinyiweiNewsPreviewInput, options: JinyiweiReadOptions): Promise<JinyiweiReadResult<JinyiweiNewsPreview>> {
+  const entries = input.entries;
+  const body = {
+    snapshot_id: input.snapshotId,
+    entries: entries.map((entry) => ({ source_id: entry.sourceId, url: entry.url, title: entry.title, published_at: entry.publishedAt, updated_at: entry.updatedAt, author: entry.author, publisher: entry.publisher, summary: entry.summary, content: entry.content, content_hash: entry.contentHash })),
+  };
+  return fetchJinyiweiPost("/api/v1/jinyiwei/news/preview", body, parseNewsPreview, options);
+}
 
 
 // ---- CapabilityRegistry readonly projection -----------------------------

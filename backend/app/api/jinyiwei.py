@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 
 from app.api.auth import CurrentUser
 from app.jinyiwei.feed_registry import build_default_feed_registry
+from app.jinyiwei.news import NewsSnapshotPreviewRequest, normalize_news_snapshot
 from app.jinyiwei import storage
 from app.jinyiwei.models import (
     EvidencePackStatus,
@@ -28,6 +29,7 @@ from app.jinyiwei.read_models import (
     EvidenceCoveragePoint,
     EvidenceCoverageReference,
     EvidenceCoverageRead,
+    NewsSnapshotPreviewRead,
 )
 from app.jinyiwei.trust import assess_evidence
 
@@ -245,6 +247,20 @@ def approved_feeds(current_user: CurrentUser) -> ApprovedFeedRegistryRead:
     return ApprovedFeedRegistryRead(
         sources=sources,
         generated_at=now.isoformat().replace("+00:00", "Z"),
+    )
+
+
+@router.post("/news/preview", response_model=NewsSnapshotPreviewRead)
+def news_snapshot_preview(
+    current_user: CurrentUser,
+    request: NewsSnapshotPreviewRequest,
+) -> NewsSnapshotPreviewRead:
+    """Normalize a supplied feed snapshot without fetching or persisting it."""
+    del current_user
+    return normalize_news_snapshot(
+        request,
+        registry=build_default_feed_registry(),
+        now=datetime.now(timezone.utc),
     )
 
 
