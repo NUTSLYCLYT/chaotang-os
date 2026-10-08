@@ -2,7 +2,7 @@
 
 ## Status
 
-Approved for one child
+Ready
 
 ## Product Definition
 
@@ -10,6 +10,8 @@ Approved for one child
 
 ## Affected Modules
 
+- 模块：锦衣卫离线新闻快照规范化、事件聚类、只读预览 API、同源 BFF 与案牍台展示。
+- 允许路径：见 `.harness/approvals/CT-G3-JINYIWEI-NEWS-NORMALIZER-SUCCESSOR28-20261008.json` 的 `productPaths`。
 - `backend/app/jinyiwei/news.py`：快照校验、规范化、内容哈希、确定性去重与事件聚类。
 - `backend/app/api/jinyiwei.py` 与 `backend/app/jinyiwei/read_models.py`：受控预览 API 与严格读取合同。
 - `frontend/src/app/api/jinyiwei/news/*`：同源、会话保护的 BFF。
@@ -30,6 +32,16 @@ Approved for one child
 - 不使用模型生成事件结论；不从标题推导事实，不推断地理坐标。
 - 不持久化新闻条目，不改变 ADR 0028、史馆采纳链路和只读案牍边界。
 - 所有拒绝都返回稳定、脱敏的原因码。
+
+## Acceptance Criteria
+
+- [ ] 未注册来源、危险 URL、缺少发布时间或非法哈希的条目被拒绝。
+- [ ] 相同内容的重复条目确定性去重，冲突条目并列保留。
+- [ ] 相同输入快照与规则版本产生相同条目、事件和拒绝结果。
+- [ ] 预览结果包含原文 URL、来源指纹、时间、内容哈希和不得推断说明。
+- [ ] BFF 在无会话或带未知查询参数时不调用后端。
+- [ ] 前端明确显示离线快照边界，不提供采集、编辑或史馆写入入口。
+- [ ] 后端目标测试与前端 build/lint/test/typecheck 全部通过。
 
 ## Acceptance Review
 
