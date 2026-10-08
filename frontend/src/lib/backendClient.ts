@@ -2728,6 +2728,19 @@ export type CapabilityLevel = "low" | "medium" | "high";
 export type CapabilityStatus = "draft" | "trial" | "approved" | "retired";
 export type CapabilityInvocationPolicy = "AUTO_MATCH" | "EXPLICIT_ONLY" | "PREPARE_THEN_CONFIRM" | "DISABLED";
 
+export interface CrmProviderPassport {
+  provider: string;
+  capabilityId: string;
+  source: "honglusi";
+  admission: "approved_read_only";
+  reviewStatus: "approved";
+  allowedActions: ["read"];
+  forbiddenActions: string[];
+  credentialBoundary: "injected_transport_only";
+  evidenceSources: string[];
+  auditRequired: true;
+}
+
 export interface CapabilityReadiness {
   visibilityStatus: string;
   installationStatus: string;
@@ -3113,6 +3126,32 @@ function parseCapabilityEnvelope(value: unknown): CapabilityRegistryProjection |
   return parseCapabilityRegistryProjection(r.registry);
 }
 
+function parseCrmProviderPassportEnvelope(value: unknown): CrmProviderPassport | null {
+  const root = asRecord(value);
+  const passport = asRecord(root?.passport);
+  if (!root || root.status !== "ok" || passport === null ||
+      !hasExactKeys(passport, ["provider", "capability_id", "source", "admission", "review_status", "allowed_actions", "forbidden_actions", "credential_boundary", "evidence_sources", "audit_required"])) return null;
+  const forbiddenActions = parseCapabilityStringArray(passport.forbidden_actions);
+  const evidenceSources = parseCapabilityStringArray(passport.evidence_sources);
+  if (!textValue(passport.provider) || passport.source !== "honglusi" ||
+      passport.admission !== "approved_read_only" || passport.review_status !== "approved" ||
+      !Array.isArray(passport.allowed_actions) || passport.allowed_actions.length !== 1 || passport.allowed_actions[0] !== "read" ||
+      forbiddenActions === null || evidenceSources === null || evidenceSources.length === 0 ||
+      passport.credential_boundary !== "injected_transport_only" || passport.audit_required !== true) return null;
+  return {
+    provider: passport.provider as string,
+    capabilityId: passport.capability_id as string,
+    source: "honglusi",
+    admission: "approved_read_only",
+    reviewStatus: "approved",
+    allowedActions: ["read"],
+    forbiddenActions,
+    credentialBoundary: "injected_transport_only",
+    evidenceSources,
+    auditRequired: true,
+  };
+}
+
 function parseCapabilityDetailEnvelope(value: unknown): CapabilityRegistryItem | null {
   const r = asRecord(value);
   if (!r || !hasExactKeys(r, ["status", "capability"]) || r.status !== "ok") return null;
@@ -3180,6 +3219,10 @@ export function listCapabilities(options: CapabilityListOptions): Promise<Capabi
 
 export function getCapability(id: string, options: CapabilityReadOptions): Promise<CapabilityReadResult<CapabilityRegistryItem>> {
   return requestCapability(`/api/v1/capabilities/${encodeURIComponent(id)}`, parseCapabilityDetailEnvelope, options);
+}
+
+export function getCrmProviderPassport(provider: string, options: CapabilityReadOptions): Promise<CapabilityReadResult<CrmProviderPassport>> {
+  return requestCapability(`/api/v1/capabilities/crm-providers/${encodeURIComponent(provider)}`, parseCrmProviderPassportEnvelope, options);
 }
 
 // ---- Qintianjian advisory contracts -------------------------------------

@@ -143,6 +143,7 @@ function ImportPanel() {
   return <main className={styles.page}>
     <div className={styles.breadcrumb}><Link href="/bingbu">兵部作战台</Link><span>/</span><span>导入销售事实</span></div>
     <header className={styles.hero}><div><span className={styles.sectionMark}>兵部 / 事实入口</span><h1>先验收，再入账。</h1><p className={styles.lede}>导入只写入当前用户自己的事实空间。兵部不会替你补写负责人、阶段、金额或下一步。</p></div></header>
+    <CrmPassportNotice />
     <section className={styles.importLayout}>
       <div className={styles.panel}>
         <div className={styles.sourceTabs}><button className={sourceType === "csv" ? styles.tabActive : styles.tab} type="button" onClick={() => setSourceType("csv")}>CSV</button><button className={sourceType === "json" ? styles.tabActive : styles.tab} type="button" onClick={() => setSourceType("json")}>JSON</button></div>
@@ -158,5 +159,15 @@ function ImportPanel() {
       </aside>
     </section>
   </main>;
+}
+function CrmPassportNotice() {
+  const [state, setState] = useState<"loading" | "ready" | "blocked">("loading");
+  useEffect(() => {
+    void fetch("/api/capabilities/crm-providers/twenty", { cache: "no-store" })
+      .then((response) => setState(response.ok ? "ready" : "blocked"))
+      .catch(() => setState("blocked"));
+  }, []);
+  const label = state === "ready" ? "已准入 · 只读" : state === "blocked" ? "阻断" : "核验中";
+  return <section className={styles.passportNotice} aria-label="CRM 能力护照"><div><span className={styles.sectionMark}>鸿胪寺能力护照</span><h2>Twenty CRM · 只读事实源</h2><p>{state === "ready" ? "已审查，只允许读取；兵部不会保存外部凭据。" : state === "blocked" ? "当前未取得有效护照，兵部不会发起 CRM 读取。" : "正在核验护照状态……"}</p></div><span className={state === "ready" ? styles.healthGreen : styles.healthAmber}>{label}</span></section>;
 }
 function EmptyState({ title, message, action, href }: { title: string; message: string; action?: string; href?: string }) { return <div className={styles.emptyState}><span className={styles.sectionMark}>暂无记录</span><h3>{title}</h3><p>{message}</p>{action && href ? <Link className={styles.quietButton} href={href}>{action}</Link> : null}</div>; }

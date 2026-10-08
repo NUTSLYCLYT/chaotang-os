@@ -26,6 +26,9 @@
 .heroActions, .bottomActions, .buttonRow { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
 .heroActions { justify-content: flex-end; }
 .providerBadge { padding: 8px 12px; border: 1px solid rgba(47, 90, 74, .25); color: var(--jade-dark); background: rgba(255, 255, 255, .45); font-size: 12px; letter-spacing: .04em; }
+.passportNotice { display: flex; justify-content: space-between; gap: 18px; align-items: center; margin: 22px 0; padding: 18px 20px; border: 1px solid rgba(47, 90, 74, .18); background: rgba(255, 255, 255, .55); }
+.passportNotice h2 { margin: 4px 0 6px; font-size: 18px; }
+.passportNotice p { margin: 0; color: var(--ink-muted); font-size: 13px; }
 .primaryButton, .quietButton, .tab, .tabActive { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; border-radius: 4px; padding: 10px 16px; font: inherit; font-size: 13px; font-weight: 800; text-decoration: none; cursor: pointer; transition: transform 180ms ease, background 180ms ease, border-color 180ms ease; }
 .primaryButton { border: 1px solid var(--jade-dark); color: #fffdf8; background: var(--jade-dark); }
 .quietButton { border: 1px solid var(--line); color: var(--jade-dark); background: rgba(255, 255, 255, .38); }
