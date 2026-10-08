@@ -1,0 +1,60 @@
+{
+  "schemaVersion": "product-authority.m0.approval.v1",
+  "authorityId": "product-authority.m0.v1",
+  "taskId": "HONGLUSI-CRM-REVIEW-PERSISTENCE-20261009",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "f5cae0ab4834e693ab1bd6435b7fcec64efea930",
+    "baseTree": "40188968ffaf10fa2d990fc02572e0f0e4d4a7cc",
+    "approvalPath": ".harness/approvals/HONGLUSI-CRM-REVIEW-PERSISTENCE-20261009.json",
+    "approvalCommitPaths": [
+      ".harness/approvals/HONGLUSI-CRM-REVIEW-PERSISTENCE-20261009.json",
+      "docs/product/tasks/2026-10-09-honglusi-review-persistence.md"
+    ],
+    "productPaths": [
+      "backend/app/capabilities/projection.py",
+      "backend/app/capabilities/review_storage.py",
+      "backend/tests/test_bingbu_crm_passport.py"
+    ]
+  },
+  "nonGoals": [
+    "NO_CRM_WRITE",
+    "NO_EXTERNAL_NETWORK",
+    "NO_REAL_API_KEY",
+    "NO_TWENTY_SDK"
+  ],
+  "verification": [
+    {
+      "id": "diff-check",
+      "tool": "node",
+      "cwd": ".",
+      "timeoutMs": 30000,
+      "args": ["--input-type=module", "-e", "import{execFileSync}from 'node:child_process';execFileSync('git',['diff','--check'],{stdio:'inherit'});"]
+    },
+    {
+      "id": "harness-check",
+      "tool": "node",
+      "cwd": ".",
+      "timeoutMs": 300000,
+      "args": ["scripts/check_harness.mjs", "--check"]
+    },
+    {
+      "id": "passport-tests",
+      "tool": "node",
+      "cwd": ".",
+      "timeoutMs": 300000,
+      "args": ["-e", "const {spawnSync}=require('child_process'); const r=spawnSync('uv',['run','--project','backend','pytest','-q','backend/tests/test_bingbu_crm_adapter.py','backend/tests/test_bingbu_crm_passport.py','backend/tests/test_bingbu_crm_sync.py','backend/tests/test_capabilities_api.py'],{stdio:'inherit'}); process.exit(r.status ?? 1);"]
+    },
+    {
+      "id": "passport-zruff",
+      "tool": "node",
+      "cwd": ".",
+      "timeoutMs": 300000,
+      "args": ["-e", "const {spawnSync}=require('child_process'); const r=spawnSync('uv',['run','--project','backend','ruff','check','backend/app/capabilities','backend/tests/test_bingbu_crm_passport.py'],{stdio:'inherit'}); process.exit(r.status ?? 1);"]
+    }
+  ],
+  "state": "APPROVED_FOR_ONE_CHILD"
+}

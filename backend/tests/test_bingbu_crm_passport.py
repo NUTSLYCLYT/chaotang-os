@@ -10,6 +10,11 @@ from app.bingbu.storage import BingbuStore
 from app.capabilities import get_crm_provider_passport
 from app.capabilities.contracts import CrmProviderReview
 from app.capabilities.projection import issue_crm_provider_passport
+from app.capabilities.review_storage import (
+    configure_review_db,
+    get_crm_provider_review,
+    revoke_crm_provider_review,
+)
 
 
 class UnregisteredReadAdapter:
@@ -68,6 +73,20 @@ def test_passport_issuance_expires_and_revokes_fail_closed():
     assert issue_crm_provider_passport(
         _review(), now=datetime(2027, 1, 1, tzinfo=UTC)
     ) is None
+
+
+def test_review_storage_persists_and_revokes_without_credentials(tmp_path):
+    configure_review_db(tmp_path / "honglusi.sqlite3")
+    try:
+        review = get_crm_provider_review("twenty")
+        assert review is not None
+        assert get_crm_provider_review("twenty") == review
+        revoked = revoke_crm_provider_review("twenty")
+        assert revoked is not None and revoked.review_status == "revoked"
+        encoded = revoked.model_dump_json().lower()
+        assert not any(secret in encoded for secret in ("token", "secret", "password", "api_key"))
+    finally:
+        configure_review_db(None)
     assert issue_crm_provider_passport(
         _review(review_status="revoked"), now=datetime(2026, 10, 9, tzinfo=UTC)
     ) is None

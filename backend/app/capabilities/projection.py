@@ -34,6 +34,7 @@ from .contracts import (
     InvocationPolicy,
     McpToolDetail,
 )
+from .review_storage import get_crm_provider_review
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 SMALL_SAMPLE_AUTHORITY_THRESHOLD = 5
@@ -55,36 +56,10 @@ MAX_PERSONAL_SKILLS = 256
 MAX_PROVIDER_GROUPS = 64
 MAX_MCP_TOOLS = 512
 
-# This is a capability admission source of truth, not a credential store. The
-# actual connection is still supplied by an injected transport owned by the
-# runtime boundary.
-_CRM_PROVIDER_REVIEWS: dict[str, CrmProviderReview] = {
-    "twenty": CrmProviderReview(
-        provider="twenty",
-        capability_id="provider.twenty.crm.read.v1",
-        review_status="approved",
-        allowed_actions=["read"],
-        forbidden_actions=[
-            "external write",
-            "credential access or export",
-            "unapproved endpoint access",
-            "cross-tenant data reuse",
-        ],
-        evidence_sources=[
-            "docs/product/tasks/2026-10-09-twenty-provider-pre-review.md",
-            "backend/app/bingbu/adapters/twenty.py",
-        ],
-        reviewed_by="honglusi-review-board",
-        reviewed_at=datetime(2026, 10, 1, tzinfo=UTC),
-        expires_at=datetime(2027, 1, 1, tzinfo=UTC),
-    )
-}
-
-
 def get_crm_provider_passport(provider_name: str) -> CrmProviderPassport | None:
     """Issue a temporary passport only while the Honglusi review is valid."""
 
-    review = _CRM_PROVIDER_REVIEWS.get(provider_name.strip().lower())
+    review = get_crm_provider_review(provider_name)
     if review is None:
         return None
     now = datetime.now(UTC)
