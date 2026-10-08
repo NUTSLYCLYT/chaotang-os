@@ -29,6 +29,7 @@ from app.jinyiwei.models import (
     ReplayArtifact,
     ReplayDiff,
     SourceAttempt,
+    TrustAssessment,
 )
 
 
@@ -191,3 +192,8 @@ class ReplayTimelineRead(_ReadModel):
     events: tuple[InvestigationEvent, ...]
     replay: ReplayArtifact | None
     diff: ReplayDiff | None
+
+
+class InvestigationTrustRead(_ReadModel):
+    assessments: Mapping[str, TrustAssessment]
+    generated_at: StrictStr

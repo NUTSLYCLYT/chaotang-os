@@ -131,6 +131,15 @@ class LongTaskStatus(StrEnum):
     CANCELLED = "CANCELLED"
 
 
+class TrustEvidenceState(StrEnum):
+    VERIFIED = "VERIFIED"
+    PROBABLE = "PROBABLE"
+    MIXED = "MIXED"
+    CONFLICTED = "CONFLICTED"
+    STALE = "STALE"
+    UNAVAILABLE = "UNAVAILABLE"
+
+
 def _normalize_text(value: str, field_name: str) -> str:
     normalized = " ".join(value.split())
     if not normalized:
@@ -807,6 +816,43 @@ class ReplayDiff(_FrozenContract):
     status_changed: StrictBool
     evidence_count_delta: StrictInt
     conflict_count_delta: StrictInt
+
+
+class TrustAssessment(_FrozenContract):
+    """Explainable, deterministic trust projection for one fact or evidence set."""
+
+    source_level: EvidenceQuality
+    evidence_state: TrustEvidenceState
+    confidence_lower: StrictFloat = Field(ge=0, le=1)
+    confidence_upper: StrictFloat = Field(ge=0, le=1)
+    dimension_scores: Mapping[StrictStr, StrictFloat]
+    conclusion: StrictStr
+    assessment_basis: StrictStr
+    supporting_evidence_ids: tuple[StrictStr, ...] = ()
+    counter_evidence_ids: tuple[StrictStr, ...] = ()
+    unresolved_questions: tuple[StrictStr, ...] = ()
+    decision_allowed: StrictBool
+    archive_allowed: StrictBool
+    do_not_infer: StrictBool
+    assessment_hash: Sha256
+
+    @model_validator(mode="after")
+    def _validate_assessment(self) -> TrustAssessment:
+        if self.confidence_lower > self.confidence_upper:
+            raise ValueError("confidence interval is inverted")
+        if not self.conclusion.strip() or not self.assessment_basis.strip():
+            raise ValueError("trust assessment text must not be blank")
+        if self.do_not_infer and self.decision_allowed:
+            raise ValueError("do_not_infer cannot allow a decision")
+        canonical = self.model_dump(mode="json", exclude={"assessment_hash"})
+        expected = hashlib.sha256(
+            json.dumps(
+                canonical, ensure_ascii=False, separators=(",", ":"), sort_keys=True
+            ).encode()
+        ).hexdigest()
+        if expected != self.assessment_hash:
+            raise ValueError("assessment_hash does not match assessment")
+        return self
 
 
 class LongTaskRecord(_FrozenContract):

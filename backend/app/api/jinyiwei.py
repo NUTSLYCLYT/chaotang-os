@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, FastAPI, Path, Query
 from fastapi.responses import JSONResponse
 
@@ -19,7 +21,9 @@ from app.jinyiwei.read_models import (
     InvestigationPage,
     InvestigationSummary,
     ReplayTimelineRead,
+    InvestigationTrustRead,
 )
+from app.jinyiwei.trust import assess_evidence
 
 router = APIRouter(prefix="/api/v1/jinyiwei", tags=["jinyiwei"])
 
@@ -93,6 +97,23 @@ def replay_timeline(
         events=storage.list_investigation_events(investigation_id),
         replay=replay,
         diff=diff,
+    )
+
+
+@router.get("/investigations/{investigation_id}/trust", response_model=InvestigationTrustRead)
+def investigation_trust(
+    current_user: CurrentUser,
+    investigation_id: str = Path(min_length=1, max_length=128),
+) -> InvestigationTrustRead:
+    detail = storage.get_investigation_detail(investigation_id, owner_user_id=current_user.id)
+    now = datetime.now(timezone.utc)
+    assessments = {
+        fact_key: assess_evidence(items, now=now)
+        for fact_key, items in detail.evidence_by_fact.items()
+    }
+    return InvestigationTrustRead(
+        assessments=assessments,
+        generated_at=now.isoformat().replace("+00:00", "Z"),
     )
 
 
