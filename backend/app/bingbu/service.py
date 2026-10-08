@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import csv
 import hashlib
 import io
@@ -10,10 +11,17 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, Protocol
 from uuid import uuid4
 
+from app.bingbu.adapters.base import CrmAdapterError, CrmReadAdapter
+from app.bingbu.adapters.twenty import TwentyCrmReadAdapter
 from app.bingbu.models import (
     ActionDraft,
     ActionDraftRequest,
     ActionState,
+    Activity,
+    CrmSyncCommitRequest,
+    CrmSyncPreview,
+    CrmSyncRequest,
+    CrmSyncRun,
     DecisionPacket,
     ImportRequest,
     ImportRowError,
@@ -38,6 +46,14 @@ class BingbuInputError(ValueError):
     """A sanitized input error owned by the Bingbu API boundary."""
 
 
+class BingbuCrmUnavailable(BingbuInputError):
+    """A CRM provider is disabled or unavailable; details never leave the server."""
+
+
+class BingbuCrmConflict(BingbuConflictError):
+    """A CRM sync preview does not belong to the current owner."""
+
+
 class DeterministicDecisionProvider:
     """Default offline provider; production can inject the DeepSeek harness adapter."""
 
@@ -57,9 +73,187 @@ class BingbuService:
         self,
         store: BingbuStore | None = None,
         provider: DecisionProvider | None = None,
+        crm_adapters: dict[str, CrmReadAdapter] | None = None,
     ) -> None:
         self.store = store or get_store()
         self.provider = provider or DeterministicDecisionProvider()
+        self.crm_adapters = crm_adapters or {"twenty": TwentyCrmReadAdapter()}
+
+    def preview_crm_sync(self, owner: str, request: CrmSyncRequest) -> CrmSyncPreview:
+        adapter = self._crm_adapter(request.provider)
+        cursors = self._decode_cursor(request.cursor)
+        try:
+            accounts = adapter.read_accounts(
+                cursor=cursors.get("accounts"), limit=request.page_size
+            )
+            contacts = adapter.read_contacts(
+                cursor=cursors.get("contacts"), limit=request.page_size
+            )
+            opportunities = adapter.read_opportunities(
+                cursor=cursors.get("opportunities"), limit=request.page_size
+            )
+            activities = adapter.read_activities(
+                cursor=cursors.get("activities"), limit=request.page_size
+            )
+        except CrmAdapterError as exc:
+            if exc.code in {"CRM_PROVIDER_DISABLED", "CRM_PROVIDER_UNAVAILABLE"}:
+                raise BingbuCrmUnavailable(exc.code) from exc
+            raise BingbuInputError(exc.code) from exc
+        next_cursors = {
+            key: value
+            for key, value in {
+                "accounts": accounts.next_cursor,
+                "contacts": contacts.next_cursor,
+                "opportunities": opportunities.next_cursor,
+                "activities": activities.next_cursor,
+            }.items()
+            if value
+        }
+        conflicts = []
+        for item in opportunities.items:
+            existing = self.store.get_opportunity_by_external(
+                owner, adapter.provider_name, item.external_id
+            )
+            if existing and (
+                item.source_updated_at is None
+                or existing.source_updated_at is not None
+                and existing.source_updated_at >= item.source_updated_at
+            ):
+                conflicts.append({"external_id": item.external_id, "code": "STALE_LOCAL_FACT"})
+        preview = CrmSyncPreview(
+            id=f"crm_preview_{uuid4().hex}",
+            provider=adapter.provider_name,
+            accounts=accounts.items,
+            contacts=contacts.items,
+            opportunities=opportunities.items,
+            activities=activities.items,
+            next_cursor=self._encode_cursor(next_cursors) if next_cursors else None,
+            conflicts=conflicts,
+            can_commit=True,
+            fingerprint=self._crm_preview_fingerprint(
+                adapter.provider_name,
+                accounts.items,
+                contacts.items,
+                opportunities.items,
+                activities.items,
+            ),
+            created_at=datetime.now(UTC),
+        )
+        return self.store.save_crm_preview(owner, preview)
+
+    def commit_crm_sync(self, owner: str, request: CrmSyncCommitRequest) -> CrmSyncRun:
+        prior = self.store.get_crm_run_by_preview(owner, request.preview_id)
+        if prior is not None:
+            return prior
+        preview = self.store.get_crm_preview(owner, request.preview_id)
+        accepted = skipped = rejected = 0
+        errors: list[str] = []
+        activities_by_opportunity: dict[str, list[Activity]] = {}
+        for item in preview.activities:
+            if item.opportunity_external_id:
+                activities_by_opportunity.setdefault(item.opportunity_external_id, []).append(
+                    Activity(
+                        id=f"{preview.provider}:{item.external_id}",
+                        opportunity_id=f"{preview.provider}:{item.opportunity_external_id}",
+                        type=item.type,
+                        occurred_at=item.occurred_at,
+                        actor=item.actor,
+                        summary=item.summary,
+                        source_ref=item.source_ref,
+                    )
+                )
+        for item in preview.opportunities:
+            existing = self.store.get_opportunity_by_external(
+                owner, preview.provider, item.external_id
+            )
+            if existing and (
+                item.source_updated_at is None
+                or existing.source_updated_at is not None
+                and existing.source_updated_at >= item.source_updated_at
+            ):
+                skipped += 1
+                continue
+            try:
+                opportunity = Opportunity(
+                    id=f"{preview.provider}:{item.external_id}",
+                    account_name=item.account_name,
+                    contact_name=item.contact_name,
+                    owner_user_id=owner,
+                    stage=item.stage,
+                    amount=item.amount,
+                    currency=item.currency,
+                    expected_close_date=item.expected_close_date,
+                    last_activity_at=item.last_activity_at,
+                    next_action=item.next_action,
+                    next_action_owner=item.next_action_owner or owner,
+                    next_action_due_at=item.next_action_due_at,
+                    blocker=item.blocker,
+                    health=item.health,
+                    source_ref=item.source_ref,
+                    external_id=item.external_id,
+                    external_source=preview.provider,
+                    source_updated_at=item.source_updated_at,
+                    activities=activities_by_opportunity.get(item.external_id, []),
+                )
+                self.store.upsert_opportunity(owner, opportunity)
+            except (TypeError, ValueError, KeyError):
+                rejected += 1
+                errors.append("CRM_OPPORTUNITY_INVALID")
+                continue
+            accepted += 1
+        status = "COMMITTED" if rejected == 0 else "PARTIAL"
+        run = CrmSyncRun(
+            id=f"crm_sync_{uuid4().hex}",
+            preview_id=preview.id,
+            provider=preview.provider,
+            status=status,
+            accepted_count=accepted,
+            skipped_count=skipped,
+            rejected_count=rejected,
+            errors=sorted(set(errors)),
+            created_at=datetime.now(UTC),
+        )
+        return self.store.save_crm_run(owner, run)
+
+    def _crm_adapter(self, provider_name: str) -> CrmReadAdapter:
+        adapter = self.crm_adapters.get(provider_name.lower())
+        if adapter is None:
+            raise BingbuCrmUnavailable("CRM_PROVIDER_UNAVAILABLE")
+        return adapter
+
+    @staticmethod
+    def _decode_cursor(cursor: str | None) -> dict[str, str | None]:
+        if not cursor:
+            return {}
+        try:
+            decoded = base64.urlsafe_b64decode(cursor.encode("ascii") + b"===").decode("utf-8")
+            value = json.loads(decoded)
+        except (ValueError, UnicodeError, json.JSONDecodeError) as exc:
+            raise BingbuInputError("CRM_INVALID_CURSOR") from exc
+        if not isinstance(value, dict) or any(
+            key not in {"accounts", "contacts", "opportunities", "activities"}
+            or (item is not None and not isinstance(item, str))
+            for key, item in value.items()
+        ):
+            raise BingbuInputError("CRM_INVALID_CURSOR")
+        return value
+
+    @staticmethod
+    def _encode_cursor(cursors: dict[str, str]) -> str:
+        raw = json.dumps(cursors, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        return base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=")
+
+    @staticmethod
+    def _crm_preview_fingerprint(provider: str, *collections: list[Any]) -> str:
+        payload = {
+            "provider": provider,
+            "collections": [
+                [item.model_dump(mode="json") for item in values] for values in collections
+            ],
+        }
+        return hashlib.sha256(
+            json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest()
 
     def preview_import(self, owner: str, request: ImportRequest) -> ImportRun:
         rows = self._decode_rows(request)

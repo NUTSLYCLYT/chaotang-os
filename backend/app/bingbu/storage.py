@@ -5,7 +5,14 @@ from __future__ import annotations
 from collections import defaultdict
 from threading import RLock
 
-from app.bingbu.models import ActionDraft, DecisionPacket, ImportRun, Opportunity
+from app.bingbu.models import (
+    ActionDraft,
+    CrmSyncPreview,
+    CrmSyncRun,
+    DecisionPacket,
+    ImportRun,
+    Opportunity,
+)
 
 
 class BingbuNotFoundError(LookupError):
@@ -25,6 +32,9 @@ class BingbuStore:
         self._drafts: dict[str, dict[str, ActionDraft]] = defaultdict(dict)
         self._draft_fingerprints: dict[str, dict[str, str]] = defaultdict(dict)
         self._import_fingerprints: dict[str, dict[str, str]] = defaultdict(dict)
+        self._crm_previews: dict[str, dict[str, CrmSyncPreview]] = defaultdict(dict)
+        self._crm_runs: dict[str, dict[str, CrmSyncRun]] = defaultdict(dict)
+        self._crm_preview_runs: dict[str, dict[str, str]] = defaultdict(dict)
 
     def list_opportunities(self, owner: str) -> list[Opportunity]:
         with self._lock:
@@ -44,6 +54,45 @@ class BingbuStore:
                 raise BingbuConflictError("opportunity identity conflict")
             self._opportunities[owner][opportunity.id] = opportunity
             return opportunity
+
+    def get_opportunity_by_external(
+        self, owner: str, external_source: str, external_id: str
+    ) -> Opportunity | None:
+        with self._lock:
+            return next(
+                (
+                    item
+                    for item in self._opportunities[owner].values()
+                    if item.external_source == external_source and item.external_id == external_id
+                ),
+                None,
+            )
+
+    def save_crm_preview(self, owner: str, preview: CrmSyncPreview) -> CrmSyncPreview:
+        with self._lock:
+            self._crm_previews[owner][preview.id] = preview
+            return preview
+
+    def get_crm_preview(self, owner: str, preview_id: str) -> CrmSyncPreview:
+        with self._lock:
+            try:
+                return self._crm_previews[owner][preview_id]
+            except KeyError as exc:
+                raise BingbuNotFoundError("crm preview not found") from exc
+
+    def save_crm_run(self, owner: str, run: CrmSyncRun) -> CrmSyncRun:
+        with self._lock:
+            prior_id = self._crm_preview_runs[owner].get(run.preview_id)
+            if prior_id:
+                return self._crm_runs[owner][prior_id]
+            self._crm_preview_runs[owner][run.preview_id] = run.id
+            self._crm_runs[owner][run.id] = run
+            return run
+
+    def get_crm_run_by_preview(self, owner: str, preview_id: str) -> CrmSyncRun | None:
+        with self._lock:
+            run_id = self._crm_preview_runs[owner].get(preview_id)
+            return self._crm_runs[owner].get(run_id) if run_id else None
 
     def save_import(self, owner: str, import_run: ImportRun, fingerprint: str) -> ImportRun:
         with self._lock:

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from enum import StrEnum
-from typing import Any
+from typing import Any, Generic, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -179,3 +179,119 @@ class Overview(StrictModel):
     decision_queue: list[DecisionPacket]
     experiments: list[str]
     freshness: dict[str, Any]
+
+
+class CrmAccount(StrictModel):
+    """Provider-neutral account read fact; identity is external and immutable."""
+
+    external_id: str = Field(min_length=1, max_length=254)
+    name: str = Field(min_length=1, max_length=254)
+    source_ref: str = Field(min_length=1, max_length=512)
+    source_updated_at: datetime | None = None
+
+    @property
+    def id(self) -> str:
+        return self.external_id
+
+
+class CrmContact(StrictModel):
+    external_id: str = Field(min_length=1, max_length=254)
+    account_external_id: str | None = Field(default=None, max_length=254)
+    name: str = Field(min_length=1, max_length=254)
+    email: str | None = Field(default=None, max_length=254)
+    source_ref: str = Field(min_length=1, max_length=512)
+    source_updated_at: datetime | None = None
+
+    @property
+    def id(self) -> str:
+        return self.external_id
+
+
+class CrmOpportunity(StrictModel):
+    external_id: str = Field(min_length=1, max_length=254)
+    account_external_id: str = Field(min_length=1, max_length=254)
+    account_name: str = Field(min_length=1, max_length=254)
+    contact_external_id: str | None = Field(default=None, max_length=254)
+    contact_name: str | None = Field(default=None, max_length=254)
+    stage: OpportunityStage
+    amount: float = Field(ge=0)
+    currency: str = Field(default="CNY", min_length=3, max_length=3)
+    expected_close_date: date | None = None
+    last_activity_at: datetime | None = None
+    next_action: str | None = Field(default=None, max_length=1000)
+    next_action_owner: str | None = Field(default=None, max_length=128)
+    next_action_due_at: datetime | None = None
+    blocker: str | None = Field(default=None, max_length=1000)
+    health: Health = Health.UNKNOWN
+    source_ref: str = Field(min_length=1, max_length=512)
+    source_updated_at: datetime | None = None
+
+    @property
+    def id(self) -> str:
+        return self.external_id
+
+
+class CrmActivity(StrictModel):
+    external_id: str = Field(min_length=1, max_length=254)
+    opportunity_external_id: str | None = Field(default=None, max_length=254)
+    account_external_id: str | None = Field(default=None, max_length=254)
+    type: str = Field(min_length=1, max_length=64)
+    occurred_at: datetime
+    actor: str = Field(min_length=1, max_length=128)
+    summary: str = Field(min_length=1, max_length=2000)
+    source_ref: str = Field(min_length=1, max_length=512)
+    source_updated_at: datetime | None = None
+
+    @property
+    def id(self) -> str:
+        return self.external_id
+
+
+CrmRecord = TypeVar("CrmRecord")
+
+
+class CrmPage(StrictModel, Generic[CrmRecord]):
+    items: list[CrmRecord] = Field(default_factory=list)
+    next_cursor: str | None = Field(default=None, max_length=512)
+
+
+class CrmSyncRequest(StrictModel):
+    provider: str = Field(default="twenty", min_length=1, max_length=64)
+    cursor: str | None = Field(default=None, max_length=512)
+    page_size: int = Field(default=50, ge=1, le=100)
+
+
+class CrmSyncCommitRequest(StrictModel):
+    preview_id: str = Field(min_length=1, max_length=128)
+
+
+class CrmSyncConflict(StrictModel):
+    external_id: str = Field(min_length=1, max_length=254)
+    code: str = Field(min_length=1, max_length=64)
+
+
+class CrmSyncPreview(StrictModel):
+    id: str = Field(min_length=1, max_length=128)
+    provider: str = Field(min_length=1, max_length=64)
+    accounts: list[CrmAccount] = Field(default_factory=list)
+    contacts: list[CrmContact] = Field(default_factory=list)
+    opportunities: list[CrmOpportunity] = Field(default_factory=list)
+    activities: list[CrmActivity] = Field(default_factory=list)
+    next_cursor: str | None = Field(default=None, max_length=512)
+    conflicts: list[CrmSyncConflict] = Field(default_factory=list)
+    errors: list[str] = Field(default_factory=list, max_length=50)
+    can_commit: bool = False
+    fingerprint: str = Field(min_length=64, max_length=64)
+    created_at: datetime
+
+
+class CrmSyncRun(StrictModel):
+    id: str = Field(min_length=1, max_length=128)
+    preview_id: str = Field(min_length=1, max_length=128)
+    provider: str = Field(min_length=1, max_length=64)
+    status: str = Field(min_length=1, max_length=32)
+    accepted_count: int = Field(ge=0)
+    skipped_count: int = Field(ge=0)
+    rejected_count: int = Field(ge=0)
+    errors: list[str] = Field(default_factory=list, max_length=50)
+    created_at: datetime

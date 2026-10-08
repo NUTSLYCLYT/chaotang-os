@@ -58,3 +58,28 @@ def test_bingbu_routes_use_authenticated_owner_and_import_preview():
             assert filtered.json()["items"][0]["stage"] == "discovery"
     finally:
         app.dependency_overrides.clear()
+
+
+def test_crm_sync_is_protected_and_disabled_by_default():
+    principal = AuthenticatedPrincipal(
+        id="owner-crm",
+        username="crm-owner",
+        email="crm-owner@example.com",
+        tenant_id="tenant-crm",
+        membership_id="membership-crm",
+        tenant_role="OWNER",
+    )
+    app.dependency_overrides[require_current_user] = lambda: principal
+    try:
+        with TestClient(app) as client:
+            response = client.post(
+                "/api/v1/bingbu/crm/sync/preview",
+                json={"provider": "twenty", "page_size": 10},
+            )
+        assert response.status_code == 503
+        assert response.json() == {
+            "code": "BINGBU_CRM_UNAVAILABLE",
+            "message": "CRM 事实源不可用",
+        }
+    finally:
+        app.dependency_overrides.clear()

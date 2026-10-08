@@ -8,6 +8,8 @@ from fastapi.responses import JSONResponse
 from app.api.auth import CurrentUser
 from app.bingbu.models import (
     ActionDraftRequest,
+    CrmSyncCommitRequest,
+    CrmSyncRequest,
     Health,
     ImportRequest,
     OpportunityStage,
@@ -15,6 +17,7 @@ from app.bingbu.models import (
 )
 from app.bingbu.service import (
     BingbuConflictError,
+    BingbuCrmUnavailable,
     BingbuInputError,
     BingbuNotFoundError,
     get_bingbu_service,
@@ -80,6 +83,16 @@ def import_commit(payload: ImportRequest, current_user: CurrentUser):
     return get_bingbu_service().commit_import(current_user.id, payload)
 
 
+@router.post("/crm/sync/preview")
+def crm_sync_preview(payload: CrmSyncRequest, current_user: CurrentUser):
+    return get_bingbu_service().preview_crm_sync(current_user.id, payload)
+
+
+@router.post("/crm/sync/commit")
+def crm_sync_commit(payload: CrmSyncCommitRequest, current_user: CurrentUser):
+    return get_bingbu_service().commit_crm_sync(current_user.id, payload)
+
+
 @router.post("/war-rooms")
 def war_room(payload: WarRoomRequest, current_user: CurrentUser):
     packet, draft = get_bingbu_service().create_war_room(current_user.id, payload.opportunity_id)
@@ -127,6 +140,13 @@ def register_bingbu_exception_handlers(app: FastAPI) -> None:
         return JSONResponse(
             status_code=422,
             content={"code": "BINGBU_INVALID", "message": "请求或销售事实无效"},
+        )
+
+    @app.exception_handler(BingbuCrmUnavailable)
+    async def _crm_unavailable(_request, _exc: BingbuCrmUnavailable) -> JSONResponse:
+        return JSONResponse(
+            status_code=503,
+            content={"code": "BINGBU_CRM_UNAVAILABLE", "message": "CRM 事实源不可用"},
         )
 
 
