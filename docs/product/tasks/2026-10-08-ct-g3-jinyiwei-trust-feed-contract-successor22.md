@@ -1,0 +1,31 @@
+# 任务：锦衣卫真实度分级与 Feed 注册合同（successor22）
+
+## Status
+
+In Progress
+
+## Product Definition
+
+- 为锦衣卫建立可解释、可回放、非模型单独决定的真实性评估合同。
+- 建立 RSS、Atom、JSON Feed 的批准来源注册协议，但本阶段不启用外网抓取。
+- 为后续新闻事件、地图点位和前端可信度徽章提供稳定数据结构。
+
+## Delivery Constraints
+
+- 只修改 manifest 指定路径。
+- 评估必须由确定性规则完成，保留来源、时间、支持与反向证据及不得推断原因。
+- Feed 注册默认拒绝未知来源、危险 URL、登录绕过和无限域名抓取。
+
+## Acceptance Criteria
+
+- [ ] 真实度分级包含来源级别、证据状态、维度分数、可信度区间和决策/史馆准入。
+- [ ] 同一输入得到相同评估结果和摘要哈希。
+- [ ] Feed 注册验证 HTTPS、固定 host、许可、速率与 robots 约束。
+- [ ] 未注册来源、重定向、内网地址和空许可被拒绝。
+- [ ] API 只读返回评估合同，不打开外网能力。
+
+## Implementation Report
+
+- 改动摘要：Pending
+- 验证：Pending
+- 剩余风险：UI、地图和受控采集在后续独立阶段。
