@@ -24,8 +24,25 @@ In Progress
 - [ ] 未知或非法响应安全降级，不阻塞案卷正文。
 - [ ] 前端 build、lint、test、typecheck 全部通过。
 
+## Affected Modules
+
+- 模块：锦衣卫真实性案牍台只读 UI、前端 BFF、响应校验与组件测试。
+- 允许路径：见 `.harness/approvals/CT-G3-JINYIWEI-TRUST-DESK-UI-SUCCESSOR23-20261008.json` 的 `productPaths`。
+
+## Technical Plan
+
+1. 复用现有 trust API 与前端 backend client，增加只读 BFF 和严格响应解析。
+2. 在案卷、评估抽屉和区域投影中展示证据支持的字段，缺证据时安全降级。
+3. 运行 manifest 中的 build、lint、test、typecheck 验证，不引入外网采集。
+
 ## Implementation Report
 
 - 改动摘要：Pending
 - 验证：Pending
 - 剩余风险：真实地图底图和新闻事件聚类在后续独立阶段。
+
+## Acceptance Review
+
+- 验收结果：Pending
+- 验收证据：待 manifest 验证矩阵与 Harness 通过后补充。
+- 未通过项：当前治理门禁尚未完成。
