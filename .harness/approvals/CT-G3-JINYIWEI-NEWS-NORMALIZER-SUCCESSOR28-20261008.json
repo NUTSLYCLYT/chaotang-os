@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "product-authority.m0.approval.v1",
+  "authorityId": "product-authority.m0.v1",
+  "taskId": "CT-G3-JINYIWEI-NEWS-NORMALIZER-SUCCESSOR28-20261008",
+  "repository": {"identity": "gitee.com/msxn/chaotang-os", "targetBranch": "ext-dev"},
+  "request": {
+    "baseCommit": "41fb00b01472119f23bd9c11919766b420751087",
+    "baseTree": "6affa466d508e5e24e922cb417d63b2844840b3a",
+    "approvalPath": ".harness/approvals/CT-G3-JINYIWEI-NEWS-NORMALIZER-SUCCESSOR28-20261008.json",
+    "approvalCommitPaths": [
+      ".harness/approvals/CT-G3-JINYIWEI-NEWS-NORMALIZER-SUCCESSOR28-20261008.json",
+      "docs/product/tasks/2026-10-08-ct-g3-jinyiwei-news-normalizer-successor28.md"
+    ],
+    "productPaths": [
+      "backend/app/api/jinyiwei.py",
+      "backend/app/jinyiwei/news.py",
+      "backend/app/jinyiwei/read_models.py",
+      "backend/tests/test_jinyiwei_api.py",
+      "backend/tests/test_jinyiwei_news.py",
+      "frontend/src/app/api/jinyiwei/news/handler.ts",
+      "frontend/src/app/api/jinyiwei/news/route.test.ts",
+      "frontend/src/app/api/jinyiwei/news/route.ts",
+      "frontend/src/features/jinyiwei-visual/JinyiweiNewsDesk.module.css",
+      "frontend/src/features/jinyiwei-visual/JinyiweiNewsDesk.test.ts",
+      "frontend/src/features/jinyiwei-visual/JinyiweiNewsDesk.tsx",
+      "frontend/src/features/jinyiwei-visual/JinyiweiScrollDesk.tsx",
+      "frontend/src/lib/backendClient.test.ts",
+      "frontend/src/lib/backendClient.ts"
+    ]
+  },
+  "nonGoals": [
+    "NO_EXTERNAL_NETWORK_ENABLEMENT",
+    "NO_FEED_FETCH",
+    "NO_NEWS_PERSISTENCE",
+    "NO_COORDINATE_INFERENCE",
+    "NO_OPENFGA",
+    "NO_PUBLIC_DEPLOYMENT",
+    "NO_UNAPPROVED_CRAWLING"
+  ],
+  "verification": [
+    {"id": "frontend-build", "tool": "node", "cwd": "frontend", "timeoutMs": 300000, "args": ["node_modules/next/dist/bin/next", "build"]},
+    {"id": "frontend-lint", "tool": "node", "cwd": "frontend", "timeoutMs": 300000, "args": ["node_modules/eslint/bin/eslint.js"]},
+    {"id": "frontend-test", "tool": "node", "cwd": "frontend", "timeoutMs": 300000, "args": ["--test"]},
+    {"id": "frontend-typecheck", "tool": "node", "cwd": "frontend", "timeoutMs": 300000, "args": ["node_modules/typescript/bin/tsc", "--noEmit"]}
+  ],
+  "state": "APPROVED_FOR_ONE_CHILD"
+}
