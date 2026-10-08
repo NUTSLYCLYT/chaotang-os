@@ -12,6 +12,7 @@ from app.api.auth import CurrentUser
 from app.capabilities import (
     build_capability_registry_projection,
     get_capability_registry_item,
+    get_crm_provider_passport,
 )
 from app.capabilities.contracts import CapabilityRegistryItem, CapabilityRegistrySummary
 from app.capabilities.projection import CapabilitySnapshotError
@@ -128,3 +129,16 @@ def get_capability(capability_id: str, current_user: CurrentUser):
             status_code=404, content={"status": "error", "reason": "not_found"}
         )
     return {"status": "ok", "capability": item.model_dump(mode="json")}
+
+
+@router.get("/crm-providers/{provider}")
+def get_crm_provider(provider: str, current_user: CurrentUser):
+    """Return a Honglusi CRM passport without exposing connection material."""
+
+    del current_user
+    passport = get_crm_provider_passport(provider)
+    if passport is None:
+        return JSONResponse(
+            status_code=404, content={"status": "error", "reason": "not_found"}
+        )
+    return {"status": "ok", "passport": passport.model_dump(mode="json")}

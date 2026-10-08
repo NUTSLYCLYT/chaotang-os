@@ -151,6 +151,35 @@ class ExternalCapabilityReview(BaseModel):
     audit_required: bool
 
 
+class CrmProviderPassport(BaseModel):
+    """鸿胪寺签发给兵部的 CRM 只读能力护照。
+
+    护照描述准入事实，不携带连接凭据。兵部只能接收注入的只读 transport。
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    provider: str = Field(min_length=2, max_length=128)
+    capability_id: str = Field(min_length=3, max_length=256)
+    source: Literal["honglusi"] = "honglusi"
+    admission: Literal["approved_read_only"] = "approved_read_only"
+    review_status: Literal["approved"] = "approved"
+    allowed_actions: list[Literal["read"]] = Field(min_length=1, max_length=1)
+    forbidden_actions: list[str] = Field(min_length=1)
+    credential_boundary: Literal["injected_transport_only"] = "injected_transport_only"
+    evidence_sources: list[str] = Field(min_length=1)
+    audit_required: Literal[True] = True
+
+    @model_validator(mode="after")
+    def validate_read_only_boundary(self) -> CrmProviderPassport:
+        if self.allowed_actions != ["read"]:
+            raise ValueError("CRM provider passports must allow read only")
+        forbidden = {item.lower() for item in self.forbidden_actions}
+        if not any("write" in item or "credential" in item for item in forbidden):
+            raise ValueError("CRM provider passports must forbid writes and credential access")
+        return self
+
+
 class CapabilityPromotionCase(BaseModel):
     """Libu-style capability admission, promotion, merge, or retirement advice."""
 

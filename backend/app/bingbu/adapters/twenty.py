@@ -16,6 +16,10 @@ from app.bingbu.models import (
     Health,
     OpportunityStage,
 )
+from app.capabilities import get_crm_provider_passport
+from app.capabilities.contracts import CrmProviderPassport
+
+_DEFAULT_PASSPORT = object()
 
 
 def _text(value: Any, code: str) -> str:
@@ -77,13 +81,26 @@ class TwentyCrmReadAdapter:
 
     provider_name = "twenty"
 
-    def __init__(self, transport: CrmHttpTransport | None = None, *, enabled: bool = False) -> None:
+    def __init__(
+        self,
+        transport: CrmHttpTransport | None = None,
+        *,
+        enabled: bool = False,
+        passport: CrmProviderPassport | None | object = _DEFAULT_PASSPORT,
+    ) -> None:
         self.transport = transport
         self.enabled = enabled
+        self.passport = (
+            get_crm_provider_passport(self.provider_name)
+            if passport is _DEFAULT_PASSPORT
+            else passport
+        )
 
     def _page(
         self, collection: str, *, cursor: str | None, limit: int
     ) -> tuple[list[Mapping[str, Any]], str | None]:
+        if self.passport is None or self.passport.provider != self.provider_name:
+            raise CrmAdapterError("CRM_PROVIDER_NOT_ADMITTED")
         if not self.enabled or self.transport is None:
             raise CrmAdapterError("CRM_PROVIDER_DISABLED")
         try:

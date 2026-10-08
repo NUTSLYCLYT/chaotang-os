@@ -33,6 +33,7 @@ from app.bingbu.models import (
 )
 from app.bingbu.storage import BingbuConflictError, BingbuNotFoundError, BingbuStore, get_store
 from app.bingbu.validation import parse_opportunity
+from app.capabilities import get_crm_provider_passport
 
 
 class DecisionProvider(Protocol):
@@ -219,6 +220,10 @@ class BingbuService:
         adapter = self.crm_adapters.get(provider_name.lower())
         if adapter is None:
             raise BingbuCrmUnavailable("CRM_PROVIDER_UNAVAILABLE")
+        passport = getattr(adapter, "passport", None)
+        expected = get_crm_provider_passport(adapter.provider_name)
+        if expected is None or passport != expected:
+            raise BingbuCrmUnavailable("CRM_PROVIDER_NOT_ADMITTED")
         return adapter
 
     @staticmethod

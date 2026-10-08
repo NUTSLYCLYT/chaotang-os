@@ -12,6 +12,7 @@ from app.bingbu.models import (
     CrmOpportunity,
     CrmPage,
 )
+from app.capabilities.contracts import CrmProviderPassport
 
 
 class CrmAdapterError(ValueError):
@@ -31,6 +32,7 @@ class CrmHttpTransport(Protocol):
 class CrmReadAdapter(Protocol):
     provider_name: str
     enabled: bool
+    passport: CrmProviderPassport | None
 
     def read_accounts(self, *, cursor: str | None, limit: int) -> CrmPage[CrmAccount]: ...
 

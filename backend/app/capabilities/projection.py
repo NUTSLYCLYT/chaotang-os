@@ -27,6 +27,7 @@ from .contracts import (
     CapabilityRegistryItem,
     CapabilityRegistryProjection,
     CapabilityRegistrySummary,
+    CrmProviderPassport,
     ExternalCapabilityReview,
     InvocationPolicy,
     McpToolDetail,
@@ -51,6 +52,34 @@ MAX_PERSONAL_SNAPSHOT_BYTES = 256 * 1024
 MAX_PERSONAL_SKILLS = 256
 MAX_PROVIDER_GROUPS = 64
 MAX_MCP_TOOLS = 512
+
+# This is a capability admission source of truth, not a credential store. The
+# actual connection is still supplied by an injected transport owned by the
+# runtime boundary.
+_CRM_PROVIDER_PASSPORTS: dict[str, CrmProviderPassport] = {
+    "twenty": CrmProviderPassport(
+        provider="twenty",
+        capability_id="provider.twenty.crm.read.v1",
+        allowed_actions=["read"],
+        forbidden_actions=[
+            "external write",
+            "credential access or export",
+            "unapproved endpoint access",
+            "cross-tenant data reuse",
+        ],
+        evidence_sources=[
+            "docs/product/tasks/2026-10-08-bingbu-revenue-os-business-p1.md",
+            "backend/app/bingbu/adapters/twenty.py",
+        ],
+    )
+}
+
+
+def get_crm_provider_passport(provider_name: str) -> CrmProviderPassport | None:
+    """Return a copy of the Honglusi-issued CRM passport, if admitted."""
+
+    passport = _CRM_PROVIDER_PASSPORTS.get(provider_name.strip().lower())
+    return passport.model_copy(deep=True) if passport is not None else None
 
 _PROVIDER_TOOL_GROUPS = {
     "Codex Document Control": "Document Control",

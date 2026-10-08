@@ -1,0 +1,75 @@
+{
+  "schemaVersion": "product-authority.m0.approval.v1",
+  "authorityId": "product-authority.m0.v1",
+  "taskId": "BINGBU-HONGLUSI-CRM-PASSPORT-20261008",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "d9a64c7d8a7e4418cfd6387b43beed9a14630f97",
+    "baseTree": "d9d420aa9186910ca7842ec8bcdef3e9933fbe7f",
+    "approvalPath": ".harness/approvals/BINGBU-HONGLUSI-CRM-PASSPORT-20261008.json",
+    "approvalCommitPaths": [
+      ".harness/approvals/BINGBU-HONGLUSI-CRM-PASSPORT-20261008.json",
+      "docs/product/tasks/2026-10-08-bingbu-honglusi-crm-passport.md"
+    ],
+    "productPaths": [
+      "backend/app/api/capabilities.py",
+      "backend/app/bingbu/adapters/base.py",
+      "backend/app/bingbu/adapters/twenty.py",
+      "backend/app/bingbu/service.py",
+      "backend/app/capabilities/__init__.py",
+      "backend/app/capabilities/contracts.py",
+      "backend/app/capabilities/projection.py",
+      "backend/tests/test_bingbu_crm_adapter.py",
+      "backend/tests/test_bingbu_crm_passport.py",
+      "backend/tests/test_capabilities_api.py"
+    ]
+  },
+  "nonGoals": [
+    "NO_AUTHORITY_BYPASS",
+    "NO_CRM_WRITE",
+    "NO_EXTERNAL_NETWORK",
+    "NO_FRONTEND_CHANGE",
+    "NO_REAL_MODEL",
+    "NO_SECRET_OR_DOTENV_ACCESS"
+  ],
+  "verification": [
+    {
+      "id": "diff-check",
+      "tool": "node",
+      "cwd": ".",
+      "timeoutMs": 30000,
+      "args": ["--input-type=module", "-e", "import{execFileSync}from 'node:child_process';execFileSync('git',['diff','--check'],{stdio:'inherit'});"]
+    },
+    {
+      "id": "harness-check",
+      "tool": "node",
+      "cwd": ".",
+      "timeoutMs": 300000,
+      "args": ["scripts/check_harness.mjs", "--check"]
+    },
+    {
+      "id": "passport-tests",
+      "tool": "node",
+      "cwd": ".",
+      "timeoutMs": 300000,
+      "args": [
+        "-e",
+        "const {spawnSync}=require('child_process'); const r=spawnSync('uv',['run','--project','backend','pytest','-q','backend/tests/test_bingbu_crm_adapter.py','backend/tests/test_bingbu_crm_passport.py','backend/tests/test_bingbu_crm_sync.py','backend/tests/test_capabilities_api.py'],{stdio:'inherit'}); process.exit(r.status ?? 1);"
+      ]
+    },
+    {
+      "id": "passport-zruff",
+      "tool": "node",
+      "cwd": ".",
+      "timeoutMs": 300000,
+      "args": [
+        "-e",
+        "const {spawnSync}=require('child_process'); const r=spawnSync('uv',['run','--project','backend','ruff','check','backend/app/capabilities','backend/app/api/capabilities.py','backend/app/bingbu','backend/tests/test_capabilities_api.py','backend/tests/test_bingbu_crm_adapter.py','backend/tests/test_bingbu_crm_passport.py'],{stdio:'inherit'}); process.exit(r.status ?? 1);"
+      ]
+    }
+  ],
+  "state": "APPROVED_FOR_ONE_CHILD"
+}

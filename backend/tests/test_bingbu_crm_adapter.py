@@ -4,6 +4,7 @@ import pytest
 
 from app.bingbu.adapters.base import CrmAdapterError
 from app.bingbu.adapters.twenty import TwentyCrmReadAdapter
+from app.capabilities.contracts import CrmProviderPassport
 
 
 class FakeTransport:
@@ -100,3 +101,23 @@ def test_twenty_is_disabled_by_default_and_rejects_malformed_pages():
     )
     with pytest.raises(CrmAdapterError, match="CRM_INVALID_CURSOR"):
         TwentyCrmReadAdapter(transport, enabled=True).read_accounts(cursor=None, limit=10)
+
+
+def test_twenty_rejects_missing_or_non_read_only_honglusi_passport():
+    transport = _transport()
+    with pytest.raises(CrmAdapterError, match="CRM_PROVIDER_NOT_ADMITTED"):
+        TwentyCrmReadAdapter(transport, enabled=True, passport=None).read_accounts(
+            cursor=None, limit=10
+        )
+
+    invalid = CrmProviderPassport(
+        provider="other-crm",
+        capability_id="provider.twenty.crm.read.test",
+        allowed_actions=["read"],
+        forbidden_actions=["credential access"],
+        evidence_sources=["test"],
+    )
+    with pytest.raises(CrmAdapterError, match="CRM_PROVIDER_NOT_ADMITTED"):
+        TwentyCrmReadAdapter(transport, enabled=True, passport=invalid).read_accounts(
+            cursor=None, limit=10
+        )

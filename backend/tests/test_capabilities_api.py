@@ -6,7 +6,7 @@ import pytest
 from starlette.requests import Request
 from starlette.responses import Response
 
-from app.api.capabilities import get_capability, list_capabilities, router
+from app.api.capabilities import get_capability, get_crm_provider, list_capabilities, router
 from app.capabilities.projection import CapabilitySnapshotError
 
 
@@ -37,6 +37,11 @@ def test_routes_require_current_user_dependency() -> None:
         for route in router.routes
         if getattr(route, "path", "") == "/api/v1/capabilities/{capability_id}"
     )
+    passport_route = next(
+        route
+        for route in router.routes
+        if getattr(route, "path", "") == "/api/v1/capabilities/crm-providers/{provider}"
+    )
 
     assert any(
         dependency.name == "current_user"
@@ -46,6 +51,30 @@ def test_routes_require_current_user_dependency() -> None:
         dependency.name == "current_user"
         for dependency in detail_route.dependant.dependencies
     )
+    assert any(
+        dependency.name == "current_user"
+        for dependency in passport_route.dependant.dependencies
+    )
+
+
+def test_honglusi_issues_read_only_crm_passport_without_credentials():
+    result = get_crm_provider("twenty", object())
+    assert result["status"] == "ok"
+    passport = result["passport"]
+    assert passport["source"] == "honglusi"
+    assert passport["admission"] == "approved_read_only"
+    assert passport["allowed_actions"] == ["read"]
+    assert passport["credential_boundary"] == "injected_transport_only"
+    encoded = json.dumps(passport, ensure_ascii=False).lower()
+    assert "token" not in encoded
+    assert "secret" not in encoded
+    assert "password" not in encoded
+
+
+def test_unknown_crm_provider_has_no_passport():
+    missing = get_crm_provider("unknown", object())
+    assert missing.status_code == 404
+    assert _json_response(missing) == {"status": "error", "reason": "not_found"}
 
 
 def test_list_returns_safe_readonly_projection() -> None:
