@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { JinyiweiDetail } from "../../lib/backendClient";
+import type { JinyiweiDetail, JinyiweiTrustRead } from "../../lib/backendClient";
 
 import { CollapsedEdictScroll, EdictStage } from "../court-visuals/edict/EdictStage";
 import styles from "./JinyiweiScrollDesk.module.css";
@@ -9,6 +9,7 @@ import {
   buildFactDispatchRows,
   dispatchStatusLabel,
 } from "./jinyiweiDispatch";
+import { JinyiweiTrustPanel } from "./JinyiweiTrustPanel";
 
 export { buildFactDispatchRows } from "./jinyiweiDispatch";
 export type { FactDispatchInput, FactDispatchRow } from "./jinyiweiDispatch";
@@ -29,6 +30,10 @@ type DetailState =
   | { phase: "idle" | "loading" }
   | { phase: "ready"; data: JinyiweiDetail }
   | { phase: "error" };
+type TrustState =
+  | { phase: "idle" | "loading" }
+  | { phase: "ready"; data: JinyiweiTrustRead }
+  | { phase: "error" };
 
 function statusLabel(status: string) {
   return ({ RESOLVED: "已结案", PARTIAL: "部分结案", BLOCKED: "受阻", UNAVAILABLE: "不可用" } as Record<string, string>)[status] ?? status;
@@ -41,6 +46,7 @@ export function JinyiweiScrollDesk() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [detail, setDetail] = useState<DetailState>({ phase: "idle" });
+  const [trust, setTrust] = useState<TrustState>({ phase: "idle" });
 
   useEffect(() => {
     const controller = new AbortController();
@@ -93,12 +99,36 @@ export function JinyiweiScrollDesk() {
     return () => controller.abort();
   }, [expanded, selectedId]);
 
+  useEffect(() => {
+    if (!expanded || selectedId === null) return;
+    const controller = new AbortController();
+    queueMicrotask(() => {
+      if (!controller.signal.aborted) setTrust({ phase: "loading" });
+    });
+    void (async () => {
+      try {
+        const response = await fetch(`/api/jinyiwei/investigations/${encodeURIComponent(selectedId)}/trust`, { cache: "no-store", signal: controller.signal });
+        const body: unknown = await response.json().catch(() => null);
+        if (controller.signal.aborted) return;
+        if (!response.ok || typeof body !== "object" || body === null || !("trust" in body)) {
+          setTrust({ phase: "error" });
+          return;
+        }
+        setTrust({ phase: "ready", data: (body as { trust: JinyiweiTrustRead }).trust });
+      } catch {
+        if (!controller.signal.aborted) setTrust({ phase: "error" });
+      }
+    })();
+    return () => controller.abort();
+  }, [expanded, selectedId]);
+
   const selected = items.find((item) => item.investigationId === selectedId) ?? null;
   const documentTitle = detail.phase === "ready" ? detail.data.request.question : selected?.question ?? "未选定案卷";
   const select = (id: string) => {
     setSelectedId(id);
     setExpanded(true);
     setDetail({ phase: "idle" });
+    setTrust({ phase: "idle" });
   };
 
   return (
@@ -122,8 +152,8 @@ export function JinyiweiScrollDesk() {
             </div>
           </aside>
 
-          <section className={styles.scrollColumn} aria-label="案卷正文">
-            {!selected ? <div className={styles.emptyScroll}>只展示已处理案卷；当前没有可展开的卷宗。</div> : !expanded ? <CollapsedEdictScroll className={styles.collapsed} countLabel={`证据 ${selected.evidenceCount}`} onOpen={() => setExpanded(true)} source={selected.requestingAgent} status={statusLabel(selected.status)} title={selected.question} /> : <div className={styles.expandedScroll}><EdictStage bodyLabel="锦衣卫只读案卷正文" document={{ id: selected.investigationId, kicker: "JINYIWEI · PROCESSED CASE", title: documentTitle, issuer: `请调司：${selected.requestingAgent}`, seal: { glyph: "卫", first: "锦", second: "衣" } }} theme="secret"><DetailContent detail={detail} /></EdictStage></div>}
+        <section className={styles.scrollColumn} aria-label="案卷正文">
+            {!selected ? <div className={styles.emptyScroll}>只展示已处理案卷；当前没有可展开的卷宗。</div> : !expanded ? <CollapsedEdictScroll className={styles.collapsed} countLabel={`证据 ${selected.evidenceCount}`} onOpen={() => setExpanded(true)} source={selected.requestingAgent} status={statusLabel(selected.status)} title={selected.question} /> : <div className={styles.expandedScroll}><EdictStage bodyLabel="锦衣卫只读案卷正文" document={{ id: selected.investigationId, kicker: "JINYIWEI · PROCESSED CASE", title: documentTitle, issuer: `请调司：${selected.requestingAgent}`, seal: { glyph: "卫", first: "锦", second: "衣" } }} theme="secret"><DetailContent detail={detail} trust={trust.phase === "ready" ? trust.data : null} trustPending={trust.phase === "loading"} /></EdictStage></div>}
           </section>
 
           <aside className={styles.evidence} aria-label="证据摘要">
@@ -136,13 +166,13 @@ export function JinyiweiScrollDesk() {
   );
 }
 
-function DetailContent({ detail }: { detail: DetailState }) {
-  if (detail.phase === "ready") return <CaseDetail detail={detail.data} />;
+function DetailContent({ detail, trust, trustPending }: { detail: DetailState; trust: JinyiweiTrustRead | null; trustPending: boolean }) {
+  if (detail.phase === "ready") return <CaseDetail detail={detail.data} trust={trust} trustPending={trustPending} />;
   if (detail.phase === "error") return <p className={styles.scrollState} role="alert">案卷正文暂时无法读取。</p>;
   return <p className={styles.scrollState}>正在拆封案卷…</p>;
 }
 
-function CaseDetail({ detail }: { detail: JinyiweiDetail }) {
+function CaseDetail({ detail, trust, trustPending }: { detail: JinyiweiDetail; trust: JinyiweiTrustRead | null; trustPending: boolean }) {
   const evidenceCount = Object.values(detail.evidenceByFact).flat().length;
   const dispatchRows = buildFactDispatchRows(detail);
   return <article className={styles.caseBody}>
@@ -151,5 +181,7 @@ function CaseDetail({ detail }: { detail: JinyiweiDetail }) {
     <section aria-label="事实分发台"><h3>事实分发台</h3><p>事实 → 证据 → 回奏；只显示已核验案卷中的真实关联。</p><ol className={styles.dispatchSpine}>{dispatchRows.map((row) => <li key={row.factKey} className={styles.dispatchRow}><div><strong>{row.factKey}</strong><span>{row.description}</span></div><div className={styles.dispatchMeta}><b className={`${styles.dispatchStatus} ${styles[`dispatch${row.status}`]}`}>{dispatchStatusLabel(row.status)}</b><small>证据 {row.evidenceCount} · 回奏 {row.relatedReplyCount}</small></div></li>)}</ol></section>
     <section><h3>证据留痕</h3><p>已保留 {evidenceCount} 条证据，调查来源尝试 {detail.sourceAttempts.length} 次。</p></section>
     <section><h3>不得推断</h3>{detail.doNotInfer.length === 0 ? <p>未登记额外推断限制。</p> : <ul>{detail.doNotInfer.map((limit) => <li key={limit}>{limit}</li>)}</ul>}</section>
+    {trustPending ? <p className={styles.trustNotice}>正在读取真实性评估与证据覆盖…</p> : null}
+    <JinyiweiTrustPanel detail={detail} trust={trust} />
   </article>;
 }

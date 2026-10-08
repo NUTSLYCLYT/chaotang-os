@@ -1,0 +1,18 @@
+.panel { margin-top: 24px; padding: 20px; border: 1px solid rgba(88, 57, 31, .25); background: rgba(255, 252, 240, .5); color: #2c2119; }
+.heading, .mapHeading { display: flex; justify-content: space-between; align-items: end; gap: 16px; border-bottom: 1px solid rgba(88, 57, 31, .25); padding-bottom: 12px; }
+.heading h3, .mapHeading h4 { margin: 2px 0 0; color: #5d291d; font-family: "STKaiti", "KaiTi", serif; }
+.heading small, .mapHeading small { color: #806f5d; font: 11px/1.4 ui-monospace, monospace; text-align: right; }
+.eyebrow { color: #8b5c32; font: 700 10px/1.2 ui-monospace, monospace; letter-spacing: .16em; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin-top: 14px; }
+.card { border: 1px solid rgba(88, 57, 31, .25); background: rgba(255, 255, 255, .48); padding: 13px; }
+.cardHeader { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.cardHeader code { color: #6b5c4e; font-size: 11px; overflow-wrap: anywhere; }
+.state { display: inline-flex; padding: 4px 7px; border: 1px solid currentColor; font-size: 11px; font-weight: 700; }
+.stateVERIFIED, .statePROBABLE { color: #25664e; }.stateMIXED, .stateSTALE { color: #9a6a2c; }.stateCONFLICTED, .stateUNAVAILABLE { color: #a14335; }
+.confidence { display: grid; gap: 2px; margin: 15px 0 10px; }.confidence strong { color: #5d291d; font: 700 22px/1.1 ui-monospace, monospace; }.confidence span { color: #806f5d; font-size: 11px; }
+.meta { display: grid; gap: 5px; margin: 0; font-size: 12px; }.meta div { display: flex; justify-content: space-between; gap: 10px; border-bottom: 1px dotted rgba(88, 57, 31, .25); padding-bottom: 4px; }.meta dt { color: #806f5d; }.meta dd { margin: 0; font-weight: 700; }
+.conclusion { margin: 12px 0 0; color: #5d291d; font-size: 14px; }
+.drawer { margin-top: 12px; color: #6b5c4e; font-size: 12px; }.drawer summary { cursor: pointer; color: #8b5c32; font-weight: 700; }.drawer p { margin: 8px 0 0; line-height: 1.6; }.warning { color: #a14335; }
+.mapBlock { margin-top: 20px; }.mapSurface { position: relative; min-height: 160px; margin-top: 12px; overflow: hidden; border: 1px solid rgba(36, 92, 80, .3); background: #dbe8e1; }.mapGrid { position: absolute; inset: 0; opacity: .45; background: linear-gradient(30deg, transparent 48%, rgba(36, 92, 80, .18) 49%, transparent 51%), linear-gradient(150deg, transparent 48%, rgba(36, 92, 80, .18) 49%, transparent 51%); background-size: 64px 48px; }.mapEmpty, .regionList { position: relative; z-index: 1; display: flex; min-height: 160px; align-items: center; justify-content: center; padding: 18px; }.mapEmpty { color: #53645e; font-size: 12px; }.regionList { flex-wrap: wrap; align-content: center; gap: 9px; }.region { display: inline-flex; align-items: center; gap: 8px; padding: 7px 10px; border: 1px solid rgba(36, 92, 80, .45); background: rgba(248, 251, 248, .82); color: #245c50; font-size: 12px; }.region b { display: grid; width: 20px; height: 20px; place-items: center; border-radius: 50%; background: #245c50; color: #f8fbf8; font-size: 10px; }.mapNote { margin: 8px 0 0; color: #53645e; font-size: 11px; line-height: 1.6; }
+.empty { margin: 14px 0 0; color: #806f5d; font-size: 13px; }
+@media (max-width: 620px) { .panel { padding: 14px; }.heading, .mapHeading { align-items: flex-start; flex-direction: column; }.heading small, .mapHeading small { text-align: left; } }

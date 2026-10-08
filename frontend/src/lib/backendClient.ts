@@ -2204,6 +2204,7 @@ export type JinyiweiAdoptionStatus = "PENDING" | "CONFIRMED";
 export type JinyiweiFactCategory = "MARKET_QUOTE" | "REGULATORY_FILING" | "NEWS_EVENT" | "PUBLIC_STATISTIC" | "ENTITY_REFERENCE";
 export type JinyiweiMarketMetric = "LAST_PRICE" | "VOLUME" | "CHANGE_PERCENT" | "INTRADAY_SERIES" | "PE_RATIO" | "PB_RATIO" | "MARKET_CAP" | "PRICE_TREND_30D";
 export type JinyiweiDataScope = "INTERNAL_BUSINESS" | "EXTERNAL_PUBLIC" | "HYBRID";
+export type JinyiweiTrustState = "VERIFIED" | "PROBABLE" | "MIXED" | "CONFLICTED" | "STALE" | "UNAVAILABLE";
 
 export interface JinyiweiSummary {
   totalInvestigations: number; resolvedCount: number; partialCount: number;
@@ -2249,6 +2250,26 @@ export interface JinyiweiDetail {
   investigationStartedAt: string; investigationCompletedAt: string; cache: JinyiweiCache;
   doNotInfer: string[]; adoptions: JinyiweiAdoption[];
 }
+export interface JinyiweiTrustAssessment {
+  sourceLevel: JinyiweiEvidenceQuality;
+  evidenceState: JinyiweiTrustState;
+  confidenceLower: number;
+  confidenceUpper: number;
+  dimensionScores: Record<string, number>;
+  conclusion: string;
+  assessmentBasis: string;
+  supportingEvidenceIds: string[];
+  counterEvidenceIds: string[];
+  unresolvedQuestions: string[];
+  decisionAllowed: boolean;
+  archiveAllowed: boolean;
+  doNotInfer: boolean;
+  assessmentHash: string;
+}
+export interface JinyiweiTrustRead {
+  assessments: Record<string, JinyiweiTrustAssessment>;
+  generatedAt: string;
+}
 
 export type JinyiweiReadResult<T> =
   | { ok: true; data: T }
@@ -2278,6 +2299,7 @@ const ADOPTION_STATUSES = new Set<JinyiweiAdoptionStatus>(["PENDING", "CONFIRMED
 const FACT_CATEGORIES = new Set<JinyiweiFactCategory>(["MARKET_QUOTE", "REGULATORY_FILING", "NEWS_EVENT", "PUBLIC_STATISTIC", "ENTITY_REFERENCE"]);
 const MARKET_METRICS = new Set<JinyiweiMarketMetric>(["LAST_PRICE", "VOLUME", "CHANGE_PERCENT", "INTRADAY_SERIES", "PE_RATIO", "PB_RATIO", "MARKET_CAP", "PRICE_TREND_30D"]);
 const DATA_SCOPES = new Set<JinyiweiDataScope>(["INTERNAL_BUSINESS", "EXTERNAL_PUBLIC", "HYBRID"]);
+const JINYIWEI_TRUST_STATES = new Set<JinyiweiTrustState>(["VERIFIED", "PROBABLE", "MIXED", "CONFLICTED", "STALE", "UNAVAILABLE"]);
 const HASH_RE = /^[0-9a-f]{64}$/;
 const TZ_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
 
@@ -2396,6 +2418,38 @@ function parseDetail(value:unknown):JinyiweiDetail|null {
   return validDetailRelations(detail)?detail:null;
 }
 
+function parseTrustAssessment(value: unknown): JinyiweiTrustAssessment | null {
+  const r = asRecord(value);
+  const keys = ["source_level", "evidence_state", "confidence_lower", "confidence_upper", "dimension_scores", "conclusion", "assessment_basis", "supporting_evidence_ids", "counter_evidence_ids", "unresolved_questions", "decision_allowed", "archive_allowed", "do_not_infer", "assessment_hash"];
+  if (!r || !hasExactKeys(r, keys) || !JINYIWEI_QUALITIES.has(r.source_level as JinyiweiEvidenceQuality) || !JINYIWEI_TRUST_STATES.has(r.evidence_state as JinyiweiTrustState) || typeof r.confidence_lower !== "number" || typeof r.confidence_upper !== "number" || !Number.isFinite(r.confidence_lower) || !Number.isFinite(r.confidence_upper) || r.confidence_lower < 0 || r.confidence_upper > 1 || r.confidence_lower > r.confidence_upper || !textValue(r.conclusion) || !textValue(r.assessment_basis) || typeof r.decision_allowed !== "boolean" || typeof r.archive_allowed !== "boolean" || typeof r.do_not_infer !== "boolean" || (r.do_not_infer && r.decision_allowed) || typeof r.assessment_hash !== "string" || !HASH_RE.test(r.assessment_hash)) return null;
+  const dimensions = asRecord(r.dimension_scores);
+  const supporting = uniqueTextArray(r.supporting_evidence_ids);
+  const counter = uniqueTextArray(r.counter_evidence_ids);
+  const unresolved = uniqueTextArray(r.unresolved_questions);
+  if (!dimensions || !supporting || !counter || !unresolved) return null;
+  const dimensionScores: Record<string, number> = {};
+  for (const [key, score] of Object.entries(dimensions)) {
+    if (!textValue(key) || typeof score !== "number" || !Number.isFinite(score) || score < 0 || score > 1) return null;
+    dimensionScores[key] = score;
+  }
+  return { sourceLevel: r.source_level as JinyiweiEvidenceQuality, evidenceState: r.evidence_state as JinyiweiTrustState, confidenceLower: r.confidence_lower, confidenceUpper: r.confidence_upper, dimensionScores, conclusion: r.conclusion, assessmentBasis: r.assessment_basis, supportingEvidenceIds: supporting, counterEvidenceIds: counter, unresolvedQuestions: unresolved, decisionAllowed: r.decision_allowed, archiveAllowed: r.archive_allowed, doNotInfer: r.do_not_infer, assessmentHash: r.assessment_hash };
+}
+
+function parseTrust(value: unknown): JinyiweiTrustRead | null {
+  const r = asRecord(value);
+  if (!r || !hasExactKeys(r, ["assessments", "generated_at"]) || !exactDate(r.generated_at)) return null;
+  const raw = asRecord(r.assessments);
+  if (!raw) return null;
+  const assessments: Record<string, JinyiweiTrustAssessment> = {};
+  for (const [factKey, assessment] of Object.entries(raw)) {
+    if (!textValue(factKey)) return null;
+    const parsed = parseTrustAssessment(assessment);
+    if (!parsed) return null;
+    assessments[factKey] = parsed;
+  }
+  return { assessments, generatedAt: r.generated_at };
+}
+
 function sameSet<T>(left:readonly T[],right:readonly T[]):boolean{return left.length===right.length&&left.every(item=>right.includes(item));}
 
 function validDetailRelations(detail:JinyiweiDetail):boolean {
@@ -2448,6 +2502,7 @@ async function fetchJinyiwei<T>(path:string,parse:(value:unknown)=>T|null,option
 export function getJinyiweiSummary(options:JinyiweiReadOptions):Promise<JinyiweiReadResult<JinyiweiSummary>>{return fetchJinyiwei("/api/v1/jinyiwei/summary",parseSummary,options);}
 export function listJinyiweiInvestigations(options:ListJinyiweiOptions):Promise<JinyiweiReadResult<JinyiweiPage>>{const q=new URLSearchParams();if(options.status)q.set("status",options.status);q.set("limit",String(options.limit??20));q.set("offset",String(options.offset??0));return fetchJinyiwei(`/api/v1/jinyiwei/investigations?${q}`,parsePage,options);}
 export function getJinyiweiInvestigation(id:string,options:JinyiweiReadOptions):Promise<JinyiweiReadResult<JinyiweiDetail>>{return fetchJinyiwei(`/api/v1/jinyiwei/investigations/${encodeURIComponent(id)}`,parseDetail,options);}
+export function getJinyiweiTrust(id:string,options:JinyiweiReadOptions):Promise<JinyiweiReadResult<JinyiweiTrustRead>>{return fetchJinyiwei(`/api/v1/jinyiwei/investigations/${encodeURIComponent(id)}/trust`,parseTrust,options);}
 
 
 // ---- CapabilityRegistry readonly projection -----------------------------
