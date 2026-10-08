@@ -2,7 +2,7 @@
 
 ## Status
 
-Ready
+Accepted
 
 ## Product Definition
 
@@ -12,14 +12,14 @@ Ready
 
 ## Acceptance Criteria
 
-- [ ] 有版本化、强类型的 graph run state、node attempt、loop policy、interrupt 和 terminal reason 模型。
-- [ ] 图引擎支持确定性节点、顺序边、条件边和有界 fan-out/fan-in；join 只在全部分支达到确定终态后通过。
-- [ ] 每个节点完成后写入 owner-scoped checkpoint 与 append-only event；重复恢复不重复执行已提交节点。
-- [ ] Loop 同时受最大轮数、provider 请求预算、token 预算和 deadline 约束，并返回稳定 stop reason。
-- [ ] 支持 `HUMAN_REVIEW` interrupt 与带版本校验的 resume；错误 resume、过期 resume 和跨 owner resume 必须拒绝。
-- [ ] 节点重试采用显式 idempotency key；失败分类为 retryable、blocked、terminal，不允许无限重试。
-- [ ] 全部自动化验证离线运行，不调用真实 DeepSeek、不访问 CRM、不发送邮件/消息、不执行 ActionDraft。
-- [ ] 新增 RED→GREEN 测试、Ruff、Harness 检查通过；不修改 P0 API、前端路由和 ADR 0028。
+- [x] 有版本化、强类型的 graph run state、node attempt、loop policy、interrupt 和 terminal reason 模型。
+- [x] 图引擎支持确定性节点、顺序边、条件边和有界 fan-out/fan-in；join 只在全部分支达到确定终态后通过。
+- [x] 每个节点完成后写入 owner-scoped checkpoint 与 append-only event；重复恢复不重复执行已提交节点。
+- [x] Loop 同时受最大轮数、provider 请求预算、token 预算和 deadline 约束，并返回稳定 stop reason。
+- [x] 支持 `HUMAN_REVIEW` interrupt 与带版本校验的 resume；错误 resume、过期 resume 和跨 owner resume 必须拒绝。
+- [x] 节点重试采用显式 idempotency key；失败分类为 retryable、blocked、terminal，不允许无限重试。
+- [x] 全部自动化验证离线运行，不调用真实 DeepSeek、不访问 CRM、不发送邮件/消息、不执行 ActionDraft。
+- [x] 新增 RED→GREEN 测试、Ruff、Harness 检查通过；不修改 P0 API、前端路由和 ADR 0028。
 
 ## Delivery Constraints
 
@@ -64,19 +64,19 @@ Ready
 
 ## Implementation Report
 
-- 改动摘要：Pending
-- 自审：Pending
-- 验证：Pending
+- 改动摘要：P1 实现提交为 `f79b77a9`，新增 `backend/app/long_task_graph/` 的 typed state/models、SQLite persistence、确定性 graph executor、bounded loops 和 owner-scoped interrupt/resume；P0 API 与前端路由未改动。
+- 自审：checkpoint 与事件按 owner scope 隔离，事件只追加；节点以显式 idempotency key 去重，恢复只继续未提交节点；loop 同时检查 iteration/provider/token/deadline，所有终止原因稳定枚举化。未引入 Temporal、队列、模型 SDK 或真实 provider。
+- 验证：`backend/tests/test_long_task_graph.py` 与 `backend/tests/test_long_task_loops.py` 共 `12 passed`；长时任务范围 Ruff 通过；Harness `--check` 通过（159 个基线文件）；`git diff --check` 通过。
 - 实际使用的 skill：pc-agent-design、verification-before-completion、git-workflow-and-versioning
-- 验证命令与结果：Pending
-- 未运行项与原因：Pending
-- 剩余风险：Pending
+- 验证命令与结果：按 approval manifest 的三项验证命令全部通过；本 P1 未调用真实 DeepSeek 或外部服务。
+- 未运行项与原因：未运行真实模型 smoke、CRM 集成、前端构建或生产多实例验证，均属于本任务 non-goals。
+- 剩余风险：当前 graph executor 是离线内核；P2 才把它接入现有 `decree_jobs` worker，生产级分布式锁、队列扩展和真实 provider 延迟仍需单独任务。
 
 ## Acceptance Review
 
-- 验收结果：Pending
-- 验收证据：Pending
-- 未通过项：Pending
+- 验收结果：Accepted（2026-10-08）
+- 验收证据：逐条核对 8 项验收标准均满足；P1 实现已在当前 `ext-dev` 基线，focused pytest、Ruff、Harness 和差异检查均有新鲜结果。
+- 未通过项：无。`decree_jobs` worker 接入属于后续 P2，不在本 P1 manifest 的 productPaths 内。
 
 Approval lineage: re-anchored to latest ext-dev before product execution; product scope and non-goals are unchanged.
 Approval lineage: synchronized to ext-dev head 343deeff8573d9943cbcbe00803800182e527294 before candidate generation.
