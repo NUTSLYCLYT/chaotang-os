@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "product-authority.m0.approval.v1",
+  "authorityId": "product-authority.m0.v1",
+  "taskId": "CT-G3-JINYIWEI-MAP-FEEDS-SUCCESSOR27-20261008",
+  "repository": {"identity": "gitee.com/msxn/chaotang-os", "targetBranch": "ext-dev"},
+  "request": {
+    "baseCommit": "e5fd37683f1bb8d52da7a5ab9af12e291d7c4308",
+    "baseTree": "561303639777d402adc737d3c9ab072fa6a14c7a",
+    "approvalPath": ".harness/approvals/CT-G3-JINYIWEI-MAP-FEEDS-SUCCESSOR27-20261008.json",
+    "approvalCommitPaths": [".harness/approvals/CT-G3-JINYIWEI-MAP-FEEDS-SUCCESSOR27-20261008.json", "docs/product/tasks/2026-10-08-ct-g3-jinyiwei-map-feeds-successor27.md"],
+    "productPaths": [
+      "backend/app/api/jinyiwei.py",
+      "backend/app/jinyiwei/read_models.py",
+      "backend/tests/test_jinyiwei_api.py",
+      "frontend/src/app/api/jinyiwei/coverage/handler.ts",
+      "frontend/src/app/api/jinyiwei/coverage/route.test.ts",
+      "frontend/src/app/api/jinyiwei/coverage/route.ts",
+      "frontend/src/app/api/jinyiwei/feeds/handler.ts",
+      "frontend/src/app/api/jinyiwei/feeds/route.test.ts",
+      "frontend/src/app/api/jinyiwei/feeds/route.ts",
+      "frontend/src/features/jinyiwei-visual/JinyiweiGlobalEvidenceMap.module.css",
+      "frontend/src/features/jinyiwei-visual/JinyiweiGlobalEvidenceMap.test.ts",
+      "frontend/src/features/jinyiwei-visual/JinyiweiGlobalEvidenceMap.tsx",
+      "frontend/src/features/jinyiwei-visual/JinyiweiScrollDesk.tsx",
+      "frontend/src/features/jinyiwei-visual/JinyiweiTrustPanel.module.css",
+      "frontend/src/features/jinyiwei-visual/JinyiweiTrustPanel.tsx",
+      "frontend/src/lib/backendClient.test.ts",
+      "frontend/src/lib/backendClient.ts"
+    ]
+  },
+  "nonGoals": ["NO_EXTERNAL_NETWORK_ENABLEMENT", "NO_FEED_INGESTION", "NO_MAP_COORDINATE_INFERENCE", "NO_OPENFGA", "NO_PUBLIC_DEPLOYMENT", "NO_UNAPPROVED_CRAWLING"],
+  "verification": [
+    {"id": "frontend-build", "tool": "node", "cwd": "frontend", "timeoutMs": 300000, "args": ["node_modules/next/dist/bin/next", "build"]},
+    {"id": "frontend-lint", "tool": "node", "cwd": "frontend", "timeoutMs": 300000, "args": ["node_modules/eslint/bin/eslint.js"]},
+    {"id": "frontend-test", "tool": "node", "cwd": "frontend", "timeoutMs": 300000, "args": ["--test"]},
+    {"id": "frontend-typecheck", "tool": "node", "cwd": "frontend", "timeoutMs": 300000, "args": ["node_modules/typescript/bin/tsc", "--noEmit"]}
+  ],
+  "state": "APPROVED_FOR_ONE_CHILD"
+}
