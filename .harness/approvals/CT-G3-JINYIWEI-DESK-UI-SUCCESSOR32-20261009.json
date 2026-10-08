@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "product-authority.m0.approval.v1",
+  "authorityId": "product-authority.m0.v1",
+  "taskId": "CT-G3-JINYIWEI-DESK-UI-SUCCESSOR32-20261009",
+  "repository": {"identity": "gitee.com/msxn/chaotang-os", "targetBranch": "ext-dev"},
+  "request": {
+    "baseCommit": "8369c54f70f95f10f0cb4f56dbaa9267f2e8e789",
+    "baseTree": "b721380f16cedb9e24d30310da9cde9ac5f583ee",
+    "approvalPath": ".harness/approvals/CT-G3-JINYIWEI-DESK-UI-SUCCESSOR32-20261009.json",
+    "approvalCommitPaths": [
+      ".harness/approvals/CT-G3-JINYIWEI-DESK-UI-SUCCESSOR32-20261009.json",
+      "docs/product/tasks/2026-10-09-ct-g3-jinyiwei-desk-ui-successor32.md"
+    ],
+    "productPaths": [
+      "frontend/src/features/jinyiwei-visual/JinyiweiGlobalEvidenceMap.module.css",
+      "frontend/src/features/jinyiwei-visual/JinyiweiGlobalEvidenceMap.test.ts",
+      "frontend/src/features/jinyiwei-visual/JinyiweiGlobalEvidenceMap.tsx",
+      "frontend/src/features/jinyiwei-visual/JinyiweiNewsDesk.module.css",
+      "frontend/src/features/jinyiwei-visual/JinyiweiNewsDesk.test.ts",
+      "frontend/src/features/jinyiwei-visual/JinyiweiNewsDesk.tsx",
+      "frontend/src/features/jinyiwei-visual/JinyiweiScrollDesk.tsx"
+    ]
+  },
+  "nonGoals": [
+    "NO_EXTERNAL_NETWORK_ENABLEMENT",
+    "NO_MAP_COORDINATE_INFERENCE",
+    "NO_NEW_BACKEND_API",
+    "NO_PUBLIC_DEPLOYMENT",
+    "NO_UNAPPROVED_CRAWLING"
+  ],
+  "verification": [
+    {"id": "frontend-build", "tool": "node", "cwd": "frontend", "timeoutMs": 300000, "args": ["node_modules/next/dist/bin/next", "build"]},
+    {"id": "frontend-lint", "tool": "node", "cwd": "frontend", "timeoutMs": 300000, "args": ["node_modules/eslint/bin/eslint.js"]},
+    {"id": "frontend-test", "tool": "node", "cwd": "frontend", "timeoutMs": 300000, "args": ["--test"]},
+    {"id": "frontend-typecheck", "tool": "node", "cwd": "frontend", "timeoutMs": 300000, "args": ["node_modules/typescript/bin/tsc", "--noEmit"]}
+  ],
+  "state": "APPROVED_FOR_ONE_CHILD"
+}
