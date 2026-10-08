@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { JinyiweiDetail, JinyiweiTrustRead } from "../../lib/backendClient";
+import type { JinyiweiCoverageRead, JinyiweiDetail, JinyiweiFeedsRead, JinyiweiTrustRead } from "../../lib/backendClient";
 
 import { CollapsedEdictScroll, EdictStage } from "../court-visuals/edict/EdictStage";
 import styles from "./JinyiweiScrollDesk.module.css";
@@ -10,6 +10,7 @@ import {
   dispatchStatusLabel,
 } from "./jinyiweiDispatch";
 import { JinyiweiTrustPanel } from "./JinyiweiTrustPanel";
+import { JinyiweiGlobalEvidenceMap } from "./JinyiweiGlobalEvidenceMap";
 
 export { buildFactDispatchRows } from "./jinyiweiDispatch";
 export type { FactDispatchInput, FactDispatchRow } from "./jinyiweiDispatch";
@@ -34,6 +35,10 @@ type TrustState =
   | { phase: "idle" | "loading" }
   | { phase: "ready"; data: JinyiweiTrustRead }
   | { phase: "error" };
+type GlobalState =
+  | { phase: "loading" }
+  | { phase: "ready"; coverage: JinyiweiCoverageRead; feeds: JinyiweiFeedsRead }
+  | { phase: "error" };
 
 function statusLabel(status: string) {
   return ({ RESOLVED: "已结案", PARTIAL: "部分结案", BLOCKED: "受阻", UNAVAILABLE: "不可用" } as Record<string, string>)[status] ?? status;
@@ -47,6 +52,7 @@ export function JinyiweiScrollDesk() {
   const [expanded, setExpanded] = useState(false);
   const [detail, setDetail] = useState<DetailState>({ phase: "idle" });
   const [trust, setTrust] = useState<TrustState>({ phase: "idle" });
+  const [global, setGlobal] = useState<GlobalState>({ phase: "loading" });
 
   useEffect(() => {
     const controller = new AbortController();
@@ -100,6 +106,36 @@ export function JinyiweiScrollDesk() {
   }, [expanded, selectedId]);
 
   useEffect(() => {
+    const controller = new AbortController();
+    queueMicrotask(() => {
+      if (!controller.signal.aborted) setGlobal({ phase: "loading" });
+    });
+    void (async () => {
+      try {
+        const [coverageResponse, feedsResponse] = await Promise.all([
+          fetch("/api/jinyiwei/coverage", { cache: "no-store", signal: controller.signal }),
+          fetch("/api/jinyiwei/feeds", { cache: "no-store", signal: controller.signal }),
+        ]);
+        const coverageBody: unknown = await coverageResponse.json().catch(() => null);
+        const feedsBody: unknown = await feedsResponse.json().catch(() => null);
+        if (controller.signal.aborted) return;
+        if (!coverageResponse.ok || !feedsResponse.ok || typeof coverageBody !== "object" || coverageBody === null || !("coverage" in coverageBody) || typeof feedsBody !== "object" || feedsBody === null || !("feeds" in feedsBody)) {
+          setGlobal({ phase: "error" });
+          return;
+        }
+        setGlobal({
+          phase: "ready",
+          coverage: (coverageBody as { coverage: JinyiweiCoverageRead }).coverage,
+          feeds: (feedsBody as { feeds: JinyiweiFeedsRead }).feeds,
+        });
+      } catch {
+        if (!controller.signal.aborted) setGlobal({ phase: "error" });
+      }
+    })();
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
     if (!expanded || selectedId === null) return;
     const controller = new AbortController();
     queueMicrotask(() => {
@@ -140,6 +176,11 @@ export function JinyiweiScrollDesk() {
           <h1>锦衣卫案牍台</h1>
           <span>仅陈列锦衣卫已处理案卷 · 循证阅卷</span>
         </header>
+
+        <JinyiweiGlobalEvidenceMap
+          coverage={global.phase === "ready" ? global.coverage : null}
+          feeds={global.phase === "ready" ? global.feeds : null}
+        />
 
         <section className={styles.workspace}>
           <aside className={styles.index} aria-label="已处理案卷索引">

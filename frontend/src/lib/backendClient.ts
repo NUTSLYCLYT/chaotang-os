@@ -2205,6 +2205,7 @@ export type JinyiweiFactCategory = "MARKET_QUOTE" | "REGULATORY_FILING" | "NEWS_
 export type JinyiweiMarketMetric = "LAST_PRICE" | "VOLUME" | "CHANGE_PERCENT" | "INTRADAY_SERIES" | "PE_RATIO" | "PB_RATIO" | "MARKET_CAP" | "PRICE_TREND_30D";
 export type JinyiweiDataScope = "INTERNAL_BUSINESS" | "EXTERNAL_PUBLIC" | "HYBRID";
 export type JinyiweiTrustState = "VERIFIED" | "PROBABLE" | "MIXED" | "CONFLICTED" | "STALE" | "UNAVAILABLE";
+export type JinyiweiFeedFormat = "RSS" | "ATOM" | "JSON_FEED";
 
 export interface JinyiweiSummary {
   totalInvestigations: number; resolvedCount: number; partialCount: number;
@@ -2270,6 +2271,48 @@ export interface JinyiweiTrustRead {
   assessments: Record<string, JinyiweiTrustAssessment>;
   generatedAt: string;
 }
+export interface JinyiweiCoverageReference {
+  investigationId: string;
+  factKey: string;
+  eventType: string;
+  evidence: JinyiweiEvidence[];
+  assessment: JinyiweiTrustAssessment;
+}
+export interface JinyiweiCoveragePoint {
+  region: string;
+  evidenceCount: number;
+  investigationIds: string[];
+  evidenceIds: string[];
+  eventTypes: string[];
+  trustState: JinyiweiTrustState;
+  confidenceLower: number;
+  confidenceUpper: number;
+  latestAsOf: string;
+  conflictCount: number;
+  references: JinyiweiCoverageReference[];
+}
+export interface JinyiweiCoverageRead {
+  points: JinyiweiCoveragePoint[];
+  generatedAt: string;
+  scannedInvestigations: number;
+  totalInvestigations: number;
+  truncated: boolean;
+}
+export interface JinyiweiFeedSource {
+  sourceId: string;
+  url: string;
+  publisher: string;
+  format: JinyiweiFeedFormat;
+  licenseNote: string;
+  robotsPolicy: string;
+  rateLimitPerMinute: number;
+  allowedRedirectHosts: string[];
+  fingerprint: string;
+}
+export interface JinyiweiFeedsRead {
+  sources: JinyiweiFeedSource[];
+  generatedAt: string;
+}
 
 export type JinyiweiReadResult<T> =
   | { ok: true; data: T }
@@ -2300,6 +2343,7 @@ const FACT_CATEGORIES = new Set<JinyiweiFactCategory>(["MARKET_QUOTE", "REGULATO
 const MARKET_METRICS = new Set<JinyiweiMarketMetric>(["LAST_PRICE", "VOLUME", "CHANGE_PERCENT", "INTRADAY_SERIES", "PE_RATIO", "PB_RATIO", "MARKET_CAP", "PRICE_TREND_30D"]);
 const DATA_SCOPES = new Set<JinyiweiDataScope>(["INTERNAL_BUSINESS", "EXTERNAL_PUBLIC", "HYBRID"]);
 const JINYIWEI_TRUST_STATES = new Set<JinyiweiTrustState>(["VERIFIED", "PROBABLE", "MIXED", "CONFLICTED", "STALE", "UNAVAILABLE"]);
+const JINYIWEI_FEED_FORMATS = new Set<JinyiweiFeedFormat>(["RSS", "ATOM", "JSON_FEED"]);
 const HASH_RE = /^[0-9a-f]{64}$/;
 const TZ_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
 
@@ -2450,6 +2494,50 @@ function parseTrust(value: unknown): JinyiweiTrustRead | null {
   return { assessments, generatedAt: r.generated_at };
 }
 
+function parseCoveragePoint(value: unknown): JinyiweiCoveragePoint | null {
+  const r = asRecord(value);
+  const keys = ["region", "evidence_count", "investigation_ids", "evidence_ids", "event_types", "trust_state", "confidence_lower", "confidence_upper", "latest_as_of", "conflict_count", "references"];
+  const investigations = r && uniqueTextArray(r.investigation_ids);
+  const evidence = r && uniqueTextArray(r.evidence_ids);
+  const eventTypes = r && uniqueTextArray(r.event_types);
+  if (!r || !hasExactKeys(r, keys) || !textValue(r.region) || !investigations || !evidence || !eventTypes || !Array.isArray(r.references) || !JINYIWEI_TRUST_STATES.has(r.trust_state as JinyiweiTrustState) || !exactDate(r.latest_as_of) || !nonNegativeInteger(r.evidence_count) || r.evidence_count < 1 || !nonNegativeInteger(r.conflict_count) || typeof r.confidence_lower !== "number" || typeof r.confidence_upper !== "number" || !Number.isFinite(r.confidence_lower) || !Number.isFinite(r.confidence_upper) || r.confidence_lower < 0 || r.confidence_upper > 1 || r.confidence_lower > r.confidence_upper || evidence.length !== r.evidence_count) return null;
+  const references: JinyiweiCoverageReference[] = [];
+  for (const item of r.references) {
+    const reference = asRecord(item);
+    if (!reference || !hasExactKeys(reference, ["investigation_id", "fact_key", "event_type", "evidence", "assessment"]) || !textValue(reference.investigation_id) || !textValue(reference.fact_key) || !textValue(reference.event_type) || !Array.isArray(reference.evidence)) return null;
+    const parsedEvidence = reference.evidence.map(parseEvidenceItem);
+    const assessment = parseTrustAssessment(reference.assessment);
+    if (parsedEvidence.some((item) => item === null) || !assessment || parsedEvidence.length === 0 || parsedEvidence.some((item) => item?.factKey !== reference.fact_key)) return null;
+    references.push({ investigationId: reference.investigation_id, factKey: reference.fact_key, eventType: reference.event_type, evidence: parsedEvidence as JinyiweiEvidence[], assessment });
+  }
+  if (references.length === 0 || !references.every((reference) => investigations.includes(reference.investigationId)) || !references.every((reference) => reference.evidence.every((item) => evidence.includes(item.evidenceId)))) return null;
+  return { region: r.region, evidenceCount: r.evidence_count, investigationIds: investigations, evidenceIds: evidence, eventTypes: eventTypes, trustState: r.trust_state as JinyiweiTrustState, confidenceLower: r.confidence_lower, confidenceUpper: r.confidence_upper, latestAsOf: r.latest_as_of, conflictCount: r.conflict_count, references };
+}
+
+function parseCoverage(value: unknown): JinyiweiCoverageRead | null {
+  const r = asRecord(value);
+  if (!r || !hasExactKeys(r, ["points", "generated_at", "scanned_investigations", "total_investigations", "truncated"]) || !exactDate(r.generated_at) || !Array.isArray(r.points) || !nonNegativeInteger(r.scanned_investigations) || !nonNegativeInteger(r.total_investigations) || r.scanned_investigations > r.total_investigations || typeof r.truncated !== "boolean" || (r.truncated !== (r.scanned_investigations < r.total_investigations))) return null;
+  const points = r.points.map(parseCoveragePoint);
+  if (points.some((point) => point === null)) return null;
+  return { points: points as JinyiweiCoveragePoint[], generatedAt: r.generated_at, scannedInvestigations: r.scanned_investigations, totalInvestigations: r.total_investigations, truncated: r.truncated };
+}
+
+function parseFeedSource(value: unknown): JinyiweiFeedSource | null {
+  const r = asRecord(value);
+  const keys = ["source_id", "url", "publisher", "format", "license_note", "robots_policy", "rate_limit_per_minute", "allowed_redirect_hosts", "fingerprint"];
+  const hosts = r && uniqueTextArray(r.allowed_redirect_hosts);
+  if (!r || !hasExactKeys(r, keys) || !textValue(r.source_id) || !textValue(r.url) || !textValue(r.publisher) || !JINYIWEI_FEED_FORMATS.has(r.format as JinyiweiFeedFormat) || !textValue(r.license_note) || !textValue(r.robots_policy) || !hosts || !nonNegativeInteger(r.rate_limit_per_minute) || r.rate_limit_per_minute < 1 || typeof r.fingerprint !== "string" || !HASH_RE.test(r.fingerprint)) return null;
+  return { sourceId: r.source_id, url: r.url, publisher: r.publisher, format: r.format as JinyiweiFeedFormat, licenseNote: r.license_note, robotsPolicy: r.robots_policy, rateLimitPerMinute: r.rate_limit_per_minute, allowedRedirectHosts: hosts, fingerprint: r.fingerprint };
+}
+
+function parseFeeds(value: unknown): JinyiweiFeedsRead | null {
+  const r = asRecord(value);
+  if (!r || !hasExactKeys(r, ["sources", "generated_at"]) || !exactDate(r.generated_at) || !Array.isArray(r.sources)) return null;
+  const sources = r.sources.map(parseFeedSource);
+  if (sources.some((source) => source === null)) return null;
+  return { sources: sources as JinyiweiFeedSource[], generatedAt: r.generated_at };
+}
+
 function sameSet<T>(left:readonly T[],right:readonly T[]):boolean{return left.length===right.length&&left.every(item=>right.includes(item));}
 
 function validDetailRelations(detail:JinyiweiDetail):boolean {
@@ -2503,6 +2591,8 @@ export function getJinyiweiSummary(options:JinyiweiReadOptions):Promise<Jinyiwei
 export function listJinyiweiInvestigations(options:ListJinyiweiOptions):Promise<JinyiweiReadResult<JinyiweiPage>>{const q=new URLSearchParams();if(options.status)q.set("status",options.status);q.set("limit",String(options.limit??20));q.set("offset",String(options.offset??0));return fetchJinyiwei(`/api/v1/jinyiwei/investigations?${q}`,parsePage,options);}
 export function getJinyiweiInvestigation(id:string,options:JinyiweiReadOptions):Promise<JinyiweiReadResult<JinyiweiDetail>>{return fetchJinyiwei(`/api/v1/jinyiwei/investigations/${encodeURIComponent(id)}`,parseDetail,options);}
 export function getJinyiweiTrust(id:string,options:JinyiweiReadOptions):Promise<JinyiweiReadResult<JinyiweiTrustRead>>{return fetchJinyiwei(`/api/v1/jinyiwei/investigations/${encodeURIComponent(id)}/trust`,parseTrust,options);}
+export function getJinyiweiCoverage(options:JinyiweiReadOptions):Promise<JinyiweiReadResult<JinyiweiCoverageRead>>{return fetchJinyiwei("/api/v1/jinyiwei/coverage",parseCoverage,options);}
+export function listJinyiweiFeeds(options:JinyiweiReadOptions):Promise<JinyiweiReadResult<JinyiweiFeedsRead>>{return fetchJinyiwei("/api/v1/jinyiwei/feeds",parseFeeds,options);}
 
 
 // ---- CapabilityRegistry readonly projection -----------------------------

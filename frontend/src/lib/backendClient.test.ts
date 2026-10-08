@@ -1239,11 +1239,13 @@ test("锦衣卫客户端严格映射 summary/list/detail，并编码详情 ID", 
   );
 });
 
-test("Jinyiwei read clients send the exact Bearer session on all three GETs", async () => {
+test("Jinyiwei read clients send the exact Bearer session on all five GETs", async () => {
   const {
     getJinyiweiSummary,
     listJinyiweiInvestigations,
     getJinyiweiInvestigation,
+    getJinyiweiCoverage,
+    listJinyiweiFeeds,
   } = await import("./backendClient.ts");
   const authorizations: string[] = [];
   const options: JinyiweiReadOptions = {
@@ -1260,6 +1262,15 @@ test("Jinyiwei read clients send the exact Bearer session on all three GETs", as
           }
         : url.pathname.endsWith("/investigations")
           ? { items: [], total: 0, limit: 20, offset: 0 }
+          : url.pathname.endsWith("/coverage")
+            ? {
+                points: [{
+                  region: "CN", evidence_count: 1, investigation_ids: ["inv-1"], evidence_ids: ["ev-1"], event_types: ["PUBLIC_STATISTIC"], trust_state: "PROBABLE", confidence_lower: 0.5, confidence_upper: 0.8, latest_as_of: JINYIWEI_EVIDENCE.as_of, conflict_count: 0,
+                  references: [{ investigation_id: "inv-1", fact_key: "amount", event_type: "PUBLIC_STATISTIC", evidence: [JINYIWEI_EVIDENCE], assessment: { source_level: "AUTHORITATIVE", evidence_state: "PROBABLE", confidence_lower: 0.5, confidence_upper: 0.8, dimension_scores: {}, conclusion: "可支持判断", assessment_basis: "固定规则", supporting_evidence_ids: ["ev-1"], counter_evidence_ids: [], unresolved_questions: [], decision_allowed: true, archive_allowed: false, do_not_infer: false, assessment_hash: "a".repeat(64) } }],
+                }], generated_at: "2026-10-08T00:00:00Z", scanned_investigations: 1, total_investigations: 1, truncated: false,
+              }
+            : url.pathname.endsWith("/feeds")
+              ? { sources: [], generated_at: "2026-10-08T00:00:00Z" }
           : JINYIWEI_DETAIL;
       return new Response(JSON.stringify(body), { status: 200 });
     },
@@ -1270,7 +1281,13 @@ test("Jinyiwei read clients send the exact Bearer session on all three GETs", as
   assert.equal((await getJinyiweiSummary(options)).ok, true);
   assert.equal((await listJinyiweiInvestigations(options)).ok, true);
   assert.equal((await getJinyiweiInvestigation("inv-1", options)).ok, true);
+  const coverage = await getJinyiweiCoverage(options);
+  assert.equal(coverage.ok && coverage.data.points[0].references[0].factKey, "amount");
+  const feeds = await listJinyiweiFeeds(options);
+  assert.equal(feeds.ok && feeds.data.sources.length, 0);
   assert.deepEqual(authorizations, [
+    "Bearer opaque-jinyiwei-session",
+    "Bearer opaque-jinyiwei-session",
     "Bearer opaque-jinyiwei-session",
     "Bearer opaque-jinyiwei-session",
     "Bearer opaque-jinyiwei-session",
@@ -1282,6 +1299,8 @@ test("Jinyiwei read clients reject blank sessions before fetch", async () => {
     getJinyiweiSummary,
     listJinyiweiInvestigations,
     getJinyiweiInvestigation,
+    getJinyiweiCoverage,
+    listJinyiweiFeeds,
   } = await import("./backendClient.ts");
   let fetchCalls = 0;
   const results = [];
@@ -1301,6 +1320,8 @@ test("Jinyiwei read clients reject blank sessions before fetch", async () => {
       await getJinyiweiSummary(options),
       await listJinyiweiInvestigations(options),
       await getJinyiweiInvestigation("inv-1", options),
+      await getJinyiweiCoverage(options),
+      await listJinyiweiFeeds(options),
     );
   }
 

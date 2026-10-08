@@ -299,3 +299,64 @@ def test_all_jinyiwei_reads_reject_anonymous_requests_before_storage(
         assert response.status_code == 401
         assert response.json() == {"message": "invalid credentials"}
     assert called == []
+
+
+def test_coverage_is_owner_scoped_and_area_only(monkeypatch, _authenticate_client) -> None:
+    from types import SimpleNamespace
+
+    seen = {}
+    monkeypatch.setattr(
+        api_module.storage,
+        "list_investigations",
+        lambda **kwargs: (
+            seen.update(list_kwargs=kwargs)
+            or SimpleNamespace(items=(SimpleNamespace(investigation_id="inv-1"),), total=1)
+        ),
+    )
+    monkeypatch.setattr(
+        api_module.storage,
+        "get_investigation_detail",
+        lambda investigation_id, **kwargs: (
+            seen.update(detail_id=investigation_id, detail_kwargs=kwargs)
+            or _detail_with_public_source_metadata()
+        ),
+    )
+
+    response = client.get("/api/v1/jinyiwei/coverage")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["points"][0]["region"] == "CN"
+    assert body["points"][0]["evidence_ids"] == ["evidence-1"]
+    assert body["points"][0]["investigation_ids"] == ["inv-1"]
+    assert body["points"][0]["references"][0]["fact_key"] == "quote"
+    assert body["scanned_investigations"] == 1
+    assert body["total_investigations"] == 1
+    assert body["truncated"] is False
+    assert "latitude" not in body["points"][0]
+    assert seen == {
+        "list_kwargs": {"owner_user_id": _authenticate_client.id, "limit": 100, "offset": 0},
+        "detail_id": "inv-1",
+        "detail_kwargs": {"owner_user_id": _authenticate_client.id},
+    }
+
+
+def test_approved_feeds_expose_registry_metadata_without_fetching(monkeypatch) -> None:
+    from app.jinyiwei.feed_registry import FeedRegistry, FeedSource, FeedFormat
+
+    source = FeedSource(
+        source_id="example-news",
+        url="https://news.example.test/feed.xml",
+        publisher="Example News",
+        format=FeedFormat.RSS,
+        license_note="Public feed license",
+        robots_policy="respect",
+        rate_limit_per_minute=6,
+    )
+    monkeypatch.setattr(api_module, "build_default_feed_registry", lambda: FeedRegistry((source,)))
+
+    response = client.get("/api/v1/jinyiwei/feeds")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["sources"][0]["source_id"] == "example-news"
+    assert body["sources"][0]["fingerprint"] == source.fingerprint
+    assert body["sources"][0]["allowed_redirect_hosts"] == ["news.example.test"]

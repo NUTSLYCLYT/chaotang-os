@@ -8,6 +8,7 @@ from fastapi import APIRouter, FastAPI, Path, Query
 from fastapi.responses import JSONResponse
 
 from app.api.auth import CurrentUser
+from app.jinyiwei.feed_registry import build_default_feed_registry
 from app.jinyiwei import storage
 from app.jinyiwei.models import (
     EvidencePackStatus,
@@ -22,6 +23,11 @@ from app.jinyiwei.read_models import (
     InvestigationSummary,
     ReplayTimelineRead,
     InvestigationTrustRead,
+    ApprovedFeedRegistryRead,
+    ApprovedFeedSourceRead,
+    EvidenceCoveragePoint,
+    EvidenceCoverageReference,
+    EvidenceCoverageRead,
 )
 from app.jinyiwei.trust import assess_evidence
 
@@ -113,6 +119,131 @@ def investigation_trust(
     }
     return InvestigationTrustRead(
         assessments=assessments,
+        generated_at=now.isoformat().replace("+00:00", "Z"),
+    )
+
+
+@router.get("/coverage", response_model=EvidenceCoverageRead)
+def evidence_coverage(current_user: CurrentUser) -> EvidenceCoverageRead:
+    """Return an owner-scoped, area-only projection of existing evidence."""
+    now = datetime.now(timezone.utc)
+    page = storage.list_investigations(owner_user_id=current_user.id, limit=100, offset=0)
+    # Keep each investigation/fact as a separate reference. A region may aggregate
+    # several references, but it must never manufacture one trust score by mixing
+    # unrelated facts together.
+    buckets: dict[str, dict[tuple[str, str], dict[str, object]]] = {}
+    for item in page.items:
+        detail = storage.get_investigation_detail(
+            item.investigation_id,
+            owner_user_id=current_user.id,
+        )
+        categories = {fact.key: fact.category.value for fact in detail.request.required_facts}
+        conflicts_by_fact: dict[str, list[tuple[str, ...]]] = {}
+        for conflict in detail.conflicts:
+            conflicts_by_fact.setdefault(conflict.fact_key, []).append(
+                tuple(conflict.evidence_ids)
+            )
+        for fact_key, evidence_items in detail.evidence_by_fact.items():
+            for evidence in evidence_items:
+                for region in evidence.coverage or ():
+                    region_bucket = buckets.setdefault(region, {})
+                    reference = region_bucket.setdefault(
+                        (item.investigation_id, fact_key),
+                        {
+                            "items": {},
+                            "event_type": categories[fact_key],
+                            "conflicts": tuple(conflicts_by_fact.get(fact_key, ())),
+                        },
+                    )
+                    items = reference["items"]
+                    assert isinstance(items, dict)
+                    items[evidence.evidence_id] = evidence
+
+    points = []
+    severity = {
+        "VERIFIED": 0,
+        "PROBABLE": 1,
+        "MIXED": 2,
+        "STALE": 3,
+        "CONFLICTED": 4,
+        "UNAVAILABLE": 5,
+    }
+    for region, references_by_key in buckets.items():
+        references = []
+        all_items = {}
+        conflict_count = 0
+        for (investigation_id, fact_key), reference in sorted(references_by_key.items()):
+            raw_items = reference["items"]
+            assert isinstance(raw_items, dict)
+            items = tuple(raw_items.values())
+            assessment = assess_evidence(
+                items,
+                now=now,
+            )
+            references.append(
+                EvidenceCoverageReference(
+                    investigation_id=investigation_id,
+                    fact_key=fact_key,
+                    event_type=reference["event_type"],
+                    evidence=tuple(sorted(items, key=lambda evidence: evidence.evidence_id)),
+                    assessment=assessment,
+                )
+            )
+            all_items.update(raw_items)
+            conflicts = reference["conflicts"]
+            assert isinstance(conflicts, tuple)
+            conflict_count += sum(
+                1 for conflict_ids in conflicts if set(conflict_ids).intersection(raw_items)
+            )
+
+        assessments = [reference.assessment for reference in references]
+        worst = max(assessments, key=lambda value: severity[value.evidence_state.value])
+        points.append(
+            EvidenceCoveragePoint(
+                region=region,
+                evidence_count=len(all_items),
+                investigation_ids=tuple(sorted({key[0] for key in references_by_key})),
+                evidence_ids=tuple(sorted(all_items)),
+                event_types=tuple(sorted({reference.event_type for reference in references})),
+                trust_state=worst.evidence_state,
+                confidence_lower=min(reference.assessment.confidence_lower for reference in references),
+                confidence_upper=max(reference.assessment.confidence_upper for reference in references),
+                latest_as_of=max(item.as_of for item in all_items.values()),
+                conflict_count=conflict_count,
+                references=tuple(references),
+            )
+        )
+    return EvidenceCoverageRead(
+        points=tuple(sorted(points, key=lambda point: point.region)),
+        generated_at=now.isoformat().replace("+00:00", "Z"),
+        scanned_investigations=len(page.items),
+        total_investigations=page.total,
+        truncated=page.total > len(page.items),
+    )
+
+
+@router.get("/feeds", response_model=ApprovedFeedRegistryRead)
+def approved_feeds(current_user: CurrentUser) -> ApprovedFeedRegistryRead:
+    """Expose the approved feed registry without enabling feed retrieval."""
+    del current_user
+    now = datetime.now(timezone.utc)
+    registry = build_default_feed_registry()
+    sources = tuple(
+        ApprovedFeedSourceRead(
+            source_id=source.source_id,
+            url=source.url,
+            publisher=source.publisher,
+            format=source.format,
+            license_note=source.license_note,
+            robots_policy=source.robots_policy,
+            rate_limit_per_minute=source.rate_limit_per_minute,
+            allowed_redirect_hosts=source.allowed_redirect_hosts,
+            fingerprint=source.fingerprint,
+        )
+        for source in sorted(registry.sources.values(), key=lambda value: value.source_id)
+    )
+    return ApprovedFeedRegistryRead(
+        sources=sources,
         generated_at=now.isoformat().replace("+00:00", "Z"),
     )
 
