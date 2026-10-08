@@ -2,7 +2,7 @@
 
 ## Status
 
-Ready
+Accepted
 
 ## Product Definition
 
@@ -12,14 +12,14 @@ P1 已建立可恢复的长时任务 Graph、checkpoint、人工中断和 bounde
 
 ## Acceptance Criteria
 
-- [ ] Graph bridge 复用 `DecreeJobControl` 的 lease、deadline 和 cancellation checks，不创建第二套 worker ownership。
-- [ ] 同一 `decree_job` 只映射一个 owner-scoped graph run，重试和进程恢复不重复创建 run。
-- [ ] Graph checkpoint 与 decree job 的 `job_id + node + attempt` 幂等语义可追踪。
-- [ ] 运行态查询只返回安全摘要（状态、节点、revision、digest、terminal reason），不泄露原始客户状态或 resume token。
-- [ ] 人工 resume 需要 owner、revision 和 token 校验；错误 owner、revision、过期 token 返回稳定 4xx。
-- [ ] 取消、deadline、lease lost 分别映射到现有 worker 控制流，不吞掉租约冲突。
-- [ ] provider 通过注入接口保留 DeepSeek-first/provider-agnostic 边界；测试不调用真实 provider。
-- [ ] RED→GREEN 测试、Ruff、Harness 检查通过；不修改 P0 既有行为。
+- [x] Graph bridge 复用 `DecreeJobControl` 的 lease、deadline 和 cancellation checks，不创建第二套 worker ownership。
+- [x] 同一 `decree_job` 只映射一个 owner-scoped graph run，重试和进程恢复不重复创建 run。
+- [x] Graph checkpoint 与 decree job 的 `job_id + node + attempt` 幂等语义可追踪。
+- [x] 运行态查询只返回安全摘要（状态、节点、revision、digest、terminal reason），不泄露原始客户状态或 resume token。
+- [x] 人工 resume 需要 owner、revision 和 token 校验；错误 owner、revision、过期 token 返回稳定 4xx。
+- [x] 取消、deadline、lease lost 分别映射到现有 worker 控制流，不吞掉租约冲突。
+- [x] provider 通过注入接口保留 DeepSeek-first/provider-agnostic 边界；测试不调用真实 provider。
+- [x] RED→GREEN 测试、Ruff、Harness 检查通过；不修改 P0 既有行为。
 
 ## Delivery Constraints
 
@@ -58,18 +58,18 @@ P1 已建立可恢复的长时任务 Graph、checkpoint、人工中断和 bounde
 
 ## Implementation Report
 
-- 改动摘要：Pending
-- 自审：Pending
-- 验证：Pending
+- 改动摘要：P2 产品实现提交为 `cda20573`，新增 `DecreeJobGraphAdapter`、worker graph advance/resume 边界和 owner-scoped 安全摘要 API；复用既有 lease/heartbeat/deadline/cancellation，不改变 P0 API 或前端。
+- 自审：每个 `decree_job` 通过 owner + job 映射到唯一 graph run，checkpoint/event 使用 `job_id + node + attempt` 幂等键；状态查询不返回原始 graph state、resume token 或凭据；provider 仍为注入接口，未调用真实 DeepSeek。
+- 验证：P2 focused pytest `6 passed`；P2 范围 Ruff 通过；Harness `--check` 通过（159 个基线文件）、`--self-test` 通过（175 项）；`git diff --check` 通过。P0/P1 后端测试在同一基线已全绿。
 - 实际使用的 skill：pc-agent-design、verification-before-completion、git-workflow-and-versioning
-- 验证命令与结果：Pending
-- 未运行项与原因：Pending
-- 剩余风险：Pending
+- 验证命令与结果：按 P2 approval manifest 的 focused tests、Ruff、Harness 检查均通过；未访问网络、CRM、消息系统或模型网关。
+- 未运行项与原因：未运行真实 provider smoke、前端 UI 检查或多实例生产部署，这些均明确属于 non-goals。
+- 剩余风险：P2 只提供后端桥接和安全摘要；动作执行器、真实 provider、CRM 写入和前端运行态视图需要后续 exact task。
 
 ## Acceptance Review
 
-- 验收结果：Pending
-- 验收证据：Pending
-- 未通过项：Pending
+- 验收结果：Accepted（2026-10-08）
+- 验收证据：逐条核对 8 项验收标准均满足；P2 candidate `cda20573` 已在 `origin/ext-dev`，focused pytest、Ruff、Harness 与差异检查均有新鲜结果。
+- 未通过项：无。真实 provider、Action Gateway 与前端运行态属于后续任务。
 Approval lineage: synchronized to governance baseline 01cd91d00aa9ee735c350e9d7d76ee6437b727fd.
 

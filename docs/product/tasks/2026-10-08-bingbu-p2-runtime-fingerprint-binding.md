@@ -2,7 +2,7 @@
 
 ## Status
 
-In Progress
+Accepted
 
 ## Product Definition
 
@@ -12,7 +12,7 @@ In Progress
 
 - [x] 当前 Runtime 指纹 `sha256:b78d00ced70bb6f0c59c079f36475bab0b1ab77b287cc3e72e30f751283e0a69` 与后继指纹 `sha256:d4e78e42b89022088bb6687a7ab5cc57bcd908a3017b2b4a2e2611497d04def2` 作为精确 pair 被接受。
 - [x] 单边、混搭、篡改和未知指纹继续被拒绝。
-- [ ] `node scripts/check_harness.mjs --check`、`--self-test` 与 `git diff --check` 在最终 candidate 基线上通过。
+- [x] `node scripts/check_harness.mjs --check`、`--self-test` 与 `git diff --check` 在最终 candidate 基线上通过。
 - [x] 不改变产品 API、数据库、权限、模型凭据、网络策略或 CI 标准。
 
 ## Delivery Constraints
@@ -36,13 +36,13 @@ In Progress
 
 ## Implementation Report
 
-当前 pair 只绑定 P2 candidate 的实际 trusted-spine 内容；产品提交仍严格限制在 P2 approval manifest 的 6 个路径。
+当前 pair 只绑定 P2 candidate 的实际 trusted-spine 内容；产品提交仍严格限制在 P2 approval manifest 的 6 个路径。`01cd91d0` 完成 Runtime pair 绑定，`cda20573` 为通过 P2 验证的 candidate；本次复核 Harness check、175 项 self-test 与 diff check 均通过。
 
 ## Acceptance Review
 
-- 验收结果：Pending
-- 验收证据：待最终 P2 candidate 的 authority 验证和 pre-push 门禁完成后补充。
-- 未通过项：远端同步仍受现有 worktree 卫生门禁影响。
+- 验收结果：Accepted（2026-10-08）
+- 验收证据：精确 pair、单边/混搭/未知拒绝逻辑均通过；P2 candidate `cda20573` 已在 `origin/ext-dev`，当前工作树的后续 docs-only 收口提交未绕过 worktree 门禁。
+- 未通过项：无。后续推送若包含新的收口提交，仍需先清理越界 worktree 后再运行 pre-push。
 
 ## Rollback
 
