@@ -11,4 +11,7 @@ test("news desk preserves offline and do-not-infer boundaries", () => {
   assert.match(source, /当前不联网、不抓取/);
   assert.match(source, /不得推断/);
   assert.match(source, /CONFLICTED/);
+  assert.match(source, /type="file"/);
+  assert.match(source, /\/api\/jinyiwei\/news/);
+  assert.match(source, /不联网抓取/);
 });

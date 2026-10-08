@@ -54,6 +54,7 @@ export function JinyiweiScrollDesk() {
   const [detail, setDetail] = useState<DetailState>({ phase: "idle" });
   const [trust, setTrust] = useState<TrustState>({ phase: "idle" });
   const [global, setGlobal] = useState<GlobalState>({ phase: "loading" });
+  const [globalReloadKey, setGlobalReloadKey] = useState(0);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -134,7 +135,7 @@ export function JinyiweiScrollDesk() {
       }
     })();
     return () => controller.abort();
-  }, []);
+  }, [globalReloadKey]);
 
   useEffect(() => {
     if (!expanded || selectedId === null) return;
@@ -181,6 +182,9 @@ export function JinyiweiScrollDesk() {
         <JinyiweiGlobalEvidenceMap
           coverage={global.phase === "ready" ? global.coverage : null}
           feeds={global.phase === "ready" ? global.feeds : null}
+          error={global.phase === "error"}
+          onRetry={() => setGlobalReloadKey((value) => value + 1)}
+          onInvestigationSelect={select}
         />
         <JinyiweiNewsDesk preview={null} />
 

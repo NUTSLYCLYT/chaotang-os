@@ -12,4 +12,7 @@ test("global evidence map stays area-only and exposes controlled feed state", ()
   assert.match(source, /不推断经纬度/);
   assert.match(source, /未启用外部 Feed/);
   assert.match(source, /默认拒绝未知来源与外网抓取/);
+  assert.match(source, /role="region"/);
+  assert.match(source, /onInvestigationSelect/);
+  assert.match(source, /重新读取全球覆盖/);
 });
