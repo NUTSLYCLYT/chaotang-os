@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "product-authority.m0.approval.v1",
+  "authorityId": "product-authority.m0.v1",
+  "taskId": "CT-G3-JINYIWEI-TRUST-FEED-CONTRACT-SUCCESSOR21-20261008",
+  "repository": {"identity": "gitee.com/msxn/chaotang-os", "targetBranch": "ext-dev"},
+  "request": {
+    "baseCommit": "4476ab372347cb29d1e7cb7c04c23968a39e6a8d",
+    "baseTree": "8344ee82135e047c87d6d90f52f4f294664b2c5c",
+    "approvalPath": ".harness/approvals/CT-G3-JINYIWEI-TRUST-FEED-CONTRACT-SUCCESSOR21-20261008.json",
+    "approvalCommitPaths": [".harness/approvals/CT-G3-JINYIWEI-TRUST-FEED-CONTRACT-SUCCESSOR21-20261008.json", "docs/product/tasks/2026-10-08-ct-g3-jinyiwei-trust-feed-contract-successor21.md"],
+    "productPaths": ["backend/app/api/jinyiwei.py", "backend/app/jinyiwei/feed_registry.py", "backend/app/jinyiwei/models.py", "backend/app/jinyiwei/read_models.py", "backend/app/jinyiwei/trust.py", "backend/tests/test_jinyiwei_feed_registry.py", "backend/tests/test_jinyiwei_trust.py"]
+  },
+  "nonGoals": ["NO_EXTERNAL_NETWORK_ENABLEMENT", "NO_UNAPPROVED_CRAWLING", "NO_FRONTEND_ROUTE_CHANGE", "NO_MAP_UI", "NO_OPENFGA", "NO_PUBLIC_DEPLOYMENT", "NO_TEMPORAL"],
+  "verification": [
+    {"id": "backend-jinyiwei-trust-ruff", "tool": "node", "cwd": ".", "timeoutMs": 300000, "args": ["-e", "const {spawnSync}=require(\"child_process\"); const r=spawnSync(\"uv\",[\"run\",\"--project\",\"backend\",\"ruff\",\"check\",\"backend/app/jinyiwei\",\"backend/tests/test_jinyiwei_trust.py\",\"backend/tests/test_jinyiwei_feed_registry.py\"],{stdio:\"inherit\"}); process.exit(r.status ?? 1);"]},
+    {"id": "backend-jinyiwei-trust-tests", "tool": "node", "cwd": ".", "timeoutMs": 300000, "args": ["-e", "const {spawnSync}=require(\"child_process\"); const r=spawnSync(\"uv\",[\"run\",\"--project\",\"backend\",\"pytest\",\"-q\",\"backend/tests/test_jinyiwei_trust.py\",\"backend/tests/test_jinyiwei_feed_registry.py\"],{stdio:\"inherit\"}); process.exit(r.status ?? 1);"]}
+  ],
+  "state": "APPROVED_FOR_ONE_CHILD"
+}
