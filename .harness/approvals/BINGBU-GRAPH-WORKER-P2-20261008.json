@@ -1,0 +1,69 @@
+{
+  "schemaVersion": "product-authority.m0.approval.v1",
+  "authorityId": "product-authority.m0.v1",
+  "taskId": "BINGBU-GRAPH-WORKER-P2-20261008",
+  "repository": {
+    "identity": "gitee.com/msxn/chaotang-os",
+    "targetBranch": "ext-dev"
+  },
+  "request": {
+    "baseCommit": "01cd91d00aa9ee735c350e9d7d76ee6437b727fd",
+    "baseTree": "99f2b4bb5ca5a4014b7971defd797d527645e8eb",
+    "approvalPath": ".harness/approvals/BINGBU-GRAPH-WORKER-P2-20261008.json",
+    "approvalCommitPaths": [
+      ".harness/approvals/BINGBU-GRAPH-WORKER-P2-20261008.json",
+      "docs/product/tasks/2026-10-08-bingbu-graph-worker-p2.md"
+    ],
+    "productPaths": [
+      "backend/app/api/decree_jobs.py",
+      "backend/app/decree_jobs/worker.py",
+      "backend/app/long_task_graph/__init__.py",
+      "backend/app/long_task_graph/decree_jobs.py",
+      "backend/tests/test_decree_jobs_graph_api.py",
+      "backend/tests/test_long_task_graph_decree_jobs.py"
+    ]
+  },
+  "nonGoals": [
+    "NO_ACTION_DRAFT",
+    "NO_CRM_SIDE_EFFECTS",
+    "NO_EXTERNAL_NETWORK",
+    "NO_FRONTEND_CHANGE",
+    "NO_LITELLM_CALL",
+    "NO_NEW_QUEUE",
+    "NO_REAL_DEEPSEEK",
+    "NO_TEMPORAL"
+  ],
+  "verification": [
+    {
+      "id": "backend-p2-ruff",
+      "tool": "node",
+      "cwd": ".",
+      "timeoutMs": 300000,
+      "args": [
+        "-e",
+        "const {spawnSync}=require(\"child_process\"); const r=spawnSync(\"uv\",[\"run\",\"--project\",\"backend\",\"ruff\",\"check\",\"backend/app/long_task_graph\",\"backend/app/decree_jobs/worker.py\",\"backend/app/api/decree_jobs.py\",\"backend/tests/test_long_task_graph_decree_jobs.py\",\"backend/tests/test_decree_jobs_graph_api.py\"],{stdio:\"inherit\"}); process.exit(r.status ?? 1);"
+      ]
+    },
+    {
+      "id": "backend-p2-tests",
+      "tool": "node",
+      "cwd": ".",
+      "timeoutMs": 300000,
+      "args": [
+        "-e",
+        "const {spawnSync}=require(\"child_process\"); const r=spawnSync(\"uv\",[\"run\",\"--project\",\"backend\",\"pytest\",\"-q\",\"backend/tests/test_long_task_graph_decree_jobs.py\",\"backend/tests/test_decree_jobs_graph_api.py\"],{stdio:\"inherit\"}); process.exit(r.status ?? 1);"
+      ]
+    },
+    {
+      "id": "harness-check",
+      "tool": "node",
+      "cwd": ".",
+      "timeoutMs": 300000,
+      "args": [
+        "scripts/check_harness.mjs",
+        "--check"
+      ]
+    }
+  ],
+  "state": "APPROVED_FOR_ONE_CHILD"
+}
