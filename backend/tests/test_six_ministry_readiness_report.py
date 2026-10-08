@@ -138,6 +138,10 @@ _CONTENT_FINGERPRINT_PAIRS = (
         "sha256:fb3b121689b37a792ae626dea61deb8f7c2760e22c66e524bb7996e96ac31a69",
         "sha256:d4e78e42b89022088bb6687a7ab5cc57bcd908a3017b2b4a2e2611497d04def2",
     ),
+    (
+        "sha256:2e967c9a416f42652f270b95e7b18559f1da547a8bd1bf191da19c35171ef644",
+        "sha256:d4e78e42b89022088bb6687a7ab5cc57bcd908a3017b2b4a2e2611497d04def2",
+    ),
 )
 _HISTORICAL_REVIEW_STATUS = "approved-with-notes"
 _HISTORICAL_FILE_COUNT = 69
@@ -308,7 +312,7 @@ def test_content_pair_rejects_mixed_or_third_state() -> None:
     runtime_fingerprints = {*(pair[0] for pair in valid_pairs), unknown}
     successor_fingerprints = {*(pair[1] for pair in valid_pairs), unknown}
 
-    assert len(valid_pairs) == len(_CONTENT_FINGERPRINT_PAIRS) == 27
+    assert len(valid_pairs) == len(_CONTENT_FINGERPRINT_PAIRS) == 28
     for runtime_fingerprint in runtime_fingerprints:
         for successor_fingerprint in successor_fingerprints:
             candidate = (runtime_fingerprint, successor_fingerprint)
@@ -705,8 +709,12 @@ def test_integration_pair_preserves_all_predecessors_and_rejects_cross_pairs() -
             "sha256:fb3b121689b37a792ae626dea61deb8f7c2760e22c66e524bb7996e96ac31a69",
             "sha256:d4e78e42b89022088bb6687a7ab5cc57bcd908a3017b2b4a2e2611497d04def2",
         ),
+        (
+            "sha256:2e967c9a416f42652f270b95e7b18559f1da547a8bd1bf191da19c35171ef644",
+            "sha256:d4e78e42b89022088bb6687a7ab5cc57bcd908a3017b2b4a2e2611497d04def2",
+        ),
     )
-    assert len(set(_CONTENT_FINGERPRINT_PAIRS)) == 27
+    assert len(set(_CONTENT_FINGERPRINT_PAIRS)) == 28
     unknown = "sha256:" + "0" * 64
     rejected = [(expected_pair[0], unknown), (unknown, expected_pair[1])]
     rejected += [(runtime, expected_pair[1]) for runtime, _ in predecessors]
