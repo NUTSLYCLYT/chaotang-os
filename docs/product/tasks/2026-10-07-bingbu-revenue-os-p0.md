@@ -4,7 +4,7 @@
 
 ## Status
 
-Ready
+Accepted
 
 ## Product Definition
 
@@ -16,22 +16,22 @@ Ready
 
 ## Acceptance Criteria
 
-- [ ] CSV/JSON preview/commit 支持字段校验、行级错误、幂等去重和 owner 隔离。
-- [ ] `/bingbu` 总览能够展示漏斗、重点商机、阶段停滞、证据缺口、待会审和待审批动作。
-- [ ] 商机详情能够展示客户活动时间线、唯一下一步、责任人、截止时间和证据抽屉。
-- [ ] 会审包结构化区分事实、假设、建议、红线、证据缺口、跨部影响和未决事项。
-- [ ] 兵部六司通过现有 Runtime Skills/证据协议工作，缺证据时返回 degraded，不编造事实。
-- [ ] ActionDraft 只允许生成、审批、驳回状态；P0 不得进入外部执行状态。
-- [ ] 所有受保护端点从认证上下文取得 owner，不接受客户端 owner ID；401/403/404/422/503 脱敏稳定。
-- [ ] 前端包含 loading、empty、error、no-evidence、unauthorized 和 360px 窄屏状态；状态不只靠颜色表达。
-- [ ] backend ruff/pytest、frontend lint/typecheck/test/build、Harness 检查和 `git diff --check` 不回归。
-- [ ] 测试完全离线，使用 fake model、临时存储和 fixture；不读取私有 dotenv、不访问公网、不产生真实模型费用。
+- [x] CSV/JSON preview/commit 支持字段校验、行级错误、幂等去重和 owner 隔离。
+- [x] `/bingbu` 总览能够展示漏斗、重点商机、阶段停滞、证据缺口、待会审和待审批动作。
+- [x] 商机详情能够展示客户活动时间线、唯一下一步、责任人、截止时间和证据抽屉。
+- [x] 会审包结构化区分事实、假设、建议、红线、证据缺口、跨部影响和未决事项。
+- [x] 兵部六司通过现有 Runtime Skills/证据协议工作，缺证据时返回 degraded，不编造事实。
+- [x] ActionDraft 只允许生成、审批、驳回状态；P0 不得进入外部执行状态。
+- [x] 所有受保护端点从认证上下文取得 owner，不接受客户端 owner ID；401/403/404/422/503 脱敏稳定。
+- [x] 前端包含 loading、empty、error、no-evidence、unauthorized 和 360px 窄屏状态；状态不只靠颜色表达。
+- [x] backend ruff/pytest、frontend lint/typecheck/test/build、Harness 检查和 `git diff --check` 不回归。
+- [x] 测试完全离线，使用 fake model、临时存储和 fixture；不读取私有 dotenv、不访问公网、不产生真实模型费用。
 
 ## Delivery Constraints
 
 - 范围：产品设计和 P0 实现候选仅限 `backend/app/bingbu/**`、`backend/app/api/bingbu.py`、`backend/tests/test_bingbu_*.py`、`frontend/src/app/bingbu/**`、`frontend/src/app/api/bingbu/**`、`frontend/src/features/bingbu/**`、对应测试、必要的任务/决策/审查文档；最终 exact paths 必须由架构审查确认。
 - 兼容性：保持 ADR 0028、现有 LangGraph/Runtime Skills、认证、`/study`、`/jinyiwei`、`/shiguan` 和史馆 REPLY 契约不变；浏览器只访问同源 BFF。
-- 风险与限制：当前产品 authority 为 `STOP / canExecuteProductWork=false`；在 Owner/M0 选择本 exact task、独立 approval manifest 落地并取得 GO 前，不得修改产品代码、提交、推送、合并或部署。
+- 风险与限制：本任务已取得 Owner/M0 的 exact task 批准并完成单候选交付；P0 仍不接入真实 CRM、真实模型、公网或外部执行器。
 - 技能计划：`pc-agent-design`、`spreadsheets:Spreadsheets`、`frontend-design`、`ui-ux-design-system`、`verification-before-completion`、`requesting-code-review`；外部竞情研究按需使用 `agent-reach`，默认不开公网。实施与复审优先走仓库现有 DeepSeek harness/LiteLLM：`litellm/deepseek-chat` 主实现，`litellm/deepseek-reasoner` 独立复审。
 - 执行位：Codex 负责产品定义、设计审查、authority 门禁和验收；DeepSeek harness 负责主力编码、测试修复和异构红蓝复审。本任务禁止 Claude CLI、Claude runner、gstack-claude 和其他模型作为默认依赖；DeepSeek harness 不可用时，替代模型必须先取得用户显式授权并记录例外。
 
@@ -78,16 +78,14 @@ frontend/src/features/bingbu/bingbu.module.css
 
 ## Implementation Report
 
-- 改动摘要：Pending — 本回合只完成产品任务登记和设计合同，未修改产品代码。
-- 自审：已核对现有项目 authority、ADR 0028、前后端边界、Runtime Skills 和工部标准开发模式；主工作区未被修改。
-- 验证：Ready 状态、任务 ID 格式、设计合同、Codex 提示词和 worktree 隔离已核对。
-- 实际使用的 skill：`pc-agent-design`；设计阶段参考 `hanlin-skill-advisor`；实现阶段待按本任务技能计划调用。模型执行策略已固定为现有 DeepSeek harness 优先，未在本设计登记回合发起真实模型调用。
-- 验证命令与结果：`node scripts/check_harness.mjs` 为结构 PASS/BOOTSTRAP_OBSERVE；`node scripts/harness-doctor.mjs --check` 为 PASS；`node scripts/product-authority.mjs --status` 为 STOP/APPROVAL_NOT_SELECTED；文档围栏与空白检查通过。
-- 未运行项与原因：产品 ruff/pytest/lint/typecheck/build 未运行，因为本回合没有产品代码改动且 authority 为 STOP。
-- 剩余风险：尚未取得 M0 GO；exact allowed paths 尚未由架构角色冻结；外部 CRM 和真实模型均未接入。
+- 改动摘要：完成 P0 垂直切片，产品实现提交为 `e149a80d`，严格位于 P0 approval manifest 的 exact product paths；包含销售事实模型、CSV/JSON preview/commit、owner 隔离 storage、overview/opportunity/timeline、DecisionPacket、ActionDraft 状态门禁、同源 BFF 与四个兵部页面。同步纳入六部 Runtime 指纹反向校验修复 `4e58086a`，不放宽 Harness 规则。
+- 自审：P0 只生成分析和动作草稿；审批只推进到 `APPROVED_PENDING_EXECUTION`，不执行外部 CRM、邮件、报价、签约或交付动作。所有 owner 从认证上下文注入，模型使用离线确定性 provider（`deepseek-harness` 标识 + fake alias），未读取私有 dotenv 或调用公网。
+- 验证：兵部后端 focused pytest `10 passed`；后端全测试 `5338 passed, 32 skipped`；backend Ruff（兵部范围）通过；frontend `909 passed`、typecheck、lint、Next production build 全部通过；Harness `--check` 通过（159 个基线文件）、`--self-test` 通过（175 项）；六部 readiness 指纹测试 `22 passed`；`git diff --check` 通过。
+- 已知环境说明：直接运行仓库根级 `uv run --project backend pytest -q` 会额外收集 `scripts/reference/test_chaotang_product_verifier_broker.py`，该 Windows 环境缺少 Unix 专用 `fcntl`；项目后端测试目录本身已全绿。
+- 剩余风险：P0 仍是离线垂直切片，未接 Twenty/CRM 只读适配器、真实 DeepSeek smoke、Langfuse/PostHog 或 Action Gateway；这些属于后续 P1/P2/P3。
 
 ## Acceptance Review
 
-- 验收结果：Pending
-- 验收证据：Ready 仅表示用户已确认产品目标和设计方向，不表示实现完成。
-- 未通过项：产品代码尚未施工，等待 Owner/M0 选择 exact task 并授权。
+- 验收结果：Accepted（2026-10-08）
+- 验收证据：逐条核对 10 项验收标准均满足。P0 candidate 承接批准提交 `cba862cb`，产品实现为 `e149a80d`；后端、前端、Harness、离线副作用边界和差异检查均有新鲜运行结果。前端依赖按锁文件在当前 worktree 安装，仅用于本地验证。
+- 未通过项：无。后续 CRM 适配、真实模型 smoke 和外部动作执行器不属于 P0。

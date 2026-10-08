@@ -2,9 +2,9 @@
 
 ## Status
 
-Ready
+Accepted
 
-用户于 2026-10-07 通过“同意所有的天才设计，并立刻汇总制定整体方案”确认本文方向。本文件仍是产品与工程设计合同，不代表产品 authority 已授权施工。当前仓库 authority 为 `STOP / canExecuteProductWork=false`；只有 Owner 为本任务选择 exact task、落地 approval manifest 并取得 GO 后，才允许按本文修改产品代码。
+用户于 2026-10-07 通过“同意所有的天才设计，并立刻汇总制定整体方案”确认本文方向；随后已完成 Owner/M0 exact task 批准、单候选实现和离线验收。本文件现在同时作为已交付 P0 的设计合同与验收索引；后续 P1/P2/P3 必须另立 exact task，不得从本合同推断扩大施工范围。
 
 ## 一句话目标
 
@@ -329,12 +329,12 @@ CRM 更新草稿、邮件草稿、报价草稿和会议议程；审批后仍由�
 
 ## Acceptance Criteria
 
-- [ ] P0 交付 CSV/JSON 销售事实到作战台、会审包和 ActionDraft 的离线垂直切片。
-- [ ] 所有建议可追溯到证据；未审批外部副作用数量为 0。
+- [x] P0 交付 CSV/JSON 销售事实到作战台、会审包和 ActionDraft 的离线垂直切片。
+- [x] 所有建议可追溯到证据；未审批外部副作用数量为 0。
 
 ## Delivery Constraints
 
-- [ ] 取得 Owner/M0 对 exact task 的 GO 后才可修改产品代码；默认使用现有 DeepSeek harness/LiteLLM，不直连供应商 API。
+- [x] 已取得 Owner/M0 对 exact task 的 GO 并完成单候选交付；默认使用现有 DeepSeek harness/LiteLLM，不直连供应商 API。
 
 ## Affected Modules
 
@@ -347,9 +347,9 @@ CRM 更新草稿、邮件草稿、报价草稿和会议议程；审批后仍由�
 
 ## Implementation Report
 
-- 本文件登记的是设计合同；本回合未修改产品代码、未调用真实模型、未提交或部署。
+- 本合同对应的 P0 垂直切片已交付，产品实现提交为 `e149a80d`；未调用真实模型、未接入公网、未部署。详细验收证据记录在 `docs/product/tasks/2026-10-07-bingbu-revenue-os-p0.md`。
 
 ## Acceptance Review
 
-- 验收结果：Pending。Ready 只表示产品方向已确认，不表示 authority 已授权施工或实现已完成。
+- 验收结果：Accepted（2026-10-08）。P0 exact paths、审批边界、离线验证与副作用禁令均按合同完成；P1/P2/P3 仍需另立 exact task。
 
