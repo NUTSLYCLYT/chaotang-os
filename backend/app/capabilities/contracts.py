@@ -7,6 +7,7 @@ permission.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -177,6 +178,38 @@ class CrmProviderPassport(BaseModel):
         forbidden = {item.lower() for item in self.forbidden_actions}
         if not any("write" in item or "credential" in item for item in forbidden):
             raise ValueError("CRM provider passports must forbid writes and credential access")
+        return self
+
+
+class CrmProviderReview(BaseModel):
+    """鸿胪寺的 provider 审查记录；它本身不保存连接凭据。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    provider: str = Field(min_length=2, max_length=128)
+    capability_id: str = Field(min_length=3, max_length=256)
+    source: Literal["honglusi"] = "honglusi"
+    review_status: Literal["pending", "approved", "revoked", "expired"]
+    allowed_actions: list[Literal["read"]] = Field(min_length=1, max_length=1)
+    forbidden_actions: list[str] = Field(min_length=1)
+    credential_boundary: Literal["injected_transport_only"] = "injected_transport_only"
+    evidence_sources: list[str] = Field(min_length=1)
+    reviewed_by: str | None = Field(default=None, min_length=2, max_length=128)
+    reviewed_at: datetime | None = None
+    expires_at: datetime | None = None
+    audit_required: Literal[True] = True
+
+    @model_validator(mode="after")
+    def validate_review_record(self) -> CrmProviderReview:
+        if self.allowed_actions != ["read"]:
+            raise ValueError("CRM reviews must allow read only")
+        forbidden = {item.lower() for item in self.forbidden_actions}
+        if not any("write" in item or "credential" in item for item in forbidden):
+            raise ValueError("CRM reviews must forbid writes and credential access")
+        if self.review_status == "approved" and (
+            self.reviewed_by is None or self.reviewed_at is None or self.expires_at is None
+        ):
+            raise ValueError("approved CRM reviews require reviewer and expiry")
         return self
 
 

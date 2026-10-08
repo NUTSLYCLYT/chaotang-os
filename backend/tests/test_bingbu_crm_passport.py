@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 import pytest
 
 from app.bingbu.models import CrmSyncRequest
 from app.bingbu.service import BingbuCrmUnavailable, BingbuService
 from app.bingbu.storage import BingbuStore
 from app.capabilities import get_crm_provider_passport
+from app.capabilities.contracts import CrmProviderReview
+from app.capabilities.projection import issue_crm_provider_passport
 
 
 class UnregisteredReadAdapter:
@@ -39,3 +43,31 @@ def test_bingbu_rejects_adapter_without_honglusi_passport():
     )
     with pytest.raises(BingbuCrmUnavailable, match="CRM_PROVIDER_NOT_ADMITTED"):
         service.preview_crm_sync("owner-a", CrmSyncRequest())
+
+
+def _review(**overrides):
+    values = {
+        "provider": "twenty",
+        "capability_id": "provider.twenty.crm.read.test",
+        "review_status": "approved",
+        "allowed_actions": ["read"],
+        "forbidden_actions": ["external write", "credential access"],
+        "evidence_sources": ["official-api-docs", "license-review"],
+        "reviewed_by": "honglusi-review-board",
+        "reviewed_at": datetime(2026, 10, 1, tzinfo=UTC),
+        "expires_at": datetime(2027, 1, 1, tzinfo=UTC),
+    }
+    values.update(overrides)
+    return CrmProviderReview(**values)
+
+
+def test_passport_issuance_expires_and_revokes_fail_closed():
+    assert issue_crm_provider_passport(
+        _review(), now=datetime(2026, 10, 9, tzinfo=UTC)
+    ) is not None
+    assert issue_crm_provider_passport(
+        _review(), now=datetime(2027, 1, 1, tzinfo=UTC)
+    ) is None
+    assert issue_crm_provider_passport(
+        _review(review_status="revoked"), now=datetime(2026, 10, 9, tzinfo=UTC)
+    ) is None

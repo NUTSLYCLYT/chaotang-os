@@ -6,6 +6,7 @@ import hashlib
 import json
 import re
 from collections import Counter, defaultdict
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
 
@@ -28,6 +29,7 @@ from .contracts import (
     CapabilityRegistryProjection,
     CapabilityRegistrySummary,
     CrmProviderPassport,
+    CrmProviderReview,
     ExternalCapabilityReview,
     InvocationPolicy,
     McpToolDetail,
@@ -56,10 +58,11 @@ MAX_MCP_TOOLS = 512
 # This is a capability admission source of truth, not a credential store. The
 # actual connection is still supplied by an injected transport owned by the
 # runtime boundary.
-_CRM_PROVIDER_PASSPORTS: dict[str, CrmProviderPassport] = {
-    "twenty": CrmProviderPassport(
+_CRM_PROVIDER_REVIEWS: dict[str, CrmProviderReview] = {
+    "twenty": CrmProviderReview(
         provider="twenty",
         capability_id="provider.twenty.crm.read.v1",
+        review_status="approved",
         allowed_actions=["read"],
         forbidden_actions=[
             "external write",
@@ -68,18 +71,63 @@ _CRM_PROVIDER_PASSPORTS: dict[str, CrmProviderPassport] = {
             "cross-tenant data reuse",
         ],
         evidence_sources=[
-            "docs/product/tasks/2026-10-08-bingbu-revenue-os-business-p1.md",
+            "docs/product/tasks/2026-10-09-twenty-provider-pre-review.md",
             "backend/app/bingbu/adapters/twenty.py",
         ],
+        reviewed_by="honglusi-review-board",
+        reviewed_at=datetime(2026, 10, 1, tzinfo=UTC),
+        expires_at=datetime(2027, 1, 1, tzinfo=UTC),
     )
 }
 
 
 def get_crm_provider_passport(provider_name: str) -> CrmProviderPassport | None:
-    """Return a copy of the Honglusi-issued CRM passport, if admitted."""
+    """Issue a temporary passport only while the Honglusi review is valid."""
 
-    passport = _CRM_PROVIDER_PASSPORTS.get(provider_name.strip().lower())
-    return passport.model_copy(deep=True) if passport is not None else None
+    review = _CRM_PROVIDER_REVIEWS.get(provider_name.strip().lower())
+    if review is None:
+        return None
+    now = datetime.now(UTC)
+    if (
+        review.review_status != "approved"
+        or review.reviewed_at is None
+        or review.expires_at is None
+        or review.reviewed_at > now
+        or review.expires_at <= now
+    ):
+        return None
+    return CrmProviderPassport(
+        provider=review.provider,
+        capability_id=review.capability_id,
+        allowed_actions=review.allowed_actions,
+        forbidden_actions=review.forbidden_actions,
+        evidence_sources=review.evidence_sources,
+    )
+
+
+def issue_crm_provider_passport(
+    review: CrmProviderReview, *, now: datetime | None = None
+) -> CrmProviderPassport | None:
+    """Pure issuance function used by persistence adapters and fake-clock tests."""
+
+    current = now or datetime.now(UTC)
+    if current.tzinfo is None:
+        current = current.replace(tzinfo=UTC)
+    if (
+        review.review_status != "approved"
+        or review.reviewed_at is None
+        or review.expires_at is None
+        or review.reviewed_at > current
+        or review.expires_at <= current
+    ):
+        return None
+    return CrmProviderPassport(
+        provider=review.provider,
+        capability_id=review.capability_id,
+        allowed_actions=review.allowed_actions,
+        forbidden_actions=review.forbidden_actions,
+        evidence_sources=review.evidence_sources,
+    )
 
 _PROVIDER_TOOL_GROUPS = {
     "Codex Document Control": "Document Control",
