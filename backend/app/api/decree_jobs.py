@@ -25,6 +25,9 @@ from app.decree_jobs.storage import (
     DecreeJobStoreError,
     JobHistoryArchiveRejected,
 )
+from app.long_task_graph.decree_jobs import DecreeJobGraphAdapter
+from app.long_task_graph.models import GraphRunStatus, state_digest
+from app.long_task_graph.persistence import GraphResumeRejected, GraphRunNotFound
 
 router = APIRouter(prefix="/api/v1/decree-jobs", tags=["decree-jobs"])
 
@@ -94,6 +97,39 @@ class DecreeJobResponse(BaseModel):
     error: DecreeJobError | None
     created_at: datetime
     updated_at: datetime
+
+
+class DecreeJobGraphSummary(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    run_id: str
+    graph_version: str
+    status: GraphRunStatus
+    current_node: str
+    revision: int
+    state_digest: str
+    terminal_reason: str | None
+    updated_at: datetime
+
+
+class GraphResumeRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    resume_token: StrictStr = Field(min_length=1, max_length=256)
+    expected_revision: int = Field(ge=0)
+
+
+def _graph_summary(snapshot) -> DecreeJobGraphSummary:
+    return DecreeJobGraphSummary(
+        run_id=snapshot.run_id,
+        graph_version=snapshot.graph_version,
+        status=snapshot.status,
+        current_node=snapshot.current_node,
+        revision=snapshot.revision,
+        state_digest=state_digest(snapshot.state),
+        terminal_reason=snapshot.terminal_reason,
+        updated_at=snapshot.updated_at,
+    )
 
 
 def _public_state(state: DecreeJobState) -> PublicJobState:
@@ -519,6 +555,51 @@ def get_decree_job(
     try:
         return _response(job)
     except (ValueError, json.JSONDecodeError):
+        return _job_unavailable()
+
+
+@router.get("/{job_id}/graph", response_model=DecreeJobGraphSummary)
+def get_decree_job_graph(
+    job_id: str, current_user: CurrentUser, store: JobStore
+) -> DecreeJobGraphSummary | JSONResponse:
+    try:
+        job = store.get_for_owner(job_id, current_user.id)
+        return _graph_summary(
+            DecreeJobGraphAdapter(
+                store,
+                definition=None,
+                graph_version="summary",
+            ).summary(job)
+        )
+    except (JobNotFound, GraphRunNotFound):
+        return _not_found()
+    except (ClaimEvidenceCommitmentUnavailable, sqlite3.Error, ValueError):
+        return _job_unavailable()
+
+
+@router.post("/{job_id}/graph/resume", response_model=DecreeJobGraphSummary)
+def resume_decree_job_graph(
+    job_id: str,
+    payload: GraphResumeRequest,
+    current_user: CurrentUser,
+    store: JobStore,
+) -> DecreeJobGraphSummary | JSONResponse:
+    try:
+        job = store.get_for_owner(job_id, current_user.id)
+        snapshot = DecreeJobGraphAdapter(
+            store,
+            definition=None,
+            graph_version="summary",
+        ).resume(job, payload.resume_token, payload.expected_revision)
+        return _graph_summary(snapshot)
+    except (JobNotFound, GraphRunNotFound):
+        return _not_found()
+    except (GraphResumeRejected, ValueError):
+        return JSONResponse(
+            status_code=409,
+            content={"status": "error", "reason": "graph_resume_rejected"},
+        )
+    except (ClaimEvidenceCommitmentUnavailable, sqlite3.Error):
         return _job_unavailable()
 
 

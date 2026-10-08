@@ -1,3 +1,4 @@
+from .decree_jobs import DecreeJobGraphAdapter
 from .graph import DurableGraphRunner, GraphDefinition, GraphState, NodeResult, build_langgraph
 from .loops import LoopContext, LoopResult, LoopStep, run_bounded_loop
 from .models import (
@@ -13,6 +14,7 @@ from .persistence import GraphResumeRejected, GraphRunNotFound, SQLiteGraphStore
 
 __all__ = [
     "DurableGraphRunner",
+    "DecreeJobGraphAdapter",
     "GraphDefinition",
     "GraphResumeRejected",
     "GraphRunNotFound",

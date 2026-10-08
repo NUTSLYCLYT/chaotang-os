@@ -33,9 +33,7 @@ class JobDeadlineExceeded(JobControlAbort):
 
 
 class TransientJobError(RuntimeError):
-    def __init__(
-        self, code: str, *, stage: str = "execution", category: str | None = None
-    ) -> None:
+    def __init__(self, code: str, *, stage: str = "execution", category: str | None = None) -> None:
         super().__init__(code)
         self.code = code
         self.stage = stage
@@ -43,9 +41,7 @@ class TransientJobError(RuntimeError):
 
 
 class PermanentJobError(RuntimeError):
-    def __init__(
-        self, code: str, *, stage: str = "execution", category: str | None = None
-    ) -> None:
+    def __init__(self, code: str, *, stage: str = "execution", category: str | None = None) -> None:
         super().__init__(code)
         self.code = code
         self.stage = stage
@@ -133,19 +129,14 @@ class DecreeJobControl:
             raise JobLeaseLost from exc
         except (sqlite3.Error, OSError) as exc:
             try:
-                current = self._store.get_for_owner(
-                    self._job.job_id, self._job.owner_user_id
-                )
+                current = self._store.get_for_owner(self._job.job_id, self._job.owner_user_id)
             except (sqlite3.Error, OSError):
                 raise TransientJobError("result_checkpoint_failed") from exc
             if current.state is DecreeJobState.CANCELLED:
                 raise JobCancelled from exc
             if current.lease_owner != self._worker_id:
                 raise JobLeaseLost from exc
-            if (
-                current.state is DecreeJobState.RUNNING
-                and current.cancel_requested
-            ):
+            if current.state is DecreeJobState.RUNNING and current.cancel_requested:
                 try:
                     cancelled = self._store.cancel_at_boundary(
                         self._job.job_id,
@@ -155,17 +146,30 @@ class DecreeJobControl:
                 except LeaseConflict as cancel_exc:
                     raise JobLeaseLost from cancel_exc
                 except (sqlite3.Error, OSError) as cancel_exc:
-                    raise TransientJobError(
-                        "result_checkpoint_failed"
-                    ) from cancel_exc
+                    raise TransientJobError("result_checkpoint_failed") from cancel_exc
                 if cancelled.state is DecreeJobState.CANCELLED:
                     raise JobCancelled from exc
-            if (
-                current.state is DecreeJobState.RESULT_READY
-                and current.result_json == result_json
-            ):
+            if current.state is DecreeJobState.RESULT_READY and current.result_json == result_json:
                 return current
             raise TransientJobError("result_checkpoint_failed") from exc
+
+    def advance_graph(
+        self,
+        definition,
+        *,
+        graph_version: str,
+        initial_state: dict[str, object] | None = None,
+    ):
+        """Advance a durable graph while retaining this worker's lease authority."""
+
+        from app.long_task_graph.decree_jobs import DecreeJobGraphAdapter
+
+        adapter = DecreeJobGraphAdapter(
+            self._store,
+            definition,
+            graph_version=graph_version,
+        )
+        return adapter.advance(self._job, self, initial_state=initial_state)
 
     def raise_if_cancelled(self, *, now: datetime | None = None) -> None:
         boundary_now = now or self._clock()
@@ -173,9 +177,7 @@ class DecreeJobControl:
             raise JobLeaseLost
         if boundary_now >= self._job.deadline_at:
             raise JobDeadlineExceeded
-        current = self._store.get_for_owner(
-            self._job.job_id, self._job.owner_user_id
-        )
+        current = self._store.get_for_owner(self._job.job_id, self._job.owner_user_id)
         if not current.cancel_requested:
             return
         cancelled = self._store.cancel_at_boundary(
@@ -289,17 +291,13 @@ class DecreeJobWorker:
 
     def run_once(self) -> bool:
         now = self.clock()
-        job = self.store.claim_next(
-            self.worker_id, now=now, lease_seconds=self.lease_seconds
-        )
+        job = self.store.claim_next(self.worker_id, now=now, lease_seconds=self.lease_seconds)
         if job is None:
             return False
         if job.claim_evidence_commitment_json is not None:
             return True
         heartbeat_stop, lease_lost, heartbeat = self._start_heartbeat(job.job_id)
-        control = DecreeJobControl(
-            self.store, job, self.worker_id, self.clock, lease_lost
-        )
+        control = DecreeJobControl(self.store, job, self.worker_id, self.clock, lease_lost)
         model_phase = job.state is DecreeJobState.RUNNING
         try:
             if job.state is DecreeJobState.RUNNING:
@@ -320,9 +318,7 @@ class DecreeJobWorker:
                 model_phase = False
             if job.state is DecreeJobState.RESULT_READY:
                 control.raise_if_cancelled()
-                job = self.store.begin_archiving(
-                    job.job_id, self.worker_id, now=self.clock()
-                )
+                job = self.store.begin_archiving(job.job_id, self.worker_id, now=self.clock())
             if job.state is DecreeJobState.ARCHIVING:
                 self.store.get_for_owner(job.job_id, job.owner_user_id)
                 reply_id = self.executor.archive(job)
